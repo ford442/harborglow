@@ -72,13 +72,13 @@ export function useMusicSystem() {
           const kick = new Tone.MembraneSynth().toDestination()
           kick.volume.value = -4
           const hihat = new Tone.MetalSynth({
-            frequency: 400,
             envelope: { attack: 0.001, decay: 0.05, release: 0.01 },
             harmonicity: 5.1,
             modulationIndex: 32,
             resonance: 4000,
             octaves: 1.5,
           }).toDestination()
+          hihat.frequency.value = 400
           hihat.volume.value = -20
 
           const pattern = new Tone.Sequence(

@@ -41,8 +41,11 @@ export default function App() {
         camera={{ position: [0, 30, 80], fov: 55 }}
         gl={async (canvas) => {
           // Dynamically import WebGPURenderer so non-WebGPU builds still work
-          const { default: WebGPURenderer } = await import('three/webgpu')
-          const renderer = new WebGPURenderer({ canvas, antialias: true })
+          // three/webgpu re-exports WebGPURenderer as a named export
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mod = (await import('three/webgpu')) as any
+          const WGPURenderer = mod.WebGPURenderer ?? mod.default
+          const renderer = new WGPURenderer({ canvas, antialias: true })
           await renderer.init()
           renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
           return renderer
