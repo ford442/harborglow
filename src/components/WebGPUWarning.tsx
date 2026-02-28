@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 /**
  * WebGPUWarning — detects whether WebGPU is supported and shows a banner

@@ -12,14 +12,10 @@
 
 import * as THREE from 'three'
 
-// Try to import TSL nodes — gracefully degrade if not available
-let tslAvailable = false
-try {
-  // TSL is available from three/tsl in r163+
-  tslAvailable = true
-} catch {
-  tslAvailable = false
-}
+// TSL availability check - reserved for future WebGPU support
+// When TSL is available, uncomment the following:
+// const tslAvailable = true
+// try { require('three/tsl') } catch { tslAvailable = false }
 
 /**
  * Creates a MeshStandardMaterial (or NodeMaterial if TSL is available)

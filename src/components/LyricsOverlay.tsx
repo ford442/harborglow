@@ -1,20 +1,41 @@
-import React from 'react'
 import { useGameStore } from '../store/useGameStore'
+import { musicSystem } from '../systems/musicSystem'
+import { useEffect, useState } from 'react'
 
 /**
  * LyricsOverlay — centred on-screen lyrics that appear during the light show.
  * Fades in/out with each new lyric line synced to the music BPM.
  */
 export default function LyricsOverlay() {
-  const lyric = useGameStore((s) => s.lyric)
-  const phase = useGameStore((s) => s.phase)
+  const currentShipId = useGameStore((s) => s.currentShipId)
+  const ships = useGameStore((s) => s.ships)
+  const musicPlaying = useGameStore((s) => s.musicPlaying)
+  
+  const [currentLyric, setCurrentLyric] = useState('')
+  
+  const currentShip = ships.find(s => s.id === currentShipId)
+  const isPlaying = currentShip ? musicPlaying.get(currentShip.id) : false
 
-  if (phase !== 'LIGHT_SHOW' || !lyric) return null
+  useEffect(() => {
+    if (!currentShip || !isPlaying) {
+      setCurrentLyric('')
+      return
+    }
+
+    const interval = setInterval(() => {
+      const lyric = musicSystem.getCurrentLyric(currentShip.type)
+      setCurrentLyric(lyric)
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [currentShip, isPlaying])
+
+  if (!isPlaying || !currentLyric) return null
 
   return (
     <div className="absolute bottom-20 left-0 right-0 flex justify-center pointer-events-none z-20">
       <div
-        key={lyric} // re-trigger animation on each new lyric
+        key={currentLyric} // re-trigger animation on each new lyric
         className="glass px-8 py-4 text-center max-w-xl"
         style={{
           animation: 'lyricFadeIn 0.4s ease-out',
@@ -22,7 +43,7 @@ export default function LyricsOverlay() {
         }}
       >
         <p className="text-xl font-bold text-white" style={{ textShadow: '0 0 20px #00e5ff, 0 0 40px #00aaff' }}>
-          {lyric}
+          {currentLyric}
         </p>
       </div>
       <style>{`
