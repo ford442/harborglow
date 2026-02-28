@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom dark cyber-port theme */
+:root {
+  --color-bg: #060d18;
+  --color-panel: rgba(6, 13, 24, 0.85);
+  --color-accent: #00e5ff;
+  --color-warn: #ff6b00;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+/* Neon glow utility */
+.neon-text {
+  text-shadow: 0 0 8px var(--color-accent), 0 0 20px var(--color-accent);
+}
+
+/* Glass panel */
+.glass {
+  background: var(--color-panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+  border-radius: 0.75rem;
+}
