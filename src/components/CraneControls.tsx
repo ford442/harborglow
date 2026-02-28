@@ -1,18 +1,21 @@
-import React, { useEffect, useCallback } from 'react'
-import { useGameStore } from '../store/useGameStore'
+import { useEffect, useCallback, useState } from 'react'
 import { useControls } from 'leva'
 
 /**
  * CraneControls — bottom-right panel for controlling the quay crane.
  * Keyboard shortcuts: Arrow keys = rotate/trolley, W/S = rope up/down.
  * Also exposes a Leva sub-panel for fine-tuning.
+ * 
+ * TODO: Connect to actual crane state in useGameStore when crane interactivity is implemented
  */
 export default function CraneControls() {
-  const crane = useGameStore((s) => s.crane)
-  const setCraneRotation = useGameStore((s) => s.setCraneRotation)
-  const setCraneTrolley = useGameStore((s) => s.setCraneTrolley)
-  const setCraneRope = useGameStore((s) => s.setCraneRope)
-  const craneSpeed = useGameStore((s) => s.craneSpeed)
+  // Local state for crane controls until store integration is complete
+  const [craneState, setCraneState] = useState({
+    rotation: 0,
+    trolleyPos: 0.5,
+    ropeLength: 0.5
+  })
+  const craneSpeed = 1.0 // Default speed
 
   // Leva panel
   useControls('Crane', {
@@ -23,30 +26,28 @@ export default function CraneControls() {
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
       const step = 0.02 * craneSpeed
-      switch (e.key) {
-        case 'ArrowLeft':
-          setCraneRotation(crane.rotation - step * 0.5)
-          break
-        case 'ArrowRight':
-          setCraneRotation(crane.rotation + step * 0.5)
-          break
-        case 'ArrowUp':
-          setCraneTrolley(Math.min(1, crane.trolleyPos + step))
-          break
-        case 'ArrowDown':
-          setCraneTrolley(Math.max(0, crane.trolleyPos - step))
-          break
-        case 'w':
-        case 'W':
-          setCraneRope(Math.min(1, crane.ropeLength + step))
-          break
-        case 's':
-        case 'S':
-          setCraneRope(Math.max(0, crane.ropeLength - step))
-          break
-      }
+      setCraneState(prev => {
+        switch (e.key) {
+          case 'ArrowLeft':
+            return { ...prev, rotation: prev.rotation - step * 0.5 }
+          case 'ArrowRight':
+            return { ...prev, rotation: prev.rotation + step * 0.5 }
+          case 'ArrowUp':
+            return { ...prev, trolleyPos: Math.min(1, prev.trolleyPos + step) }
+          case 'ArrowDown':
+            return { ...prev, trolleyPos: Math.max(0, prev.trolleyPos - step) }
+          case 'w':
+          case 'W':
+            return { ...prev, ropeLength: Math.min(1, prev.ropeLength + step) }
+          case 's':
+          case 'S':
+            return { ...prev, ropeLength: Math.max(0, prev.ropeLength - step) }
+          default:
+            return prev
+        }
+      })
     },
-    [crane, craneSpeed, setCraneRotation, setCraneTrolley, setCraneRope]
+    [craneSpeed]
   )
 
   useEffect(() => {
@@ -63,12 +64,12 @@ export default function CraneControls() {
         <div>
           <div className="flex justify-between text-xs text-gray-400 mb-0.5">
             <span>Rotation</span>
-            <span className="text-cyan-300">{((crane.rotation * 180) / Math.PI).toFixed(1)}°</span>
+            <span className="text-cyan-300">{((craneState.rotation * 180) / Math.PI).toFixed(1)}°</span>
           </div>
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-cyan-500 rounded-full transition-all"
-              style={{ width: `${((crane.rotation / (Math.PI * 2) + 1) % 1) * 100}%` }}
+              style={{ width: `${((craneState.rotation / (Math.PI * 2) + 1) % 1) * 100}%` }}
             />
           </div>
         </div>
@@ -76,12 +77,12 @@ export default function CraneControls() {
         <div>
           <div className="flex justify-between text-xs text-gray-400 mb-0.5">
             <span>Trolley</span>
-            <span className="text-cyan-300">{(crane.trolleyPos * 100).toFixed(0)}%</span>
+            <span className="text-cyan-300">{(craneState.trolleyPos * 100).toFixed(0)}%</span>
           </div>
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 rounded-full transition-all"
-              style={{ width: `${crane.trolleyPos * 100}%` }}
+              style={{ width: `${craneState.trolleyPos * 100}%` }}
             />
           </div>
         </div>
@@ -89,12 +90,12 @@ export default function CraneControls() {
         <div>
           <div className="flex justify-between text-xs text-gray-400 mb-0.5">
             <span>Rope</span>
-            <span className="text-cyan-300">{(crane.ropeLength * 100).toFixed(0)}%</span>
+            <span className="text-cyan-300">{(craneState.ropeLength * 100).toFixed(0)}%</span>
           </div>
           <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-green-500 rounded-full transition-all"
-              style={{ width: `${crane.ropeLength * 100}%` }}
+              style={{ width: `${craneState.ropeLength * 100}%` }}
             />
           </div>
         </div>
