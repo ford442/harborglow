@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing'
+import { EffectComposer, Vignette } from '@react-three/postprocessing'
 import { useControls } from 'leva'
 import { useGameStore, ShipType, Ship } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
@@ -331,22 +331,22 @@ export default function MainScene() {
 
             {/* Post-processing effects */}
             <EffectComposer>
-                {/* Bloom for all glowing elements - intensity boosts during v2.0 shows */}
-                <Bloom 
+                {/* Bloom for all glowing elements - intensity boosts during v2.0 shows - disabled due to GL errors */}
+                {/* <Bloom 
                     intensity={lightingSystem.isShowActive() ? 2.5 : 1.5}
                     radius={0.8}
                     luminanceThreshold={0.4}
                     luminanceSmoothing={0.1}
                     mipmapBlur={true}
-                />
+                /> */}
                 
-                {/* Depth of field for cinematic feel */}
-                <DepthOfField
+                {/* Depth of field for cinematic feel - disabled due to GL errors */}
+                {/* <DepthOfField
                     focusDistance={0}
                     focalLength={0.02}
                     bokehScale={3}
                     height={480}
-                />
+                /> */}
                 
                 {/* Vignette for dramatic framing */}
                 <Vignette
