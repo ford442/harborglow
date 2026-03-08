@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
 import { EffectComposer, Vignette } from '@react-three/postprocessing'
@@ -246,10 +246,13 @@ export default function MainScene() {
     const fogColor = weather === 'storm' ? '#1a202c' : isNight ? '#0a0a15' : '#87CEEB'
     const fogDensity = weatherEffects.fogDensity
 
+    // Memoize fog to prevent recreating every render
+    const sceneFog = useMemo(() => new THREE.FogExp2(fogColor, fogDensity), [fogColor, fogDensity])
+
     return (
         <>
             {/* Fog for atmospheric depth - weather affected */}
-            <scene fog={new THREE.FogExp2(fogColor, fogDensity)} />
+            <scene fog={sceneFog} />
 
             {/* Camera controls */}
             {!spectatorState.isActive && cameraMode === 'orbit' && (
