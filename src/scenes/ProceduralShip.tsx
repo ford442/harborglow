@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { useEnvironment, Environment } from '@react-three/drei';
+import { Environment } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { getBlueprint, BlueprintPart } from '../types/ShipBlueprint';
 import { useGameStore } from '../store/useGameStore';
@@ -413,24 +413,8 @@ export const ProceduralShip = ({
   children 
 }: ProceduralShipProps) => {
   const groupRef = useRef<THREE.Group>(null);
-  const [envMap, setEnvMap] = useState<THREE.Texture | null>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
   
-  useEffect(() => {
-    const loadEnvMap = async () => {
-      try {
-        const texture = blueprint?.envMap 
-          ? await useEnvironment({ files: `/envmaps/${blueprint.envMap}.hdr` })
-          : await useEnvironment({ preset: 'sunset' });
-        setEnvMap(texture);
-      } catch (error) {
-        console.error('Failed to load environment map:', error);
-        setEnvMap(null);
-      }
-    };
-    loadEnvMap();
-  }, [blueprint?.envMap]);
-
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
     return null;
@@ -439,7 +423,7 @@ export const ProceduralShip = ({
   const shipDefaults = {
     metalness: blueprint.metalness ?? 0.6,
     roughness: blueprint.roughness ?? 0.4,
-    envMapIntensity: envMap ? 1.0 : 0.0
+    envMapIntensity: 1.0
   };
 
   const shipLength = blueprint.parts.find(p => p.type === 'box')?.size[0] || 50;
@@ -455,7 +439,11 @@ export const ProceduralShip = ({
       rotation={rotation}
       scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
     >
-      <Environment map={envMap || undefined} />
+      {blueprint?.envMap ? (
+        <Environment files={`/envmaps/${blueprint.envMap}.hdr`} />
+      ) : (
+        <Environment preset="studio" />
+      )}
       {blueprint.parts.map((part) => (
         <PBRPart key={part.id} part={part} shipDefaults={shipDefaults} shipType={blueprint.id} />
       ))}
