@@ -415,11 +415,10 @@ export const ProceduralShip = ({
   const groupRef = useRef<THREE.Group>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
   
-  const envMap = useEnvironment({ 
-    files: blueprint?.envMap 
-      ? `/envmaps/${blueprint.envMap}.hdr`
-      : '/envmaps/sunset.hdr'
-  });
+  const envMap = useEnvironment(blueprint?.envMap 
+    ? { files: `/envmaps/${blueprint.envMap}.hdr` }
+    : { preset: 'sunset' }
+  );
 
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
@@ -429,7 +428,7 @@ export const ProceduralShip = ({
   const shipDefaults = {
     metalness: blueprint.metalness ?? 0.6,
     roughness: blueprint.roughness ?? 0.4,
-    envMapIntensity: 1.0
+    envMapIntensity: envMap ? 1.0 : 0.0
   };
 
   const shipLength = blueprint.parts.find(p => p.type === 'box')?.size[0] || 50;
