@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { RigidBody } from '@react-three/rapier'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import CraneDashboard from '../components/CraneDashboard'
 
 // =============================================================================
 // CRANE COMPONENT
@@ -41,6 +42,9 @@ export default function Crane() {
     return (
         <RigidBody type="fixed" position={[0, 4, 5]}>
             <group ref={craneRef}>
+                {/* Dashboard - positioned in cabin */}
+                <CraneDashboard position={[1.5, 8.5, 0]} />
+                
                 {/* === CRANE BASE === */}
                 <mesh position={[0, -2, 0]} castShadow>
                     <boxGeometry args={[4, 4, 4]} />
