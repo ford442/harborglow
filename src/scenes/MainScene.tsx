@@ -357,7 +357,9 @@ export default function MainScene() {
                 
                 {/* Chromatic aberration for subtle distortion */}
                 <ChromaticAberration
-                    offset={[0.002, 0.002]}
+                    offset={new THREE.Vector2(0.002, 0.002)}
+                    radialModulation={false}
+                    modulationOffset={0}
                 />
             </EffectComposer>
 
