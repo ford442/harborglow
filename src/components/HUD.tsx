@@ -1,6 +1,7 @@
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
 import LyricsDisplay from './LyricsDisplay'
+import ShipVersionDisplay from './ShipVersionDisplay'
 
 export default function HUD() {
     return (
@@ -16,6 +17,7 @@ export default function HUD() {
             <ShipSpawner />
             <UpgradeMenu />
             <LyricsDisplay />
+            <ShipVersionDisplay />
         </div>
     )
 }

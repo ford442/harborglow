@@ -1,10 +1,17 @@
 import { create } from 'zustand'
+import { 
+  saveGameState, 
+  loadGameState, 
+  clearSave,
+  type GameState as StorageGameState 
+} from '../utils/storage_manager'
 
 // =============================================================================
 // TYPES - HarborGlow Game State
 // =============================================================================
 
 export type ShipType = 'cruise' | 'container' | 'tanker'
+export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 
 export interface AttachmentPoint {
     position: [number, number, number]
@@ -15,50 +22,57 @@ export interface AttachmentPoint {
 export interface Ship {
     id: string
     type: ShipType
-    modelName: string // GLB model filename (e.g., 'cruise_liner', 'container_vessel', 'oil_tanker')
+    modelName: string
     position: [number, number, number]
     length: number
     attachmentPoints: AttachmentPoint[]
-    name?: string // Ship name for display
+    name?: string
+    sailTime?: number  // Timestamp when ship departs
+    isDocked?: boolean // Whether ship is currently docked
+    version?: string   // Ship instance version (e.g., "1.0", "1.5", "2.0")
+    blueprintVersion?: string  // The blueprint version this ship was created from
 }
 
 export interface Upgrade {
     shipId: string
     partName: string
     installed: boolean
-    installedAt?: number // Timestamp
+    installedAt?: number
 }
 
 export interface SpectatorState {
     isActive: boolean
     targetShipId: string | null
     startTime: number
-    duration: number // seconds
+    duration: number
 }
 
-interface GameState {
-    // Ships
+// Serializable state matching storage_manager GameState
+interface SerializableState {
     ships: Ship[]
-    currentShipId: string | null
-    
-    // Upgrades
-    installedUpgrades: Upgrade[]
-    
-    // Music
-    musicPlaying: Map<string, boolean>
+    craneUpgrades: Upgrade[]  // renamed to match storage_manager
+    musicEnabled: boolean
+    currentSong?: string
     bpm: number
     lyricsSize: number
     lightIntensity: number
-    
-    // Spectator Mode (post-upgrade cinematic)
-    spectatorState: SpectatorState
-    
-    // Night/Day cycle
-    isNight: boolean
-    timeOfDay: number // 0-24
-    
-    // Camera
+    timeOfDay: number
     cameraMode: 'orbit' | 'spectator' | 'crane'
+    // Ship tracking data
+    shipVersions: Record<string, string>
+    shipSailTimes: Record<string, number>
+    shipDockedStatus: Record<string, boolean>
+    // Weather system
+    weather: WeatherState
+    weatherIntensity: number
+}
+
+interface GameState extends SerializableState {
+    currentShipId: string | null
+    installedUpgrades: Upgrade[]  // alias for craneUpgrades
+    musicPlaying: Map<string, boolean>
+    spectatorState: SpectatorState
+    isNight: boolean
     
     // Actions
     addShip: (ship: Ship) => void
@@ -75,17 +89,28 @@ interface GameState {
     endSpectatorMode: () => void
     setTimeOfDay: (hour: number) => void
     setCameraMode: (mode: 'orbit' | 'spectator' | 'crane') => void
+    resetGame: () => void
+    loadSavedState: () => void
+    scheduleDeparture: (shipId: string) => void
+    returnToDock: (shipId: string) => void
+    upgradeShipVersion: (shipId: string) => Promise<void>  // Full Structural Overhaul
+    setWeather: (weather: WeatherState) => void  // Weather system
 }
 
-// =============================================================================
-// STORE - Zustand Game State
-// =============================================================================
-
-export const useGameStore = create<GameState>((set, get) => ({
-    // Initial state
+// Default initial state
+const defaultState: Omit<GameState, keyof {
+    addShip: unknown; removeShip: unknown; setCurrentShip: unknown;
+    installUpgrade: unknown; uninstallUpgrade: unknown; setMusicPlaying: unknown;
+    stopAllMusic: unknown; setBPM: unknown; setLyricsSize: unknown;
+    setLightIntensity: unknown; setSpectatorTarget: unknown; endSpectatorMode: unknown;
+    setTimeOfDay: unknown; setCameraMode: unknown; resetGame: unknown; loadSavedState: unknown;
+    scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown;
+}> = {
     ships: [],
-    currentShipId: null,
+    craneUpgrades: [],
     installedUpgrades: [],
+    musicEnabled: true,
+    currentShipId: null,
     musicPlaying: new Map(),
     bpm: 128,
     lyricsSize: 28,
@@ -97,95 +122,129 @@ export const useGameStore = create<GameState>((set, get) => ({
         duration: 10
     },
     isNight: true,
-    timeOfDay: 22, // 10 PM
+    timeOfDay: 22,
     cameraMode: 'orbit',
+    shipVersions: {},
+    shipSailTimes: {},
+    shipDockedStatus: {},
+    weather: 'clear',
+    weatherIntensity: 0.5,
+}
 
-    // -------------------------------------------------------------------------
-    // SHIP ACTIONS
-    // -------------------------------------------------------------------------
-    
+// =============================================================================
+// STORE - Zustand Game State with storage_manager
+// =============================================================================
+
+let saveTimeout: ReturnType<typeof setTimeout> | null = null
+
+const getSerializableState = (state: GameState): StorageGameState => ({
+    ships: state.ships,
+    craneUpgrades: state.installedUpgrades,
+    musicEnabled: state.musicEnabled,
+    currentSong: state.currentSong,
+    bpm: state.bpm,
+    lyricsSize: state.lyricsSize,
+    lightIntensity: state.lightIntensity,
+    timeOfDay: state.timeOfDay,
+    cameraMode: state.cameraMode,
+    shipVersions: state.shipVersions,
+    shipSailTimes: state.shipSailTimes,
+    shipDockedStatus: state.shipDockedStatus,
+    weather: state.weather,
+    weatherIntensity: state.weatherIntensity,
+})
+
+const scheduleSave = (state: GameState) => {
+    if (saveTimeout) clearTimeout(saveTimeout)
+    saveTimeout = setTimeout(() => {
+        saveGameState(getSerializableState(state))
+    }, 500)
+}
+
+export const useGameStore = create<GameState>((set, get) => ({
+    ...defaultState,
+
     addShip: (ship) => set((state) => {
-        // Auto-select first ship
         const shouldSelect = state.ships.length === 0
-        return { 
+        const newState = { 
             ships: [...state.ships, ship],
             currentShipId: shouldSelect ? ship.id : state.currentShipId
         }
+        scheduleSave({ ...state, ...newState })
+        return newState
     }),
 
-    removeShip: (shipId) => set((state) => ({
-        ships: state.ships.filter(s => s.id !== shipId),
-        currentShipId: state.currentShipId === shipId 
-            ? (state.ships.find(s => s.id !== shipId)?.id || null)
-            : state.currentShipId,
-        installedUpgrades: state.installedUpgrades.filter(u => u.shipId !== shipId),
-        musicPlaying: (() => {
-            const newMap = new Map(state.musicPlaying)
-            newMap.delete(shipId)
-            return newMap
-        })()
-    })),
+    removeShip: (shipId) => set((state) => {
+        const newState = {
+            ships: state.ships.filter(s => s.id !== shipId),
+            currentShipId: state.currentShipId === shipId 
+                ? (state.ships.find(s => s.id !== shipId)?.id || null)
+                : state.currentShipId,
+            installedUpgrades: state.installedUpgrades.filter(u => u.shipId !== shipId),
+            craneUpgrades: state.installedUpgrades.filter(u => u.shipId !== shipId),
+            musicPlaying: (() => {
+                const newMap = new Map(state.musicPlaying)
+                newMap.delete(shipId)
+                return newMap
+            })()
+        }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
 
     setCurrentShip: (id) => set({ currentShipId: id }),
 
-    // -------------------------------------------------------------------------
-    // UPGRADE ACTIONS
-    // -------------------------------------------------------------------------
-    
-    installUpgrade: (shipId, partName) =>
-        set((state) => ({
-            installedUpgrades: [
-                ...state.installedUpgrades,
-                { 
-                    shipId, 
-                    partName, 
-                    installed: true,
-                    installedAt: Date.now()
-                },
-            ],
-        })),
-
-    uninstallUpgrade: (shipId, partName) =>
-        set((state) => ({
-            installedUpgrades: state.installedUpgrades.filter(
-                u => !(u.shipId === shipId && u.partName === partName)
-            ),
-        })),
-
-    // -------------------------------------------------------------------------
-    // MUSIC ACTIONS
-    // -------------------------------------------------------------------------
-    
-    setMusicPlaying: (shipId, playing) =>
-        set((state) => {
-            const newMap = new Map(state.musicPlaying)
-            newMap.set(shipId, playing)
-            return { musicPlaying: newMap }
-        }),
-
-    stopAllMusic: () =>
-        set((state) => {
-            const newMap = new Map(state.musicPlaying)
-            newMap.forEach((_, key) => newMap.set(key, false))
-            return { musicPlaying: newMap }
-        }),
-
-    setBPM: (bpm) => set({ bpm: Math.max(60, Math.min(200, bpm)) }),
-    
-    setLyricsSize: (size) => set({ lyricsSize: Math.max(12, Math.min(72, size)) }),
-    
-    setLightIntensity: (intensity) => set({ 
-        lightIntensity: Math.max(0.1, Math.min(5, intensity)) 
+    installUpgrade: (shipId, partName) => set((state) => {
+        const newUpgrades = [
+            ...state.installedUpgrades,
+            { shipId, partName, installed: true, installedAt: Date.now() },
+        ]
+        const newState = { installedUpgrades: newUpgrades, craneUpgrades: newUpgrades }
+        scheduleSave({ ...state, ...newState })
+        return newState
     }),
 
-    // -------------------------------------------------------------------------
-    // SPECTATOR MODE (Drone Camera)
-    // -------------------------------------------------------------------------
+    uninstallUpgrade: (shipId, partName) => set((state) => {
+        const newUpgrades = state.installedUpgrades.filter(
+            u => !(u.shipId === shipId && u.partName === partName)
+        )
+        const newState = { installedUpgrades: newUpgrades, craneUpgrades: newUpgrades }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
+
+    setMusicPlaying: (shipId, playing) => set((state) => {
+        const newMap = new Map(state.musicPlaying)
+        newMap.set(shipId, playing)
+        return { musicPlaying: newMap }
+    }),
+
+    stopAllMusic: () => set((state) => {
+        const newMap = new Map(state.musicPlaying)
+        newMap.forEach((_, key) => newMap.set(key, false))
+        return { musicPlaying: newMap }
+    }),
+
+    setBPM: (bpm) => {
+        const newBpm = Math.max(60, Math.min(200, bpm))
+        set({ bpm: newBpm })
+        scheduleSave({ ...get(), bpm: newBpm })
+    },
     
+    setLyricsSize: (size) => {
+        const newSize = Math.max(12, Math.min(72, size))
+        set({ lyricsSize: newSize })
+        scheduleSave({ ...get(), lyricsSize: newSize })
+    },
+    
+    setLightIntensity: (intensity) => {
+        const newIntensity = Math.max(0.1, Math.min(5, intensity))
+        set({ lightIntensity: newIntensity })
+        scheduleSave({ ...get(), lightIntensity: newIntensity })
+    },
+
     setSpectatorTarget: (shipId, duration = 10) => {
         const state = get()
-        
-        // Only activate if not already in spectator mode
         if (state.spectatorState.isActive) return
         
         set({
@@ -198,7 +257,6 @@ export const useGameStore = create<GameState>((set, get) => ({
             cameraMode: 'spectator'
         })
 
-        // Auto-end after duration
         setTimeout(() => {
             const currentState = get()
             if (currentState.spectatorState.targetShipId === shipId) {
@@ -217,17 +275,173 @@ export const useGameStore = create<GameState>((set, get) => ({
         cameraMode: 'orbit'
     }),
 
-    // -------------------------------------------------------------------------
-    // ENVIRONMENT
-    // -------------------------------------------------------------------------
-    
-    setTimeOfDay: (hour) => set({
-        timeOfDay: hour % 24,
-        isNight: hour < 6 || hour > 18
+    setTimeOfDay: (hour) => {
+        const newTime = hour % 24
+        set({
+            timeOfDay: newTime,
+            isNight: newTime < 6 || newTime > 18
+        })
+        scheduleSave({ ...get(), timeOfDay: newTime })
+    },
+
+    setCameraMode: (mode) => {
+        set({ cameraMode: mode })
+        scheduleSave({ ...get(), cameraMode: mode })
+    },
+
+    resetGame: () => {
+        clearSave()
+        set({
+            ships: [],
+            craneUpgrades: [],
+            installedUpgrades: [],
+            currentShipId: null,
+            musicPlaying: new Map(),
+            musicEnabled: true,
+            shipVersions: {},
+            shipSailTimes: {},
+            shipDockedStatus: {},
+            weather: 'clear',
+            weatherIntensity: 0.5,
+        })
+        console.log('🗑️ Game reset')
+    },
+
+    loadSavedState: () => {
+        const saved = loadGameState()
+        if (saved) {
+            set({
+                ships: Array.isArray(saved.ships) ? saved.ships.map((s: Ship) => ({
+                    ...s,
+                    isDocked: s.isDocked ?? true,  // Default to docked if not set
+                    sailTime: s.sailTime ?? undefined
+                })) : [],
+                craneUpgrades: Array.isArray(saved.craneUpgrades) ? saved.craneUpgrades : [],
+                installedUpgrades: Array.isArray(saved.craneUpgrades) ? saved.craneUpgrades : [],
+                musicEnabled: saved.musicEnabled ?? true,
+                currentSong: saved.currentSong,
+                bpm: saved.bpm ?? 128,
+                lyricsSize: saved.lyricsSize ?? 28,
+                lightIntensity: saved.lightIntensity ?? 1.5,
+                timeOfDay: saved.timeOfDay ?? 22,
+                cameraMode: saved.cameraMode && ['orbit', 'spectator', 'crane'].includes(saved.cameraMode) 
+                    ? saved.cameraMode as 'orbit' | 'spectator' | 'crane'
+                    : 'orbit',
+                isNight: (saved.timeOfDay ?? 22) < 6 || (saved.timeOfDay ?? 22) > 18,
+                shipVersions: saved.shipVersions ?? {},
+                shipSailTimes: saved.shipSailTimes ?? {},
+                shipDockedStatus: saved.shipDockedStatus ?? {},
+                weather: saved.weather ?? 'clear',
+                weatherIntensity: saved.weatherIntensity ?? 0.5,
+            })
+            console.log('📂 Loaded from storage_manager')
+        }
+    },
+
+    scheduleDeparture: (shipId: string) => set((state) => {
+        const delayMs = Math.floor(Math.random() * 45000) + 45000 // 45-90 seconds
+        const sailTime = Date.now() + delayMs
+        const ship = state.ships.find(s => s.id === shipId)
+        
+        const newShips = state.ships.map(s => 
+            s.id === shipId 
+                ? { ...s, sailTime, isDocked: true }
+                : s
+        )
+        
+        if (ship) {
+            console.log(`⛵ Ship ${ship.name || shipId} scheduled to depart in ${Math.round(delayMs/1000)}s`)
+        }
+        
+        const newState = { ships: newShips }
+        scheduleSave({ ...state, ...newState })
+        return newState
     }),
 
-    setCameraMode: (mode) => set({ cameraMode: mode })
+    returnToDock: (shipId: string) => set((state) => {
+        const ship = state.ships.find(s => s.id === shipId)
+        
+        const newShips = state.ships.map(s => 
+            s.id === shipId 
+                ? { ...s, sailTime: undefined, isDocked: true }
+                : s
+        )
+        
+        if (ship) {
+            console.log(`🔄 Ship ${ship.name || shipId} returning for upgrade`)
+        }
+        
+        const newState = { ships: newShips }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
+
+    // Full Structural Overhaul - Upgrade ship version (v1.0 → v1.5 → v2.0)
+    upgradeShipVersion: async (shipId: string) => {
+        const state = get()
+        const ship = state.ships.find(s => s.id === shipId)
+        if (!ship) {
+            console.warn('⚠️ Cannot upgrade: Ship not found')
+            return
+        }
+        if (!ship.isDocked) {
+            console.warn('⚠️ Cannot upgrade: Ship must be docked')
+            return
+        }
+
+        // Get current version (default to "1.0")
+        const currentVersion = ship.version || '1.0'
+        
+        // Define version progression
+        const versionMap: Record<string, string> = {
+            '1.0': '1.5',
+            '1.5': '2.0',
+            '2.0': '2.0'  // Max version
+        }
+        const nextVersion = versionMap[currentVersion]
+        
+        if (currentVersion === '2.0') {
+            console.log('🚢 Ship is already at maximum version (v2.0)')
+            return
+        }
+
+        const shipName = ship.name || `${ship.type.charAt(0).toUpperCase() + ship.type.slice(1)} Ship`
+        console.log(`🔧 Upgrading ${shipName} to v${nextVersion}...`)
+
+        // Simulate upgrade delay for dramatic effect
+        await new Promise(resolve => setTimeout(resolve, 1500))
+
+        // Update ship version
+        const updatedShips = state.ships.map(s => {
+            if (s.id === shipId) {
+                return {
+                    ...s,
+                    version: nextVersion,
+                    blueprintVersion: nextVersion  // Reference to new blueprint if available
+                }
+            }
+            return s
+        })
+
+        const newState = { ships: updatedShips }
+        set(newState)
+        scheduleSave({ ...state, ...newState })
+
+        console.log(`✅ Upgrade complete! ${shipName} is now v${nextVersion}`)
+    },
+
+    // Weather system
+    setWeather: (weather: WeatherState) => {
+        set({ weather })
+        scheduleSave({ ...get(), weather })
+        console.log(`🌤️ Weather set to: ${weather}`)
+    },
 }))
+
+// Subscribe to save on all state changes
+useGameStore.subscribe((state) => {
+    scheduleSave(state)
+})
 
 // =============================================================================
 // SELECTORS - Convenience hooks for derived state
@@ -243,7 +457,6 @@ export const selectUpgradeProgress = (state: GameState, shipId: string): number 
     const ship = state.ships.find(s => s.id === shipId)
     if (!ship) return 0
     
-    // Get expected upgrade count based on ship type
     const upgradeCounts: Record<ShipType, number> = {
         cruise: 8,
         container: 10,

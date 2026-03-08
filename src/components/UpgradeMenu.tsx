@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
+import { lightingSystem } from '../systems/lightingSystem'
 
 // =============================================================================
 // UPGRADE MENU COMPONENT
@@ -55,10 +56,14 @@ export default function UpgradeMenu() {
     const installUpgrade = useGameStore((state) => state.installUpgrade)
     const setMusicPlaying = useGameStore((state) => state.setMusicPlaying)
     const setSpectatorTarget = useGameStore((state) => state.setSpectatorTarget)
+    const upgradeShipVersion = useGameStore((state) => state.upgradeShipVersion)
 
     const [installing, setInstalling] = useState<string | null>(null)
     const [showBandReveal, setShowBandReveal] = useState(false)
     const [bandName, setBandName] = useState('')
+    const [isUpgradingVersion, setIsUpgradingVersion] = useState(false)
+    const [showFlash, setShowFlash] = useState(false)
+    const [showV2Notification, setShowV2Notification] = useState(false)
 
     const currentShip = ships.find(ship => ship.id === currentShipId)
 
@@ -122,6 +127,39 @@ export default function UpgradeMenu() {
         }, 1500)
     }
 
+    const handleStructuralOverhaul = async () => {
+        if (!currentShip?.isDocked) return
+        if (isUpgradingVersion) return
+        
+        setIsUpgradingVersion(true)
+        
+        try {
+            const currentVersion = currentShip?.version || '1.0'
+            await upgradeShipVersion(currentShip.id)
+            
+            // Trigger flash effect on completion
+            setShowFlash(true)
+            setTimeout(() => setShowFlash(false), 500)
+            
+            // If upgraded to v2.0, trigger the full show!
+            if (currentVersion === '1.5') {
+                console.log('🎆 V2.0 OVERHAUL SYNC SHOW ACTIVATED!')
+                
+                // Trigger music climax
+                musicSystem.triggerClimax(currentShip.type)
+                
+                // Start harbor light show
+                lightingSystem.startHarborShow(currentShip.id, currentShip.type)
+                
+                // Show big on-screen notification
+                setShowV2Notification(true)
+                setTimeout(() => setShowV2Notification(false), 5000)
+            }
+        } finally {
+            setIsUpgradingVersion(false)
+        }
+    }
+
     const shipTypeLabels: Record<ShipType, string> = {
         cruise: 'Mega Cruise Liner',
         container: 'Ultra Container Vessel',
@@ -133,6 +171,12 @@ export default function UpgradeMenu() {
         container: '#00d4aa',
         tanker: '#ff9500'
     }
+
+    // Get current and next version
+    const currentVersion = currentShip?.version || '1.0'
+    const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
+    const nextVersion = versionMap[currentVersion]
+    const isMaxVersion = currentVersion === '2.0'
 
     return (
         <>
@@ -146,9 +190,24 @@ export default function UpgradeMenu() {
                     <h3 style={{ margin: 0, color: shipTypeColors[currentShip.type] }}>
                         {shipTypeLabels[currentShip.type]}
                     </h3>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#888' }}>
-                        ID: {currentShip.id.slice(-6)}
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>
+                            ID: {currentShip.id.slice(-6)}
+                        </p>
+                        <p style={{ 
+                            margin: 0, 
+                            fontSize: '11px', 
+                            color: isMaxVersion ? '#ffd700' : '#aaa',
+                            fontWeight: isMaxVersion ? 'bold' : 'normal'
+                        }}>
+                            {isMaxVersion ? '⭐ v' : 'v'}{currentVersion}
+                        </p>
+                    </div>
+                    {!currentShip.isDocked && (
+                        <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#ff6b6b' }}>
+                            ⚠️ Ship is at sea - upgrades unavailable
+                        </p>
+                    )}
                 </div>
 
                 {/* Progress bar */}
@@ -214,6 +273,45 @@ export default function UpgradeMenu() {
                         <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#888' }}>
                             Band: {musicSystem.getBandInfo(currentShip.type).name}
                         </p>
+
+                        {/* Full Structural Overhaul Button */}
+                        {currentShip.isDocked && !isMaxVersion && (
+                            <button
+                                onClick={handleStructuralOverhaul}
+                                disabled={isUpgradingVersion}
+                                style={{
+                                    ...structuralOverhaulButtonStyle,
+                                    opacity: isUpgradingVersion ? 0.7 : 1,
+                                    cursor: isUpgradingVersion ? 'wait' : 'pointer',
+                                    animation: isUpgradingVersion ? 'none' : 'pulse 2s infinite'
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px' }}>
+                                        {isUpgradingVersion ? '🔧 UPGRADING...' : '⚡ FULL STRUCTURAL OVERHAUL'}
+                                    </span>
+                                    <span style={{ fontSize: '10px', marginTop: '4px', opacity: 0.9 }}>
+                                        {isUpgradingVersion 
+                                            ? 'Transforming hull architecture...' 
+                                            : `v${currentVersion} → v${nextVersion}`}
+                                    </span>
+                                </div>
+                            </button>
+                        )}
+                        
+                        {isMaxVersion && (
+                            <div style={{ 
+                                marginTop: '12px', 
+                                padding: '8px', 
+                                background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255,215,0,0.3)'
+                            }}>
+                                <span style={{ fontSize: '11px', color: '#ffd700' }}>
+                                    🏆 MAXIMUM STRUCTURAL INTEGRITY ACHIEVED
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -230,6 +328,26 @@ export default function UpgradeMenu() {
                     </div>
                 )}
             </div>
+
+            {/* Flash Effect Overlay */}
+            {showFlash && (
+                <div style={flashOverlayStyle} />
+            )}
+
+            {/* V2.0 Overhaul Notification */}
+            {showV2Notification && (
+                <div style={v2NotificationStyle}>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>
+                        🎆 V2.0 OVERHAUL SYNC SHOW ACTIVATED! 🎆
+                    </div>
+                    <div style={{ fontSize: '16px', opacity: 0.9 }}>
+                        All LEDs, funnels, deck lights pulsing to the beat!
+                    </div>
+                    <div style={{ fontSize: '14px', marginTop: '10px', opacity: 0.7 }}>
+                        Harbor-wide light + music spectacle in progress...
+                    </div>
+                </div>
+            )}
 
             {/* Band Reveal Cinematic Overlay */}
             {showBandReveal && (
@@ -327,6 +445,52 @@ const cinematicContentStyle: React.CSSProperties = {
     textTransform: 'uppercase'
 }
 
+const structuralOverhaulButtonStyle: React.CSSProperties = {
+    display: 'block',
+    width: '100%',
+    margin: '16px 0 0 0',
+    padding: '16px 12px',
+    background: 'linear-gradient(135deg, #ffd700, #ffaa00)',
+    border: '2px solid #ffcc00',
+    borderRadius: '12px',
+    color: '#000',
+    fontSize: '13px',
+    textAlign: 'center',
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+    textShadow: '0 1px 0 rgba(255,255,255,0.3)'
+}
+
+const flashOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffd700',
+    opacity: 0.3,
+    pointerEvents: 'none',
+    zIndex: 9999,
+    animation: 'flash 0.5s ease-out'
+}
+
+const v2NotificationStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    background: 'linear-gradient(135deg, rgba(255,0,128,0.95), rgba(128,0,255,0.95))',
+    padding: '40px 60px',
+    borderRadius: '20px',
+    border: '3px solid #ff00ff',
+    color: '#fff',
+    textAlign: 'center',
+    zIndex: 10000,
+    pointerEvents: 'none',
+    animation: 'pulseIn 0.5s ease-out, glow 2s infinite',
+    boxShadow: '0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2)'
+}
+
 // Add keyframe animations via inline style injection
 const styleSheet = document.createElement('style')
 styleSheet.textContent = `
@@ -337,6 +501,23 @@ styleSheet.textContent = `
     @keyframes slideUp {
         from { transform: translateY(30px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1); }
+        50% { box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1.02); }
+    }
+    @keyframes flash {
+        0% { opacity: 0; }
+        50% { opacity: 0.5; }
+        100% { opacity: 0; }
+    }
+    @keyframes pulseIn {
+        0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @keyframes glow {
+        0%, 100% { box-shadow: 0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2); }
+        50% { box-shadow: 0 0 80px rgba(255,0,255,0.8), inset 0 0 40px rgba(255,255,255,0.3); }
     }
 `
 document.head.appendChild(styleSheet)
