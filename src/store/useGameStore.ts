@@ -12,6 +12,7 @@ import {
 
 export type ShipType = 'cruise' | 'container' | 'tanker'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
+export type QualityPreset = 'low' | 'medium' | 'high'
 
 export interface AttachmentPoint {
     position: [number, number, number]
@@ -65,6 +66,25 @@ interface SerializableState {
     // Weather system
     weather: WeatherState
     weatherIntensity: number
+    // Rendering quality
+    qualityPreset: QualityPreset
+    // Crane state
+    twistlockEngaged: boolean
+    craneHeight: number
+    craneRotation: number
+    // Full crane mechanics
+    spreaderPos: { x: number; y: number; z: number }
+    spreaderRotation: number
+    cableDepth: number
+    loadTension: number
+    trolleyPosition: number
+    joystickLeft: { x: number; y: number }
+    joystickRight: { x: number; y: number }
+    isMoving: boolean
+    heaterActive: boolean
+    iceBuildup: number
+    // Booth tier (1=standard, 3=arctic)
+    boothTier: 1 | 2 | 3
 }
 
 interface GameState extends SerializableState {
@@ -95,6 +115,18 @@ interface GameState extends SerializableState {
     returnToDock: (shipId: string) => void
     upgradeShipVersion: (shipId: string) => Promise<void>  // Full Structural Overhaul
     setWeather: (weather: WeatherState) => void  // Weather system
+    setQualityPreset: (preset: QualityPreset) => void  // Quality preset
+    // Crane control actions
+    setSpreaderPos: (pos: { x: number; y: number; z: number }) => void
+    setSpreaderRotation: (rotation: number) => void
+    setCableDepth: (depth: number) => void
+    setLoadTension: (tension: number) => void
+    setTrolleyPosition: (position: number) => void
+    setJoystickLeft: (pos: { x: number; y: number }) => void
+    setJoystickRight: (pos: { x: number; y: number }) => void
+    setTwistlockEngaged: (engaged: boolean) => void
+    setHeaterActive: (active: boolean) => void
+    setIsMoving: (moving: boolean) => void
 }
 
 // Default initial state
@@ -104,7 +136,10 @@ const defaultState: Omit<GameState, keyof {
     stopAllMusic: unknown; setBPM: unknown; setLyricsSize: unknown;
     setLightIntensity: unknown; setSpectatorTarget: unknown; endSpectatorMode: unknown;
     setTimeOfDay: unknown; setCameraMode: unknown; resetGame: unknown; loadSavedState: unknown;
-    scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown;
+    scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown; setQualityPreset: unknown;
+    setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
+    setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
+    setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -129,6 +164,21 @@ const defaultState: Omit<GameState, keyof {
     shipDockedStatus: {},
     weather: 'clear',
     weatherIntensity: 0.5,
+    qualityPreset: 'high',
+    twistlockEngaged: false,
+    craneHeight: 15.5,
+    craneRotation: 0.2,
+    spreaderPos: { x: 0, y: 10, z: 0 },
+    spreaderRotation: 0,
+    cableDepth: 15,
+    loadTension: 0,
+    trolleyPosition: 0.5,
+    joystickLeft: { x: 0, y: 0 },
+    joystickRight: { x: 0, y: 0 },
+    isMoving: false,
+    heaterActive: true,
+    iceBuildup: 0.3,
+    boothTier: 3, // Default to Arctic tier for demo
 }
 
 // =============================================================================
@@ -303,6 +353,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             shipDockedStatus: {},
             weather: 'clear',
             weatherIntensity: 0.5,
+            qualityPreset: 'high',
         })
         console.log('🗑️ Game reset')
     },
@@ -333,6 +384,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 shipDockedStatus: saved.shipDockedStatus ?? {},
                 weather: saved.weather ?? 'clear',
                 weatherIntensity: saved.weatherIntensity ?? 0.5,
+                qualityPreset: saved.qualityPreset ?? 'high',
             })
             console.log('📂 Loaded from storage_manager')
         }
@@ -436,6 +488,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         scheduleSave({ ...get(), weather })
         console.log(`🌤️ Weather set to: ${weather}`)
     },
+
+    // Quality preset
+    setQualityPreset: (preset: QualityPreset) => {
+        set({ qualityPreset: preset })
+        scheduleSave({ ...get(), qualityPreset: preset })
+        console.log(`🎨 Quality preset set to: ${preset}`)
+    },
+
+    // Crane control actions
+    setSpreaderPos: (pos) => set({ spreaderPos: pos }),
+    setSpreaderRotation: (rotation) => set({ spreaderRotation: rotation }),
+    setCableDepth: (depth) => set({ cableDepth: depth }),
+    setLoadTension: (tension) => set({ loadTension: tension }),
+    setTrolleyPosition: (position) => set({ trolleyPosition: position }),
+    setJoystickLeft: (pos) => set({ joystickLeft: pos }),
+    setJoystickRight: (pos) => set({ joystickRight: pos }),
+    setTwistlockEngaged: (engaged) => set({ twistlockEngaged: engaged }),
+    setHeaterActive: (active) => set({ heaterActive: active }),
+    setIsMoving: (moving) => set({ isMoving: moving }),
 }))
 
 // Subscribe to save on all state changes

@@ -1,8 +1,9 @@
 import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { useGameStore, ShipType, Ship } from '../store/useGameStore'
+import { EffectComposer, Bloom, DepthOfField, Vignette, ChromaticAberration } from '@react-three/postprocessing'
 import { useControls } from 'leva'
+import { useGameStore, ShipType, Ship } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { weatherSystem } from '../systems/weatherSystem'
@@ -11,6 +12,8 @@ import ShipComponent from './Ship'
 import Crane from './Crane'
 import Dock from './Dock'
 import Water from './Water'
+import GlobalIllumination from './GlobalIllumination'
+import LightShow from './LightShow'
 
 // Track ships that are currently at sea
 const AT_SEA_DURATION = 10000 // 10 seconds at sea
@@ -305,14 +308,16 @@ export default function MainScene() {
             <Dock isNight={isNight} />
             <Crane />
 
+            {/* Global Illumination for light bounce and color bleeding */}
+            <GlobalIllumination enabled={true} quality="high" />
+            
+            {/* HDR Light Show for night mode */}
+            <LightShow enabled={true} />
+
             {/* Ships */}
             {ships.map((ship) => {
-                // Don't render ships that are at sea
-                if (atSeaShipsRef.current.has(ship.id)) {
-                    return null
-                }
+                if (atSeaShipsRef.current.has(ship.id)) return null
                 
-                // Get animated position if departing
                 const animatedPos = departingShips.has(ship.id) 
                     ? shipPositionsRef.current.get(`${ship.id}_current`)
                     : null
@@ -321,10 +326,40 @@ export default function MainScene() {
                     ? { ...ship, position: [animatedPos.x, animatedPos.y, animatedPos.z] }
                     : ship
                 
-                return (
-                    <ShipComponent key={ship.id} ship={displayShip} />
-                )
+                return <ShipComponent key={ship.id} ship={displayShip} />
             })}
+
+            {/* Post-processing effects */}
+            <EffectComposer>
+                {/* Bloom for all glowing elements - intensity boosts during v2.0 shows */}
+                <Bloom 
+                    intensity={lightingSystem.isShowActive() ? 2.5 : 1.5}
+                    radius={0.8}
+                    luminanceThreshold={0.4}
+                    luminanceSmoothing={0.1}
+                    mipmapBlur={true}
+                />
+                
+                {/* Depth of field for cinematic feel */}
+                <DepthOfField
+                    focusDistance={0}
+                    focalLength={0.02}
+                    bokehScale={3}
+                    height={480}
+                />
+                
+                {/* Vignette for dramatic framing */}
+                <Vignette
+                    offset={0.3}
+                    darkness={0.6}
+                    eskil={false}
+                />
+                
+                {/* Chromatic aberration for subtle distortion */}
+                <ChromaticAberration
+                    offset={[0.002, 0.002]}
+                />
+            </EffectComposer>
 
             {/* Spectator Mode Overlay */}
             {spectatorState.isActive && (

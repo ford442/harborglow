@@ -6,16 +6,18 @@ import shipsJson from '../blueprints/ships.json'
 // Any AI (Jules, Gemini, Claude, Cursor, etc.) can contribute new ships
 // =============================================================================
 
-/** Material properties for a ship part */
+/** Material properties for a ship part - Full PBR support */
 export interface BlueprintMaterial {
   /** Emissive color for glowing parts (hex) */
   emissive?: string
-  /** Metalness value 0-1 */
+  /** Metalness value 0-1 (PBR) - higher = more metallic */
   metalness?: number
-  /** Roughness value 0-1 */
+  /** Roughness value 0-1 (PBR) - higher = more matte */
   roughness?: number
   /** Base color (hex) - overrides ship baseColor if set */
   color?: string
+  /** Environment map intensity for reflections 0-1 */
+  envMapIntensity?: number
 }
 
 /** Individual ship part (primitive geometry) */
@@ -32,9 +34,13 @@ export interface BlueprintPart {
   size: [number, number, number]
   /** Optional material overrides */
   material?: BlueprintMaterial
+  /** Cast shadows from this part */
+  castShadow?: boolean
+  /** Receive shadows on this part */
+  receiveShadow?: boolean
 }
 
-/** Vessel Blueprint - complete ship definition */
+/** Vessel Blueprint - complete ship definition with PBR support */
 export interface ShipBlueprint {
   /** Ship type identifier (must be unique) */
   id: string
@@ -56,6 +62,16 @@ export interface ShipBlueprint {
   added: string
   /** Optional notes */
   notes?: string
+  /** Environment map preset for reflections */
+  envMap?: 'city' | 'sunset' | 'dawn' | 'night' | 'warehouse'
+  /** Ship casts shadows (default: true) */
+  castShadow?: boolean
+  /** Ship receives shadows (default: true) */
+  receiveShadow?: boolean
+  /** Default metalness for all parts */
+  metalness?: number
+  /** Default roughness for all parts */
+  roughness?: number
 }
 
 /** Vessel Blueprint Protocol root structure */

@@ -1,8 +1,8 @@
 import { ShipType } from '../store/useGameStore'
 
 // =============================================================================
-// LIGHTING SYSTEM - HarborGlow
-// Manages harbor-wide light shows synchronized with music
+// LIGHTING SYSTEM - HarborGlow PBR Edition
+// Manages harbor-wide light shows and weather-reactive lighting
 // =============================================================================
 
 export interface LightShowState {
@@ -42,7 +42,6 @@ class LightingSystem {
     console.log('   Duration: 30 seconds')
     console.log('   All LEDs, funnels, deck lights PULSING to beat!')
     
-    // Auto-end after duration
     setTimeout(() => {
       this.endHarborShow()
     }, this.currentShow.duration)
@@ -65,17 +64,15 @@ class LightingSystem {
       const elapsed = Date.now() - this.currentShow.startTime
       const progress = elapsed / this.currentShow.duration
       
-      // Beat-synced pulse calculation
       const beatDuration = 60 / bpm
       this.beatPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
       
-      // Intensity ramps up then down
       if (progress < 0.2) {
-        this.intensityMultiplier = 1.0 + progress * 5 // Ramp up to 2x
+        this.intensityMultiplier = 1.0 + progress * 5
       } else if (progress > 0.8) {
-        this.intensityMultiplier = 1.0 + (1 - progress) * 5 // Ramp down
+        this.intensityMultiplier = 1.0 + (1 - progress) * 5
       } else {
-        this.intensityMultiplier = 2.0 // Peak intensity
+        this.intensityMultiplier = 2.0
       }
     } else {
       this.intensityMultiplier = 1.0
@@ -96,7 +93,6 @@ class LightingSystem {
       return baseColor
     }
     
-    // Rainbow cycle during show
     const hue = (Date.now() / 1000 * 60) % 360
     return `hsl(${hue}, 100%, 60%)`
   }
@@ -119,14 +115,56 @@ class LightingSystem {
   triggerClimax(shipType: ShipType) {
     console.log(`🎵 CLIMAX SEQUENCE for ${shipType}!`)
     
-    // Temporarily boost everything
     const originalMultiplier = this.intensityMultiplier
     this.intensityMultiplier = 3.0
     
-    // Flash effect
     setTimeout(() => {
       this.intensityMultiplier = originalMultiplier
     }, 500)
+  }
+
+  // ============================================================================
+  // WEATHER LIGHTING - Get lighting config based on weather
+  // ============================================================================
+  getWeatherLighting(weather: string) {
+    switch (weather) {
+      case 'storm':
+        return {
+          sunIntensity: 0.2,
+          sunColor: '#444466',
+          ambientIntensity: 0.15,
+          ambientColor: '#1a1a2e',
+          sideLightIntensity: 1.5,
+          dramatic: true
+        }
+      case 'rain':
+        return {
+          sunIntensity: 0.4,
+          sunColor: '#666688',
+          ambientIntensity: 0.3,
+          ambientColor: '#2a2a3e',
+          sideLightIntensity: 0.8,
+          dramatic: false
+        }
+      case 'fog':
+        return {
+          sunIntensity: 0.6,
+          sunColor: '#8888aa',
+          ambientIntensity: 0.4,
+          ambientColor: '#3a3a4e',
+          sideLightIntensity: 0.5,
+          dramatic: false
+        }
+      default: // clear
+        return {
+          sunIntensity: 1.2,
+          sunColor: '#fff8e7',
+          ambientIntensity: 0.6,
+          ambientColor: '#ffffff',
+          sideLightIntensity: 0.5,
+          dramatic: false
+        }
+    }
   }
 }
 

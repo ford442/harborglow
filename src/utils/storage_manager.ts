@@ -16,6 +16,14 @@ export type GameState = {
   // Weather system
   weather?: 'clear' | 'rain' | 'fog' | 'storm';
   weatherIntensity?: number;
+  // Rendering quality
+  qualityPreset?: 'low' | 'medium' | 'high';
+  // Crane state
+  twistlockEngaged?: boolean;
+  craneHeight?: number;
+  craneRotation?: number;
+  // Booth tier (1=standard, 3=arctic)
+  boothTier?: 1 | 2 | 3;
   // add more as needed
 };
 
