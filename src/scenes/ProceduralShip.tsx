@@ -413,12 +413,23 @@ export const ProceduralShip = ({
   children 
 }: ProceduralShipProps) => {
   const groupRef = useRef<THREE.Group>(null);
+  const [envMap, setEnvMap] = useState<THREE.Texture | null>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
   
-  const envMap = useEnvironment(blueprint?.envMap 
-    ? { files: `/envmaps/${blueprint.envMap}.hdr` }
-    : { preset: 'sunset' }
-  );
+  useEffect(() => {
+    const loadEnvMap = async () => {
+      try {
+        const texture = blueprint?.envMap 
+          ? await useEnvironment({ files: `/envmaps/${blueprint.envMap}.hdr` })
+          : await useEnvironment({ preset: 'sunset' });
+        setEnvMap(texture);
+      } catch (error) {
+        console.error('Failed to load environment map:', error);
+        setEnvMap(null);
+      }
+    };
+    loadEnvMap();
+  }, [blueprint?.envMap]);
 
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
@@ -444,7 +455,7 @@ export const ProceduralShip = ({
       rotation={rotation}
       scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
     >
-      <Environment map={envMap} />
+      <Environment map={envMap || undefined} />
       {blueprint.parts.map((part) => (
         <PBRPart key={part.id} part={part} shipDefaults={shipDefaults} shipType={blueprint.id} />
       ))}
