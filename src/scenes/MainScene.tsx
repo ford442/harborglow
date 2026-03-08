@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { EffectComposer, Bloom, DepthOfField, Vignette, ChromaticAberration } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing'
 import { useControls } from 'leva'
 import { useGameStore, ShipType, Ship } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
@@ -355,12 +355,12 @@ export default function MainScene() {
                     eskil={false}
                 />
                 
-                {/* Chromatic aberration for subtle distortion */}
-                <ChromaticAberration
+                {/* Chromatic aberration for subtle distortion - disabled due to GL errors */}
+                {/* <ChromaticAberration
                     offset={new THREE.Vector2(0.002, 0.002)}
                     radialModulation={false}
                     modulationOffset={0}
-                />
+                /> */}
             </EffectComposer>
 
             {/* Spectator Mode Overlay */}
