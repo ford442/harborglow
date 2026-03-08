@@ -1,14 +1,25 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { useGameStore, ShipType } from '../store/useGameStore'
+import { useGameStore, ShipType, Ship } from '../store/useGameStore'
 import { useControls } from 'leva'
 import { musicSystem } from '../systems/musicSystem'
+import { lightingSystem } from '../systems/lightingSystem'
+import { weatherSystem } from '../systems/weatherSystem'
 import * as THREE from 'three'
-import Ship from './Ship'
+import ShipComponent from './Ship'
 import Crane from './Crane'
 import Dock from './Dock'
 import Water from './Water'
+
+// Track ships that are currently at sea
+const AT_SEA_DURATION = 10000 // 10 seconds at sea
+
+interface AtSeaShip {
+    shipId: string
+    returnTime: number
+    originalPosition: [number, number, number]
+}
 
 // =============================================================================
 // MAIN SCENE COMPONENT
@@ -26,13 +37,24 @@ export default function MainScene() {
     const setBPM = useGameStore((state) => state.setBPM)
     const setLyricsSize = useGameStore((state) => state.setLyricsSize)
     const setLightIntensity = useGameStore((state) => state.setLightIntensity)
+    const scheduleDeparture = useGameStore((state) => state.scheduleDeparture)
+    const returnToDock = useGameStore((state) => state.returnToDock)
+    const weather = useGameStore((state) => state.weather)
+    const setWeather = useGameStore((state) => state.setWeather)
 
     const currentShip = ships.find(s => s.id === currentShipId)
     const orbitControlsRef = useRef<any>(null)
     const spectatorAngleRef = useRef(0)
+    
+    // Track ships currently sailing (departing animation)
+    const [departingShips, setDepartingShips] = useState<Set<string>>(new Set())
+    // Track ships at sea (invisible, waiting to return)
+    const atSeaShipsRef = useRef<Map<string, AtSeaShip>>(new Map())
+    // Track ship positions for animation
+    const shipPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map())
 
-    // Leva controls
-    const controls = useControls({
+    // Leva controls (rendered by Leva, values handled via onChange)
+    useControls({
         'Current Ship Type': {
             value: currentShip?.type || 'cruise',
             options: ['cruise', 'container', 'tanker'],
@@ -83,11 +105,24 @@ export default function MainScene() {
             onChange: (mode: 'orbit' | 'crane') => {
                 useGameStore.getState().setCameraMode(mode)
             }
+        },
+        'Weather': {
+            value: weather,
+            options: ['clear', 'rain', 'fog', 'storm'],
+            onChange: (w: string) => {
+                setWeather(w as any)
+                weatherSystem.forceWeather(w as any)
+            }
         }
     })
 
     // Spectator drone camera movement
     useFrame((state, delta) => {
+        // Update lighting system and weather
+        const bpm = useGameStore.getState().bpm
+        lightingSystem.update(state.clock.elapsedTime, bpm)
+        weatherSystem.updateLightning()
+        
         if (spectatorState.isActive && spectatorState.targetShipId) {
             const targetShip = ships.find(s => s.id === spectatorState.targetShipId)
             if (targetShip) {
@@ -115,29 +150,111 @@ export default function MainScene() {
         }
     }, [spectatorState.isActive, spectatorState.targetShipId])
 
-    // Calculate lighting based on time of day
+    // Ship scheduling timer - checks every second for ships that need to depart
+    useEffect(() => {
+        // Schedule initial departures for all docked ships that don't have a sailTime
+        ships.forEach(ship => {
+            if ((ship.isDocked !== false) && !ship.sailTime && !departingShips.has(ship.id) && !atSeaShipsRef.current.has(ship.id)) {
+                scheduleDeparture(ship.id)
+            }
+        })
+
+        const interval = setInterval(() => {
+            const now = Date.now()
+            
+            ships.forEach(ship => {
+                // Check if ship needs to depart
+                if (ship.sailTime && now >= ship.sailTime && !departingShips.has(ship.id) && !atSeaShipsRef.current.has(ship.id)) {
+                    console.log(`⛵ Ship ${ship.name || ship.id} departing for sea...`)
+                    
+                    // Store original position
+                    shipPositionsRef.current.set(ship.id, new THREE.Vector3(...ship.position))
+                    
+                    // Mark as departing
+                    setDepartingShips(prev => new Set(prev).add(ship.id))
+                }
+            })
+            
+            // Check for ships returning from sea
+            atSeaShipsRef.current.forEach((atSeaShip, shipId) => {
+                if (now >= atSeaShip.returnTime) {
+                    console.log(`🔄 Ship ${ships.find(s => s.id === shipId)?.name || shipId} returning for upgrade`)
+                    
+                    // Remove from at-sea tracking
+                    atSeaShipsRef.current.delete(shipId)
+                    
+                    // Return to dock (resets sailTime and isDocked)
+                    returnToDock(shipId)
+                    
+                    // Schedule next departure
+                    setTimeout(() => {
+                        scheduleDeparture(shipId)
+                    }, 5000) // Wait 5 seconds before scheduling next departure
+                }
+            })
+        }, 1000)
+
+        return () => clearInterval(interval)
+    }, [ships, scheduleDeparture, returnToDock, departingShips])
+
+    // Animate departing ships
+    useFrame((_, delta) => {
+        departingShips.forEach(shipId => {
+            const originalPos = shipPositionsRef.current.get(shipId)
+            if (!originalPos) return
+            
+            // Get current animated position or start from original
+            let currentPos = shipPositionsRef.current.get(`${shipId}_current`)
+            if (!currentPos) {
+                currentPos = originalPos.clone()
+                shipPositionsRef.current.set(`${shipId}_current`, currentPos)
+            }
+            
+            // Move ship away (increase Z position)
+            currentPos.z += delta * 20 // Move at 20 units per second
+            
+            // If ship has moved far enough, mark it as at-sea
+            if (currentPos.z > originalPos.z + 100) {
+                // Ship is now at sea
+                setDepartingShips(prev => {
+                    const next = new Set(prev)
+                    next.delete(shipId)
+                    return next
+                })
+                
+                // Add to at-sea tracking
+                atSeaShipsRef.current.set(shipId, {
+                    shipId,
+                    returnTime: Date.now() + AT_SEA_DURATION,
+                    originalPosition: [originalPos.x, originalPos.y, originalPos.z]
+                })
+                
+                // Clean up position tracking
+                shipPositionsRef.current.delete(`${shipId}_current`)
+            }
+        })
+    })
+
+    // Calculate lighting based on time of day and weather
     const sunPosition = getSunPosition(timeOfDay)
-    const ambientIntensity = isNight ? 0.15 : 0.6
-    const directionalIntensity = isNight ? 0.3 : 1.2
-    const fogColor = isNight ? '#0a0a15' : '#87CEEB'
-    const fogDensity = isNight ? controls['Fog Density'] : controls['Fog Density'] * 0.3
+    const weatherEffects = weatherSystem.getWeatherEffects()
+    const ambientIntensity = (isNight ? 0.15 : 0.6) * weatherEffects.ambientLight
+    const directionalIntensity = (isNight ? 0.3 : 1.2) * weatherEffects.ambientLight
+    const fogColor = weather === 'storm' ? '#1a202c' : isNight ? '#0a0a15' : '#87CEEB'
+    const fogDensity = weatherEffects.fogDensity
 
     return (
         <>
-            {/* Fog for atmospheric depth */}
+            {/* Fog for atmospheric depth - weather affected */}
             <scene fog={new THREE.FogExp2(fogColor, fogDensity)} />
 
             {/* Camera controls */}
-            <OrbitControls 
-                ref={orbitControlsRef}
-                enabled={!spectatorState.isActive && cameraMode === 'orbit'}
-                enablePan={true}
-                enableZoom={true}
-                enableRotate={true}
-                minDistance={5}
-                maxDistance={100}
-                target={currentShip ? currentShip.position : [0, 0, 0]}
-            />
+            {!spectatorState.isActive && cameraMode === 'orbit' && (
+                <OrbitControls 
+                    ref={orbitControlsRef}
+                    target={currentShip ? currentShip.position : [0, 0, 0]}
+                />
+            )}
 
             {/* Environment */}
             <Environment preset={isNight ? 'night' : 'sunset'} />
@@ -159,6 +276,11 @@ export default function MainScene() {
                 shadow-camera-bottom={-50}
                 color={isNight ? '#8888ff' : '#fff8e7'}
             />
+
+            {/* Lightning flash for storms */}
+            {weather === 'storm' && weatherSystem.isLightningActive() && (
+                <ambientLight intensity={2} color="#ffffff" />
+            )}
 
             {/* Night dock lighting - multiple colored point lights for atmosphere */}
             {isNight && (
@@ -184,9 +306,25 @@ export default function MainScene() {
             <Crane />
 
             {/* Ships */}
-            {ships.map((ship) => (
-                <Ship key={ship.id} ship={ship} />
-            ))}
+            {ships.map((ship) => {
+                // Don't render ships that are at sea
+                if (atSeaShipsRef.current.has(ship.id)) {
+                    return null
+                }
+                
+                // Get animated position if departing
+                const animatedPos = departingShips.has(ship.id) 
+                    ? shipPositionsRef.current.get(`${ship.id}_current`)
+                    : null
+                
+                const displayShip: Ship = animatedPos 
+                    ? { ...ship, position: [animatedPos.x, animatedPos.y, animatedPos.z] }
+                    : ship
+                
+                return (
+                    <ShipComponent key={ship.id} ship={displayShip} />
+                )
+            })}
 
             {/* Spectator Mode Overlay */}
             {spectatorState.isActive && (

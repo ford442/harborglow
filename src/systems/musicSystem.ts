@@ -448,6 +448,38 @@ class MusicSystem {
         return transport ? transport.state === 'started' : false
     }
 
+    // =========================================================================
+    // CLIMAX - Triggered on v2.0 structural overhaul
+    // =========================================================================
+    triggerClimax(shipType: ShipType) {
+        console.log(`🎵 MUSIC CLIMAX for ${shipType}!`)
+        
+        const transport = this.transports.get(shipType)
+        if (!transport) return
+        
+        // Temporarily boost BPM
+        const originalBPM = transport.bpm.value
+        transport.bpm.value = originalBPM * 1.2 // 20% faster
+        
+        // Intensify all synths
+        const synths = this.synths.get(shipType) || []
+        synths.forEach((synth: any) => {
+            if (synth.volume) {
+                synth.volume.rampTo(synth.volume.value + 3, 0.1)
+            }
+        })
+        
+        // Restore after 5 seconds
+        setTimeout(() => {
+            transport.bpm.value = originalBPM
+            synths.forEach((synth: any) => {
+                if (synth.volume) {
+                    synth.volume.rampTo(synth.volume.value - 3, 1)
+                }
+            })
+        }, 5000)
+    }
+
     // Cleanup
     dispose() {
         this.stopAllMusic()

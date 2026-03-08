@@ -1,0 +1,85 @@
+{
+  "$schema": "Vessel Blueprint Protocol v1.0",
+  "description": "Add new ships here. Any AI (Jules, Gemini, Claude, etc.) can append new entries. Follow the schema exactly.",
+  "ships": [
+    {
+      "id": "cruise",
+      "version": "1.0",
+      "name": "Cruise Liner \"Aurora Glow\" v1.0",
+      "scale": 1.8,
+      "baseColor": "#0a2540",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [18, 6, 80], "material": { "emissive": "#112244" } },
+        { "id": "deck1", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [16, 3, 70] },
+        { "id": "deck2", "type": "box", "position": [0, 5, 0], "rotation": [0, 0, 0], "size": [14, 3, 60] },
+        { "id": "deck3", "type": "box", "position": [0, 8, 0], "rotation": [0, 0, 0], "size": [12, 3, 50] },
+        { "id": "bridge", "type": "box", "position": [0, 11, -18], "rotation": [0, 0, 0], "size": [10, 6, 12] },
+        { "id": "funnel1", "type": "cylinder", "position": [-5, 13, -10], "rotation": [0, 0, 0], "size": [2, 8, 2], "material": { "emissive": "#ffaa00" } },
+        { "id": "funnel2", "type": "cylinder", "position": [5, 13, -10], "rotation": [0, 0, 0], "size": [2, 8, 2], "material": { "emissive": "#ffaa00" } },
+        { "id": "bow", "type": "cone", "position": [0, -1, 38], "rotation": [1.57, 0, 0], "size": [8, 12, 8] }
+      ],
+      "attachmentPoints": ["balcony0", "balcony1", "balcony5", "balcony6", "funnel1", "funnel2"],
+      "contributor": "Grok + Kimi",
+      "added": "2026-03-08",
+      "notes": "Multi-deck with glowing balconies — perfect for LED light shows"
+    },
+    {
+      "id": "container",
+      "version": "1.0",
+      "name": "Container Vessel \"StackMaster 4000\" v1.0",
+      "scale": 1.6,
+      "baseColor": "#1a1a2e",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [24, 5, 110], "material": { "emissive": "#0a0a1a" } },
+        { "id": "deck", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [23, 0.5, 108] },
+        { "id": "bridge", "type": "box", "position": [-8, 8, 30], "rotation": [0, 0, 0], "size": [10, 10, 14], "material": { "emissive": "#2a2a3e" } },
+        { "id": "mast", "type": "cylinder", "position": [-8, 15, 30], "rotation": [0, 0, 0], "size": [0.5, 6, 0.5], "material": { "emissive": "#ff0000" } },
+        { "id": "crane1", "type": "box", "position": [-10, 6, -25], "rotation": [0, 0, 0], "size": [1.5, 12, 1.5], "material": { "emissive": "#ff8800" } },
+        { "id": "crane1arm", "type": "box", "position": [-5, 11, -25], "rotation": [0, 0, 0], "size": [10, 0.8, 0.8], "material": { "emissive": "#ffaa00" } },
+        { "id": "crane2", "type": "box", "position": [10, 6, -15], "rotation": [0, 0, 0], "size": [1.5, 12, 1.5], "material": { "emissive": "#ff8800" } },
+        { "id": "crane2arm", "type": "box", "position": [5, 11, -15], "rotation": [0, 0, 0], "size": [10, 0.8, 0.8], "material": { "emissive": "#ffaa00" } },
+        { "id": "ledStripL", "type": "box", "position": [-11, 3, 0], "rotation": [0, 0, 0], "size": [0.3, 0.3, 100], "material": { "emissive": "#00ffff" } },
+        { "id": "ledStripR", "type": "box", "position": [11, 3, 0], "rotation": [0, 0, 0], "size": [0.3, 0.3, 100], "material": { "emissive": "#00ffff" } },
+        { "id": "stack1", "type": "box", "position": [-7, 5, -35], "rotation": [0, 0, 0], "size": [7, 7, 9], "material": { "emissive": "#00ff88" } },
+        { "id": "stack2", "type": "box", "position": [7, 4, -20], "rotation": [0, 0, 0], "size": [7, 5, 9], "material": { "emissive": "#ff6b6b" } },
+        { "id": "stack3", "type": "box", "position": [-7, 6, -5], "rotation": [0, 0, 0], "size": [7, 9, 9], "material": { "emissive": "#4ecdc4" } },
+        { "id": "stack4", "type": "box", "position": [7, 5, 10], "rotation": [0, 0, 0], "size": [7, 7, 9], "material": { "emissive": "#ffe66d" } },
+        { "id": "stack5", "type": "box", "position": [-7, 4, 25], "rotation": [0, 0, 0], "size": [7, 5, 9], "material": { "emissive": "#ff00ff" } },
+        { "id": "stack6", "type": "box", "position": [7, 6, 40], "rotation": [0, 0, 0], "size": [7, 8, 9], "material": { "emissive": "#00aaff" } }
+      ],
+      "attachmentPoints": ["stack1", "stack2", "stack3", "stack4", "stack5", "stack6", "crane1", "crane2", "mast"],
+      "contributor": "Agent Swarm - Ship Designer",
+      "added": "2026-03-08",
+      "notes": "Mega container ship with LED deck strips and 6 colorful container stacks"
+    },
+    {
+      "id": "tanker",
+      "version": "1.0",
+      "name": "Oil Tanker \"Black Pearl\" v1.0",
+      "scale": 1.4,
+      "baseColor": "#0f0f1a",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [22, 10, 130], "material": { "emissive": "#0a0a12" } },
+        { "id": "bulbousBow", "type": "cone", "position": [0, -2, 65], "rotation": [1.57, 0, 0], "size": [12, 20, 12] },
+        { "id": "deck", "type": "box", "position": [0, 2.5, 0], "rotation": [0, 0, 0], "size": [21, 0.5, 128] },
+        { "id": "superstructure", "type": "box", "position": [0, 10, 40], "rotation": [0, 0, 0], "size": [16, 12, 24], "material": { "emissive": "#1a1a2e" } },
+        { "id": "bridge", "type": "box", "position": [0, 16, 42], "rotation": [0, 0, 0], "size": [12, 8, 10] },
+        { "id": "flareStack", "type": "cylinder", "position": [-7, 20, 35], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ff2200" } },
+        { "id": "flareTip", "type": "cone", "position": [-7, 28, 35], "rotation": [0, 0, 0], "size": [3, 6, 3], "material": { "emissive": "#ff8800" } },
+        { "id": "pipe1", "type": "cylinder", "position": [5, 5, -10], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
+        { "id": "pipe2", "type": "cylinder", "position": [5, 5, 10], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
+        { "id": "pipe3", "type": "cylinder", "position": [-5, 5, 0], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
+        { "id": "hatch1", "type": "box", "position": [0, 3, -30], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
+        { "id": "hatch2", "type": "box", "position": [0, 3, -5], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
+        { "id": "hatch3", "type": "box", "position": [0, 3, 20], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
+        { "id": "hatch4", "type": "box", "position": [0, 3, 45], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
+        { "id": "railingL", "type": "box", "position": [-10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } },
+        { "id": "railingR", "type": "box", "position": [10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } }
+      ],
+      "attachmentPoints": ["flareStack", "flareTip", "hatch1", "hatch2", "hatch3", "hatch4", "bridge", "railingL", "railingR"],
+      "contributor": "Agent Swarm - Ship Designer",
+      "added": "2026-03-08",
+      "notes": "VLCC supertanker with bulbous bow, flare stack, pipe arrays and deck railings"
+    }
+  ]
+}
