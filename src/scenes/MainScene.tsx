@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { EffectComposer, Bloom, DepthOfField, Vignette, ChromaticAberration } from '@react-three/postprocessing'
+// import { EffectComposer } from '@react-three/postprocessing'
 import { useControls } from 'leva'
 import { useGameStore, ShipType, Ship } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
@@ -246,10 +246,13 @@ export default function MainScene() {
     const fogColor = weather === 'storm' ? '#1a202c' : isNight ? '#0a0a15' : '#87CEEB'
     const fogDensity = weatherEffects.fogDensity
 
+    // Memoize fog to prevent recreating every render
+    const sceneFog = useMemo(() => new THREE.FogExp2(fogColor, fogDensity), [fogColor, fogDensity])
+
     return (
         <>
             {/* Fog for atmospheric depth - weather affected */}
-            <scene fog={new THREE.FogExp2(fogColor, fogDensity)} />
+            <scene fog={sceneFog} />
 
             {/* Camera controls */}
             {!spectatorState.isActive && cameraMode === 'orbit' && (
@@ -329,9 +332,8 @@ export default function MainScene() {
                 return <ShipComponent key={ship.id} ship={displayShip} />
             })}
 
-            {/* Post-processing effects */}
-            <EffectComposer>
-                {/* Bloom for all glowing elements - intensity boosts during v2.0 shows */}
+            {/* Post-processing effects - disabled due to GL errors */}
+            {/* <EffectComposer>
                 <Bloom 
                     intensity={lightingSystem.isShowActive() ? 2.5 : 1.5}
                     radius={0.8}
@@ -340,7 +342,6 @@ export default function MainScene() {
                     mipmapBlur={true}
                 />
                 
-                {/* Depth of field for cinematic feel */}
                 <DepthOfField
                     focusDistance={0}
                     focalLength={0.02}
@@ -348,18 +349,18 @@ export default function MainScene() {
                     height={480}
                 />
                 
-                {/* Vignette for dramatic framing */}
                 <Vignette
                     offset={0.3}
                     darkness={0.6}
                     eskil={false}
                 />
                 
-                {/* Chromatic aberration for subtle distortion */}
                 <ChromaticAberration
-                    offset={[0.002, 0.002]}
+                    offset={new THREE.Vector2(0.002, 0.002)}
+                    radialModulation={false}
+                    modulationOffset={0}
                 />
-            </EffectComposer>
+            </EffectComposer> */}
 
             {/* Spectator Mode Overlay */}
             {spectatorState.isActive && (

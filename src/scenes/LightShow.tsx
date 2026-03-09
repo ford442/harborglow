@@ -3,6 +3,15 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 
+// Custom hook for safe time access
+function useShaderTime() {
+  const timeRef = useRef(0)
+  useFrame((state) => {
+    timeRef.current = state.clock.elapsedTime
+  })
+  return timeRef
+}
+
 // =============================================================================
 // SPECTACULAR LIGHT RIG SYSTEM - HarborGlow
 // LED strips, moving heads, lasers, strobes, neon tubes with installation animation
@@ -196,7 +205,6 @@ function MovingHeadSpotlight({ position, rotation = [0, 0, 0], installed = false
   const [sparks, setSparks] = useState<Array<{id: number, pos: THREE.Vector3}>>([])
 
   const bpm = useGameStore(state => state.bpm)
-  const time = useThree().clock.elapsedTime
 
   // Installation
   useEffect(() => {
@@ -252,8 +260,30 @@ function MovingHeadSpotlight({ position, rotation = [0, 0, 0], installed = false
     return geometry
   }, [])
 
-  const hue = (time * 0.1) % 1
-  const color = new THREE.Color().setHSL(hue, 1, 0.6)
+  const timeRef = useShaderTime()
+  const [beamColor, setBeamColor] = useState(() => new THREE.Color().setHSL(0, 1, 0.6))
+  
+  useFrame(() => {
+    const hue = (timeRef.current * 0.1) % 1
+    setBeamColor(prev => prev.setHSL(hue, 1, 0.6))
+  })
+
+  // Memoize uniforms to prevent recreation on every render
+  const beamUniforms = useMemo(() => ({
+    uColor: { value: beamColor },
+    uIntensity: { value: 1.5 },
+    uTime: { value: 0 }
+  }), [beamColor])
+
+  // Update time uniform each frame
+  useFrame(() => {
+    if (beamRef.current) {
+      const material = beamRef.current.material as THREE.ShaderMaterial
+      if (material.uniforms?.uTime) {
+        material.uniforms.uTime.value = timeRef.current
+      }
+    }
+  })
 
   return (
     <group position={position} rotation={rotation}>
@@ -284,7 +314,7 @@ function MovingHeadSpotlight({ position, rotation = [0, 0, 0], installed = false
         {/* Light source */}
         <mesh position={[0, -0.5, 0]}>
           <circleGeometry args={[0.7, 32]} />
-          <meshBasicMaterial color={color} toneMapped={false} />
+          <meshBasicMaterial color={beamColor} toneMapped={false} />
         </mesh>
 
         {/* Volumetric Beam */}
@@ -326,11 +356,7 @@ function MovingHeadSpotlight({ position, rotation = [0, 0, 0], installed = false
                   gl_FragColor = vec4(uColor, alpha);
                 }
               `}
-              uniforms={{
-                uColor: { value: color },
-                uIntensity: { value: 1.5 },
-                uTime: { value: time }
-              }}
+              uniforms={beamUniforms}
             />
           </mesh>
         )}
@@ -342,7 +368,7 @@ function MovingHeadSpotlight({ position, rotation = [0, 0, 0], installed = false
             distance={80}
             angle={0.3}
             penumbra={0.3}
-            color={color}
+            color={beamColor}
             target-position={[0, -20, 0]}
           />
         )}
@@ -467,6 +493,13 @@ function LaserBeam({ color, patternPhase, offset, angle }: {
   angle: number
 }) {
   const beamRef = useRef<THREE.Mesh>(null)
+  const timeRef = useShaderTime()
+
+  // Memoize uniforms
+  const uniforms = useMemo(() => ({
+    uColor: { value: color },
+    uTime: { value: 0 }
+  }), [color])
 
   useFrame((state) => {
     if (!beamRef.current) return
@@ -497,6 +530,12 @@ function LaserBeam({ color, patternPhase, offset, angle }: {
 
     beamRef.current.rotation.x = rotX
     beamRef.current.rotation.z = rotZ
+
+    // Update time uniform
+    const material = beamRef.current.material as THREE.ShaderMaterial
+    if (material.uniforms?.uTime) {
+      material.uniforms.uTime.value = timeRef.current
+    }
   })
 
   return (
@@ -535,10 +574,7 @@ function LaserBeam({ color, patternPhase, offset, angle }: {
             gl_FragColor = vec4(finalColor, alpha);
           }
         `}
-        uniforms={{
-          uColor: { value: color },
-          uTime: { value: 0 }
-        }}
+        uniforms={uniforms}
       />
     </mesh>
   )
@@ -914,6 +950,22 @@ export default function LightShow({ enabled = true }: LightShowProps) {
 // Volumetric fog for laser beams
 function FogEffect() {
   const fogRef = useRef<THREE.Mesh>(null)
+  const timeRef = useShaderTime()
+
+  // Memoize uniforms
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 }
+  }), [])
+
+  // Update time uniform
+  useFrame(() => {
+    if (fogRef.current) {
+      const material = fogRef.current.material as THREE.ShaderMaterial
+      if (material.uniforms?.uTime) {
+        material.uniforms.uTime.value = timeRef.current
+      }
+    }
+  })
 
   return (
     <mesh ref={fogRef} position={[0, 10, 0]}>
@@ -940,9 +992,7 @@ function FogEffect() {
             gl_FragColor = vec4(0.9, 0.95, 1.0, density);
           }
         `}
-        uniforms={{
-          uTime: { value: 0 }
-        }}
+        uniforms={uniforms}
       />
     </mesh>
   )
