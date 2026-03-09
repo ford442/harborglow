@@ -7,6 +7,7 @@ import MainScene from './scenes/MainScene'
 import HUD from './components/HUD'
 import { useGameStore } from './store/useGameStore'
 import { loadGameState } from './utils/storage_manager'
+import * as Tone from 'tone'
 
 function App() {
     const [screen, setScreen] = useState<'menu' | 'game'>('menu')
@@ -14,6 +15,26 @@ function App() {
     
     const loadSavedState = useGameStore(state => state.loadSavedState)
     const resetGame = useGameStore(state => state.resetGame)
+
+    // Handle user gesture for audio context
+    useEffect(() => {
+        const handleUserGesture = async () => {
+            if (Tone.context.state !== 'running') {
+                await Tone.start()
+            }
+        }
+
+        // Add listeners for common user gestures
+        document.addEventListener('click', handleUserGesture, { once: true })
+        document.addEventListener('keydown', handleUserGesture, { once: true })
+        document.addEventListener('touchstart', handleUserGesture, { once: true })
+
+        return () => {
+            document.removeEventListener('click', handleUserGesture)
+            document.removeEventListener('keydown', handleUserGesture)
+            document.removeEventListener('touchstart', handleUserGesture)
+        }
+    }, [])
 
     const handleNewGame = useCallback(() => {
         resetGame()

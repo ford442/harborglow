@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { useEnvironment, Environment } from '@react-three/drei';
+import { Environment } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { getBlueprint, BlueprintPart } from '../types/ShipBlueprint';
 import { useGameStore } from '../store/useGameStore';
@@ -415,12 +415,6 @@ export const ProceduralShip = ({
   const groupRef = useRef<THREE.Group>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
   
-  const envMap = useEnvironment({ 
-    files: blueprint?.envMap 
-      ? `/envmaps/${blueprint.envMap}.hdr`
-      : '/envmaps/sunset.hdr'
-  });
-
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
     return null;
@@ -445,7 +439,11 @@ export const ProceduralShip = ({
       rotation={rotation}
       scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
     >
-      <Environment map={envMap} />
+      {blueprint?.envMap ? (
+        <Environment files={`/envmaps/${blueprint.envMap}.hdr`} />
+      ) : (
+        <Environment preset="studio" />
+      )}
       {blueprint.parts.map((part) => (
         <PBRPart key={part.id} part={part} shipDefaults={shipDefaults} shipType={blueprint.id} />
       ))}
