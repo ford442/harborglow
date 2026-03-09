@@ -492,14 +492,24 @@ function WakeTrailsRenderer({ trails }: { trails: React.MutableRefObject<Map<str
     })
   })
 
+  // Filter out entries without geometry before rendering
+  const trailEntries = Array.from(trails.current.entries()).filter(([id]) => 
+    lineGeometries.current.has(id)
+  )
+
+  if (trailEntries.length === 0) return null
+
   return (
     <group ref={groupRef}>
-      {Array.from(trails.current.entries()).map(([id]) => (
-        <line key={id}>
-          <primitive object={lineGeometries.current.get(id) || new THREE.BufferGeometry()} attach="geometry" />
-          <lineBasicMaterial color="#ffffff" transparent opacity={0.3} />
-        </line>
-      ))}
+      {trailEntries.map(([id]) => {
+        const geometry = lineGeometries.current.get(id)
+        return (
+          <line key={id}>
+            <primitive object={geometry} attach="geometry" />
+            <lineBasicMaterial attach="material" color="#ffffff" transparent opacity={0.3} />
+          </line>
+        )
+      })}
     </group>
   )
 }
