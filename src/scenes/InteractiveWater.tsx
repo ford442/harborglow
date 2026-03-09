@@ -503,6 +503,7 @@ function WakeTrailsRenderer({ trails }: { trails: React.MutableRefObject<Map<str
     <group ref={groupRef}>
       {trailEntries.map(([id]) => {
         const geometry = lineGeometries.current.get(id)
+        if (!geometry) return null
         return (
           <line key={id}>
             <primitive object={geometry} attach="geometry" />
