@@ -2,10 +2,11 @@ import { useRef, useMemo, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { useAudioVisualSync } from '../systems/audioVisualSync'
 
 // =============================================================================
-// INTERACTIVE WATER SYSTEM - HarborGlow
-// Buoyancy, wakes, splashes, and dynamic wave interference
+// PHASE 8: AUDIO-REACTIVE WATER SYSTEM
+// Wave amplitude responds to audio envelope and bass frequencies
 // =============================================================================
 
 interface BuoyancyPoint {
@@ -54,6 +55,10 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     twistlockEngaged: state.twistlockEngaged ?? false
   }))
   const weather = useGameStore(state => state.weather)
+  
+  // PHASE 8: Audio-reactive water
+  const { audioData } = useAudioVisualSync()
+  const audioReactiveRef = useRef({ waveBoost: 0, foamBoost: 0 })
 
   // Simulation state
   const buoyancyPoints = useRef<BuoyancyPoint[]>([])
@@ -290,10 +295,13 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     splashGeometry.attributes.opacity.needsUpdate = true
   })
 
-  // Vertex shader with all interactive effects
+  // PHASE 8: Audio-reactive vertex shader
   const vertexShader = `
     uniform float uTime;
     uniform float uWaveHeight;
+    uniform float uAudioBass;
+    uniform float uAudioEnvelope;
+    uniform float uAudioBeat;
 
     varying vec2 vUv;
     varying vec3 vWorldPos;
@@ -335,18 +343,25 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
 
       vec2 worldPos = (modelMatrix * vec4(position, 1.0)).xz;
 
-      // Base waves
-      float height = snoise(worldPos * 0.02 + uTime * 0.1) * 2.0;
-      height += snoise(worldPos * 0.05 + uTime * 0.2) * 1.0;
-      height += snoise(worldPos * 0.1 + uTime * 0.3) * 0.5;
-      height *= uWaveHeight;
+      // PHASE 8: Audio-reactive wave amplitude
+      float audioBoost = 1.0 + uAudioBass * 2.0 + uAudioBeat * 0.5;
+      float timeScale = 1.0 + uAudioEnvelope * 0.3;
+
+      // Base waves with audio reactivity
+      float height = snoise(worldPos * 0.02 + uTime * 0.1 * timeScale) * 2.0;
+      height += snoise(worldPos * 0.05 + uTime * 0.2 * timeScale) * 1.0;
+      height += snoise(worldPos * 0.1 + uTime * 0.3 * timeScale) * 0.5;
+      height *= uWaveHeight * audioBoost;
+
+      // Beat-induced wave pulse
+      height += sin(length(worldPos) * 0.1 - uTime * 2.0) * uAudioBass * 0.5;
 
       // Calculate normal
       float delta = 0.5;
-      float hL = snoise((worldPos + vec2(-delta, 0.0)) * 0.02 + uTime * 0.1) * 2.0;
-      float hR = snoise((worldPos + vec2(delta, 0.0)) * 0.02 + uTime * 0.1) * 2.0;
-      float hD = snoise((worldPos + vec2(0.0, -delta)) * 0.02 + uTime * 0.1) * 2.0;
-      float hU = snoise((worldPos + vec2(0.0, delta)) * 0.02 + uTime * 0.1) * 2.0;
+      float hL = snoise((worldPos + vec2(-delta, 0.0)) * 0.02 + uTime * 0.1) * 2.0 * audioBoost;
+      float hR = snoise((worldPos + vec2(delta, 0.0)) * 0.02 + uTime * 0.1) * 2.0 * audioBoost;
+      float hD = snoise((worldPos + vec2(0.0, -delta)) * 0.02 + uTime * 0.1) * 2.0 * audioBoost;
+      float hU = snoise((worldPos + vec2(0.0, delta)) * 0.02 + uTime * 0.1) * 2.0 * audioBoost;
 
       vNormal = normalize(vec3(hL - hR, 2.0 * delta, hD - hU));
       vDisplacement = height;
@@ -358,7 +373,7 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     }
   `
 
-  // Fragment shader
+  // PHASE 8: Audio-reactive fragment shader
   const fragmentShader = `
     uniform vec3 uCameraPos;
     uniform vec3 uSunDir;
@@ -366,6 +381,9 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     uniform vec3 uWaterColor;
     uniform vec3 uDeepColor;
     uniform float uFoamStrength;
+    uniform float uAudioBass;
+    uniform float uAudioEnvelope;
+    uniform float uAudioBeat;
 
     varying vec2 vUv;
     varying vec3 vWorldPos;
@@ -378,17 +396,28 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
       // Fresnel
       float fresnel = pow(1.0 - abs(dot(viewDir, vNormal)), 3.0);
 
-      // Specular
+      // PHASE 8: Audio-reactive specular highlights
       vec3 halfDir = normalize(uSunDir + viewDir);
       float specular = pow(max(0.0, dot(vNormal, halfDir)), 128.0);
+      specular *= (1.0 + uAudioEnvelope * 0.5); // Boost specular with audio
 
-      // Foam at crests
-      float foam = smoothstep(0.8, 1.2, vDisplacement / 2.0) * uFoamStrength;
+      // PHASE 8: Audio-reactive foam
+      float foamThreshold = 0.8 - uAudioBass * 0.3; // Lower threshold with bass
+      float foam = smoothstep(foamThreshold, foamThreshold + 0.4, vDisplacement / 2.0) * uFoamStrength;
+      
+      // Add beat-driven sparkle
+      if (uAudioBeat > 0.5) {
+        foam += uAudioBeat * 0.3 * smoothstep(0.9, 1.0, fresnel);
+      }
 
       // Color mixing
       vec3 color = mix(uDeepColor, uWaterColor, fresnel);
       color += uSunColor * specular * 0.5;
       color = mix(color, vec3(1.0), foam * 0.8);
+
+      // PHASE 8: Subtle color shift with bass
+      vec3 bassTint = vec3(0.0, 0.1, 0.2) * uAudioBass;
+      color += bassTint;
 
       gl_FragColor = vec4(color, 0.9 + foam * 0.1);
     }
@@ -402,13 +431,36 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     uWaterColor: { value: new THREE.Color(isNight ? '#001a33' : '#006994') },
     uDeepColor: { value: new THREE.Color(isNight ? '#000814' : '#003d5c') },
     uWaveHeight: { value: weather === 'storm' ? 2.0 : 1.0 },
-    uFoamStrength: { value: weather === 'storm' ? 1.0 : 0.3 }
+    uFoamStrength: { value: weather === 'storm' ? 1.0 : 0.3 },
+    // PHASE 8: Audio uniforms
+    uAudioBass: { value: 0 },
+    uAudioEnvelope: { value: 0 },
+    uAudioBeat: { value: 0 }
   }), [isNight, weather])
 
   useFrame(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = timeRef.current
       materialRef.current.uniforms.uCameraPos.value.copy(camera.position)
+      
+      // PHASE 8: Update audio uniforms with smooth interpolation
+      const targetWaveBoost = audioData.bass * 0.8 + audioData.envelope * 0.3
+      audioReactiveRef.current.waveBoost = THREE.MathUtils.lerp(
+        audioReactiveRef.current.waveBoost,
+        targetWaveBoost,
+        0.1
+      )
+      
+      const targetFoamBoost = audioData.beat ? audioData.beatIntensity * 0.5 : 0
+      audioReactiveRef.current.foamBoost = THREE.MathUtils.lerp(
+        audioReactiveRef.current.foamBoost,
+        targetFoamBoost,
+        0.2
+      )
+      
+      materialRef.current.uniforms.uAudioBass.value = audioReactiveRef.current.waveBoost
+      materialRef.current.uniforms.uAudioEnvelope.value = audioData.envelope
+      materialRef.current.uniforms.uAudioBeat.value = audioData.beat ? audioData.beatIntensity : 0
     }
   })
 

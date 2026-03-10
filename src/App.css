@@ -1,0 +1,264 @@
+/* =============================================================================
+   APP STYLES - HarborGlow
+   Wet industrial harbor aesthetic
+   ============================================================================= */
+
+/* CSS Variables for theming */
+:root {
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #1a1a2e;
+  --color-bg-tertiary: #16213e;
+  --color-accent-cyan: #00c8ff;
+  --color-accent-pink: #ff6b9d;
+  --color-accent-green: #00d4aa;
+  --color-accent-orange: #ff9500;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-text-muted: rgba(255, 255, 255, 0.4);
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --shadow-glow: 0 0 20px rgba(0, 200, 255, 0.5), 0 0 40px rgba(0, 150, 255, 0.3);
+  --transition-fast: 0.15s ease;
+  --transition-medium: 0.3s ease;
+}
+
+/* =============================================================================
+   MAIN MENU
+   ============================================================================= */
+
+.menu-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 80%, rgba(0, 100, 200, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255, 100, 150, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 100%);
+  animation: menuBreath 8s ease-in-out infinite;
+}
+
+@keyframes menuBreath {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.95; }
+}
+
+.menu-content {
+  position: relative;
+  text-align: center;
+  padding: 3rem;
+  max-width: 480px;
+  z-index: 1;
+}
+
+.menu-title {
+  font-size: 4.5rem;
+  font-weight: 900;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.title-glow {
+  color: var(--color-text-primary);
+  text-shadow: var(--shadow-glow);
+  animation: titlePulse 3s ease-in-out infinite alternate;
+}
+
+.title-accent {
+  color: var(--color-accent-cyan);
+  text-shadow: 0 0 30px rgba(0, 200, 255, 0.6);
+}
+
+@keyframes titlePulse {
+  from { text-shadow: 0 0 20px rgba(0, 200, 255, 0.5), 0 0 40px rgba(0, 150, 255, 0.3); }
+  to { text-shadow: 0 0 30px rgba(0, 255, 220, 0.6), 0 0 60px rgba(0, 200, 255, 0.4); }
+}
+
+.menu-subtitle {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 2.5rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.menu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 200, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 200, 255, 0.2);
+}
+
+.menu-btn:active {
+  transform: translateY(0);
+}
+
+.menu-btn.primary {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.25), rgba(0, 200, 255, 0.15));
+  border-color: rgba(0, 200, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 200, 255, 0.15);
+}
+
+.menu-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.35), rgba(0, 200, 255, 0.25));
+  box-shadow: 0 8px 24px rgba(0, 200, 255, 0.3);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.menu-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent-cyan);
+  background: rgba(0, 200, 255, 0.1);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(0, 200, 255, 0.2);
+}
+
+/* =============================================================================
+   LOADING SCREEN
+   ============================================================================= */
+
+.loading-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  z-index: 9999;
+}
+
+.loading-content {
+  text-align: center;
+  padding: 2rem;
+  min-width: 300px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.5rem;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-accent-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.loading-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-cyan), var(--color-accent-pink));
+  border-radius: 2px;
+  transition: width 0.2s ease-out;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+.loading-text {
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .menu-title {
+    font-size: 3rem;
+  }
+  
+  .menu-content {
+    padding: 1.5rem;
+  }
+  
+  .menu-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-backdrop,
+  .title-glow,
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .menu-btn {
+    transition: none;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.menu-btn:focus-visible {
+  outline: 2px solid var(--color-accent-cyan);
+  outline-offset: 2px;
+}

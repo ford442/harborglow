@@ -1,137 +1,265 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
+import { SHIP_COLORS } from './DesignSystem'
 
 // =============================================================================
-// LYRICS DISPLAY COMPONENT
-// Shows synchronized lyrics above the current ship with fade animations
+// PHASE 6.2: ENHANCED LYRICS DISPLAY
+// Karaoke-style word highlighting, typography animations, visual spectacle
 // =============================================================================
 
-export default function LyricsDisplay() {
-    const [currentLyrics, setCurrentLyrics] = useState('')
-    const [previousLyrics, setPreviousLyrics] = useState('')
-    const [isTransitioning, setIsTransitioning] = useState(false)
-    const [showBandName, setShowBandName] = useState(false)
-    
-    const currentShipId = useGameStore((state) => state.currentShipId)
-    const ships = useGameStore((state) => state.ships)
-    const lyricsSize = useGameStore((state) => state.lyricsSize)
-    const musicPlaying = useGameStore((state) => state.musicPlaying)
-
-    const lastLyricRef = useRef('')
-    const currentShip = ships.find(ship => ship.id === currentShipId)
-
-    // Track lyric changes and animate transitions
-    useEffect(() => {
-        if (!currentShip) {
-            setCurrentLyrics('')
-            setPreviousLyrics('')
-            setShowBandName(false)
-            return
-        }
-
-        // Show band name briefly when music starts
-        if (musicPlaying.get(currentShip.id) && !showBandName) {
-            setShowBandName(true)
-            setTimeout(() => setShowBandName(false), 4000)
-        }
-
-        const interval = setInterval(() => {
-            const lyric = musicSystem.getCurrentLyric(currentShip.type)
-            
-            if (lyric && lyric !== lastLyricRef.current) {
-                // Transition animation
-                setIsTransitioning(true)
-                setPreviousLyrics(lastLyricRef.current)
-                
-                setTimeout(() => {
-                    setCurrentLyrics(lyric)
-                    lastLyricRef.current = lyric
-                    setIsTransitioning(false)
-                }, 150)
-            }
-        }, 50) // Frequent updates for tight sync
-
-        return () => clearInterval(interval)
-    }, [currentShip, musicPlaying, showBandName])
-
-    if (!currentShip) return null
-
-    const isMusicPlaying = musicPlaying.get(currentShip.id)
-    const bandInfo = musicSystem.getBandInfo(currentShip.type)
-
-    return (
-        <div style={containerStyle}>
-            {/* Band name display (briefly shown when music starts) */}
-            {showBandName && isMusicPlaying && (
-                <div style={{
-                    ...bandNameStyle,
-                    fontSize: `${lyricsSize * 0.6}px`,
-                    animation: 'bandNamePulse 4s ease-out forwards'
-                }}>
-                    <span style={{ opacity: 0.6 }}>♪ </span>
-                    {bandInfo.name}
-                    <span style={{ opacity: 0.6 }}> ♪</span>
-                </div>
-            )}
-
-            {/* Lyrics display */}
-            <div style={lyricsContainerStyle}>
-                {/* Previous lyrics (fading out) */}
-                {isTransitioning && previousLyrics && (
-                    <div style={{
-                        ...lyricTextStyle,
-                        fontSize: `${lyricsSize}px`,
-                        opacity: 0,
-                        transform: 'translateY(-20px) scale(0.9)',
-                        transition: 'all 0.15s ease-out',
-                        position: 'absolute'
-                    }}>
-                        {previousLyrics}
-                    </div>
-                )}
-                
-                {/* Current lyrics (fading in) */}
-                {currentLyrics && (
-                    <div style={{
-                        ...lyricTextStyle,
-                        fontSize: `${lyricsSize}px`,
-                        opacity: isTransitioning ? 0 : 1,
-                        transform: isTransitioning ? 'translateY(20px) scale(1.1)' : 'translateY(0) scale(1)',
-                        transition: 'all 0.15s ease-out',
-                        textShadow: isMusicPlaying 
-                            ? `0 0 ${lyricsSize / 3}px ${getShipTypeColor(currentShip.type)}, 0 0 ${lyricsSize}px ${getShipTypeColor(currentShip.type)}`
-                            : '2px 2px 4px rgba(0,0,0,0.5)'
-                    }}>
-                        {currentLyrics}
-                    </div>
-                )}
-            </div>
-
-            {/* Genre tag (subtle) */}
-            {isMusicPlaying && currentLyrics && (
-                <div style={{
-                    ...genreTagStyle,
-                    fontSize: `${lyricsSize * 0.35}px`,
-                }}>
-                    {bandInfo.genre}
-                </div>
-            )}
-        </div>
-    )
+interface WordTiming {
+  word: string
+  startTime: number
+  endTime: number
+  emphasized: boolean
 }
 
-// =============================================================================
-// HELPERS
-// =============================================================================
+interface LyricLine {
+  text: string
+  words: WordTiming[]
+  startTime: number
+  endTime: number
+}
 
-function getShipTypeColor(type: string): string {
-    const colors: Record<string, string> = {
-        cruise: '#ff6b9d',
-        container: '#00d4aa',
-        tanker: '#ff9500'
+export default function LyricsDisplay() {
+  const [currentLine, setCurrentLine] = useState('')
+  const [currentWords, setCurrentWords] = useState<WordTiming[]>([])
+  const [activeWordIndex, setActiveWordIndex] = useState(-1)
+  const [showBandName, setShowBandName] = useState(false)
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number }>>([])
+  
+  const currentShipId = useGameStore((state) => state.currentShipId)
+  const ships = useGameStore((state) => state.ships)
+  const lyricsSize = useGameStore((state) => state.lyricsSize)
+  const bpm = useGameStore((state) => state.bpm)
+  const musicPlaying = useGameStore((state) => state.musicPlaying)
+
+  const currentShip = ships.find(ship => ship.id === currentShipId)
+  const shipColors = currentShip ? SHIP_COLORS[currentShip.type] : SHIP_COLORS.cruise
+  
+  const isMusicPlaying = currentShip ? musicPlaying.get(currentShip.id) : false
+  const bandInfo = currentShip ? musicSystem.getBandInfo(currentShip.type) : null
+
+  // Parse lyrics into timed words
+  const parseLyrics = useMemo(() => {
+    return (text: string, bpm: number): LyricLine => {
+      const words = text.split(' ')
+      const beatDuration = 60 / bpm
+      const wordDuration = beatDuration * 0.5
+      
+      let currentTime = 0
+      const wordTimings: WordTiming[] = words.map((word, _i) => {
+        const emphasized = word.length > 4 || word.includes('!') || word.includes('♪')
+        const duration = wordDuration * (emphasized ? 1.5 : 1)
+        
+        const timing = {
+          word: word.replace(/[!♪]/g, ''),
+          startTime: currentTime,
+          endTime: currentTime + duration,
+          emphasized
+        }
+        
+        currentTime += duration
+        return timing
+      })
+      
+      return {
+        text,
+        words: wordTimings,
+        startTime: 0,
+        endTime: currentTime
+      }
     }
-    return colors[type] || '#ffffff'
+  }, [])
+
+  // Show band name when music starts
+  useEffect(() => {
+    if (!currentShip) {
+      setShowBandName(false)
+      return
+    }
+
+    if (isMusicPlaying && !showBandName) {
+      setShowBandName(true)
+      setTimeout(() => setShowBandName(false), 4000)
+    }
+  }, [currentShip, isMusicPlaying, showBandName])
+
+  // Update lyrics and word highlighting
+  useEffect(() => {
+    if (!currentShip) {
+      setCurrentLine('')
+      setCurrentWords([])
+      setActiveWordIndex(-1)
+      return
+    }
+
+    let animationFrame: number
+    let startTime = Date.now()
+    
+    const updateLyrics = () => {
+      const lyric = musicSystem.getCurrentLyric(currentShip.type)
+      
+      if (lyric && lyric !== currentLine) {
+        const parsed = parseLyrics(lyric, bpm)
+        setCurrentLine(lyric)
+        setCurrentWords(parsed.words)
+        startTime = Date.now()
+        
+        // Trigger particle burst on new line
+        if (isMusicPlaying) {
+          const newParticles = Array.from({ length: 8 }, (_, i) => ({
+            id: Date.now() + i,
+            x: 20 + Math.random() * 60,
+            y: 40 + Math.random() * 20
+          }))
+          setParticles(newParticles)
+          setTimeout(() => setParticles([]), 1000)
+        }
+      }
+      
+      // Calculate active word
+      const elapsed = (Date.now() - startTime) / 1000
+      const wordIndex = currentWords.findIndex(
+        w => elapsed >= w.startTime && elapsed < w.endTime
+      )
+      
+      if (wordIndex !== -1 && wordIndex !== activeWordIndex) {
+        setActiveWordIndex(wordIndex)
+      }
+      
+      animationFrame = requestAnimationFrame(updateLyrics)
+    }
+    
+    animationFrame = requestAnimationFrame(updateLyrics)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [currentShip, currentLine, currentWords, bpm, isMusicPlaying, activeWordIndex, parseLyrics])
+
+  if (!currentShip) return null
+
+  return (
+    <div style={containerStyle}>
+      {/* Background glow effect */}
+      <div 
+        style={{
+          ...glowBackgroundStyle,
+          background: `radial-gradient(ellipse at center, ${shipColors.glow} 0%, transparent 70%)`,
+          opacity: isMusicPlaying ? 0.6 : 0.2
+        }} 
+      />
+      
+      {/* Floating particles */}
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          style={{
+            ...particleStyle,
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            background: shipColors.primary,
+            animation: 'particleFloat 1s ease-out forwards'
+          }}
+        />
+      ))}
+      
+      {/* Band name reveal */}
+      {showBandName && bandInfo && (
+        <div style={bandNameContainerStyle}>
+          <div 
+            style={{
+              ...bandNameStyle,
+              background: shipColors.gradient,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            {bandInfo.name}
+          </div>
+          <div style={genreStyle}>{bandInfo.genre}</div>
+        </div>
+      )}
+      
+      {/* Karaoke lyrics */}
+      {currentLine && (
+        <div 
+          style={{
+            ...lyricsContainerStyle,
+            fontSize: `${lyricsSize}px`
+          }}
+        >
+          <div style={wordsRowStyle}>
+            {currentWords.map((wordTiming, index) => (
+              <span
+                key={index}
+                style={{
+                  ...wordStyle,
+                  color: index <= activeWordIndex ? shipColors.primary : 'rgba(255,255,255,0.4)',
+                  textShadow: index === activeWordIndex 
+                    ? `0 0 ${lyricsSize / 2}px ${shipColors.primary}, 0 0 ${lyricsSize}px ${shipColors.glow}`
+                    : 'none',
+                  transform: index === activeWordIndex ? 'scale(1.1)' : 'scale(1)',
+                  fontWeight: wordTiming.emphasized ? 800 : 600,
+                  animation: index === activeWordIndex ? 'wordBounce 0.3s ease-out' : 'none'
+                }}
+              >
+                {wordTiming.word}
+                {index < currentWords.length - 1 && '\u00A0'}
+              </span>
+            ))}
+          </div>
+          
+          {/* Progress bar under lyrics */}
+          {isMusicPlaying && (
+            <div style={lyricProgressContainerStyle}>
+              <div 
+                style={{
+                  ...lyricProgressBarStyle,
+                  width: `${((activeWordIndex + 1) / currentWords.length) * 100}%`,
+                  background: shipColors.gradient
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Beat indicator */}
+      {isMusicPlaying && (
+        <div style={beatIndicatorContainerStyle}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                ...beatBarStyle,
+                background: shipColors.primary,
+                animationDelay: `${i * 0.15}s`,
+                animation: isMusicPlaying ? 'beatPulse 0.5s ease-in-out infinite' : 'none'
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      <style>{
+        `
+        @keyframes wordBounce {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1.1); }
+        }
+        @keyframes particleFloat {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-50px) scale(0); opacity: 0; }
+        }
+        @keyframes beatPulse {
+          0%, 100% { transform: scaleY(0.3); opacity: 0.5; }
+          50% { transform: scaleY(1); opacity: 1; }
+        }
+        `
+      }</style>
+    </div>
+  )
 }
 
 // =============================================================================
@@ -139,82 +267,120 @@ function getShipTypeColor(type: string): string {
 // =============================================================================
 
 const containerStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '25%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    pointerEvents: 'none',
-    zIndex: 1000,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '12px'
+  position: 'absolute',
+  top: '20%',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  pointerEvents: 'none',
+  zIndex: 1000,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '16px',
+  minWidth: '400px'
 }
 
-const lyricsContainerStyle: React.CSSProperties = {
-    position: 'relative',
-    minHeight: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
+const glowBackgroundStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: '600px',
+  height: '300px',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  filter: 'blur(60px)',
+  transition: 'opacity 0.5s ease',
+  pointerEvents: 'none'
 }
 
-const lyricTextStyle: React.CSSProperties = {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-    letterSpacing: '1px',
-    whiteSpace: 'nowrap',
-    textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+const particleStyle: React.CSSProperties = {
+  position: 'absolute',
+  width: '4px',
+  height: '4px',
+  borderRadius: '50%',
+  pointerEvents: 'none'
+}
+
+const bandNameContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  animation: 'slideUp 0.6s ease-out, fadeOut 0.5s ease-in 3.5s forwards',
+  padding: '16px 32px',
+  background: 'rgba(0,0,0,0.6)',
+  backdropFilter: 'blur(20px)',
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.1)'
 }
 
 const bandNameStyle: React.CSSProperties = {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-    padding: '8px 24px',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: '30px',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255,255,255,0.2)'
+  fontSize: '32px',
+  fontWeight: 900,
+  letterSpacing: '4px',
+  textTransform: 'uppercase',
+  fontFamily: '"Inter", system-ui, sans-serif'
 }
 
-const genreTagStyle: React.CSSProperties = {
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: '3px',
-    fontWeight: 'normal'
+const genreStyle: React.CSSProperties = {
+  fontSize: '12px',
+  color: 'rgba(255,255,255,0.6)',
+  letterSpacing: '3px',
+  textTransform: 'uppercase',
+  marginTop: '8px'
 }
 
-// Inject keyframe animations
-const styleSheet = document.createElement('style')
-styleSheet.textContent = `
-    @keyframes bandNamePulse {
-        0% { 
-            opacity: 0; 
-            transform: scale(0.8) translateY(10px); 
-        }
-        15% { 
-            opacity: 1; 
-            transform: scale(1) translateY(0); 
-        }
-        85% { 
-            opacity: 1; 
-            transform: scale(1) translateY(0); 
-        }
-        100% { 
-            opacity: 0; 
-            transform: scale(0.9) translateY(-10px); 
-        }
-    }
-    
-    @keyframes lyricGlow {
-        0%, 100% { text-shadow: 0 0 10px currentColor; }
-        50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
-    }
-`
-document.head.appendChild(styleSheet)
+const lyricsContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '20px 40px',
+  background: 'rgba(0,0,0,0.4)',
+  backdropFilter: 'blur(30px) saturate(180%)',
+  borderRadius: '20px',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)'
+}
+
+const wordsRowStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+  gap: '0.3em',
+  lineHeight: 1.4
+}
+
+const wordStyle: React.CSSProperties = {
+  transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+  display: 'inline-block',
+  fontFamily: '"Inter", system-ui, sans-serif',
+  letterSpacing: '0.02em'
+}
+
+const lyricProgressContainerStyle: React.CSSProperties = {
+  width: '100%',
+  height: '2px',
+  background: 'rgba(255,255,255,0.1)',
+  borderRadius: '1px',
+  overflow: 'hidden',
+  marginTop: '8px'
+}
+
+const lyricProgressBarStyle: React.CSSProperties = {
+  height: '100%',
+  transition: 'width 0.1s linear',
+  borderRadius: '1px'
+}
+
+const beatIndicatorContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: '4px',
+  alignItems: 'flex-end',
+  height: '20px'
+}
+
+const beatBarStyle: React.CSSProperties = {
+  width: '4px',
+  height: '100%',
+  borderRadius: '2px',
+  opacity: 0.6
+}
