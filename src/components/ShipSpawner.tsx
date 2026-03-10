@@ -1,134 +1,187 @@
 import { useState } from 'react'
 import { ShipSpawner as ShipSpawnerSystem } from '../systems/shipSpawner'
 import { ShipType, useGameStore } from '../store/useGameStore'
+import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
+import { RippleButton, SpawnSplash } from './InteractiveFeedback'
 
 // =============================================================================
-// SHIP SPAWNER UI COMPONENT
-// Buttons to spawn each of the three vessel types
+// PHASE 6: ENHANCED SHIP SPAWNER
+// Glassmorphism panels, ripple effects, spawn animations
 // =============================================================================
 
 interface ShipTypeConfig {
-    type: ShipType
-    label: string
-    shortLabel: string
-    description: string
-    color: string
-    icon: string
+  type: ShipType
+  label: string
+  shortLabel: string
+  description: string
+  musicStyle: string
+  icon: string
 }
 
 const SHIP_TYPES: ShipTypeConfig[] = [
-    {
-        type: 'cruise',
-        label: 'Mega Cruise Liner',
-        shortLabel: 'Cruise',
-        description: '"Ocean Symphony" - Orchestral music + choir',
-        color: '#ff6b9d',
-        icon: '🚢'
-    },
-    {
-        type: 'container',
-        label: 'Ultra Container Vessel',
-        shortLabel: 'Container',
-        description: '"Neon Stack" - Future bass / Techno beats',
-        color: '#00d4aa',
-        icon: '⬛'
-    },
-    {
-        type: 'tanker',
-        label: 'VLCC Oil Tanker',
-        shortLabel: 'Tanker',
-        description: '"Flame Runner" - Industrial dubstep',
-        color: '#ff9500',
-        icon: '⛽'
-    }
+  {
+    type: 'cruise',
+    label: 'Mega Cruise Liner',
+    shortLabel: 'Cruise',
+    description: 'Orchestral music with choir synth',
+    musicStyle: '"Ocean Symphony"',
+    icon: '🚢'
+  },
+  {
+    type: 'container',
+    label: 'Ultra Container Vessel',
+    shortLabel: 'Container',
+    description: 'Future bass and techno beats',
+    musicStyle: '"Neon Stack"',
+    icon: '⬛'
+  },
+  {
+    type: 'tanker',
+    label: 'VLCC Oil Tanker',
+    shortLabel: 'Tanker',
+    description: 'Industrial dubstep and metal',
+    musicStyle: '"Flame Runner"',
+    icon: '⛽'
+  }
 ]
 
-export default function ShipSpawnerComponent() {
-    const [spawning, setSpawning] = useState<ShipType | null>(null)
-    const ships = useGameStore((state) => state.ships)
+export default function ShipSpawner() {
+  const [spawning, setSpawning] = useState<ShipType | null>(null)
+  const [showSplash, setShowSplash] = useState<ShipType | null>(null)
+  const ships = useGameStore((state) => state.ships)
 
-    const handleSpawn = (type: ShipType) => {
-        setSpawning(type)
-        
-        // Simulate spawning delay
-        setTimeout(() => {
-            ShipSpawnerSystem.spawnShip(type)
-            setSpawning(null)
-        }, 500)
-    }
+  const handleSpawn = (type: ShipType) => {
+    setSpawning(type)
+    setShowSplash(type)
+    
+    setTimeout(() => {
+      ShipSpawnerSystem.spawnShip(type)
+      setSpawning(null)
+    }, 600)
+    
+    setTimeout(() => {
+      setShowSplash(null)
+    }, 1500)
+  }
 
-    // Count ships of each type
-    const shipCounts = {
-        cruise: ships.filter(s => s.type === 'cruise').length,
-        container: ships.filter(s => s.type === 'container').length,
-        tanker: ships.filter(s => s.type === 'tanker').length
-    }
+  // Count ships of each type
+  const shipCounts = {
+    cruise: ships.filter(s => s.type === 'cruise').length,
+    container: ships.filter(s => s.type === 'container').length,
+    tanker: ships.filter(s => s.type === 'tanker').length
+  }
 
-    return (
-        <div style={containerStyle}>
-            <div style={headerStyle}>
-                <span style={{ fontSize: '18px' }}>🌊</span>
-                <span style={{ fontWeight: 'bold', letterSpacing: '1px' }}>
-                    HarborGlow
-                </span>
-                <span style={{ fontSize: '18px' }}>✨</span>
+  return (
+    <>
+      <div style={containerStyle}>
+        {/* Header with glass effect */}
+        <div style={headerStyle}>
+          <span style={{ fontSize: '20px', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' }}>🌊</span>
+          <div style={{ textAlign: 'center' }}>
+            <span style={{ 
+              fontWeight: 800, 
+              letterSpacing: '2px',
+              fontSize: '15px',
+              background: 'linear-gradient(135deg, #fff, #a0a0a0)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              HARBOR GLOW
+            </span>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '2px', letterSpacing: '1px' }}>
+              LIGHT UP THE NIGHT
             </div>
-            
-            <div style={buttonsContainerStyle}>
-                {SHIP_TYPES.map((shipType) => (
-                    <button
-                        key={shipType.type}
-                        onClick={() => handleSpawn(shipType.type)}
-                        disabled={spawning !== null}
-                        style={{
-                            ...buttonStyle,
-                            borderColor: shipType.color,
-                            backgroundColor: spawning === shipType.type 
-                                ? `${shipType.color}30` 
-                                : 'rgba(0,0,0,0.7)',
-                            opacity: spawning && spawning !== shipType.type ? 0.5 : 1,
-                            cursor: spawning ? 'wait' : 'pointer'
-                        }}
-                    >
-                        <div style={buttonContentStyle}>
-                            <span style={{ fontSize: '24px' }}>{shipType.icon}</span>
-                            <div style={buttonTextStyle}>
-                                <span style={{ 
-                                    fontWeight: 'bold', 
-                                    fontSize: '13px',
-                                    color: shipType.color
-                                }}>
-                                    {spawning === shipType.type ? 'Spawning...' : `Spawn ${shipType.shortLabel}`}
-                                </span>
-                                <span style={{ 
-                                    fontSize: '10px', 
-                                    color: '#888',
-                                    marginTop: '2px'
-                                }}>
-                                    {shipType.description}
-                                </span>
-                            </div>
-                            {shipCounts[shipType.type] > 0 && (
-                                <span style={{
-                                    ...countBadgeStyle,
-                                    backgroundColor: shipType.color
-                                }}>
-                                    {shipCounts[shipType.type]}
-                                </span>
-                            )}
-                        </div>
-                    </button>
-                ))}
-            </div>
-
-            {/* Ship count summary */}
-            <div style={summaryStyle}>
-                <span style={{ color: '#666', fontSize: '11px' }}>
-                    Total vessels in harbor: <strong style={{ color: '#fff' }}>{ships.length}</strong>
-                </span>
-            </div>
+          </div>
+          <span style={{ fontSize: '20px', filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' }}>✨</span>
         </div>
-    )
+        
+        {/* Ship spawn buttons */}
+        <div style={buttonsContainerStyle}>
+          {SHIP_TYPES.map((shipType) => {
+            const colors = SHIP_COLORS[shipType.type]
+            const isSpawning = spawning === shipType.type
+            
+            return (
+              <RippleButton
+                key={shipType.type}
+                onClick={() => handleSpawn(shipType.type)}
+                disabled={spawning !== null}
+                color={colors.primary}
+                glowColor={colors.glow}
+                size="md"
+                fullWidth
+                variant="secondary"
+                loading={isSpawning}
+                style={{
+                  borderColor: `${colors.primary}50`,
+                  background: `linear-gradient(135deg, rgba(0,0,0,0.6), ${colors.glow}20)`
+                }}
+              >
+                <div style={buttonContentStyle}>
+                  <span style={{ fontSize: '24px', filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.2))' }}>
+                    {shipType.icon}
+                  </span>
+                  
+                  <div style={buttonTextStyle}>
+                    <span style={{ 
+                      fontWeight: 700, 
+                      fontSize: '13px',
+                      color: colors.primary,
+                      letterSpacing: '0.5px'
+                    }}>
+                      {shipType.shortLabel}
+                    </span>
+                    <span style={{ 
+                      fontSize: '10px', 
+                      color: 'rgba(255,255,255,0.5)',
+                      marginTop: '2px',
+                      fontWeight: 400
+                    }}>
+                      {shipType.musicStyle}
+                    </span>
+                  </div>
+                  
+                  {shipCounts[shipType.type] > 0 && (
+                    <span style={{
+                      ...countBadgeStyle,
+                      background: colors.gradient,
+                      color: '#000',
+                      boxShadow: `0 2px 8px ${colors.glow}`
+                    }}>
+                      {shipCounts[shipType.type]}
+                    </span>
+                  )}
+                </div>
+              </RippleButton>
+            )
+          })}
+        </div>
+
+        {/* Ship count summary */}
+        <div style={summaryStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: ships.length > 0 ? '#00d4aa' : '#666',
+              boxShadow: ships.length > 0 ? '0 0 8px #00d4aa' : 'none',
+              transition: 'all 0.3s ease'
+            }} />
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 500 }}>
+              {ships.length === 0 
+                ? 'No vessels in harbor' 
+                : `${ships.length} vessel${ships.length > 1 ? 's' : ''} docked`
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Spawn splash effect */}
+      {showSplash && <SpawnSplash shipType={showSplash} />}
+    </>
+  )
 }
 
 // =============================================================================
@@ -136,78 +189,67 @@ export default function ShipSpawnerComponent() {
 // =============================================================================
 
 const containerStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: '20px',
-    left: '20px',
-    pointerEvents: 'auto',
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    padding: '16px',
-    borderRadius: '12px',
-    border: '1px solid #333',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(10px)',
-    minWidth: '240px'
+  position: 'absolute',
+  top: '20px',
+  left: '20px',
+  pointerEvents: 'auto',
+  background: GLASSMORPHISM.background,
+  backdropFilter: GLASSMORPHISM.backdropFilter,
+  WebkitBackdropFilter: GLASSMORPHISM.backdropFilter,
+  padding: '20px',
+  borderRadius: GLASSMORPHISM.borderRadius,
+  border: GLASSMORPHISM.border,
+  boxShadow: GLASSMORPHISM.boxShadow,
+  minWidth: '260px',
+  animation: 'slideUp 0.4s ease-out'
 }
 
 const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    marginBottom: '16px',
-    paddingBottom: '12px',
-    borderBottom: '1px solid #333',
-    color: '#fff',
-    fontSize: '16px'
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: '16px',
+  paddingBottom: '16px',
+  borderBottom: '1px solid rgba(255,255,255,0.1)'
 }
 
 const buttonsContainerStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-}
-
-const buttonStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    padding: '12px',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    border: '2px solid',
-    borderRadius: '8px',
-    color: '#fff',
-    transition: 'all 0.2s ease',
-    cursor: 'pointer',
-    position: 'relative'
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px'
 }
 
 const buttonContentStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px'
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  width: '100%'
 }
 
 const buttonTextStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    flex: 1
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  flex: 1
 }
 
 const countBadgeStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '22px',
-    height: '22px',
-    borderRadius: '11px',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    color: '#000'
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '22px',
+  height: '22px',
+  borderRadius: '11px',
+  fontSize: '11px',
+  fontWeight: 800,
+  transition: 'all 0.3s ease'
 }
 
 const summaryStyle: React.CSSProperties = {
-    marginTop: '12px',
-    paddingTop: '12px',
-    borderTop: '1px solid #333',
-    textAlign: 'center'
+  marginTop: '16px',
+  paddingTop: '16px',
+  borderTop: '1px solid rgba(255,255,255,0.1)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
 }
