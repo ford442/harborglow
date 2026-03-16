@@ -355,7 +355,7 @@ export function InstallationProgress({ steps, currentStep, color = '#00d4aa' }: 
 interface ToastProps {
   message: string
   type?: 'success' | 'info' | 'warning' | 'error'
-  shipType?: 'cruise' | 'container' | 'tanker'
+  shipType?: ShipType
   onClose?: () => void
 }
 

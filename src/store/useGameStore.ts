@@ -125,6 +125,9 @@ interface GameState extends SerializableState {
     musicPlaying: Map<string, boolean>
     spectatorState: SpectatorState
     isNight: boolean
+    // Wildlife and sea events
+    wildlife: WildlifeEntity[]
+    activeSeaEvent: SeaEvent | null
     
     // Actions
     addShip: (ship: Ship) => void
