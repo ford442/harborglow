@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { useGameStore, WildlifeEntity, WildlifeType, Ship } from '../store/useGameStore'
-import * as THREE from 'three'
+// Three.js types used for position calculations
 
 // Scientific constants based on real marine biology data
 const WILDLIFE_SPECS: Record<WildlifeType, {
@@ -98,7 +98,7 @@ class WildlifeSystem {
     private initializeBehaviors() {
         // Humpback whale behavior - breaching and diving
         this.behaviors.humpback_whale = {
-            update: (entity, delta, ships) => {
+            update: (entity) => {
                 const time = Date.now() / 1000
                 const specs = WILDLIFE_SPECS.humpback_whale
                 
@@ -148,7 +148,7 @@ class WildlifeSystem {
         
         // Great white shark behavior - patrol pattern
         this.behaviors.great_white_shark = {
-            update: (entity, delta, ships) => {
+            update: (entity) => {
                 const time = Date.now() / 1000
                 const specs = WILDLIFE_SPECS.great_white_shark
                 
@@ -175,7 +175,7 @@ class WildlifeSystem {
         
         // Bottlenose dolphin behavior - bow riding and pod swimming
         this.behaviors.bottlenose_dolphin = {
-            update: (entity, delta, ships) => {
+            update: (entity, _delta, ships) => {
                 const time = Date.now() / 1000
                 const specs = WILDLIFE_SPECS.bottlenose_dolphin
                 
@@ -212,7 +212,7 @@ class WildlifeSystem {
                             0.5,  // Riding the pressure wave
                             targetShip.position[2] + lateralOffset
                         ] as [number, number, number],
-                        velocity: targetShip.velocity || [specs.maxSpeed * 0.3, 0, 0]
+                        velocity: [specs.maxSpeed * 0.3, 0, 0]
                     }
                 }
                 
@@ -264,7 +264,7 @@ class WildlifeSystem {
     // Spawn new wildlife entity
     spawnWildlife(type: WildlifeType): WildlifeEntity {
         const id = `wildlife-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-        const specs = WILDLIFE_SPECS[type]
+        // Get specs via WILDLIFE_SPECS[type]
         
         // Random spawn position away from ships
         const angle = Math.random() * Math.PI * 2

@@ -108,8 +108,8 @@ function MeteorShowerEffect() {
     return (
         <group ref={groupRef}>
             {meteors.map((meteor) => (
-                <mesh key={meteor.id} visible={false}>
-                    <cylinderGeometry args={[0.5, 0.1, 20, 8]} rotation={[0, 0, meteor.angle]} />
+                <mesh key={meteor.id} visible={false} rotation={[0, 0, meteor.angle]}>
+                    <cylinderGeometry args={[0.5, 0.1, 20, 8]} />
                     <meshBasicMaterial 
                         color="#ffffff" 
                         transparent 
