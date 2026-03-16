@@ -13,13 +13,28 @@ interface ShipProps {
 
 // PHASE 10: LOD Impostor for distant ships
 function ShipImpostor({ type }: { type: Ship['type'] }) {
-    const color = type === 'cruise' ? '#ff6b9d' : type === 'container' ? '#00d4aa' : '#ff9500'
+    const colors: Record<Ship['type'], string> = {
+        cruise: '#ff6b9d',
+        container: '#00d4aa',
+        tanker: '#ff9500',
+        bulk: '#8b4513',
+        lng: '#00bfff',
+        roro: '#9b59b6',
+        research: '#2ecc71',
+        droneship: '#34495e'
+    }
+    const color = colors[type]
     
     const size = useMemo(() => {
         switch (type) {
             case 'cruise': return [6, 2, 1.5] as [number, number, number]
             case 'container': return [10, 1.5, 2] as [number, number, number]
             case 'tanker': return [8, 2, 2.5] as [number, number, number]
+            case 'bulk': return [12, 3, 2] as [number, number, number]
+            case 'lng': return [14, 3.5, 2.2] as [number, number, number]
+            case 'roro': return [7, 2.5, 1.8] as [number, number, number]
+            case 'research': return [5, 2, 1.5] as [number, number, number]
+            case 'droneship': return [4.6, 1, 3] as [number, number, number]
         }
     }, [type])
     
@@ -51,7 +66,17 @@ export default function ShipComponent({ ship }: ShipProps) {
     useFrame((state) => {
         if (!groupRef.current) return
         
-        const bobOffset = ship.type === 'tanker' ? 0.03 : ship.type === 'container' ? 0.05 : 0.08
+        const bobOffsets: Record<Ship['type'], number> = {
+            cruise: 0.08,
+            container: 0.05,
+            tanker: 0.03,
+            bulk: 0.04,
+            lng: 0.035,
+            roro: 0.06,
+            research: 0.05,
+            droneship: 0.10  // Barge is more stable
+        }
+        const bobOffset = bobOffsets[ship.type]
         groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset
         
         // PHASE 10: Skip light updates at low LOD
@@ -129,6 +154,16 @@ function getLightColor(type: Ship['type'], partName: string): string {
             return partName.includes('mast') ? '#ff00ff' : '#00ff88'
         case 'tanker':
             return partName.includes('flare') ? '#ff4400' : '#ff6600'
+        case 'bulk':
+            return partName.includes('crane') ? '#ffaa00' : '#ffdd88'
+        case 'lng':
+            return partName.includes('membrane') ? '#00ccff' : partName.includes('loading') ? '#silver' : '#ffffff'
+        case 'roro':
+            return partName.includes('lifeboat') ? '#ff4444' : '#ffdd00'
+        case 'research':
+            return partName.includes('sonar') ? '#00ff88' : partName.includes('radar') ? '#4488ff' : '#ffffff'
+        case 'droneship':
+            return partName.includes('thruster') ? '#ff6600' : partName.includes('octagrabber') ? '#ffaa00' : '#00ccff'
         default:
             return '#ffffff'
     }
