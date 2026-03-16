@@ -82,16 +82,16 @@ function WeatherParticles({ maxCount = 10000 }: { maxCount?: number }) {
   
   // Animate rain
   useFrame((_, delta) => {
-    if (weather !== 'rain' || !rainRef.current) return
-    
+    if (weather !== 'rain' || !rainRef.current?.geometry?.attributes?.position) return
+
     const positions = rainRef.current.geometry.attributes.position.array as Float32Array
     const velocities = rainData.velocities
-    
+
     for (let i = 0; i < maxCount; i++) {
       positions[i * 3] += velocities[i * 3] * delta
       positions[i * 3 + 1] += velocities[i * 3 + 1] * delta
       positions[i * 3 + 2] += velocities[i * 3 + 2] * delta
-      
+
       // Reset if below water
       if (positions[i * 3 + 1] < -2) {
         positions[i * 3] = (Math.random() - 0.5) * 200
@@ -99,7 +99,7 @@ function WeatherParticles({ maxCount = 10000 }: { maxCount?: number }) {
         positions[i * 3 + 2] = (Math.random() - 0.5) * 200
       }
     }
-    
+
     rainRef.current.geometry.attributes.position.needsUpdate = true
   })
   
@@ -131,25 +131,25 @@ function WeatherParticles({ maxCount = 10000 }: { maxCount?: number }) {
   
   // Animate fog
   useFrame((state, delta) => {
-    if (!fogRef.current) return
-    
+    if (!fogRef.current?.geometry?.attributes?.position) return
+
     const positions = fogRef.current.geometry.attributes.position.array as Float32Array
     const velocities = fogData.velocities
     const time = state.clock.elapsedTime
-    
+
     for (let i = 0; i < maxCount; i++) {
       const noise = Math.sin(positions[i * 3] * 0.1 + time * 0.05) * Math.cos(positions[i * 3 + 2] * 0.1 + time * 0.03)
-      
+
       positions[i * 3] += (velocities[i * 3] + noise * 2) * delta
       positions[i * 3 + 2] += (velocities[i * 3 + 2] + noise) * delta
-      
+
       // Wrap around
       if (positions[i * 3] > 100) positions[i * 3] = -100
       if (positions[i * 3] < -100) positions[i * 3] = 100
       if (positions[i * 3 + 2] > 100) positions[i * 3 + 2] = -100
       if (positions[i * 3 + 2] < -100) positions[i * 3 + 2] = 100
     }
-    
+
     fogRef.current.geometry.attributes.position.needsUpdate = true
   })
   
