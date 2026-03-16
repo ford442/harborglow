@@ -47,6 +47,26 @@ class MusicSystem {
             name: 'Industrial Flames', 
             genre: 'Dubstep / Industrial' 
         })
+        this.bandNames.set('bulk', { 
+            name: 'Iron Ore Orchestra', 
+            genre: 'Industrial Metal / Hard Rock' 
+        })
+        this.bandNames.set('lng', { 
+            name: 'Cryogenic Pulse', 
+            genre: 'Ambient / Cryogenic Techno' 
+        })
+        this.bandNames.set('roro', { 
+            name: 'Highway Star', 
+            genre: 'Synthwave / Driving Rock' 
+        })
+        this.bandNames.set('research', { 
+            name: 'Sonar Collective', 
+            genre: 'Ambient / Scientific' 
+        })
+        this.bandNames.set('droneship', { 
+            name: 'Orbital Mechanics', 
+            genre: 'Space Ambient / Electronic' 
+        })
     }
 
     getBandInfo(shipType: ShipType): BandInfo {
@@ -102,6 +122,11 @@ class MusicSystem {
         this.currentLyricIndex.set('cruise', 0)
         this.currentLyricIndex.set('container', 0)
         this.currentLyricIndex.set('tanker', 0)
+        this.currentLyricIndex.set('bulk', 0)
+        this.currentLyricIndex.set('lng', 0)
+        this.currentLyricIndex.set('roro', 0)
+        this.currentLyricIndex.set('research', 0)
+        this.currentLyricIndex.set('droneship', 0)
     }
 
     // =========================================================================
@@ -115,6 +140,11 @@ class MusicSystem {
         this.initializeCruiseSynths()
         this.initializeContainerSynths()
         this.initializeTankerSynths()
+        this.initializeBulkSynths()
+        this.initializeLngSynths()
+        this.initializeRoroSynths()
+        this.initializeResearchSynths()
+        this.initializeDroneshipSynths()
         this.initializeTransports()
         
         this.isInitialized = true
@@ -294,6 +324,231 @@ class MusicSystem {
         this.effects.set('tanker', effects)
     }
 
+    // -------------------------------------------------------------------------
+    // BULK CARRIER - "Iron Mountain" - 135 BPM Industrial Metal / Hard Rock
+    // -------------------------------------------------------------------------
+    private initializeBulkSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        // Heavy distortion for industrial metal sound
+        const distortion = new Tone.Distortion({ distortion: 0.4, wet: 0.3 }).toDestination()
+        effects.push(distortion)
+
+        // Reverb for massive spaces
+        const reverb = new Tone.Reverb({ decay: 3, preDelay: 0.1, wet: 0.25 }).connect(distortion)
+        effects.push(reverb)
+
+        // Power chord guitar synth
+        const guitarSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.8 }
+        }).connect(distortion)
+        guitarSynth.volume.value = -10
+        synths.push(guitarSynth)
+
+        // Bass synth
+        const bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.4 },
+            filter: { Q: 4, type: 'lowpass', rolloff: -24 }
+        }).connect(reverb)
+        bassSynth.volume.value = -6
+        synths.push(bassSynth)
+
+        // Industrial percussion
+        const metalSynth = new Tone.MetalSynth({
+            envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+            harmonicity: 5.1,
+            modulationIndex: 32,
+            resonance: 4000,
+            octaves: 1.5
+        }).connect(distortion)
+        metalSynth.volume.value = -12
+        synths.push(metalSynth)
+
+        this.synths.set('bulk', synths)
+        this.effects.set('bulk', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // LNG CARRIER - "Cryo Titan" - 118 BPM Ambient / Cryogenic Techno
+    // -------------------------------------------------------------------------
+    private initializeLngSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        // Crystalline reverb for frozen atmosphere
+        const reverb = new Tone.Reverb({ decay: 8, preDelay: 0.5, wet: 0.6 }).toDestination()
+        effects.push(reverb)
+
+        // Chorus for ethereal shimmer
+        const chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 3, depth: 0.7, wet: 0.4 }).connect(reverb)
+        effects.push(chorus)
+
+        // Cold, crystalline pad
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 2, decay: 1, sustain: 0.8, release: 4 }
+        }).connect(chorus)
+        padSynth.volume.value = -14
+        synths.push(padSynth)
+
+        // FM synth for icy accents
+        const fmSynth = new Tone.PolySynth(Tone.FMSynth, {
+            harmonicity: 4,
+            modulationIndex: 10,
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.5, decay: 0.5, sustain: 0.5, release: 2 },
+            modulation: { type: 'triangle' }
+        }).connect(reverb)
+        fmSynth.volume.value = -16
+        synths.push(fmSynth)
+
+        // Sub bass for deep cold
+        const subSynth = new Tone.MonoSynth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 1, decay: 0.5, sustain: 0.9, release: 3 }
+        }).connect(reverb)
+        subSynth.volume.value = -8
+        synths.push(subSynth)
+
+        this.synths.set('lng', synths)
+        this.effects.set('lng', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // RO-RO FERRY - "Vehicle Voyager" - 125 BPM Synthwave / Driving Rock
+    // -------------------------------------------------------------------------
+    private initializeRoroSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        // Retro chorus for 80s feel
+        const chorus = new Tone.Chorus({ frequency: 2, delayTime: 3.5, depth: 0.5, wet: 0.3 }).toDestination()
+        effects.push(chorus)
+
+        // Delay for driving rhythm
+        const feedbackDelay = new Tone.FeedbackDelay('8n', 0.3).connect(chorus)
+        effects.push(feedbackDelay)
+
+        // Arpeggiator-style lead
+        const leadSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 }
+        }).connect(feedbackDelay)
+        leadSynth.volume.value = -10
+        synths.push(leadSynth)
+
+        // Driving bass
+        const bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'pulse' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.8, release: 0.3 },
+            filter: { Q: 2, type: 'lowpass', rolloff: -24 }
+        }).connect(chorus)
+        bassSynth.volume.value = -8
+        synths.push(bassSynth)
+
+        // Snappy percussion
+        const membrane = new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 4,
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+        }).connect(chorus)
+        membrane.volume.value = -10
+        synths.push(membrane)
+
+        this.synths.set('roro', synths)
+        this.effects.set('roro', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // RESEARCH VESSEL - "Deep Discoverer" - 110 BPM Ambient / Scientific
+    // -------------------------------------------------------------------------
+    private initializeResearchSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        // Deep ocean reverb
+        const reverb = new Tone.Reverb({ decay: 10, preDelay: 0.3, wet: 0.5 }).toDestination()
+        effects.push(reverb)
+
+        // Ping pong for sonar effect
+        const pingPong = new Tone.PingPongDelay('4n', 0.2).connect(reverb)
+        effects.push(pingPong)
+
+        // Sonar ping synth
+        const sonarSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 1 }
+        }).connect(pingPong)
+        sonarSynth.volume.value = -12
+        synths.push(sonarSynth)
+
+        // Deep ambient pad
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 1, decay: 1, sustain: 0.7, release: 5 }
+        }).connect(reverb)
+        padSynth.volume.value = -18
+        synths.push(padSynth)
+
+        // Subtle bass
+        const bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.5, decay: 0.5, sustain: 0.8, release: 3 }
+        }).connect(reverb)
+        bassSynth.volume.value = -14
+        synths.push(bassSynth)
+
+        this.synths.set('research', synths)
+        this.effects.set('research', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // DRONE SHIP - "Of Course I Still Love You" - 105 BPM Space Ambient
+    // -------------------------------------------------------------------------
+    private initializeDroneshipSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        // Space reverb
+        const reverb = new Tone.Reverb({ decay: 12, preDelay: 0.8, wet: 0.7 }).toDestination()
+        effects.push(reverb)
+
+        // Long delay for space echo
+        const feedbackDelay = new Tone.FeedbackDelay('2n', 0.5).connect(reverb)
+        effects.push(feedbackDelay)
+
+        // Ethereal space pad
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'fatsawtooth', count: 3, spread: 30 },
+            envelope: { attack: 2, decay: 1, sustain: 0.8, release: 8 }
+        }).connect(feedbackDelay)
+        padSynth.volume.value = -16
+        synths.push(padSynth)
+
+        // Space blip synth
+        const blipSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.2 }
+        }).connect(reverb)
+        blipSynth.volume.value = -20
+        synths.push(blipSynth)
+
+        // Deep space drone
+        const droneSynth = new Tone.MonoSynth({
+            oscillator: { type: 'fmsine' },
+            envelope: { attack: 3, decay: 1, sustain: 1, release: 10 }
+        }).connect(reverb)
+        droneSynth.volume.value = -20
+        synths.push(droneSynth)
+
+        this.synths.set('droneship', synths)
+        this.effects.set('droneship', effects)
+    }
+
     // =========================================================================
     // TRANSPORTS - Music sequences for each ship type
     // =========================================================================
@@ -380,6 +635,130 @@ class MusicSystem {
         noisePart.loopEnd = '4:0'
 
         this.transports.set('tanker', tankerTransport)
+
+        // BULK TRANSPORT - 135 BPM industrial metal
+        const bulkTransport = Tone.getTransport()
+        bulkTransport.bpm.value = 135
+        
+        const bulkSynths = this.synths.get('bulk') || []
+        const [guitar, bulkBass, bulkMetal] = bulkSynths
+
+        // Power chord riff
+        const riffPart = new Tone.Sequence((time, chord) => {
+            if (chord) guitar?.triggerAttackRelease(chord, '4n', time)
+        }, [['E3', 'G3', 'B3'], null, ['E3', 'G3', 'B3'], ['D3', 'F3', 'A3'], null, ['D3', 'F3', 'A3'], ['C3', 'E3', 'G3'], null])
+        riffPart.loop = true
+
+        // Heavy metal drums
+        const bulkDrumPart = new Tone.Sequence((time) => {
+            bulkMetal?.triggerAttackRelease('16n', time)
+            bulkBass?.triggerAttackRelease('E2', '8n', time)
+        }, ['E2', null, 'E2', 'E2', null, 'E2', null, 'E2'])
+        bulkDrumPart.loop = true
+
+        this.transports.set('bulk', bulkTransport)
+
+        // LNG TRANSPORT - 118 BPM cryogenic ambient
+        const lngTransport = Tone.getTransport()
+        lngTransport.bpm.value = 118
+        
+        const lngSynths = this.synths.get('lng') || []
+        const [coldPad, fm, coldSub] = lngSynths
+
+        // Slow crystalline pads
+        const coldPadPart = new Tone.Part((time, value) => {
+            coldPad?.triggerAttackRelease(value.notes, value.duration, time, 0.5)
+        }, [
+            { time: '0:0', notes: ['C3', 'E3', 'G3'], duration: '2m' },
+            { time: '2:0', notes: ['A2', 'C3', 'E3'], duration: '2m' },
+        ])
+        coldPadPart.loop = true
+        coldPadPart.loopEnd = '4:0'
+
+        // Icy FM accents
+        const fmPart = new Tone.Sequence((time, note) => {
+            if (note) fm?.triggerAttackRelease(note, '2n', time)
+        }, ['C4', null, 'E4', null, 'G4', null, 'B4', null])
+        fmPart.loop = true
+
+        this.transports.set('lng', lngTransport)
+
+        // RO-RO TRANSPORT - 125 BPM synthwave
+        const roroTransport = Tone.getTransport()
+        roroTransport.bpm.value = 125
+        
+        const roroSynths = this.synths.get('roro') || []
+        const [roroLead, roroBass, roroDrum] = roroSynths
+
+        // Driving bassline
+        const roroBassPart = new Tone.Sequence((time, note) => {
+            roroBass?.triggerAttackRelease(note, '8n', time)
+        }, ['C2', 'C2', 'G2', 'C2', 'F2', 'F2', 'G2', 'F2'])
+        roroBassPart.loop = true
+
+        // Driving beat
+        const roroBeatPart = new Tone.Sequence((time) => {
+            roroDrum?.triggerAttackRelease('C1', '8n')
+        }, ['C1', 'C1', null, 'C1', null, 'C1', 'C1', null])
+        roroBeatPart.loop = true
+
+        this.transports.set('roro', roroTransport)
+
+        // RESEARCH TRANSPORT - 110 BPM scientific ambient
+        const researchTransport = Tone.getTransport()
+        researchTransport.bpm.value = 110
+        
+        const researchSynths = this.synths.get('research') || []
+        const [sonar, researchPad, researchBass] = researchSynths
+
+        // Sonar pings
+        const sonarPart = new Tone.Sequence((time, note) => {
+            if (note) sonar?.triggerAttackRelease(note, '8n', time)
+        }, ['C5', null, null, null, 'C5', null, null, null, 'E5', null, null, null, 'C5', null, null, null])
+        sonarPart.loop = true
+
+        // Deep pad chords
+        const researchPadPart = new Tone.Part((time, value) => {
+            researchPad?.triggerAttackRelease(value.notes, value.duration, time, 0.4)
+        }, [
+            { time: '0:0', notes: ['C2', 'G2', 'C3'], duration: '4m' },
+            { time: '4:0', notes: ['F2', 'C3', 'F3'], duration: '4m' },
+        ])
+        researchPadPart.loop = true
+        researchPadPart.loopEnd = '8:0'
+
+        this.transports.set('research', researchTransport)
+
+        // DRONESHIP TRANSPORT - 105 BPM space ambient
+        const droneshipTransport = Tone.getTransport()
+        droneshipTransport.bpm.value = 105
+        
+        const droneshipSynths = this.synths.get('droneship') || []
+        const [spacePad, blip, drone] = droneshipSynths
+
+        // Space pad progression
+        const spacePadPart = new Tone.Part((time, value) => {
+            spacePad?.triggerAttackRelease(value.notes, value.duration, time, 0.3)
+        }, [
+            { time: '0:0', notes: ['C3', 'E3', 'G3', 'B3'], duration: '4m' },
+            { time: '4:0', notes: ['A2', 'C3', 'E3', 'G3'], duration: '4m' },
+        ])
+        spacePadPart.loop = true
+        spacePadPart.loopEnd = '8:0'
+
+        // Communication blips
+        const blipPart = new Tone.Sequence((time, note) => {
+            if (note) blip?.triggerAttackRelease(note, '16n', time)
+        }, [null, null, 'C6', null, null, null, 'E6', null, null, 'G6', null, null, null, null, 'C6', null])
+        blipPart.loop = true
+
+        // Continuous space drone
+        const dronePart = new Tone.Sequence((time, note) => {
+            drone?.triggerAttackRelease(note, '1m', time)
+        }, ['C2', 'G1', 'C2', 'F1'])
+        dronePart.loop = true
+
+        this.transports.set('droneship', droneshipTransport)
     }
 
     // =========================================================================

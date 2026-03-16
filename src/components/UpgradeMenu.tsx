@@ -46,7 +46,59 @@ const UPGRADE_CONFIGS: Record<ShipType, UpgradeOption[]> = {
         { partName: 'hull1', label: 'Bow Hull Wash', description: 'Underwater projection' },
         { partName: 'hull2', label: 'Stern Hull Wash', description: 'Wake illumination' },
         { partName: 'hull3', label: 'Port Hull Array', description: 'Side floodlighting' },
-    ]
+    ],
+    bulk: [
+        { partName: 'hatch1', label: 'Hold 1-2 Lighting', description: 'Fore cargo hold floodlights' },
+        { partName: 'hatch2', label: 'Hold 3-4 Lighting', description: 'Mid-forward hold illumination' },
+        { partName: 'hatch3', label: 'Hold 5-6 Lighting', description: 'Mid-aft hold floodlights' },
+        { partName: 'hatch4', label: 'Hold 7-9 Lighting', description: 'Aft cargo hold illumination' },
+        { partName: 'crane1', label: 'Port Fore Crane', description: 'Gantry crane LED array' },
+        { partName: 'crane2', label: 'Stbd Fore Crane', description: 'Gantry crane LED array' },
+        { partName: 'crane3', label: 'Port Aft Crane', description: 'Gantry crane LED array' },
+        { partName: 'crane4', label: 'Stbd Aft Crane', description: 'Gantry crane LED array' },
+        { partName: 'funnel', label: 'Exhaust Funnel', description: 'Stack light projection system' },
+    ],
+    lng: [
+        { partName: 'membraneTank1', label: 'Tank 1 Cryo-Lights', description: 'Forward membrane tank glow' },
+        { partName: 'membraneTank2', label: 'Tank 2 Cryo-Lights', description: 'Forward-mid tank illumination' },
+        { partName: 'membraneTank3', label: 'Tank 3 Cryo-Lights', description: 'Aft-mid tank glow system' },
+        { partName: 'membraneTank4', label: 'Tank 4 Cryo-Lights', description: 'Aft membrane tank illumination' },
+        { partName: 'superstructure', label: 'Accommodation Lights', description: 'Living quarters accent lighting' },
+        { partName: 'mast', label: 'Navigation Mast', description: 'Combined lantern array' },
+        { partName: 'loadingArm1', label: 'Stbd Loading Arm', description: 'Cryogenic arm floodlight' },
+        { partName: 'loadingArm2', label: 'Port Loading Arm', description: 'Cryogenic arm floodlight' },
+        { partName: 'reliquefaction', label: 'Process Plant', description: 'Reliquefaction unit lighting' },
+        { partName: 'tankBarrier1', label: 'Tank Barrier LEDs', description: 'Inter-barrier illumination' },
+    ],
+    roro: [
+        { partName: 'sternRamp', label: 'Stern Ramp System', description: 'Vehicle ramp lighting' },
+        { partName: 'bowVisor', label: 'Bow Visor Lights', description: 'Forward loading door illumination' },
+        { partName: 'superstructure', label: 'Passenger Deck', description: 'Superstructure accent lighting' },
+        { partName: 'lifeboat1', label: 'Port Lifeboat', description: 'Survival craft lighting' },
+        { partName: 'lifeboat2', label: 'Starboard Lifeboat', description: 'Survival craft lighting' },
+        { partName: 'sideDoorL', label: 'Port Side Door', description: 'Port side loading door lights' },
+        { partName: 'sideDoorR', label: 'Starboard Side Door', description: 'Stbd side loading door lights' },
+        { partName: 'mast', label: 'Mast Head Lights', description: 'Navigation and signal lights' },
+    ],
+    research: [
+        { partName: 'aFrame', label: 'A-Frame Crane', description: 'Deployment crane lighting' },
+        { partName: 'sonarDome', label: 'Sonar Array', description: 'Multibeam sonar illumination' },
+        { partName: 'radarDish', label: 'Radar Mast', description: 'Scientific radar lighting' },
+        { partName: 'crane', label: 'Deck Crane', description: 'Work crane floodlights' },
+        { partName: 'laboratory', label: 'Lab Module', description: 'Research lab accent lights' },
+        { partName: 'heliDeck', label: 'Helicopter Deck', description: 'Flight deck lighting system' },
+        { partName: 'moonPool', label: 'Moon Pool', description: 'Submersible launch bay lights' },
+    ],
+    droneship: [
+        { partName: 'thruster1', label: 'Port-Aft Thruster', description: 'Azimuth thruster bay light' },
+        { partName: 'thruster2', label: 'Stbd-Aft Thruster', description: 'Azimuth thruster bay light' },
+        { partName: 'thruster3', label: 'Port-Fwd Thruster', description: 'Azimuth thruster bay light' },
+        { partName: 'thruster4', label: 'Stbd-Fwd Thruster', description: 'Azimuth thruster bay light' },
+        { partName: 'equipmentContainer', label: 'Equipment Bay', description: 'Generator room lighting' },
+        { partName: 'starlinkDish', label: 'Comm Array', description: 'Starlink and antenna lighting' },
+        { partName: 'cameras', label: 'Camera System', description: 'Landing camera floodlights' },
+        { partName: 'octagrabber', label: 'Octagrabber', description: 'Robot securing system lights' },
+    ],
 }
 
 export default function UpgradeMenu() {
@@ -163,13 +215,23 @@ export default function UpgradeMenu() {
     const shipTypeLabels: Record<ShipType, string> = {
         cruise: 'Mega Cruise Liner',
         container: 'Ultra Container Vessel',
-        tanker: 'VLCC Oil Tanker'
+        tanker: 'VLCC Oil Tanker',
+        bulk: 'Capesize Bulk Carrier',
+        lng: 'Q-Max LNG Carrier',
+        roro: 'Roll-on/Roll-off Ferry',
+        research: 'Research Vessel',
+        droneship: 'Space Recovery Drone Ship'
     }
 
     const shipTypeColors: Record<ShipType, string> = {
         cruise: '#ff6b9d',
         container: '#00d4aa',
-        tanker: '#ff9500'
+        tanker: '#ff9500',
+        bulk: '#8b4513',      // Rust/brown for iron ore
+        lng: '#00bfff',       // Ice blue for cryogenic
+        roro: '#9b59b6',      // Purple for vehicles
+        research: '#2ecc71',  // Green for science
+        droneship: '#34495e'  // Dark slate for space
     }
 
     // Get current and next version

@@ -142,6 +142,36 @@ export const SHIP_COLORS = {
     secondary: '#ffb84d',
     glow: '#ff950080',
     gradient: 'linear-gradient(135deg, #ff9500, #ffb84d)'
+  },
+  bulk: {
+    primary: '#8b4513',
+    secondary: '#a0522d',
+    glow: '#8b451380',
+    gradient: 'linear-gradient(135deg, #8b4513, #a0522d)'
+  },
+  lng: {
+    primary: '#00bfff',
+    secondary: '#87ceeb',
+    glow: '#00bfff80',
+    gradient: 'linear-gradient(135deg, #00bfff, #87ceeb)'
+  },
+  roro: {
+    primary: '#9b59b6',
+    secondary: '#bb8fce',
+    glow: '#9b59b680',
+    gradient: 'linear-gradient(135deg, #9b59b6, #bb8fce)'
+  },
+  research: {
+    primary: '#2ecc71',
+    secondary: '#58d68d',
+    glow: '#2ecc7180',
+    gradient: 'linear-gradient(135deg, #2ecc71, #58d68d)'
+  },
+  droneship: {
+    primary: '#34495e',
+    secondary: '#5d6d7e',
+    glow: '#34495e80',
+    gradient: 'linear-gradient(135deg, #34495e, #5d6d7e)'
   }
 }
 
