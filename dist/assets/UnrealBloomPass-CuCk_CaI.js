@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:dist/assets/UnrealBloomPass-D6ll-6Zj.js
-import{b7 as T,b as u,au as p,H as g,bp as b,S as f,V as h,b8 as M,aA as S}from"./index-BEAkyQvC.js";import{P as C,F as w}from"./Pass-DIirXCIs.js";import{C as U}from"./CopyShader-BzTUYzf6.js";const B={uniforms:{tDiffuse:{value:null},luminosityThreshold:{value:1},smoothWidth:{value:1},defaultColor:{value:new T(0)},defaultOpacity:{value:0}},vertexShader:`
-========
-import{b7 as T,b as u,au as p,H as g,bp as b,S as f,V as h,b8 as M,aA as S}from"./index-BuunHQHy.js";import{P as C,F as w}from"./Pass-BMSflKrn.js";import{C as U}from"./CopyShader-BzTUYzf6.js";const B={uniforms:{tDiffuse:{value:null},luminosityThreshold:{value:1},smoothWidth:{value:1},defaultColor:{value:new T(0)},defaultOpacity:{value:0}},vertexShader:`
->>>>>>>> 39610eb98acc4ef29eb838973534f9f66232a92c:dist/assets/UnrealBloomPass-CQtNfEJR.js
+import{b7 as T,b as u,au as p,H as g,bp as b,S as f,V as h,b8 as M,aA as S}from"./index-DyDCKiHA.js";import{P as C,F as w}from"./Pass-Bf_E4POv.js";import{C as U}from"./CopyShader-BzTUYzf6.js";const B={uniforms:{tDiffuse:{value:null},luminosityThreshold:{value:1},smoothWidth:{value:1},defaultColor:{value:new T(0)},defaultOpacity:{value:0}},vertexShader:`
 
 		varying vec2 vUv;
 
