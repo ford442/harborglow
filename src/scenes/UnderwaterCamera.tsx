@@ -399,21 +399,21 @@ function Tentacle({
   const segmentCount = 12
   
   useFrame((state) => {
-    if (!pointsRef.current) return
-    
+    if (!pointsRef.current?.geometry?.attributes?.position) return
+
     const positions = pointsRef.current.geometry.attributes.position.array as Float32Array
     const time = state.clock.elapsedTime
     const angle = (index / 6) * Math.PI * 2
-    
+
     for (let i = 0; i < segmentCount; i++) {
       const t = i / segmentCount
       const sway = Math.sin(time * 2 + t * 3 + index) * 0.3 * t
-      
+
       positions[i * 3] = parentPosition.x + Math.cos(angle) * (0.3 + t * 0.2) + sway
       positions[i * 3 + 1] = parentPosition.y - t * size * 1.5
       positions[i * 3 + 2] = parentPosition.z + Math.sin(angle) * (0.3 + t * 0.2)
     }
-    
+
     pointsRef.current.geometry.attributes.position.needsUpdate = true
   })
   

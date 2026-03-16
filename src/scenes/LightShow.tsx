@@ -816,7 +816,7 @@ function SparkEffect({ position, onComplete }: { position: [number, number, numb
   }, [])
 
   useFrame(() => {
-    if (!particlesRef.current) return
+    if (!particlesRef.current?.geometry?.attributes?.position) return
 
     const posArray = particlesRef.current.geometry.attributes.position.array as Float32Array
 
