@@ -586,7 +586,7 @@ class MusicSystem {
         containerTransport.bpm.value = 128
         
         const containerSynths = this.synths.get('container') || []
-        const [fm, membrane, metal] = containerSynths
+        const [containerFm, membrane, metal] = containerSynths
 
         // Techno beat
         const kickPart = new Tone.Sequence(() => {
@@ -601,10 +601,10 @@ class MusicSystem {
         hatPart.loop = true
 
         // FM lead pattern
-        const fmPart = new Tone.Sequence((time, note) => {
-            if (note) fm?.triggerAttackRelease(note, '16n', time)
+        const containerFmPart = new Tone.Sequence((time, note) => {
+            if (note) containerFm?.triggerAttackRelease(note, '16n', time)
         }, ['C3', 'E3', 'G3', null, 'A3', 'G3', 'E3', null])
-        fmPart.loop = true
+        containerFmPart.loop = true
 
         this.transports.set('container', containerTransport)
 
@@ -688,7 +688,7 @@ class MusicSystem {
         roroTransport.bpm.value = 125
         
         const roroSynths = this.synths.get('roro') || []
-        const [roroLead, roroBass, roroDrum] = roroSynths
+        const [, roroBass, roroDrum] = roroSynths
 
         // Driving bassline
         const roroBassPart = new Tone.Sequence((time, note) => {
@@ -697,7 +697,7 @@ class MusicSystem {
         roroBassPart.loop = true
 
         // Driving beat
-        const roroBeatPart = new Tone.Sequence((time) => {
+        const roroBeatPart = new Tone.Sequence(() => {
             roroDrum?.triggerAttackRelease('C1', '8n')
         }, ['C1', 'C1', null, 'C1', null, 'C1', 'C1', null])
         roroBeatPart.loop = true
@@ -709,7 +709,7 @@ class MusicSystem {
         researchTransport.bpm.value = 110
         
         const researchSynths = this.synths.get('research') || []
-        const [sonar, researchPad, researchBass] = researchSynths
+        const [sonar, researchPad] = researchSynths
 
         // Sonar pings
         const sonarPart = new Tone.Sequence((time, note) => {
