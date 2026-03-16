@@ -663,7 +663,7 @@ class MusicSystem {
         lngTransport.bpm.value = 118
         
         const lngSynths = this.synths.get('lng') || []
-        const [coldPad, fm, coldSub] = lngSynths
+        const [coldPad, lngFm] = lngSynths
 
         // Slow crystalline pads
         const coldPadPart = new Tone.Part((time, value) => {
@@ -676,10 +676,10 @@ class MusicSystem {
         coldPadPart.loopEnd = '4:0'
 
         // Icy FM accents
-        const fmPart = new Tone.Sequence((time, note) => {
-            if (note) fm?.triggerAttackRelease(note, '2n', time)
+        const lngFmPart = new Tone.Sequence((time, note) => {
+            if (note) lngFm?.triggerAttackRelease(note, '2n', time)
         }, ['C4', null, 'E4', null, 'G4', null, 'B4', null])
-        fmPart.loop = true
+        lngFmPart.loop = true
 
         this.transports.set('lng', lngTransport)
 

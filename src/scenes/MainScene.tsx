@@ -331,13 +331,23 @@ function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remainingTime:
     const labels: Record<ShipType, string> = {
         cruise: 'Ocean Symphony',
         container: 'Neon Stack',
-        tanker: 'Flame Runner'
+        tanker: 'Flame Runner',
+        bulk: 'Iron Mountain',
+        lng: 'Cryo Titan',
+        roro: 'Vehicle Voyager',
+        research: 'Deep Discoverer',
+        droneship: 'Of Course I Still Love You'
     }
 
     const colors: Record<ShipType, string> = {
         cruise: '#ff6b9d',
         container: '#00d4aa',
-        tanker: '#ff9500'
+        tanker: '#ff9500',
+        bulk: '#8b4513',
+        lng: '#00ffff',
+        roro: '#ff6b35',
+        research: '#4169e1',
+        droneship: '#ffffff'
     }
 
     return (
