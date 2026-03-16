@@ -10,8 +10,10 @@ import {
 // TYPES - HarborGlow Game State
 // =============================================================================
 
-export type ShipType = 'cruise' | 'container' | 'tanker'
+export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
+export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | 'meteor_shower' | 'bioluminescent_bloom' | 'none'
+export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
 export type QualityPreset = 'low' | 'medium' | 'high'
 
 export interface AttachmentPoint {
@@ -32,6 +34,28 @@ export interface Ship {
     isDocked?: boolean // Whether ship is currently docked
     version?: string   // Ship instance version (e.g., "1.0", "1.5", "2.0")
     blueprintVersion?: string  // The blueprint version this ship was created from
+}
+
+export interface WildlifeEntity {
+    id: string
+    type: WildlifeType
+    position: [number, number, number]
+    velocity: [number, number, number]
+    behaviorState: 'idle' | 'hunting' | 'migrating' | 'playing' | 'breaching'
+    targetShipId?: string  // For bow-riding dolphins
+    createdAt: number
+}
+
+export interface SeaEvent {
+    id: string
+    type: SeaEventType
+    startTime: number
+    duration: number  // seconds
+    intensity: number  // 0-1
+    affectedArea: {
+        center: [number, number, number]
+        radius: number
+    }
 }
 
 export interface Upgrade {
@@ -127,6 +151,11 @@ interface GameState extends SerializableState {
     setTwistlockEngaged: (engaged: boolean) => void
     setHeaterActive: (active: boolean) => void
     setIsMoving: (moving: boolean) => void
+    // Wildlife and sea event actions
+    addWildlife: (wildlife: WildlifeEntity) => void
+    removeWildlife: (id: string) => void
+    updateWildlife: (id: string, updates: Partial<WildlifeEntity>) => void
+    setActiveSeaEvent: (event: SeaEvent | null) => void
 }
 
 // Default initial state
@@ -179,6 +208,8 @@ const defaultState: Omit<GameState, keyof {
     heaterActive: true,
     iceBuildup: 0.3,
     boothTier: 3, // Default to Arctic tier for demo
+    wildlife: [],
+    activeSeaEvent: null,
 }
 
 // =============================================================================
@@ -507,6 +538,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     setTwistlockEngaged: (engaged) => set({ twistlockEngaged: engaged }),
     setHeaterActive: (active) => set({ heaterActive: active }),
     setIsMoving: (moving) => set({ isMoving: moving }),
+    
+    // Wildlife and sea event actions
+    addWildlife: (wildlife) => set((state) => ({
+        wildlife: [...state.wildlife, wildlife]
+    })),
+    
+    removeWildlife: (id) => set((state) => ({
+        wildlife: state.wildlife.filter(w => w.id !== id)
+    })),
+    
+    updateWildlife: (id, updates) => set((state) => ({
+        wildlife: state.wildlife.map(w => 
+            w.id === id ? { ...w, ...updates } : w
+        )
+    })),
+    
+    setActiveSeaEvent: (event) => set({ activeSeaEvent: event }),
 }))
 
 // Subscribe to save on all state changes
@@ -531,7 +579,12 @@ export const selectUpgradeProgress = (state: GameState, shipId: string): number 
     const upgradeCounts: Record<ShipType, number> = {
         cruise: 8,
         container: 10,
-        tanker: 8
+        tanker: 8,
+        bulk: 9,        // Capesize bulk carrier - 9 cargo hold lighting zones
+        lng: 10,        // LNG carrier - 5 membrane tank enclosures + 5 superstructure
+        roro: 8,        // Ro-Ro ferry - vehicle deck lighting + ramp illumination
+        research: 7,    // Research vessel - lab lighting + sonar array + equipment bays
+        droneship: 6    // Space recovery drone ship - landing platform + thruster bays
     }
     
     const installed = state.installedUpgrades.filter(u => u.shipId === shipId).length

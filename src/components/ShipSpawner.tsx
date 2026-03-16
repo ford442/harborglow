@@ -42,6 +42,46 @@ const SHIP_TYPES: ShipTypeConfig[] = [
     description: 'Industrial dubstep and metal',
     musicStyle: '"Flame Runner"',
     icon: '⛽'
+  },
+  {
+    type: 'bulk',
+    label: 'Capesize Bulk Carrier',
+    shortLabel: 'Bulk',
+    description: 'Industrial metal and hard rock',
+    musicStyle: '"Iron Mountain"',
+    icon: '⛰️'
+  },
+  {
+    type: 'lng',
+    label: 'Q-Max LNG Carrier',
+    shortLabel: 'LNG',
+    description: 'Cryogenic ambient techno',
+    musicStyle: '"Cryo Titan"',
+    icon: '❄️'
+  },
+  {
+    type: 'roro',
+    label: 'Roll-on/Roll-off Ferry',
+    shortLabel: 'Ro-Ro',
+    description: 'Synthwave driving rock',
+    musicStyle: '"Vehicle Voyager"',
+    icon: '🚗'
+  },
+  {
+    type: 'research',
+    label: 'Research Vessel',
+    shortLabel: 'Research',
+    description: 'Scientific ambient soundscape',
+    musicStyle: '"Deep Discoverer"',
+    icon: '🔬'
+  },
+  {
+    type: 'droneship',
+    label: 'Space Recovery Drone Ship',
+    shortLabel: 'Drone',
+    description: 'Space ambient electronic',
+    musicStyle: '"OCISLY"',
+    icon: '🚀'
   }
 ]
 
@@ -68,7 +108,12 @@ export default function ShipSpawner() {
   const shipCounts = {
     cruise: ships.filter(s => s.type === 'cruise').length,
     container: ships.filter(s => s.type === 'container').length,
-    tanker: ships.filter(s => s.type === 'tanker').length
+    tanker: ships.filter(s => s.type === 'tanker').length,
+    bulk: ships.filter(s => s.type === 'bulk').length,
+    lng: ships.filter(s => s.type === 'lng').length,
+    roro: ships.filter(s => s.type === 'roro').length,
+    research: ships.filter(s => s.type === 'research').length,
+    droneship: ships.filter(s => s.type === 'droneship').length
   }
 
   return (

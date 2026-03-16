@@ -20,6 +20,10 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
+import WildlifeRenderer from './Wildlife'
+import SeaEvents from './SeaEvents'
+import { wildlifeSystem } from '../systems/wildlifeSystem'
+import { seaEventsSystem } from '../systems/seaEventsSystem'
 
 // =============================================================================
 // CONSTANTS
@@ -144,6 +148,10 @@ export default function MainScene() {
         lightingSystem.update(state.clock.elapsedTime, bpm)
         weatherSystem.updateLightning()
         
+        // Update wildlife and sea events
+        wildlifeSystem.update(delta)
+        seaEventsSystem.update(delta)
+        
         // Spectator drone camera
         updateSpectatorCamera({
             spectatorState,
@@ -213,6 +221,10 @@ export default function MainScene() {
             <Water isNight={isNight} />
             <Dock isNight={isNight} />
             <Crane />
+            
+            {/* Wildlife and Sea Events */}
+            <WildlifeRenderer />
+            <SeaEvents />
 
             {/* Effects */}
             <GlobalIllumination enabled={true} quality="high" />
