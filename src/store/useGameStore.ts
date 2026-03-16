@@ -13,6 +13,7 @@ import {
 export type ShipType = 'cruise' | 'container' | 'tanker'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type QualityPreset = 'low' | 'medium' | 'high'
+export type MultiviewMode = 'single' | 'quad'
 
 export interface AttachmentPoint {
     position: [number, number, number]
@@ -72,6 +73,9 @@ interface SerializableState {
     twistlockEngaged: boolean
     craneHeight: number
     craneRotation: number
+    // Multiview system
+    multiviewMode: MultiviewMode
+    underwaterIntensity: number
     // Full crane mechanics
     spreaderPos: { x: number; y: number; z: number }
     spreaderRotation: number
@@ -116,6 +120,9 @@ interface GameState extends SerializableState {
     upgradeShipVersion: (shipId: string) => Promise<void>  // Full Structural Overhaul
     setWeather: (weather: WeatherState) => void  // Weather system
     setQualityPreset: (preset: QualityPreset) => void  // Quality preset
+    // Multiview system
+    setMultiviewMode: (mode: MultiviewMode) => void
+    setUnderwaterIntensity: (intensity: number) => void
     // Crane control actions
     setSpreaderPos: (pos: { x: number; y: number; z: number }) => void
     setSpreaderRotation: (rotation: number) => void
@@ -140,6 +147,7 @@ const defaultState: Omit<GameState, keyof {
     setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
     setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
+    setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -179,6 +187,8 @@ const defaultState: Omit<GameState, keyof {
     heaterActive: true,
     iceBuildup: 0.3,
     boothTier: 3, // Default to Arctic tier for demo
+    multiviewMode: 'single' as MultiviewMode,
+    underwaterIntensity: 1,
 }
 
 // =============================================================================
@@ -507,6 +517,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     setTwistlockEngaged: (engaged) => set({ twistlockEngaged: engaged }),
     setHeaterActive: (active) => set({ heaterActive: active }),
     setIsMoving: (moving) => set({ isMoving: moving }),
+    
+    // Multiview system actions
+    setMultiviewMode: (mode) => {
+        set({ multiviewMode: mode })
+        console.log(`📺 Multiview mode: ${mode}`)
+    },
+    setUnderwaterIntensity: (intensity) => {
+        const newIntensity = Math.max(0, Math.min(2, intensity))
+        set({ underwaterIntensity: newIntensity })
+    },
 }))
 
 // Subscribe to save on all state changes
