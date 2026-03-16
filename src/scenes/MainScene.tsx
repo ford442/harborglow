@@ -20,6 +20,7 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
+import MultiviewSystem from './MultiviewSystem'
 
 // =============================================================================
 // CONSTANTS
@@ -61,6 +62,8 @@ export default function MainScene() {
     const isNight = useGameStore(s => s.isNight)
     const timeOfDay = useGameStore(s => s.timeOfDay)
     const weather = useGameStore(s => s.weather)
+    const multiviewMode = useGameStore(s => s.multiviewMode)
+    const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -72,6 +75,8 @@ export default function MainScene() {
     const setCurrentShip = useGameStore(s => s.setCurrentShip)
     const scheduleDeparture = useGameStore(s => s.scheduleDeparture)
     const returnToDock = useGameStore(s => s.returnToDock)
+    const setMultiviewMode = useGameStore(s => s.setMultiviewMode)
+    const setUnderwaterIntensity = useGameStore(s => s.setUnderwaterIntensity)
 
     // Local state
     const [departingShips, setDepartingShips] = useState<Set<string>>(new Set())
@@ -104,7 +109,11 @@ export default function MainScene() {
         setCameraMode,
         weather,
         setWeather,
-        setCurrentShip
+        setCurrentShip,
+        multiviewMode,
+        setMultiviewMode,
+        underwaterIntensity,
+        setUnderwaterIntensity
     })
 
     // Lighting calculations
@@ -220,6 +229,12 @@ export default function MainScene() {
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <PostProcessing enabled={true} audioData={audioData} />
+            
+            {/* Multiview Camera System */}
+            <MultiviewSystem 
+                enabled={multiviewMode === 'quad'} 
+                underwaterIntensity={underwaterIntensity}
+            />
 
             {/* Ships */}
             {ships.map(ship => (
@@ -380,6 +395,10 @@ interface LevaControlsConfig {
     weather: string
     setWeather: (weather: any) => void
     setCurrentShip: (id: string | null) => void
+    multiviewMode: string
+    setMultiviewMode: (mode: 'single' | 'quad') => void
+    underwaterIntensity: number
+    setUnderwaterIntensity: (intensity: number) => void
 }
 
 function useLevaControls(config: LevaControlsConfig) {
@@ -394,7 +413,11 @@ function useLevaControls(config: LevaControlsConfig) {
         setCameraMode,
         weather,
         setWeather,
-        setCurrentShip
+        setCurrentShip,
+        multiviewMode,
+        setMultiviewMode,
+        underwaterIntensity,
+        setUnderwaterIntensity
     } = config
 
     useControls({
@@ -452,6 +475,18 @@ function useLevaControls(config: LevaControlsConfig) {
                 setWeather(w as any)
                 weatherSystem.forceWeather(w as any)
             }
+        },
+        'Multiview Layout': {
+            value: multiviewMode,
+            options: ['single', 'quad'],
+            onChange: (mode: 'single' | 'quad') => setMultiviewMode(mode)
+        },
+        'Underwater Intensity': {
+            value: underwaterIntensity,
+            min: 0,
+            max: 2,
+            step: 0.1,
+            onChange: setUnderwaterIntensity
         }
     })
 }
