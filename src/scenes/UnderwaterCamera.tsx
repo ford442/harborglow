@@ -158,7 +158,12 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
       const colors: Record<string, string> = {
         cruise: '#ff6b9d',
         container: '#00d4aa',
-        tanker: '#ff9500'
+        tanker: '#ff9500',
+        bulk: '#8b4513',
+        lng: '#00bfff',
+        roro: '#9b59b6',
+        research: '#2ecc71',
+        droneship: '#34495e'
       }
       
       rays.push({
@@ -235,10 +240,19 @@ function GodRay({
   intensity: number
   color: THREE.Color
 }) {
+  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
+    }
+  })
+  
   return (
     <mesh position={[position.x, -5, position.z]} rotation={[0, angle, 0]}>
       <cylinderGeometry args={[0.5, 3, 15, 8, 1, true]} />
       <shaderMaterial
+        ref={materialRef}
         transparent
         depthWrite={false}
         side={THREE.DoubleSide}
@@ -263,6 +277,7 @@ function GodRay({
         fragmentShader={`
           uniform vec3 uColor;
           uniform float uIntensity;
+          uniform float uTime;
           varying vec2 vUv;
           varying float vDepth;
           
@@ -270,7 +285,7 @@ function GodRay({
             float fade = smoothstep(0.0, 0.3, vUv.y) * (1.0 - smoothstep(0.7, 1.0, vUv.y));
             fade *= vDepth;
             
-            float noise = sin(vUv.x * 10.0 + vUv.y * 5.0) * 0.1 + 0.9;
+            float noise = sin(vUv.x * 10.0 + vUv.y * 5.0 + uTime) * 0.1 + 0.9;
             
             vec3 color = uColor * uIntensity * fade * noise;
             gl_FragColor = vec4(color, fade * uIntensity * 0.5);
@@ -287,17 +302,20 @@ function GodRay({
 function PlanktonField({ plankton }: { plankton: MarineLife[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
+  const count = Math.max(0, Math.min(plankton.length, 150))
   
   useFrame(() => {
-    if (!meshRef.current) return
+    if (!meshRef.current || count === 0) return
     
-    plankton.forEach((p, i) => {
+    for (let i = 0; i < count; i++) {
+      const p = plankton[i]
+      if (!p) continue
       dummy.position.copy(p.position)
       dummy.scale.setScalar(p.size * (0.8 + Math.sin(p.life * 3) * 0.2))
       dummy.updateMatrix()
-      meshRef.current!.setMatrixAt(i, dummy.matrix)
-      meshRef.current!.setColorAt(i, p.color)
-    })
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+      meshRef.current.setColorAt(i, p.color)
+    }
     
     meshRef.current.instanceMatrix.needsUpdate = true
     if (meshRef.current.instanceColor) {
@@ -308,7 +326,7 @@ function PlanktonField({ plankton }: { plankton: MarineLife[] }) {
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined, undefined, plankton.length]}
+      args={[undefined, undefined, count]}
     >
       <sphereGeometry args={[0.05, 4, 4]} />
       <meshBasicMaterial
@@ -477,18 +495,21 @@ function LargeCreature(props: MarineLife) {
 function BubbleField({ bubbles }: { bubbles: MarineLife[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
+  const count = Math.max(0, Math.min(bubbles.length, 100))
   
   useFrame(() => {
-    if (!meshRef.current) return
+    if (!meshRef.current || count === 0) return
     
-    bubbles.forEach((b, i) => {
+    for (let i = 0; i < count; i++) {
+      const b = bubbles[i]
+      if (!b) continue
       dummy.position.copy(b.position)
       const wobble = Math.sin(b.life * 3 + i) * 0.1
       dummy.position.x += wobble
       dummy.scale.setScalar(b.size * (1 + b.life * 0.1))
       dummy.updateMatrix()
-      meshRef.current!.setMatrixAt(i, dummy.matrix)
-    })
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+    }
     
     meshRef.current.instanceMatrix.needsUpdate = true
   })
@@ -496,7 +517,7 @@ function BubbleField({ bubbles }: { bubbles: MarineLife[] }) {
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined, undefined, bubbles.length]}
+      args={[undefined, undefined, count]}
     >
       <sphereGeometry args={[0.1, 6, 6]} />
       <meshBasicMaterial
