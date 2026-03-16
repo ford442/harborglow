@@ -17,6 +17,7 @@
 // =============================================================================
 
 import { useGameStore, SeaEvent, SeaEventType, Ship } from '../store/useGameStore'
+import { wildlifeSystem } from './wildlifeSystem'
 
 // Scientific event specifications
 interface EventSpec {
@@ -119,7 +120,7 @@ interface EventState {
 class SeaEventsSystem {
     private eventTimer: number = 0
     private readonly CHECK_INTERVAL = 60 // Check for new events every minute
-    private states: Record<SeaEventType, EventState> = {}
+    private states: Partial<Record<SeaEventType, EventState>> = {}
     private currentEvent: SeaEvent | null = null
     
     constructor() {
@@ -153,7 +154,6 @@ class SeaEventsSystem {
                 // Spawn additional whales during migration
                 if (Math.random() < 0.01) {
                     // This would trigger wildlife system to spawn whales
-                    const { wildlifeSystem } = require('./wildlifeSystem')
                     wildlifeSystem.spawnWildlife('humpback_whale')
                 }
                 
@@ -170,7 +170,6 @@ class SeaEventsSystem {
         this.states.shark_patrol = {
             update: (event, delta, ships) => {
                 // Sharks more aggressive/active during patrol
-                const { wildlifeSystem } = require('./wildlifeSystem')
                 
                 // Random shark spawns near ships
                 if (Math.random() < 0.02) {
@@ -203,8 +202,6 @@ class SeaEventsSystem {
         this.states.bioluminescent_bloom = {
             update: (event, delta, ships) => {
                 // Spawn plankton entities
-                const { wildlifeSystem } = require('./wildlifeSystem')
-                
                 if (Math.random() < 0.05) {
                     wildlifeSystem.spawnWildlife('bioluminescent_plankton')
                 }

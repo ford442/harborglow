@@ -1,7 +1,7 @@
 import { useRef, useMemo, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
+import { useGameStore, type ShipType } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
 
 // =============================================================================
@@ -13,7 +13,7 @@ interface AudioReactiveLightProps {
   position: [number, number, number]
   type: 'led-strip' | 'spotlight' | 'laser' | 'strobe' | 'neon'
   color?: string
-  shipType: 'cruise' | 'container' | 'tanker'
+  shipType: ShipType
 }
 
 // 8.1: Light Rigs driven by frequency bands
@@ -65,10 +65,15 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: Aud
   
   // Ship-specific color palettes
   const getShipColor = useCallback((baseHue: number) => {
-    const palettes = {
+    const palettes: Record<ShipType, { h: number; s: number; l: number }> = {
       cruise: { h: 340, s: 0.8, l: 0.6 }, // Pink
       container: { h: 160, s: 0.9, l: 0.5 }, // Cyan/Green
-      tanker: { h: 25, s: 1, l: 0.5 } // Orange
+      tanker: { h: 25, s: 1, l: 0.5 }, // Orange
+      bulk: { h: 30, s: 0.6, l: 0.4 }, // Brown
+      lng: { h: 195, s: 0.9, l: 0.6 }, // Light Blue
+      roro: { h: 280, s: 0.7, l: 0.5 }, // Purple
+      research: { h: 145, s: 0.8, l: 0.5 }, // Green
+      droneship: { h: 0, s: 0, l: 0.8 } // White/Gray
     }
     
     const palette = palettes[shipType]

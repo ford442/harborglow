@@ -84,7 +84,7 @@
     {
       "id": "bulk",
       "version": "1.0",
-      "name": "Capesize Bulk Carrier "Iron Mountain" v1.0",
+      "name": "Capesize Bulk Carrier \"Iron Mountain\" v1.0",
       "scale": 1.9,
       "baseColor": "#2d3436",
       "parts": [
@@ -112,7 +112,7 @@
     {
       "id": "lng",
       "version": "1.0",
-      "name": "Q-Max LNG Carrier "Cryo Titan" v1.0",
+      "name": "Q-Max LNG Carrier \"Cryo Titan\" v1.0",
       "scale": 2.0,
       "baseColor": "#1e3a5f",
       "parts": [
@@ -139,7 +139,7 @@
     {
       "id": "roro",
       "version": "1.0",
-      "name": "Ro-Ro Ferry "Vehicle Voyager" v1.0",
+      "name": "Ro-Ro Ferry \"Vehicle Voyager\" v1.0",
       "scale": 1.5,
       "baseColor": "#2980b9",
       "parts": [
@@ -165,7 +165,7 @@
     {
       "id": "research",
       "version": "1.0",
-      "name": "Research Vessel "Deep Discoverer" v1.0",
+      "name": "Research Vessel \"Deep Discoverer\" v1.0",
       "scale": 1.3,
       "baseColor": "#8e44ad",
       "parts": [
@@ -193,7 +193,7 @@
     {
       "id": "droneship",
       "version": "1.0",
-      "name": "Autonomous Spaceport Drone Ship "Of Course I Still Love You" v1.0",
+      "name": "Autonomous Spaceport Drone Ship \"Of Course I Still Love You\" v1.0",
       "scale": 1.0,
       "baseColor": "#2c3e50",
       "parts": [

@@ -28,6 +28,7 @@ export interface Ship {
     type: ShipType
     modelName: string
     position: [number, number, number]
+    velocity?: [number, number, number]  // Optional velocity for wildlife system
     length: number
     attachmentPoints: AttachmentPoint[]
     name?: string
@@ -100,6 +101,9 @@ interface SerializableState {
     // Multiview system
     multiviewMode: MultiviewMode
     underwaterIntensity: number
+    // Wildlife and sea events
+    wildlife: WildlifeEntity[]
+    activeSeaEvent: SeaEvent | null
     // Full crane mechanics
     spreaderPos: { x: number; y: number; z: number }
     spreaderRotation: number
@@ -177,6 +181,7 @@ const defaultState: Omit<GameState, keyof {
     setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
+    addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
