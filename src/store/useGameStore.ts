@@ -121,6 +121,9 @@ interface GameState extends SerializableState {
     musicPlaying: Map<string, boolean>
     spectatorState: SpectatorState
     isNight: boolean
+    // Wildlife and sea events
+    wildlife: WildlifeEntity[]
+    activeSeaEvent: SeaEvent | null
     
     // Actions
     addShip: (ship: Ship) => void
@@ -177,6 +180,7 @@ const defaultState: Omit<GameState, keyof {
     setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
+    addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],

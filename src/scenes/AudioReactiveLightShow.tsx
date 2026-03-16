@@ -1,7 +1,7 @@
 import { useRef, useMemo, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
+import { useGameStore, ShipType } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
 
 // =============================================================================
@@ -13,7 +13,7 @@ interface AudioReactiveLightProps {
   position: [number, number, number]
   type: 'led-strip' | 'spotlight' | 'laser' | 'strobe' | 'neon'
   color?: string
-  shipType: 'cruise' | 'container' | 'tanker'
+  shipType: ShipType
 }
 
 // 8.1: Light Rigs driven by frequency bands
@@ -65,10 +65,15 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: Aud
   
   // Ship-specific color palettes
   const getShipColor = useCallback((baseHue: number) => {
-    const palettes = {
+    const palettes: Record<ShipType, { h: number; s: number; l: number }> = {
       cruise: { h: 340, s: 0.8, l: 0.6 }, // Pink
       container: { h: 160, s: 0.9, l: 0.5 }, // Cyan/Green
-      tanker: { h: 25, s: 1, l: 0.5 } // Orange
+      tanker: { h: 25, s: 1, l: 0.5 }, // Orange
+      bulk: { h: 45, s: 0.7, l: 0.5 }, // Brown/Gold
+      lng: { h: 200, s: 0.9, l: 0.6 }, // Ice Blue
+      roro: { h: 280, s: 0.8, l: 0.6 }, // Purple
+      research: { h: 120, s: 0.7, l: 0.5 }, // Green
+      droneship: { h: 0, s: 0, l: 0.7 } // White/Gray
     }
     
     const palette = palettes[shipType]
@@ -141,29 +146,45 @@ function AudioReactiveGodRay({ position, color }: { position: [number, number, n
   const materialRef = useRef<THREE.ShaderMaterial>(null)
   const { audioData } = useAudioVisualSync()
   
+  // Validate color before creating uniform
+  const safeColor = useMemo(() => {
+    try {
+      return new THREE.Color(color)
+    } catch {
+      return new THREE.Color('#ffffff')
+    }
+  }, [color])
+  
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
-    uColor: { value: new THREE.Color(color) },
+    uColor: { value: safeColor },
     uBaseIntensity: { value: 0.5 },
     uAudioBass: { value: 0 },
     uAudioMid: { value: 0 },
     uAudioEnvelope: { value: 0 },
     uAudioBeat: { value: 0 }
-  }), [color])
+  }), [safeColor])
   
   useFrame((state) => {
     if (!materialRef.current) return
     
     const mat = materialRef.current
+    if (!mat.uniforms) return
+    
     mat.uniforms.uTime.value = state.clock.elapsedTime
-    mat.uniforms.uAudioBass.value = audioData.bass
-    mat.uniforms.uAudioMid.value = audioData.mid
-    mat.uniforms.uAudioEnvelope.value = audioData.envelope
-    mat.uniforms.uAudioBeat.value = audioData.beat ? audioData.beatIntensity : 0
+    mat.uniforms.uAudioBass.value = audioData?.bass ?? 0
+    mat.uniforms.uAudioMid.value = audioData?.mid ?? 0
+    mat.uniforms.uAudioEnvelope.value = audioData?.envelope ?? 0
+    mat.uniforms.uAudioBeat.value = audioData?.beat ? audioData.beatIntensity : 0
   })
   
+  // Ensure position is valid
+  const safePosition: [number, number, number] = Array.isArray(position) && position.length === 3 
+    ? position 
+    : [0, 0, 0]
+
   return (
-    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh position={safePosition} rotation={[-Math.PI / 2, 0, 0]}>
       <coneGeometry args={[2, 20, 32, 1, true]} />
       <shaderMaterial
         ref={materialRef}
@@ -233,8 +254,8 @@ export default function AudioReactiveLightShow({ enabled = true }: AudioReactive
   const ships = useGameStore(state => state.ships)
   const { audioData } = useAudioVisualSync()
   
-  // Only show for v2.0 ships
-  const upgradedShips = ships.filter(s => s.version === '2.0')
+  // Only show for v2.0 ships with valid positions
+  const upgradedShips = ships.filter(s => s.version === '2.0' && Array.isArray(s.position) && s.position.length === 3)
   
   if (!enabled || upgradedShips.length === 0) return null
   
@@ -293,7 +314,16 @@ export default function AudioReactiveLightShow({ enabled = true }: AudioReactive
             {/* Audio-reactive god rays */}
             <AudioReactiveGodRay
               position={[basePos[0], basePos[1] + 20, basePos[2]]}
-              color={ship.type === 'cruise' ? '#ff6b9d' : ship.type === 'container' ? '#00d4aa' : '#ff9500'}
+              color={{
+                cruise: '#ff6b9d',
+                container: '#00d4aa',
+                tanker: '#ff9500',
+                bulk: '#d4a574',
+                lng: '#88ccff',
+                roro: '#cc88ff',
+                research: '#88ff88',
+                droneship: '#cccccc'
+              }[ship.type]}
             />
             
             {/* Ambient glow that follows audio envelope */}

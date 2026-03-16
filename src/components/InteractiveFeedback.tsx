@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, ReactNode } from 'react'
 import { GLASSMORPHISM, SHIP_COLORS, createProgressRingStyles } from './DesignSystem'
+import type { ShipType } from '../store/useGameStore'
 
 // =============================================================================
 // PHASE 6.3: INTERACTIVE FEEDBACK SYSTEM
@@ -354,7 +355,7 @@ export function InstallationProgress({ steps, currentStep, color = '#00d4aa' }: 
 interface ToastProps {
   message: string
   type?: 'success' | 'info' | 'warning' | 'error'
-  shipType?: 'cruise' | 'container' | 'tanker'
+  shipType?: ShipType
   onClose?: () => void
 }
 
@@ -428,7 +429,7 @@ export function Toast({ message, type = 'info', shipType, onClose }: ToastProps)
 
 // Ship spawn splash effect
 interface SpawnSplashProps {
-  shipType: 'cruise' | 'container' | 'tanker'
+  shipType: ShipType
   onComplete?: () => void
 }
 

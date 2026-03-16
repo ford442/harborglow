@@ -119,7 +119,14 @@ interface EventState {
 class SeaEventsSystem {
     private eventTimer: number = 0
     private readonly CHECK_INTERVAL = 60 // Check for new events every minute
-    private states: Record<SeaEventType, EventState> = {}
+    private states: Record<SeaEventType, EventState> = {
+        milky_seas: { update: () => null },
+        whale_migration: { update: () => null },
+        shark_patrol: { update: () => null },
+        meteor_shower: { update: () => null },
+        bioluminescent_bloom: { update: () => null },
+        none: { update: () => null }
+    }
     private currentEvent: SeaEvent | null = null
     
     constructor() {
@@ -129,37 +136,38 @@ class SeaEventsSystem {
     private initializeStates() {
         // Milky seas - steady bacterial glow
         this.states.milky_seas = {
-            update: (event, delta, ships) => {
+            update: (_event) => {
                 // Intensity varies slightly over time
                 const variation = Math.sin(Date.now() / 10000) * 0.1
-                return { intensity: Math.max(0, Math.min(1, event.intensity + variation)) }
+                return { intensity: Math.max(0, Math.min(1, _event.intensity + variation)) }
             },
-            onStart: (event) => {
+            onStart: (_event) => {
                 console.log(`🌊 MILKY SEAS EVENT STARTED`)
                 console.log(`   Cause: ${EVENT_SPECS.milky_seas.scientificCause}`)
-                console.log(`   Area: ${event.affectedArea.radius}m radius`)
+                console.log(`   Area: ${_event.affectedArea.radius}m radius`)
             },
-            onEnd: (event) => {
+            onEnd: () => {
                 console.log(`🌊 Milky seas dissipated (bacterial population below quorum threshold)`)
             }
         }
         
         // Whale migration - directional movement
         this.states.whale_migration = {
-            update: (event, delta, ships) => {
+            update: (event) => {
                 // Migration progresses across the scene
                 const progress = (Date.now() - event.startTime) / 1000 / event.duration
                 
                 // Spawn additional whales during migration
                 if (Math.random() < 0.01) {
                     // This would trigger wildlife system to spawn whales
-                    const { wildlifeSystem } = require('./wildlifeSystem')
-                    wildlifeSystem.spawnWildlife('humpback_whale')
+                    import('./wildlifeSystem').then(({ wildlifeSystem }) => {
+                        wildlifeSystem.spawnWildlife('humpback_whale')
+                    })
                 }
                 
                 return { intensity: Math.sin(progress * Math.PI) } // Peak in middle
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`🐋 WHALE MIGRATION EVENT STARTED`)
                 console.log(`   Species: Megaptera novaeangliae`)
                 console.log(`   Distance: Up to 25,000 km annually`)
@@ -168,18 +176,18 @@ class SeaEventsSystem {
         
         // Shark patrol - coastal grid pattern
         this.states.shark_patrol = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // Sharks more aggressive/active during patrol
-                const { wildlifeSystem } = require('./wildlifeSystem')
-                
                 // Random shark spawns near ships
                 if (Math.random() < 0.02) {
-                    wildlifeSystem.spawnWildlife('great_white_shark')
+                    import('./wildlifeSystem').then(({ wildlifeSystem }) => {
+                        wildlifeSystem.spawnWildlife('great_white_shark')
+                    })
                 }
                 
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`🦈 SHARK PATROL EVENT STARTED`)
                 console.log(`   Species: Carcharodon carcharias`)
                 console.log(`   Behavior: Coastal hunting pattern`)
@@ -188,11 +196,11 @@ class SeaEventsSystem {
         
         // Meteor shower - falling stars
         this.states.meteor_shower = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // No state changes, just visual effect handled in renderer
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`☄️ METEOR SHOWER EVENT STARTED`)
                 console.log(`   Cause: Earth passing through comet debris`)
                 console.log(`   Best viewing: Away from harbor lights`)
@@ -201,17 +209,17 @@ class SeaEventsSystem {
         
         // Bioluminescent bloom - flashing response
         this.states.bioluminescent_bloom = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // Spawn plankton entities
-                const { wildlifeSystem } = require('./wildlifeSystem')
-                
                 if (Math.random() < 0.05) {
-                    wildlifeSystem.spawnWildlife('bioluminescent_plankton')
+                    import('./wildlifeSystem').then(({ wildlifeSystem }) => {
+                        wildlifeSystem.spawnWildlife('bioluminescent_plankton')
+                    })
                 }
                 
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`✨ BIOLUMINESCENT BLOOM STARTED`)
                 console.log(`   Species: Lingulodinium polyedrum (dinoflagellates)`)
                 console.log(`   Mechanism: Scintillon-mediated flash response`)
@@ -267,8 +275,7 @@ class SeaEventsSystem {
     // Main update loop
     update(delta: number) {
         const state = useGameStore.getState()
-        const { timeOfDay, ships } = state
-        const currentEvent = state.activeSeaEvent
+        const { timeOfDay, ships, activeSeaEvent: currentEvent } = state
         
         // Update existing event
         if (currentEvent) {
@@ -279,7 +286,7 @@ class SeaEventsSystem {
                 this.endEvent()
             } else {
                 // Update event state
-                const eventState = this.states[currentEvent.type]
+                const eventState = this.states[currentEvent.type as SeaEventType]
                 if (eventState) {
                     const updates = eventState.update(currentEvent, delta, ships)
                     if (updates) {

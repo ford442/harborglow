@@ -12,8 +12,7 @@
 import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGameStore, WildlifeEntity, WildlifeType } from '../store/useGameStore'
-import { WILDLIFE_SPECS } from '../systems/wildlifeSystem'
+import { useGameStore, WildlifeEntity } from '../store/useGameStore'
 
 interface WildlifeProps {
     entity: WildlifeEntity
@@ -26,7 +25,7 @@ interface WildlifeProps {
 // -------------------------------------------------------------------------
 function HumpbackWhale({ entity }: WildlifeProps) {
     const groupRef = useRef<THREE.Group>(null)
-    const specs = WILDLIFE_SPECS.humpback_whale
+    // Humpback whale specs available via WILDLIFE_SPECS.humpback_whale
     
     // Whale coloration - dark gray dorsal, lighter ventral
     const bodyMaterial = useMemo(() => new THREE.MeshStandardMaterial({
@@ -130,7 +129,7 @@ function HumpbackWhale({ entity }: WildlifeProps) {
 // -------------------------------------------------------------------------
 function GreatWhiteShark({ entity }: WildlifeProps) {
     const groupRef = useRef<THREE.Group>(null)
-    const specs = WILDLIFE_SPECS.great_white_shark
+    // Great white shark specs available via WILDLIFE_SPECS.great_white_shark
     
     const bodyMaterial = useMemo(() => new THREE.MeshStandardMaterial({
         color: '#5d6d7e',  // Gray dorsal
@@ -212,7 +211,7 @@ function GreatWhiteShark({ entity }: WildlifeProps) {
 // -------------------------------------------------------------------------
 function BottlenoseDolphin({ entity }: WildlifeProps) {
     const groupRef = useRef<THREE.Group>(null)
-    const specs = WILDLIFE_SPECS.bottlenose_dolphin
+    // Bottlenose dolphin specs available via WILDLIFE_SPECS.bottlenose_dolphin
     
     const bodyMaterial = useMemo(() => new THREE.MeshStandardMaterial({
         color: '#3498db',  // Blue-gray
@@ -304,7 +303,7 @@ function BottlenoseDolphin({ entity }: WildlifeProps) {
 // -------------------------------------------------------------------------
 function BioluminescentPlankton({ entity }: WildlifeProps) {
     const groupRef = useRef<THREE.Group>(null)
-    const specs = WILDLIFE_SPECS.bioluminescent_plankton
+    // Bioluminescent plankton specs available via WILDLIFE_SPECS.bioluminescent_plankton
     
     // Flash intensity from velocity (set by system when disturbed)
     const flashIntensity = entity.velocity[0] || 0
