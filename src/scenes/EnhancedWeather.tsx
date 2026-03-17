@@ -162,16 +162,16 @@ function WindSweptRain({ intensity = 1, windAngle = 0 }: { intensity?: number, w
   }, [count, windAngle])
   
   useFrame((_, delta) => {
-    if (!pointsRef.current) return
-    
+    if (!pointsRef.current?.geometry?.attributes?.position) return
+
     const positions = pointsRef.current.geometry.attributes.position.array as Float32Array
-    
+
     for (let i = 0; i < count; i++) {
       // Update positions
       positions[i * 3] += velocities[i * 3] * delta * 10
       positions[i * 3 + 1] += velocities[i * 3 + 1] * delta * 10
       positions[i * 3 + 2] += velocities[i * 3 + 2] * delta * 10
-      
+
       // Reset if below ground
       if (positions[i * 3 + 1] < -5) {
         positions[i * 3] = (Math.random() - 0.5) * 200
@@ -179,7 +179,7 @@ function WindSweptRain({ intensity = 1, windAngle = 0 }: { intensity?: number, w
         positions[i * 3 + 2] = (Math.random() - 0.5) * 200
       }
     }
-    
+
     pointsRef.current.geometry.attributes.position.needsUpdate = true
   })
   
