@@ -376,36 +376,36 @@ export function FoamTrails({ ships }: { ships: { id: string; position: [number, 
   }, [])
   
   useFrame(() => {
-    if (!pointsRef.current) return
-    
+    if (!pointsRef.current?.geometry?.attributes?.position) return
+
     const posArray = pointsRef.current.geometry.attributes.position.array as Float32Array
-    
+
     // Update existing particles
     for (let i = 0; i < maxParticles; i++) {
       ages[i] += 0.016
-      
+
       // Fade out old particles
       if (ages[i] > 5.0) {
         posArray[i * 3 + 1] = -1000 // Hide below water
       }
     }
-    
+
     // Spawn new particles behind ships
     ships.forEach((ship, shipIndex) => {
       const spawnRate = Math.floor(ship.velocity * 10)
-      
+
       for (let j = 0; j < spawnRate; j++) {
         const idx = (shipIndex * 100 + j) % maxParticles
-        
+
         // Position behind ship
         posArray[idx * 3] = ship.position[0] - 10 - Math.random() * 20
         posArray[idx * 3 + 1] = -2.3 + Math.random() * 0.3 // Just above water
         posArray[idx * 3 + 2] = ship.position[2] + (Math.random() - 0.5) * 10
-        
+
         ages[idx] = 0
       }
     })
-    
+
     pointsRef.current.geometry.attributes.position.needsUpdate = true
   })
   

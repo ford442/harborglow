@@ -271,6 +271,8 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
 
   // Update splash particles
   useFrame(() => {
+    if (!splashGeometry.attributes?.position || !splashGeometry.attributes?.size || !splashGeometry.attributes?.opacity) return
+
     const positions = splashGeometry.attributes.position.array as Float32Array
     const sizes = splashGeometry.attributes.size.array as Float32Array
     const opacities = splashGeometry.attributes.opacity.array as Float32Array
