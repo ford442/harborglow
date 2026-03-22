@@ -22,6 +22,19 @@ function App() {
     
     const loadSavedState = useGameStore(state => state.loadSavedState)
     const resetGame = useGameStore(state => state.resetGame)
+    
+    // Get current harbor theme from store (or default)
+    const boothTier = useGameStore(state => state.boothTier)
+    
+    // Map booth tier to theme
+    const harborTheme = useCallback(() => {
+        switch (boothTier) {
+            case 1: return 'industrial'
+            case 2: return 'tropical'
+            case 3: return 'arctic'
+            default: return 'industrial'
+        }
+    }, [boothTier])
 
     // Initialize audio on user gesture
     useEffect(() => {
@@ -53,7 +66,7 @@ function App() {
             { progress: 20, delay: 100, label: 'Initializing harbor...' },
             { progress: 45, delay: 200, label: 'Loading ship blueprints...' },
             { progress: 70, delay: 150, label: 'Calibrating cranes...' },
-            { progress: 90, delay: 100, label: 'Syncing audio systems...' },
+            { progress: 90, delay: 100, label: 'Building control booth...' },
             { progress: 100, delay: 100, label: 'Ready' },
         ]
 
@@ -97,12 +110,12 @@ function App() {
         return <LoadingScreen progress={loadingProgress} />
     }
 
-    // Game screen
+    // Game screen - IMMERSIVE CONTROL BOOTH MODE
     return (
         <>
             <Canvas 
                 shadows 
-                camera={{ position: [10, 10, 10], fov: 50 }}
+                camera={{ position: [0, 2.5, 4.5], fov: 60 }}
                 dpr={[1, 2]} // Responsive pixel ratio
                 gl={{ 
                     antialias: true,
@@ -113,7 +126,14 @@ function App() {
             >
                 <Suspense fallback={null}>
                     <Physics gravity={[0, -9.81, 0]}>
-                        <MainScene />
+                        {/* 
+                          IMMERSIVE MODE: useBooth={true}
+                          This wraps the scene in a 3D control booth with live monitors
+                        */}
+                        <MainScene 
+                            useBooth={true} 
+                            harborTheme={harborTheme()}
+                        />
                     </Physics>
                 </Suspense>
             </Canvas>
@@ -159,12 +179,12 @@ function MainMenu({ hasSave, onNewGame, onLoadGame }: MainMenuProps) {
                         </button>
                     )}
                     
-                    <button className="menu-btn" onClick={() => alert('Settings: Audio, Graphics, Controls')}>
+                    <button className="menu-btn" onClick={() => alert('Settings: Audio, Graphics, Controls')}> 
                         <span className="btn-icon">⚙️</span>
                         Settings
                     </button>
                     
-                    <button className="menu-btn" onClick={() => alert('HarborGlow v2.0 - A crane-operator light-show experience. Built with React Three Fiber, Tone.js, and love.')}>
+                    <button className="menu-btn" onClick={() => alert('HarborGlow v2.0 - A crane-operator light-show experience. Built with React Three Fiber, Tone.js, and love.')}> 
                         <span className="btn-icon">ⓘ</span>
                         Credits
                     </button>
@@ -173,6 +193,29 @@ function MainMenu({ hasSave, onNewGame, onLoadGame }: MainMenuProps) {
                 <p className="menu-hint">
                     <kbd>SPACE</kbd> to start
                 </p>
+                
+                {/* Control Booth Preview Note */}
+                <div style={{
+                    marginTop: '2rem',
+                    padding: '1rem',
+                    background: 'rgba(0, 212, 170, 0.1)',
+                    border: '1px solid rgba(0, 212, 170, 0.3)',
+                    borderRadius: '8px',
+                    maxWidth: '400px'
+                }}>
+                    <div style={{ 
+                        fontSize: '12px', 
+                        color: '#00d4aa',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        marginBottom: '4px'
+                    }}>
+                        NEW: Immersive Control Booth
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#aaa' }}>
+                        Experience HarborGlow from inside a 3D crane operator cabin with live multi-monitor feeds
+                    </div>
+                </div>
             </div>
         </div>
     )
@@ -194,6 +237,11 @@ function LoadingScreen({ progress }: { progress: number }) {
                     />
                 </div>
                 <p className="loading-text">{progress}%</p>
+                {progress >= 90 && (
+                    <p style={{ fontSize: '12px', color: '#00d4aa', marginTop: '8px' }}>
+                        Calibrating monitors...
+                    </p>
+                )}
             </div>
         </div>
     )
