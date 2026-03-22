@@ -26,6 +26,22 @@ const MAX_STEPS = 64
 const MAX_DISTANCE = 100.0
 const STEP_SIZE = MAX_DISTANCE / MAX_STEPS
 
+// GLSL array size constants — must match shader declarations
+const MAX_LIGHTS = 16
+const _ZERO_VEC3 = new THREE.Vector3(0, 0, 0)
+const _ZERO_COLOR = new THREE.Color(0, 0, 0)
+
+function padVec3(arr: THREE.Vector3[], size: number): THREE.Vector3[] {
+  const padded = arr.slice(0, size)
+  while (padded.length < size) padded.push(_ZERO_VEC3)
+  return padded
+}
+function padColor(arr: THREE.Color[], size: number): THREE.Color[] {
+  const padded = arr.slice(0, size)
+  while (padded.length < size) padded.push(_ZERO_COLOR)
+  return padded
+}
+
 // Mie scattering phase function
 const miePhaseFunction = `
   float miePhase(float cosTheta, float g) {
@@ -216,11 +232,11 @@ export default function VolumetricLighting({ lights }: VolumetricFogProps) {
     uCameraPos: { value: new THREE.Vector3() },
     uFogColor: { value: fogColor },
     uFogDensity: { value: weather === 'fog' ? 0.05 : weather === 'storm' ? 0.03 : 0.015 },
-    uLightPositions: { value: lightData.positions },
-    uLightColors: { value: lightData.colors },
+    uLightPositions: { value: padVec3(lightData.positions, MAX_LIGHTS) },
+    uLightColors: { value: padColor(lightData.colors, MAX_LIGHTS) },
     uLightIntensities: { value: lightData.intensities },
     uLightTypes: { value: lightData.types },
-    uLightDirections: { value: lightData.directions },
+    uLightDirections: { value: padVec3(lightData.directions, MAX_LIGHTS) },
     uLightAngles: { value: lightData.angles },
     uNumLights: { value: lightData.positions.length },
     uScatterCoeff: { value: 0.8 },
