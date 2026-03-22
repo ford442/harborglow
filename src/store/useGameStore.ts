@@ -16,6 +16,7 @@ export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | '
 export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
 export type QualityPreset = 'low' | 'medium' | 'high'
 export type MultiviewMode = 'single' | 'quad'
+export type HarborType = 'norway' | 'singapore' | 'dubai' | 'rotterdam' | 'yokohama' | 'longbeach' | 'santos'
 
 export interface AttachmentPoint {
     position: [number, number, number]
@@ -117,6 +118,8 @@ interface SerializableState {
     iceBuildup: number
     // Booth tier (1=standard, 3=arctic)
     boothTier: 1 | 2 | 3
+    // Harbor/Booth theme
+    currentHarbor: HarborType
 }
 
 interface GameState extends SerializableState {
@@ -170,6 +173,8 @@ interface GameState extends SerializableState {
     removeWildlife: (id: string) => void
     updateWildlife: (id: string, updates: Partial<WildlifeEntity>) => void
     setActiveSeaEvent: (event: SeaEvent | null) => void
+    // Harbor theme
+    setCurrentHarbor: (harbor: HarborType) => void
 }
 
 // Default initial state
@@ -224,6 +229,7 @@ const defaultState: Omit<GameState, keyof {
     heaterActive: true,
     iceBuildup: 0.3,
     boothTier: 3, // Default to Arctic tier for demo
+    currentHarbor: 'rotterdam', // Default harbor
     multiviewMode: 'single' as MultiviewMode,
     underwaterIntensity: 1,
     wildlife: [],
@@ -583,6 +589,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     })),
     
     setActiveSeaEvent: (event) => set({ activeSeaEvent: event }),
+    
+    // Harbor theme
+    setCurrentHarbor: (harbor: HarborType) => {
+        set({ currentHarbor: harbor })
+        console.log(`⚓ Harbor switched to: ${harbor}`)
+    },
 }))
 
 // Subscribe to save on all state changes

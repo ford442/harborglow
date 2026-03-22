@@ -10,7 +10,7 @@ import { useGameStore } from '../store/useGameStore'
 
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' | 
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' | 
-                         'spectator' | 'transition' | 'crane'
+                         'spectator' | 'transition' | 'crane' | 'booth'
 
 interface CameraTarget {
   position: THREE.Vector3

@@ -23,6 +23,7 @@ import PostProcessing from './PostProcessing'
 import MultiviewSystem from './MultiviewSystem'
 import WildlifeRenderer from './Wildlife'
 import SeaEvents from './SeaEvents'
+import ControlBooth from './ControlBooth'
 import { wildlifeSystem } from '../systems/wildlifeSystem'
 import { seaEventsSystem } from '../systems/seaEventsSystem'
 
@@ -40,7 +41,8 @@ const CAMERA_MODES = [
     'ship-water',
     'ship-rig',
     'spectator',
-    'crane'
+    'crane',
+    'booth'  // NEW: Immersive control booth view
 ] as const
 
 // =============================================================================
@@ -53,11 +55,18 @@ interface AtSeaShip {
     originalPosition: [number, number, number]
 }
 
+interface MainSceneProps {
+    /** When true, renders inside ControlBooth. When false, standalone scene. */
+    useBooth?: boolean
+    /** Harbor theme for booth appearance */
+    harborTheme?: 'industrial' | 'arctic' | 'tropical'
+}
+
 // =============================================================================
 // MAIN SCENE COMPONENT
 // =============================================================================
 
-export default function MainScene() {
+export default function MainScene({ useBooth = false, harborTheme = 'industrial' }: MainSceneProps = {}) {
     // Store selectors
     const ships = useGameStore(s => s.ships)
     const currentShipId = useGameStore(s => s.currentShipId)
@@ -117,7 +126,8 @@ export default function MainScene() {
         multiviewMode,
         setMultiviewMode,
         underwaterIntensity,
-        setUnderwaterIntensity
+        setUnderwaterIntensity,
+        useBooth
     })
 
     // Lighting calculations
@@ -182,20 +192,13 @@ export default function MainScene() {
         })
     })
 
-    return (
+    // ================================================================
+    // SCENE CONTENT (shared between booth and standalone modes)
+    // ================================================================
+    const sceneContent = (
         <>
             <scene fog={sceneFog} />
             
-            {/* Camera Controls */}
-            {!spectatorState.isActive && cameraMode === 'orbit' && (
-                <OrbitControls 
-                    ref={orbitControlsRef}
-                    target={currentShip?.position || [0, 0, 0]}
-                    enableDamping
-                    dampingFactor={0.05}
-                />
-            )}
-
             {/* Environment */}
             <Environment preset={isNight ? 'night' : 'sunset'} />
 
@@ -241,12 +244,6 @@ export default function MainScene() {
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <PostProcessing enabled={true} audioData={audioData} />
-            
-            {/* Multiview Camera System */}
-            <MultiviewSystem 
-                enabled={multiviewMode === 'quad'} 
-                underwaterIntensity={underwaterIntensity}
-            />
 
             {/* Ships */}
             {ships.map(ship => (
@@ -258,6 +255,52 @@ export default function MainScene() {
                     atSeaShipsRef={atSeaShipsRef}
                 />
             ))}
+        </>
+    )
+
+    // ================================================================
+    // RENDER: Either in ControlBooth or standalone
+    // ================================================================
+    
+    if (useBooth) {
+        // IMMERSIVE BOOTH MODE
+        return (
+            <>
+                <ControlBooth harborTheme={harborTheme} debug={false}>
+                    {sceneContent}
+                </ControlBooth>
+                
+                {/* Spectator Overlay - still available in booth mode */}
+                {spectatorState.isActive && (
+                    <SpectatorOverlay 
+                        ship={ships.find(s => s.id === spectatorState.targetShipId)}
+                        remainingTime={Math.max(0, spectatorState.duration - (Date.now() - spectatorState.startTime) / 1000)}
+                    />
+                )}
+            </>
+        )
+    }
+    
+    // STANDALONE MODE (original behavior)
+    return (
+        <>
+            {/* Camera Controls */}
+            {!spectatorState.isActive && cameraMode === 'orbit' && (
+                <OrbitControls 
+                    ref={orbitControlsRef}
+                    target={currentShip?.position || [0, 0, 0]}
+                    enableDamping
+                    dampingFactor={0.05}
+                />
+            )}
+
+            {sceneContent}
+            
+            {/* Multiview Camera System (only in standalone mode) */}
+            <MultiviewSystem 
+                enabled={multiviewMode === 'quad'} 
+                underwaterIntensity={underwaterIntensity}
+            />
 
             {/* Spectator Overlay */}
             {spectatorState.isActive && (
@@ -413,7 +456,7 @@ interface LevaControlsConfig {
     setLyricsSize: (size: number) => void
     setLightIntensity: (intensity: number) => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: 'orbit' | 'spectator' | 'crane') => void
+    setCameraMode: (mode: typeof CAMERA_MODES[number]) => void
     weather: string
     setWeather: (weather: any) => void
     setCurrentShip: (id: string | null) => void
@@ -421,6 +464,7 @@ interface LevaControlsConfig {
     setMultiviewMode: (mode: 'single' | 'quad') => void
     underwaterIntensity: number
     setUnderwaterIntensity: (intensity: number) => void
+    useBooth: boolean
 }
 
 function useLevaControls(config: LevaControlsConfig) {
@@ -439,7 +483,8 @@ function useLevaControls(config: LevaControlsConfig) {
         multiviewMode,
         setMultiviewMode,
         underwaterIntensity,
-        setUnderwaterIntensity
+        setUnderwaterIntensity,
+        useBooth
     } = config
 
     useControls({
@@ -486,9 +531,11 @@ function useLevaControls(config: LevaControlsConfig) {
             step: 0.001
         },
         'Camera Mode': {
-            value: 'orbit',
+            value: useBooth ? 'booth' : 'orbit',
             options: CAMERA_MODES,
-            onChange: setCameraMode
+            onChange: (mode: typeof CAMERA_MODES[number]) => {
+                setCameraMode(mode)
+            }
         },
         'Weather': {
             value: weather,
@@ -498,11 +545,13 @@ function useLevaControls(config: LevaControlsConfig) {
                 weatherSystem.forceWeather(w as any)
             }
         },
-        'Multiview Layout': {
-            value: multiviewMode,
-            options: ['single', 'quad'],
-            onChange: (mode: 'single' | 'quad') => setMultiviewMode(mode)
-        },
+        ...(!useBooth && {
+            'Multiview Layout': {
+                value: multiviewMode,
+                options: ['single', 'quad'],
+                onChange: (mode: 'single' | 'quad') => setMultiviewMode(mode)
+            }
+        }),
         'Underwater Intensity': {
             value: underwaterIntensity,
             min: 0,
