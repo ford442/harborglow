@@ -23,6 +23,23 @@ interface EmissiveSource {
   type: 'ship' | 'crane' | 'dock' | 'upgrade'
 }
 
+// GLSL array size constants — must match shader declarations
+const MAX_PROBES = 32
+const MAX_EMISSIVE = 16
+const _ZERO_VEC3 = new THREE.Vector3(0, 0, 0)
+const _ZERO_COLOR = new THREE.Color(0, 0, 0)
+
+function padVec3(arr: THREE.Vector3[], size: number): THREE.Vector3[] {
+  const padded = arr.slice(0, size)
+  while (padded.length < size) padded.push(_ZERO_VEC3)
+  return padded
+}
+function padColor(arr: THREE.Color[], size: number): THREE.Color[] {
+  const padded = arr.slice(0, size)
+  while (padded.length < size) padded.push(_ZERO_COLOR)
+  return padded
+}
+
 // SSGI Configuration - available for future use
 // const SSGI_CONFIG = {
 //   maxSteps: 32,
@@ -265,12 +282,12 @@ export default function GlobalIllumination({
     uResolution: { value: new THREE.Vector2(size.width, size.height) },
     uGIOffset: { value: new THREE.Vector3(0, 0, 0) },
     uGIStrength: { value: enabled ? 1.0 : 0.0 },
-    uProbePositions: { value: probes.map(p => p.position) },
-    uProbeIrradiance: { value: probes.map(p => p.irradiance) },
+    uProbePositions: { value: padVec3(probes.map(p => p.position), MAX_PROBES) },
+    uProbeIrradiance: { value: padColor(probes.map(p => p.irradiance), MAX_PROBES) },
     uProbeRadii: { value: probes.map(p => p.influence) },
     uNumProbes: { value: probes.length },
-    uEmissivePositions: { value: emissiveSources.map(s => s.position) },
-    uEmissiveColors: { value: emissiveSources.map(s => s.color) },
+    uEmissivePositions: { value: padVec3(emissiveSources.map(s => s.position), MAX_EMISSIVE) },
+    uEmissiveColors: { value: padColor(emissiveSources.map(s => s.color), MAX_EMISSIVE) },
     uEmissiveIntensities: { value: emissiveSources.map(s => s.intensity) },
     uEmissiveRadii: { value: emissiveSources.map(s => s.radius) },
     uNumEmissive: { value: emissiveSources.length },
