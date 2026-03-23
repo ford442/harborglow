@@ -85,7 +85,7 @@ interface SerializableState {
     lyricsSize: number
     lightIntensity: number
     timeOfDay: number
-    cameraMode: 'orbit' | 'spectator' | 'crane'
+    cameraMode: string
     // Ship tracking data
     shipVersions: Record<string, string>
     shipSailTimes: Record<string, number>
