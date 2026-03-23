@@ -352,3 +352,39 @@ kbd {
 .leva-c button:active {
   transform: scale(0.98) !important;
 }
+
+/* =============================================================================
+   UPGRADE MENU KEYFRAME ANIMATIONS
+   (moved from inline style injection in UpgradeMenu.tsx)
+   ============================================================================= */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1); }
+    50% { box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1.02); }
+}
+
+@keyframes flash {
+    0% { opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { opacity: 0; }
+}
+
+@keyframes pulseIn {
+    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2); }
+    50% { box-shadow: 0 0 80px rgba(255,0,255,0.8), inset 0 0 40px rgba(255,255,255,0.3); }
+}
