@@ -295,8 +295,8 @@ export default function SeaEvents() {
             <MeteorShowerEffect />
             <BioluminescentBloomEffect />
             
-            {/* UI Notification */}
-            <EventNotification />
+            {/* UI Notification - DISABLED (renders HTML, use outside Canvas) */}
+            {/* <EventNotification /> */}
         </>
     )
 }
