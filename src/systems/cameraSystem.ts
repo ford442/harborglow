@@ -1,16 +1,14 @@
 import { useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
+import { useGameStore, type CameraMode } from '../store/useGameStore'
 
 // =============================================================================
 // PHASE 7: CINEMATIC CAMERA SYSTEM
 // 7.1 Dynamic Camera Modes | 7.2 Spectator Drone | 7.3 Transitions
 // =============================================================================
 
-export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' | 
-                         'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' | 
-                         'spectator' | 'transition' | 'crane' | 'booth'
+export type { CameraMode }
 
 interface CameraTarget {
   position: THREE.Vector3
