@@ -113,33 +113,41 @@ function App() {
     // Game screen - IMMERSIVE CONTROL BOOTH MODE
     return (
         <>
-            <Canvas 
-                shadows 
+            <Canvas
+                shadows
                 camera={{ position: [0, 2.5, 4.5], fov: 60 }}
                 dpr={[1, 2]} // Responsive pixel ratio
-                gl={{ 
+                gl={{
                     antialias: true,
                     powerPreference: 'high-performance',
                     stencil: false,
                     depth: true
                 }}
+                style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    display: 'block'
+                }}
             >
                 <Suspense fallback={null}>
                     <Physics gravity={[0, -9.81, 0]}>
-                        {/* 
+                        {/*
                           IMMERSIVE MODE: useBooth={true}
                           This wraps the scene in a 3D control booth with live monitors
                         */}
-                        <MainScene 
-                            useBooth={true} 
+                        <MainScene
+                            useBooth={true}
                             harborTheme={harborTheme()}
                         />
                     </Physics>
                 </Suspense>
             </Canvas>
-            <Leva 
+            <Leva
                 collapsed={true}
                 titleBar={{ title: 'Harbor Controls' }}
+                flat
             />
         </>
     )
