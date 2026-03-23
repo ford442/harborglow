@@ -739,7 +739,6 @@ export default function ControlBooth({
         height={3.5}
         intensity={0.3}
         color={0xffffff}
-        target={[0, 2.5, 0]}
       />
       
       {/* Debug helpers */}

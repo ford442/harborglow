@@ -456,7 +456,7 @@ interface LevaControlsConfig {
     setLyricsSize: (size: number) => void
     setLightIntensity: (intensity: number) => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: typeof CAMERA_MODES[number] | string) => void
+    setCameraMode: (mode: string) => void
     weather: string
     setWeather: (weather: any) => void
     setCurrentShip: (id: string | null) => void
@@ -533,7 +533,7 @@ function useLevaControls(config: LevaControlsConfig) {
         'Camera Mode': {
             value: useBooth ? 'booth' : 'orbit',
             options: CAMERA_MODES,
-            onChange: (mode: typeof CAMERA_MODES[number]) => {
+            onChange: (mode: string) => {
                 setCameraMode(mode)
             }
         },
