@@ -98,7 +98,7 @@ export function MainSceneWithBooth({
       <Crane />
       <GlobalIllumination enabled quality="high" />
       <AudioReactiveLightShow enabled />
-      <PostProcessing enabled audioData={{ bass: 0.5, mid: 0.3, treble: 0.4 }} />
+      <PostProcessing enabled />
       
       {ships.map(ship => (
         <Ship key={ship.id} ship={ship} />

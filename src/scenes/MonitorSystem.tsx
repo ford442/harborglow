@@ -6,7 +6,8 @@ import {
   PerspectiveCamera,
   Box,
   Plane,
-  useCursor
+  useCursor,
+  Text
 } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'

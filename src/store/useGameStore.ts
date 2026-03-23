@@ -190,6 +190,7 @@ const defaultState: Omit<GameState, keyof {
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
+    setCurrentHarbor: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],

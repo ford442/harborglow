@@ -258,7 +258,6 @@ export default function ControlBoothOptimized({
       <Plane args={[3, 2.5]} position={[0, 1.75, -3.85]}>
         <MeshReflectorMaterial
           resolution={1024}
-          args={[3, 2.5]}
           mirror={0.1}
           mixBlur={0.8}
           mixStrength={0.3}
