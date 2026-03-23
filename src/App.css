@@ -262,3 +262,93 @@ kbd {
   outline: 2px solid var(--color-accent-cyan);
   outline-offset: 2px;
 }
+
+/* =============================================================================
+   FULLSCREEN CANVAS & HARBOR CONTROLS POSITIONING
+   ============================================================================= */
+
+/* Position Leva controls panel in bottom-right corner */
+.leva-c {
+  position: fixed !important;
+  bottom: 16px !important;
+  right: 16px !important;
+  top: auto !important;
+  left: auto !important;
+  max-height: calc(100vh - 32px);
+  max-width: 320px;
+  z-index: 1000;
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 200, 255, 0.1);
+}
+
+/* Collapse Leva by default for cleaner view */
+.leva-c_t {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.15), rgba(0, 100, 150, 0.1)) !important;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.1) !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+  user-select: none;
+}
+
+.leva-c_t_title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  color: rgba(0, 212, 170, 0.9) !important;
+}
+
+.leva-c_content {
+  font-size: 12px !important;
+}
+
+/* Style Leva inputs for immersive feel */
+.leva-c input[type="range"],
+.leva-c input[type="text"],
+.leva-c input[type="number"],
+.leva-c select {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(0, 200, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.leva-c input[type="range"]:focus,
+.leva-c input[type="text"]:focus,
+.leva-c input[type="number"]:focus,
+.leva-c select:focus {
+  border-color: rgba(0, 200, 255, 0.6) !important;
+  outline: none !important;
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.3) !important;
+}
+
+/* Hide Leva folder toggle for cleaner UI */
+.leva-c_f_head {
+  margin: 4px 0 !important;
+  padding: 4px 0 !important;
+}
+
+/* Multiview toggle styling */
+.leva-c button {
+  background: rgba(0, 100, 150, 0.2) !important;
+  border: 1px solid rgba(0, 200, 255, 0.3) !important;
+  color: rgba(0, 212, 170, 0.9) !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.15s ease !important;
+}
+
+.leva-c button:hover {
+  background: rgba(0, 150, 200, 0.3) !important;
+  border-color: rgba(0, 200, 255, 0.6) !important;
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.2) !important;
+}
+
+.leva-c button:active {
+  transform: scale(0.98) !important;
+}
