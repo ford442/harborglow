@@ -12,6 +12,9 @@ import {
 
 export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
+export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
+                         'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
+                         'spectator' | 'transition' | 'crane' | 'booth'
 export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | 'meteor_shower' | 'bioluminescent_bloom' | 'none'
 export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
 export type QualityPreset = 'low' | 'medium' | 'high'
@@ -85,7 +88,7 @@ interface SerializableState {
     lyricsSize: number
     lightIntensity: number
     timeOfDay: number
-    cameraMode: string
+    cameraMode: CameraMode
     // Ship tracking data
     shipVersions: Record<string, string>
     shipSailTimes: Record<string, number>
@@ -146,7 +149,7 @@ interface GameState extends SerializableState {
     setSpectatorTarget: (shipId: string | null, duration?: number) => void
     endSpectatorMode: () => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: string) => void
+    setCameraMode: (mode: CameraMode) => void
     resetGame: () => void
     loadSavedState: () => void
     scheduleDeparture: (shipId: string) => void
@@ -431,8 +434,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 lyricsSize: saved.lyricsSize ?? 28,
                 lightIntensity: saved.lightIntensity ?? 1.5,
                 timeOfDay: saved.timeOfDay ?? 22,
-                cameraMode: saved.cameraMode && ['orbit', 'spectator', 'crane'].includes(saved.cameraMode) 
-                    ? saved.cameraMode as 'orbit' | 'spectator' | 'crane'
+                cameraMode: saved.cameraMode && (['orbit', 'crane-cockpit', 'crane-shoulder', 'crane-top', 'ship-low', 'ship-aerial', 'ship-water', 'ship-rig', 'spectator', 'transition', 'crane', 'booth'] as const).includes(saved.cameraMode as CameraMode)
+                    ? saved.cameraMode as CameraMode
                     : 'orbit',
                 isNight: (saved.timeOfDay ?? 22) < 6 || (saved.timeOfDay ?? 22) > 18,
                 shipVersions: saved.shipVersions ?? {},
