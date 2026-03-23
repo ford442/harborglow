@@ -4,7 +4,7 @@ import { OrbitControls, Environment } from '@react-three/drei'
 import { useControls } from 'leva'
 import * as THREE from 'three'
 
-import { useGameStore, ShipType, Ship } from '../store/useGameStore'
+import { useGameStore, ShipType, Ship, CameraMode } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { weatherSystem } from '../systems/weatherSystem'
@@ -456,7 +456,7 @@ interface LevaControlsConfig {
     setLyricsSize: (size: number) => void
     setLightIntensity: (intensity: number) => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: string) => void
+    setCameraMode: (mode: CameraMode) => void
     weather: string
     setWeather: (weather: any) => void
     setCurrentShip: (id: string | null) => void
@@ -534,7 +534,7 @@ function useLevaControls(config: LevaControlsConfig) {
             value: useBooth ? 'booth' : 'orbit',
             options: CAMERA_MODES,
             onChange: (mode: string) => {
-                setCameraMode(mode)
+                setCameraMode(mode as CameraMode)
             }
         },
         'Weather': {
