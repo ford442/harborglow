@@ -146,7 +146,7 @@ interface GameState extends SerializableState {
     setSpectatorTarget: (shipId: string | null, duration?: number) => void
     endSpectatorMode: () => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: 'orbit' | 'spectator' | 'crane') => void
+    setCameraMode: (mode: string) => void
     resetGame: () => void
     loadSavedState: () => void
     scheduleDeparture: (shipId: string) => void
