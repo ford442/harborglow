@@ -38,13 +38,13 @@ export default function ControlBoothWithMonitorSystem({
   useEffect(() => {
     camera.position.set(0, 2.2, 3.2)
     camera.lookAt(0, 2.5, -20)
-    camera.fov = 65
+    ;(camera as THREE.PerspectiveCamera).fov = 65
     camera.updateProjectionMatrix()
     
     return () => {
       camera.position.set(10, 10, 10)
       camera.lookAt(0, 0, 0)
-      camera.fov = 50
+      ;(camera as THREE.PerspectiveCamera).fov = 50
       camera.updateProjectionMatrix()
     }
   }, [camera])
@@ -108,7 +108,6 @@ export default function ControlBoothWithMonitorSystem({
       <Plane args={[5, 3.5]} position={[0, 2.5, -3.85]}>
         <MeshReflectorMaterial
           resolution={1024}
-          args={[5, 3.5]}
           mirror={0.05}
           mixBlur={0.8}
           mixStrength={0.2}

@@ -456,7 +456,7 @@ interface LevaControlsConfig {
     setLyricsSize: (size: number) => void
     setLightIntensity: (intensity: number) => void
     setTimeOfDay: (hour: number) => void
-    setCameraMode: (mode: typeof CAMERA_MODES[number]) => void
+    setCameraMode: (mode: typeof CAMERA_MODES[number] | string) => void
     weather: string
     setWeather: (weather: any) => void
     setCurrentShip: (id: string | null) => void

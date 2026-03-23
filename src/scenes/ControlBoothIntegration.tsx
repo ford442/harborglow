@@ -120,14 +120,12 @@ function HarborSceneContent({
       
       {/* Harbor-specific water */}
       <Water 
-        isNight={isNight} 
-        waterColor={getWaterColor(harbor)}
+        isNight={isNight}
       />
       
       {/* Harbor-specific dock */}
       <Dock 
         isNight={isNight}
-        dockColor={getDockColor(harbor)}
       />
       
       {/* Crane (universal) */}

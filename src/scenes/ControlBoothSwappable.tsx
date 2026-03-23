@@ -139,13 +139,13 @@ export default function ControlBoothSwappable({
   useEffect(() => {
     camera.position.set(0, 2.2, 3.2)
     camera.lookAt(0, 2.5, -20)
-    camera.fov = 65
+    ;(camera as THREE.PerspectiveCamera).fov = 65
     camera.updateProjectionMatrix()
     
     return () => {
       camera.position.set(10, 10, 10)
       camera.lookAt(0, 0, 0)
-      camera.fov = 50
+      ;(camera as THREE.PerspectiveCamera).fov = 50
       camera.updateProjectionMatrix()
     }
   }, [camera])
@@ -295,7 +295,8 @@ export default function ControlBoothSwappable({
       {/* Rain droplets (conditional) */}
       {theme.hasRainDroplets && (
         <Plane args={[5, 3.5]} position={[0, 2.5, -3.84]}>
-          <rainDropletsMaterial
+          <primitive
+            object={new RainDropletsMaterial()}
             ref={rainRef}
             uIntensity={1.0}
             transparent
@@ -307,7 +308,8 @@ export default function ControlBoothSwappable({
       {/* Condensation (conditional) */}
       {theme.hasCondensation && (
         <Plane args={[5, 3.5]} position={[0, 2.5, -3.83]}>
-          <condensationMaterial
+          <primitive
+            object={new CondensationMaterial()}
             ref={condensationRef}
             uIntensity={currentHarbor === 'singapore' ? 0.6 : 0.4}
             transparent

@@ -186,7 +186,7 @@ export default function ControlBooth({
     // Position player inside booth, facing the window
     camera.position.set(0, 2.2, 3.2)
     camera.lookAt(0, 2.5, -20)
-    camera.fov = 65
+    ;(camera as THREE.PerspectiveCamera).fov = 65
     camera.updateProjectionMatrix()
     setIsInitialized(true)
     
@@ -194,7 +194,7 @@ export default function ControlBooth({
       // Reset camera on unmount
       camera.position.set(10, 10, 10)
       camera.lookAt(0, 0, 0)
-      camera.fov = 50
+      ;(camera as THREE.PerspectiveCamera).fov = 50
       camera.updateProjectionMatrix()
     }
   }, [camera])
@@ -739,7 +739,7 @@ export default function ControlBooth({
         height={3.5}
         intensity={0.3}
         color={0xffffff}
-        lookAt={[0, 2.5, 0]}
+        target={[0, 2.5, 0]}
       />
       
       {/* Debug helpers */}
