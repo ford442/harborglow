@@ -270,13 +270,7 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
                     {sceneContent}
                 </ControlBooth>
                 
-                {/* Spectator Overlay - still available in booth mode */}
-                {spectatorState.isActive && (
-                    <SpectatorOverlay 
-                        ship={ships.find(s => s.id === spectatorState.targetShipId)}
-                        remainingTime={Math.max(0, spectatorState.duration - (Date.now() - spectatorState.startTime) / 1000)}
-                    />
-                )}
+                {/* Note: SpectatorOverlay should be rendered outside Canvas in App.tsx */}
             </>
         )
     }
@@ -296,19 +290,10 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
 
             {sceneContent}
             
-            {/* Multiview Camera System (only in standalone mode) */}
-            <MultiviewSystem 
-                enabled={multiviewMode === 'quad'} 
-                underwaterIntensity={underwaterIntensity}
-            />
+            {/* Multiview Camera System - DISABLED (renders HTML, use outside Canvas) */}
+            {/* <MultiviewSystem enabled={multiviewMode === 'quad'} underwaterIntensity={underwaterIntensity} /> */}
 
-            {/* Spectator Overlay */}
-            {spectatorState.isActive && (
-                <SpectatorOverlay 
-                    ship={ships.find(s => s.id === spectatorState.targetShipId)}
-                    remainingTime={Math.max(0, spectatorState.duration - (Date.now() - spectatorState.startTime) / 1000)}
-                />
-            )}
+            {/* Note: UI overlays should be rendered outside Canvas in App.tsx */}
         </>
     )
 }
