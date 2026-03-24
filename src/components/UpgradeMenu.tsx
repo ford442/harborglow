@@ -1,105 +1,13 @@
-import { useState, useEffect } from 'react'
-import { useGameStore, ShipType } from '../store/useGameStore'
+import React, { useState, useEffect } from 'react'
+import { useGameStore } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
+import { UPGRADE_CONFIGS, shipTypeLabels, shipTypeColors } from './upgrade/upgradeConfigs'
 
 // =============================================================================
 // UPGRADE MENU COMPONENT
 // Shows ship-specific upgrade options and handles crane-snap installation
 // =============================================================================
-
-interface UpgradeOption {
-    partName: string
-    label: string
-    description: string
-}
-
-const UPGRADE_CONFIGS: Record<ShipType, UpgradeOption[]> = {
-    cruise: [
-        { partName: 'balcony1', label: 'Port Fore Balcony', description: 'LED rail lighting' },
-        { partName: 'balcony2', label: 'Starboard Fore Balcony', description: 'LED rail lighting' },
-        { partName: 'balcony3', label: 'Port Mid Balcony', description: 'Ambient deck lights' },
-        { partName: 'balcony4', label: 'Starboard Mid Balcony', description: 'Ambient deck lights' },
-        { partName: 'balcony5', label: 'Port Aft Balcony', description: 'Sunset accent lights' },
-        { partName: 'balcony6', label: 'Starboard Aft Balcony', description: 'Sunset accent lights' },
-        { partName: 'funnel', label: 'Giant Funnel Array', description: 'Smokestack light show' },
-        { partName: 'stern', label: 'Stern Water-Curtain', description: 'Aqua light projection' },
-    ],
-    container: [
-        { partName: 'stack1', label: 'Forward Stack Array', description: 'Container top floodlights' },
-        { partName: 'stack2', label: 'Forward-Mid Stack', description: 'Stack accent lighting' },
-        { partName: 'stack3', label: 'Center Stack Array', description: 'Main mast beacons' },
-        { partName: 'stack4', label: 'Aft-Mid Stack', description: 'Cargo bay illumination' },
-        { partName: 'stack5', label: 'Aft Stack Array', description: 'Stern cargo lights' },
-        { partName: 'top1', label: 'Fore Mast Array', description: 'Rotating searchlight' },
-        { partName: 'top2', label: 'Center Mast Array', description: 'LED billboard array' },
-        { partName: 'top3', label: 'Aft Mast Array', description: 'Navigation beacon' },
-        { partName: 'side1', label: 'Port Hull LED Wall', description: 'Full side LED billboard' },
-        { partName: 'side2', label: 'Starboard Hull LED Wall', description: 'Full side LED billboard' },
-    ],
-    tanker: [
-        { partName: 'flare', label: 'Flare Stack Projector', description: 'Flame-effect light show' },
-        { partName: 'rail1', label: 'Fore Deck Rails', description: 'Safety rail lighting' },
-        { partName: 'rail2', label: 'Mid Deck Rails', description: 'Walkway illumination' },
-        { partName: 'rail3', label: 'Aft Deck Rails', description: 'Perimeter floodlights' },
-        { partName: 'rail4', label: 'Bridge Wing Rails', description: 'Navigation rail lights' },
-        { partName: 'hull1', label: 'Bow Hull Wash', description: 'Underwater projection' },
-        { partName: 'hull2', label: 'Stern Hull Wash', description: 'Wake illumination' },
-        { partName: 'hull3', label: 'Port Hull Array', description: 'Side floodlighting' },
-    ],
-    bulk: [
-        { partName: 'hatch1', label: 'Hold 1-2 Lighting', description: 'Fore cargo hold floodlights' },
-        { partName: 'hatch2', label: 'Hold 3-4 Lighting', description: 'Mid-forward hold illumination' },
-        { partName: 'hatch3', label: 'Hold 5-6 Lighting', description: 'Mid-aft hold floodlights' },
-        { partName: 'hatch4', label: 'Hold 7-9 Lighting', description: 'Aft cargo hold illumination' },
-        { partName: 'crane1', label: 'Port Fore Crane', description: 'Gantry crane LED array' },
-        { partName: 'crane2', label: 'Stbd Fore Crane', description: 'Gantry crane LED array' },
-        { partName: 'crane3', label: 'Port Aft Crane', description: 'Gantry crane LED array' },
-        { partName: 'crane4', label: 'Stbd Aft Crane', description: 'Gantry crane LED array' },
-        { partName: 'funnel', label: 'Exhaust Funnel', description: 'Stack light projection system' },
-    ],
-    lng: [
-        { partName: 'membraneTank1', label: 'Tank 1 Cryo-Lights', description: 'Forward membrane tank glow' },
-        { partName: 'membraneTank2', label: 'Tank 2 Cryo-Lights', description: 'Forward-mid tank illumination' },
-        { partName: 'membraneTank3', label: 'Tank 3 Cryo-Lights', description: 'Aft-mid tank glow system' },
-        { partName: 'membraneTank4', label: 'Tank 4 Cryo-Lights', description: 'Aft membrane tank illumination' },
-        { partName: 'superstructure', label: 'Accommodation Lights', description: 'Living quarters accent lighting' },
-        { partName: 'mast', label: 'Navigation Mast', description: 'Combined lantern array' },
-        { partName: 'loadingArm1', label: 'Stbd Loading Arm', description: 'Cryogenic arm floodlight' },
-        { partName: 'loadingArm2', label: 'Port Loading Arm', description: 'Cryogenic arm floodlight' },
-        { partName: 'reliquefaction', label: 'Process Plant', description: 'Reliquefaction unit lighting' },
-        { partName: 'tankBarrier1', label: 'Tank Barrier LEDs', description: 'Inter-barrier illumination' },
-    ],
-    roro: [
-        { partName: 'sternRamp', label: 'Stern Ramp System', description: 'Vehicle ramp lighting' },
-        { partName: 'bowVisor', label: 'Bow Visor Lights', description: 'Forward loading door illumination' },
-        { partName: 'superstructure', label: 'Passenger Deck', description: 'Superstructure accent lighting' },
-        { partName: 'lifeboat1', label: 'Port Lifeboat', description: 'Survival craft lighting' },
-        { partName: 'lifeboat2', label: 'Starboard Lifeboat', description: 'Survival craft lighting' },
-        { partName: 'sideDoorL', label: 'Port Side Door', description: 'Port side loading door lights' },
-        { partName: 'sideDoorR', label: 'Starboard Side Door', description: 'Stbd side loading door lights' },
-        { partName: 'mast', label: 'Mast Head Lights', description: 'Navigation and signal lights' },
-    ],
-    research: [
-        { partName: 'aFrame', label: 'A-Frame Crane', description: 'Deployment crane lighting' },
-        { partName: 'sonarDome', label: 'Sonar Array', description: 'Multibeam sonar illumination' },
-        { partName: 'radarDish', label: 'Radar Mast', description: 'Scientific radar lighting' },
-        { partName: 'crane', label: 'Deck Crane', description: 'Work crane floodlights' },
-        { partName: 'laboratory', label: 'Lab Module', description: 'Research lab accent lights' },
-        { partName: 'heliDeck', label: 'Helicopter Deck', description: 'Flight deck lighting system' },
-        { partName: 'moonPool', label: 'Moon Pool', description: 'Submersible launch bay lights' },
-    ],
-    droneship: [
-        { partName: 'thruster1', label: 'Port-Aft Thruster', description: 'Azimuth thruster bay light' },
-        { partName: 'thruster2', label: 'Stbd-Aft Thruster', description: 'Azimuth thruster bay light' },
-        { partName: 'thruster3', label: 'Port-Fwd Thruster', description: 'Azimuth thruster bay light' },
-        { partName: 'thruster4', label: 'Stbd-Fwd Thruster', description: 'Azimuth thruster bay light' },
-        { partName: 'equipmentContainer', label: 'Equipment Bay', description: 'Generator room lighting' },
-        { partName: 'starlinkDish', label: 'Comm Array', description: 'Starlink and antenna lighting' },
-        { partName: 'cameras', label: 'Camera System', description: 'Landing camera floodlights' },
-        { partName: 'octagrabber', label: 'Octagrabber', description: 'Robot securing system lights' },
-    ],
-}
 
 export default function UpgradeMenu() {
     const currentShipId = useGameStore((state) => state.currentShipId)
@@ -131,21 +39,17 @@ export default function UpgradeMenu() {
         const allInstalled = shipUpgrades.length >= totalUpgrades
 
         if (allInstalled && !showBandReveal) {
-            // Trigger band reveal cinematic
             const bandInfo = musicSystem.getBandInfo(currentShip.type)
             setBandName(bandInfo.name)
             setShowBandReveal(true)
-            
-            // Start music
+
             musicSystem.startMusic(currentShip.type)
             setMusicPlaying(currentShip.id, true)
-            
-            // Trigger spectator drone after 3 seconds
+
             setTimeout(() => {
                 setSpectatorTarget(currentShip.id)
             }, 3000)
 
-            // Hide band reveal after 8 seconds
             setTimeout(() => {
                 setShowBandReveal(false)
             }, 8000)
@@ -171,8 +75,6 @@ export default function UpgradeMenu() {
 
     const handleInstall = (partName: string) => {
         setInstalling(partName)
-        
-        // Simulate crane pickup and placement animation time
         setTimeout(() => {
             installUpgrade(currentShip.id, partName)
             setInstalling(null)
@@ -182,28 +84,19 @@ export default function UpgradeMenu() {
     const handleStructuralOverhaul = async () => {
         if (!currentShip?.isDocked) return
         if (isUpgradingVersion) return
-        
+
         setIsUpgradingVersion(true)
-        
+
         try {
             const currentVersion = currentShip?.version || '1.0'
             await upgradeShipVersion(currentShip.id)
-            
-            // Trigger flash effect on completion
+
             setShowFlash(true)
             setTimeout(() => setShowFlash(false), 500)
-            
-            // If upgraded to v2.0, trigger the full show!
+
             if (currentVersion === '1.5') {
-                console.log('🎆 V2.0 OVERHAUL SYNC SHOW ACTIVATED!')
-                
-                // Trigger music climax
                 musicSystem.triggerClimax(currentShip.type)
-                
-                // Start harbor light show
                 lightingSystem.startHarborShow(currentShip.id, currentShip.type)
-                
-                // Show big on-screen notification
                 setShowV2Notification(true)
                 setTimeout(() => setShowV2Notification(false), 5000)
             }
@@ -212,53 +105,31 @@ export default function UpgradeMenu() {
         }
     }
 
-    const shipTypeLabels: Record<ShipType, string> = {
-        cruise: 'Mega Cruise Liner',
-        container: 'Ultra Container Vessel',
-        tanker: 'VLCC Oil Tanker',
-        bulk: 'Capesize Bulk Carrier',
-        lng: 'Q-Max LNG Carrier',
-        roro: 'Roll-on/Roll-off Ferry',
-        research: 'Research Vessel',
-        droneship: 'Space Recovery Drone Ship'
-    }
-
-    const shipTypeColors: Record<ShipType, string> = {
-        cruise: '#ff6b9d',
-        container: '#00d4aa',
-        tanker: '#ff9500',
-        bulk: '#8b4513',      // Rust/brown for iron ore
-        lng: '#00bfff',       // Ice blue for cryogenic
-        roro: '#9b59b6',      // Purple for vehicles
-        research: '#2ecc71',  // Green for science
-        droneship: '#34495e'  // Dark slate for space
-    }
-
-    // Get current and next version
     const currentVersion = currentShip?.version || '1.0'
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
     const isMaxVersion = currentVersion === '2.0'
+    const shipColor = shipTypeColors[currentShip.type]
 
     return (
         <>
             {/* Main Upgrade Menu */}
             <div style={menuContainerStyle}>
-                <div style={{ 
-                    borderBottom: `2px solid ${shipTypeColors[currentShip.type]}`,
+                <div style={{
+                    borderBottom: `2px solid ${shipColor}`,
                     paddingBottom: '8px',
                     marginBottom: '12px'
                 }}>
-                    <h3 style={{ margin: 0, color: shipTypeColors[currentShip.type] }}>
+                    <h3 style={{ margin: 0, color: shipColor }}>
                         {shipTypeLabels[currentShip.type]}
                     </h3>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                         <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>
                             ID: {currentShip.id.slice(-6)}
                         </p>
-                        <p style={{ 
-                            margin: 0, 
-                            fontSize: '11px', 
+                        <p style={{
+                            margin: 0,
+                            fontSize: '11px',
                             color: isMaxVersion ? '#ffd700' : '#aaa',
                             fontWeight: isMaxVersion ? 'bold' : 'normal'
                         }}>
@@ -274,8 +145,8 @@ export default function UpgradeMenu() {
 
                 {/* Progress bar */}
                 <div style={{ marginBottom: '12px' }}>
-                    <div style={{ 
-                        display: 'flex', 
+                    <div style={{
+                        display: 'flex',
                         justifyContent: 'space-between',
                         fontSize: '11px',
                         color: '#aaa',
@@ -288,7 +159,7 @@ export default function UpgradeMenu() {
                         <div style={{
                             ...progressBarFillStyle,
                             width: `${progress}%`,
-                            backgroundColor: shipTypeColors[currentShip.type]
+                            backgroundColor: shipColor
                         }} />
                     </div>
                 </div>
@@ -308,7 +179,7 @@ export default function UpgradeMenu() {
                                     ...buttonStyle,
                                     opacity: installing === option.partName ? 0.6 : 1,
                                     cursor: installing === option.partName ? 'wait' : 'pointer',
-                                    borderColor: installing === option.partName ? shipTypeColors[currentShip.type] : '#555'
+                                    borderColor: installing === option.partName ? shipColor : '#555'
                                 }}
                             >
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -324,9 +195,9 @@ export default function UpgradeMenu() {
                     </div>
                 ) : (
                     <div style={{ textAlign: 'center', padding: '20px' }}>
-                        <p style={{ 
-                            margin: 0, 
-                            color: shipTypeColors[currentShip.type],
+                        <p style={{
+                            margin: 0,
+                            color: shipColor,
                             fontSize: '14px',
                             fontWeight: 'bold'
                         }}>
@@ -336,7 +207,6 @@ export default function UpgradeMenu() {
                             Band: {musicSystem.getBandInfo(currentShip.type).name}
                         </p>
 
-                        {/* Full Structural Overhaul Button */}
                         {currentShip.isDocked && !isMaxVersion && (
                             <button
                                 onClick={handleStructuralOverhaul}
@@ -353,18 +223,18 @@ export default function UpgradeMenu() {
                                         {isUpgradingVersion ? '🔧 UPGRADING...' : '⚡ FULL STRUCTURAL OVERHAUL'}
                                     </span>
                                     <span style={{ fontSize: '10px', marginTop: '4px', opacity: 0.9 }}>
-                                        {isUpgradingVersion 
-                                            ? 'Transforming hull architecture...' 
+                                        {isUpgradingVersion
+                                            ? 'Transforming hull architecture...'
                                             : `v${currentVersion} → v${nextVersion}`}
                                     </span>
                                 </div>
                             </button>
                         )}
-                        
+
                         {isMaxVersion && (
-                            <div style={{ 
-                                marginTop: '12px', 
-                                padding: '8px', 
+                            <div style={{
+                                marginTop: '12px',
+                                padding: '8px',
                                 background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))',
                                 borderRadius: '8px',
                                 border: '1px solid rgba(255,215,0,0.3)'
@@ -392,9 +262,7 @@ export default function UpgradeMenu() {
             </div>
 
             {/* Flash Effect Overlay */}
-            {showFlash && (
-                <div style={flashOverlayStyle} />
-            )}
+            {showFlash && <div style={flashOverlayStyle} />}
 
             {/* V2.0 Overhaul Notification */}
             {showV2Notification && (
@@ -418,10 +286,10 @@ export default function UpgradeMenu() {
                         <p style={{ margin: 0, fontSize: '18px', color: '#aaa', letterSpacing: '4px' }}>
                             TONIGHT'S ONBOARD BAND
                         </p>
-                        <h1 style={{ 
-                            margin: '20px 0', 
+                        <h1 style={{
+                            margin: '20px 0',
                             fontSize: '48px',
-                            background: `linear-gradient(45deg, ${currentShip ? shipTypeColors[currentShip.type] : '#fff'}, #fff)`,
+                            background: `linear-gradient(45deg, ${shipColor}, #fff)`,
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             textShadow: '0 0 40px rgba(255,255,255,0.3)'
@@ -429,7 +297,7 @@ export default function UpgradeMenu() {
                             {bandName}
                         </h1>
                         <p style={{ margin: 0, fontSize: '14px', color: '#888' }}>
-                            {currentShip && musicSystem.getBandInfo(currentShip.type).genre}
+                            {musicSystem.getBandInfo(currentShip.type).genre}
                         </p>
                     </div>
                 </div>
@@ -552,34 +420,3 @@ const v2NotificationStyle: React.CSSProperties = {
     animation: 'pulseIn 0.5s ease-out, glow 2s infinite',
     boxShadow: '0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2)'
 }
-
-// Add keyframe animations via inline style injection
-const styleSheet = document.createElement('style')
-styleSheet.textContent = `
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-    @keyframes slideUp {
-        from { transform: translateY(30px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-    @keyframes pulse {
-        0%, 100% { box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1); }
-        50% { box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1.02); }
-    }
-    @keyframes flash {
-        0% { opacity: 0; }
-        50% { opacity: 0.5; }
-        100% { opacity: 0; }
-    }
-    @keyframes pulseIn {
-        0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    }
-    @keyframes glow {
-        0%, 100% { box-shadow: 0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2); }
-        50% { box-shadow: 0 0 80px rgba(255,0,255,0.8), inset 0 0 40px rgba(255,255,255,0.3); }
-    }
-`
-document.head.appendChild(styleSheet)
