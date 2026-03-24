@@ -1,0 +1,2284 @@
+/* =============================================================================
+   APP STYLES - HarborGlow
+   Wet industrial harbor aesthetic
+   ============================================================================= */
+
+/* CSS Variables for theming */
+:root {
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #1a1a2e;
+  --color-bg-tertiary: #16213e;
+  --color-accent-cyan: #00c8ff;
+  --color-accent-pink: #ff6b9d;
+  --color-accent-green: #00d4aa;
+  --color-accent-orange: #ff9500;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-text-muted: rgba(255, 255, 255, 0.4);
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --shadow-glow: 0 0 20px rgba(0, 200, 255, 0.5), 0 0 40px rgba(0, 150, 255, 0.3);
+  --transition-fast: 0.15s ease;
+  --transition-medium: 0.3s ease;
+}
+
+/* =============================================================================
+   MAIN MENU
+   ============================================================================= */
+
+.menu-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 80%, rgba(0, 100, 200, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255, 100, 150, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 100%);
+  animation: menuBreath 8s ease-in-out infinite;
+}
+
+@keyframes menuBreath {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.95; }
+}
+
+.menu-content {
+  position: relative;
+  text-align: center;
+  padding: 3rem;
+  max-width: 480px;
+  z-index: 1;
+}
+
+.menu-title {
+  font-size: 4.5rem;
+  font-weight: 900;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.title-glow {
+  color: var(--color-text-primary);
+  text-shadow: var(--shadow-glow);
+  animation: titlePulse 3s ease-in-out infinite alternate;
+}
+
+.title-accent {
+  color: var(--color-accent-cyan);
+  text-shadow: 0 0 30px rgba(0, 200, 255, 0.6);
+}
+
+@keyframes titlePulse {
+  from { text-shadow: 0 0 20px rgba(0, 200, 255, 0.5), 0 0 40px rgba(0, 150, 255, 0.3); }
+  to { text-shadow: 0 0 30px rgba(0, 255, 220, 0.6), 0 0 60px rgba(0, 200, 255, 0.4); }
+}
+
+.menu-subtitle {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 2.5rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.menu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 200, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 200, 255, 0.2);
+}
+
+.menu-btn:active {
+  transform: translateY(0);
+}
+
+.menu-btn.primary {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.25), rgba(0, 200, 255, 0.15));
+  border-color: rgba(0, 200, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 200, 255, 0.15);
+}
+
+.menu-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.35), rgba(0, 200, 255, 0.25));
+  box-shadow: 0 8px 24px rgba(0, 200, 255, 0.3);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.menu-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent-cyan);
+  background: rgba(0, 200, 255, 0.1);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(0, 200, 255, 0.2);
+}
+
+/* =============================================================================
+   LOADING SCREEN
+   ============================================================================= */
+
+.loading-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  z-index: 9999;
+}
+
+.loading-content {
+  text-align: center;
+  padding: 2rem;
+  min-width: 300px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.5rem;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--color-accent-cyan);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.loading-progress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-cyan), var(--color-accent-pink));
+  border-radius: 2px;
+  transition: width 0.2s ease-out;
+  box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+}
+
+.loading-text {
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+   RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 640px) {
+  .menu-title {
+    font-size: 3rem;
+  }
+  
+  .menu-content {
+    padding: 1.5rem;
+  }
+  
+  .menu-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-backdrop,
+  .title-glow,
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .menu-btn {
+    transition: none;
+  }
+}
+
+/* Focus styles for keyboard navigation */
+.menu-btn:focus-visible {
+  outline: 2px solid var(--color-accent-cyan);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   FULLSCREEN CANVAS & HARBOR CONTROLS POSITIONING
+   ============================================================================= */
+
+/* Position Leva controls panel in bottom-right corner */
+.leva-c {
+  position: fixed !important;
+  bottom: 16px !important;
+  right: 16px !important;
+  top: auto !important;
+  left: auto !important;
+  max-height: calc(100vh - 32px);
+  max-width: 320px;
+  z-index: 1000;
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 200, 255, 0.1);
+}
+
+/* Collapse Leva by default for cleaner view */
+.leva-c_t {
+  background: linear-gradient(135deg, rgba(0, 150, 255, 0.15), rgba(0, 100, 150, 0.1)) !important;
+  border-bottom: 1px solid rgba(0, 200, 255, 0.1) !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+}
+
+.leva-c_t_title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  color: rgba(0, 212, 170, 0.9) !important;
+}
+
+.leva-c_content {
+  font-size: 12px !important;
+}
+
+/* Style Leva inputs for immersive feel */
+.leva-c input[type="range"],
+.leva-c input[type="text"],
+.leva-c input[type="number"],
+.leva-c select {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(0, 200, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.leva-c input[type="range"]:focus,
+.leva-c input[type="text"]:focus,
+.leva-c input[type="number"]:focus,
+.leva-c select:focus {
+  border-color: rgba(0, 200, 255, 0.6) !important;
+  outline: none !important;
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.3) !important;
+}
+
+/* Hide Leva folder toggle for cleaner UI */
+.leva-c_f_head {
+  margin: 4px 0 !important;
+  padding: 4px 0 !important;
+}
+
+/* Multiview toggle styling */
+.leva-c button {
+  background: rgba(0, 100, 150, 0.2) !important;
+  border: 1px solid rgba(0, 200, 255, 0.3) !important;
+  color: rgba(0, 212, 170, 0.9) !important;
+  border-radius: 4px !important;
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.15s ease !important;
+}
+
+.leva-c button:hover {
+  background: rgba(0, 150, 200, 0.3) !important;
+  border-color: rgba(0, 200, 255, 0.6) !important;
+  box-shadow: 0 0 8px rgba(0, 200, 255, 0.2) !important;
+}
+
+.leva-c button:active {
+  transform: scale(0.98) !important;
+}
+
+/* =============================================================================
+   UPGRADE MENU KEYFRAME ANIMATIONS
+   (moved from inline style injection in UpgradeMenu.tsx)
+   ============================================================================= */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1); }
+    50% { box-shadow: 0 6px 30px rgba(255, 215, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.3); transform: scale(1.02); }
+}
+
+@keyframes flash {
+    0% { opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { opacity: 0; }
+}
+
+@keyframes pulseIn {
+    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2); }
+    50% { box-shadow: 0 0 80px rgba(255,0,255,0.8), inset 0 0 40px rgba(255,255,255,0.3); }
+}
+:root {
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+
+    color-scheme: light dark;
+    color: rgba(255, 255, 255, 0.87);
+    background-color: #242424;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+a {
+    font-weight: 500;
+    color: #646cff;
+    text-decoration: inherit;
+}
+
+a:hover {
+    color: #535bf2;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    place-items: center;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+h1 {
+    font-size: 3.2em;
+    line-height: 1.1;
+}
+
+button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background-color: #1a1a1a;
+    cursor: pointer;
+    transition: border-color 0.25s;
+}
+
+button:hover {
+    border-color: #646cff;
+}
+
+button:focus,
+button:focus-visible {
+    outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        color: #213547;
+        background-color: #ffffff;
+    }
+
+    a:hover {
+        color: #747bff;
+    }
+
+    button {
+        background-color: #f9f9f9;
+    }
+}
+
+/* =============================================================================
+   CRANE CABIN 4-MONITOR DASHBOARD STYLES
+   Authentic port simulator booth interface
+   ============================================================================= */
+
+.crane-dashboard-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-frame {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 
+    0 0 40px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid #2a2a2a;
+}
+
+.monitor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monitor-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Individual Monitor */
+.crane-monitor {
+  position: relative;
+}
+
+.monitor-bezel {
+  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.monitor-screen {
+  width: 180px;
+  height: 135px;
+  background: #000;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.monitor-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cam-id {
+  color: #00ff88;
+  font-weight: bold;
+}
+
+.cam-desc {
+  color: #888;
+}
+
+.status-led {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.status-led.on {
+  background: #00ff00;
+  box-shadow: 
+    0 0 4px #00ff00,
+    0 0 8px #00ff00;
+  animation: led-pulse 2s ease-in-out infinite;
+}
+
+.status-led.off {
+  background: #ff0000;
+  box-shadow: 0 0 4px #ff0000;
+}
+
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Scanlines */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.3) 2px,
+    rgba(0, 0, 0, 0.3) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* CRT Flicker */
+.crt-flicker {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.02);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 11;
+  animation: crt-flicker 0.15s infinite;
+}
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 0; }
+  5% { opacity: 0.03; }
+  10% { opacity: 0; }
+  15% { opacity: 0.02; }
+}
+
+/* Weather Effects */
+.weather-distortion .monitor-screen {
+  filter: contrast(1.1) brightness(0.9) saturate(0.8);
+}
+
+.rain-streaks {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.05) 2px,
+    rgba(255, 255, 255, 0.05) 4px
+  );
+  animation: rain-scroll 0.2s linear infinite;
+  pointer-events: none;
+  z-index: 12;
+}
+
+@keyframes rain-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-4px); }
+}
+
+.static-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.1;
+  animation: static-flicker 0.1s steps(2) infinite;
+  pointer-events: none;
+  z-index: 13;
+}
+
+@keyframes static-flicker {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.12; }
+}
+
+/* Camera Feed Content */
+.cam-feed {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, #0a1628 0%, #1a2a40 100%);
+}
+
+/* Left/Right Twistlock Cams */
+.feed-grid {
+  display: flex;
+  height: 100%;
+}
+
+.spreader-side {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spreader-beam {
+  width: 80%;
+  height: 8px;
+  background: linear-gradient(180deg, #666 0%, #444 100%);
+  border-radius: 2px;
+  position: relative;
+}
+
+.twistlock {
+  position: absolute;
+  width: 16px;
+  height: 20px;
+  background: linear-gradient(145deg, #888 0%, #555 100%);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.twistlock.left {
+  left: 15%;
+  top: 45%;
+}
+
+.twistlock.right {
+  right: 15%;
+  top: 45%;
+}
+
+.twistlock.engaged {
+  background: linear-gradient(145deg, #00aa44 0%, #006622 100%);
+  box-shadow: 0 0 8px #00ff44;
+}
+
+.lock-icon {
+  font-size: 10px;
+  filter: grayscale(100%) brightness(2);
+}
+
+.twistlock.engaged .lock-icon {
+  filter: none;
+}
+
+.corner-casting {
+  position: absolute;
+  bottom: 20%;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.3s ease;
+}
+
+.container-corner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #c49060 0%, #8b4513 100%);
+  border: 1px solid #5a3010;
+  border-radius: 2px;
+}
+
+.height-ruler {
+  width: 30px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+.ruler-mark {
+  position: absolute;
+  left: 2px;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
+}
+
+/* Downward Spreader Cam */
+.top-down-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spreader-top {
+  width: 60px;
+  height: 40px;
+  transition: transform 0.3s ease;
+}
+
+.spreader-frame {
+  width: 100%;
+  height: 100%;
+  border: 3px solid #666;
+  border-radius: 2px;
+  position: relative;
+  background: rgba(100, 100, 100, 0.2);
+}
+
+.tl-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #444;
+  border-radius: 50%;
+}
+
+.tl-corner.tl { top: -6px; left: -6px; }
+.tl-corner.tr { top: -6px; right: -6px; }
+.tl-corner.bl { bottom: -6px; left: -6px; }
+.tl-corner.br { bottom: -6px; right: -6px; }
+
+.tl-corner.engaged {
+  background: #00ff44;
+  box-shadow: 0 0 6px #00ff44;
+}
+
+.tl-indicator {
+  width: 4px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.center-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-h, .crosshair-v {
+  position: absolute;
+  background: rgba(255, 0, 0, 0.6);
+}
+
+.crosshair-h {
+  width: 20px;
+  height: 1px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-v {
+  width: 1px;
+  height: 20px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.target-container {
+  position: absolute;
+  width: 70px;
+  height: 50px;
+  border: 2px dashed rgba(255, 255, 0, 0.4);
+  border-radius: 4px;
+}
+
+.container-outline {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 0, 0.2);
+}
+
+.target-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(255, 255, 0, 0.6);
+  transform: translate(-50%, -50%);
+}
+
+.alignment-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guide-h, .guide-v {
+  position: absolute;
+  background: rgba(0, 255, 136, 0.3);
+}
+
+.guide-h {
+  width: 100%;
+  height: 1px;
+  top: 50%;
+}
+
+.guide-v {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+}
+
+/* Winch Cam */
+.winch-view {
+  display: flex;
+  height: 100%;
+  padding: 10px;
+  gap: 10px;
+}
+
+.cable-drum {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(180deg, #333 0%, #222 100%);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.drum-body {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 80%;
+  background: repeating-linear-gradient(
+    0deg,
+    #444 0px,
+    #444 3px,
+    #333 3px,
+    #333 6px
+  );
+  border-radius: 2px;
+}
+
+.cable-wind {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  background: linear-gradient(90deg, #666 0%, #888 50%, #666 100%);
+  border-radius: 1px;
+  transition: height 0.3s ease;
+}
+
+.tension-gauge {
+  width: 30px;
+  position: relative;
+  background: #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gauge-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, #004400 0%, #444400 50%, #440000 100%);
+  opacity: 0.3;
+}
+
+.gauge-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(0deg, #00ff00 0%, #ffff00 50%, #ff0000 100%);
+  transition: height 0.3s ease;
+}
+
+.gauge-labels {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 4px 0;
+}
+
+.cable-animation {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.cable-strand {
+  width: 2px;
+  height: 30px;
+  background: linear-gradient(180deg, #888 0%, #444 100%);
+  animation: cable-shimmer 1s ease-in-out infinite;
+}
+
+@keyframes cable-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Landside Cam */
+.quay-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, #1a2a40 0%, #0d1a28 60%, #1a2a40 100%);
+  overflow: hidden;
+}
+
+.quay-structure {
+  position: absolute;
+  bottom: 20%;
+  left: 0;
+  right: 0;
+}
+
+.quay-deck {
+  height: 20px;
+  background: linear-gradient(180deg, #555 0%, #333 100%);
+  border-top: 2px solid #777;
+}
+
+.quay-edge {
+  height: 4px;
+  background: repeating-linear-gradient(90deg, #ffaa00 0px, #ffaa00 10px, #333 10px, #333 20px);
+}
+
+.ship-silhouette {
+  position: absolute;
+  right: 5%;
+  bottom: 25%;
+  opacity: 0.6;
+}
+
+.ship-hull {
+  width: 80px;
+  height: 40px;
+  background: #2a3a50;
+  border-radius: 0 0 40px 40px;
+}
+
+.ship-superstructure {
+  position: absolute;
+  top: -30px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: #3a4a60;
+  border-radius: 2px;
+}
+
+.container-yard {
+  position: absolute;
+  bottom: 30%;
+  left: 5%;
+  right: 30%;
+}
+
+.container-stack {
+  position: absolute;
+  width: 15px;
+}
+
+.container-box {
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(180deg, #c49060 0%, #8b4513 100%);
+  margin-bottom: 1px;
+  border: 1px solid #5a3010;
+}
+
+.crane-position-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(0, 255, 136, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cpi-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid #00ff88;
+}
+
+.cpi-label {
+  position: absolute;
+  bottom: -12px;
+  font-size: 6px;
+  color: #00ff88;
+}
+
+/* Data Overlay */
+.data-overlay {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 4px;
+  border-radius: 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 8px;
+}
+
+.data-overlay.center {
+  text-align: center;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.data-row:last-child {
+  margin-bottom: 0;
+}
+
+.data-label {
+  color: #888;
+}
+
+.data-value {
+  font-weight: bold;
+}
+
+.data-value.green { color: #00ff44; }
+.data-value.red { color: #ff4444; }
+.data-value.yellow { color: #ffcc00; }
+.data-value.cyan { color: #00ccff; }
+
+/* Dashboard Controls */
+.dashboard-controls {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.monitor-toggle-btn {
+  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.monitor-toggle-btn:hover {
+  border-color: #00ff88;
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+.btn-icon {
+  font-size: 12px;
+}
+
+.btn-label {
+  font-size: 9px;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-hint {
+  font-size: 8px;
+  color: #666;
+  background: #1a1a1a;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: monospace;
+}
+
+/* =============================================================================
+   TIER 3 ADVANCED ARCTIC COMMAND BOOTH STYLES
+   ============================================================================= */
+
+/* Arctic Container */
+.crane-dashboard-container.tier-arctic {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  perspective: 1200px;
+}
+
+/* Arctic Ambient Lighting */
+.arctic-ambient-lighting {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ceiling-strip {
+  position: absolute;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, #00ccff 50%, transparent 100%);
+  box-shadow: 0 0 20px #00ccff, 0 0 40px #00ccff;
+  opacity: 0.6;
+}
+
+.ceiling-strip.left { top: 5%; left: 5%; width: 25%; transform: rotate(-5deg); }
+.ceiling-strip.right { top: 5%; right: 5%; width: 25%; transform: rotate(5deg); }
+.ceiling-strip.center { top: 3%; left: 35%; width: 30%; }
+
+.console-edge-glow {
+  position: absolute;
+  bottom: 20%;
+  left: 5%;
+  right: 5%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #0088ff 20%, #00ccff 50%, #0088ff 80%, transparent 100%);
+  box-shadow: 0 0 15px #0088ff, 0 0 30px #00ccff;
+}
+
+.floor-lighting {
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 60px;
+  background: radial-gradient(ellipse at center bottom, rgba(0, 136, 255, 0.3) 0%, transparent 70%);
+}
+
+/* Heated Windows */
+.arctic-windows {
+  position: absolute;
+  top: 8%;
+  left: 5%;
+  right: 5%;
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  z-index: 2;
+}
+
+.heated-window {
+  width: 200px;
+  height: 120px;
+  position: relative;
+  background: linear-gradient(180deg, #1a2a3a 0%, #0d1a28 100%);
+  border: 3px solid #2a3a4a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.window-glass {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(200, 220, 255, 0.1) 0%, rgba(150, 180, 220, 0.05) 100%);
+}
+
+.frost-layer {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at 20% 80%, rgba(255, 255, 255, 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(255, 255, 255, 0.3) 0%, transparent 40%);
+  transition: opacity 1s ease;
+}
+
+.defrost-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.defrost-grid.active {
+  opacity: 1;
+}
+
+.grid-line {
+  position: absolute;
+  background: linear-gradient(90deg, transparent 0%, #ff6600 50%, transparent 100%);
+  box-shadow: 0 0 4px #ff6600;
+}
+
+.grid-line.horizontal {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+.grid-line.vertical {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+}
+
+.heater-indicator {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 8px;
+  color: #ff6600;
+  text-shadow: 0 0 4px #ff6600;
+}
+
+/* Overhead Monitor Bar */
+.overhead-monitor-bar {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%) perspective(800px) rotateX(10deg);
+  z-index: 10;
+}
+
+.overhead-monitors {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+  border-radius: 8px;
+  box-shadow: 0 -10px 40px rgba(0, 136, 255, 0.2);
+}
+
+.overhead-monitors .crane-monitor {
+  transform: scale(0.7);
+  transform-origin: top center;
+}
+
+.overhead-monitors .monitor-bezel {
+  border: 1px solid #00ccff;
+  box-shadow: 0 0 10px rgba(0, 204, 255, 0.3);
+}
+
+/* Arctic Console */
+.arctic-console {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  z-index: 5;
+}
+
+.arctic-console.curved {
+  transform: translateX(-50%) perspective(1000px) rotateX(5deg);
+}
+
+.console-led-glow {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #00ccff 20%, #0088ff 50%, #00ccff 80%, transparent 100%);
+  box-shadow: 0 0 20px #00ccff, 0 0 40px #0088ff;
+  animation: console-pulse 3s ease-in-out infinite;
+}
+
+@keyframes console-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.main-monitors-curved {
+  background: linear-gradient(180deg, #151520 0%, #0a0a15 100%);
+  border-radius: 20px 20px 10px 10px;
+  padding: 15px;
+  box-shadow: 
+    0 0 30px rgba(0, 136, 255, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.curved-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.curved-row.lower {
+  transform: perspective(500px) rotateX(2deg);
+}
+
+/* Arctic Monitor Styling */
+.crane-monitor.arctic-mode .monitor-bezel {
+  background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 50%, #050510 100%);
+  border: 1px solid #00ccff;
+  box-shadow: 0 0 15px rgba(0, 204, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.arctic-led-accent {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #00ccff 50%, transparent 100%);
+  box-shadow: 0 0 8px #00ccff;
+}
+
+.frost-edge {
+  position: absolute;
+  inset: -2px;
+  border: 1px solid rgba(200, 240, 255, 0.3);
+  border-radius: 8px;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+.status-led.arctic.on {
+  background: #00ccff;
+  box-shadow: 0 0 6px #00ccff, 0 0 12px #00ccff;
+}
+
+/* Arctic Cam Feed Styling */
+.cam-feed.arctic {
+  background: linear-gradient(180deg, #0a1620 0%, #051018 100%);
+}
+
+.spreader-beam.frosted {
+  background: linear-gradient(180deg, #4a5a6a 0%, #2a3a4a 100%);
+  border: 1px solid rgba(200, 220, 240, 0.3);
+}
+
+.twistlock.arctic.engaged {
+  background: linear-gradient(145deg, #00aadd 0%, #0066aa 100%);
+  box-shadow: 0 0 12px #00ccff, 0 0 24px #0088ff;
+}
+
+.container-corner.ice-coated {
+  background: linear-gradient(145deg, #c0d0e0 0%, #8090a0 100%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.spreader-frame.arctic {
+  border-color: #00ccff;
+  background: rgba(0, 204, 255, 0.1);
+}
+
+.tl-corner.arctic.engaged {
+  background: #00ccff;
+  box-shadow: 0 0 8px #00ccff;
+}
+
+.center-crosshair.arctic .crosshair-h,
+.center-crosshair.arctic .crosshair-v {
+  background: rgba(0, 204, 255, 0.8);
+}
+
+.container-outline.ice-glow {
+  border-color: rgba(0, 204, 255, 0.6);
+  box-shadow: 0 0 10px rgba(0, 204, 255, 0.3);
+}
+
+.target-crosshair.arctic {
+  border-color: rgba(0, 204, 255, 0.8);
+}
+
+.guide-h.arctic, .guide-v.arctic {
+  background: rgba(0, 204, 255, 0.4);
+}
+
+.cable-drum.arctic {
+  background: linear-gradient(180deg, #1a2a3a 0%, #0d1a28 100%);
+  border: 1px solid rgba(0, 204, 255, 0.3);
+}
+
+.cable-strand.arctic {
+  background: linear-gradient(180deg, #00ccff 0%, #0088ff 100%);
+}
+
+.data-overlay.arctic {
+  background: rgba(0, 10, 20, 0.85);
+  border: 1px solid rgba(0, 204, 255, 0.3);
+}
+
+.data-value.arctic-blue { color: #00ccff; text-shadow: 0 0 4px #00ccff; }
+.data-value.arctic-cyan { color: #00ffff; text-shadow: 0 0 4px #00ffff; }
+.data-value.arctic-yellow { color: #ffcc00; text-shadow: 0 0 4px #ffcc00; }
+
+/* Telemetry Panel */
+.telemetry-panel {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.telemetry-label {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.telemetry-graph {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.graph-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  flex: 1;
+  height: 100%;
+}
+
+.graph-bar {
+  flex: 1;
+  border-radius: 1px;
+  transition: height 0.3s ease;
+}
+
+.graph-line {
+  position: absolute;
+  bottom: 30%;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.telemetry-value {
+  font-size: 10px;
+  font-weight: bold;
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* System Status Panel */
+.system-status-panel {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.status-header {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 204, 255, 0.3);
+  padding-bottom: 4px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.status-name {
+  font-size: 6px;
+  color: #888;
+  flex: 1;
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-item.ok .status-indicator { background: #00ff44; box-shadow: 0 0 4px #00ff44; }
+.status-item.warn .status-indicator { background: #ffcc00; box-shadow: 0 0 4px #ffcc00; }
+.status-item.error .status-indicator { background: #ff4444; box-shadow: 0 0 4px #ff4444; }
+
+.status-temp {
+  font-size: 6px;
+  color: #aaa;
+}
+
+/* Weather Monitor Panel */
+.weather-monitor-panel {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.weather-header {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 204, 255, 0.3);
+  padding-bottom: 4px;
+}
+
+.weather-data {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weather-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.weather-icon {
+  font-size: 10px;
+}
+
+.weather-value {
+  font-size: 9px;
+  color: #00ffff;
+  font-weight: bold;
+}
+
+/* Thermal Camera */
+.thermal-cam {
+  background: linear-gradient(180deg, #051018 0%, #020810 100%);
+}
+
+.thermal-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+}
+
+.thermal-bg {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(180deg, #0a1a30 0%, #051020 50%, #0a2030 100%);
+}
+
+.ship-thermal-silhouette {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(0, 100, 150, 0.4) 0%, rgba(0, 60, 100, 0.6) 100%);
+  border-radius: 40% 40% 10% 10%;
+  filter: blur(2px);
+}
+
+.thermal-hotspot {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  background: radial-gradient(circle, rgba(255, 100, 0, 0.8) 0%, rgba(255, 50, 0, 0.4) 50%, transparent 100%);
+  border-radius: 50%;
+  animation: hotspot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hotspot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+.thermal-scale {
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.scale-gradient {
+  flex: 1;
+  background: linear-gradient(180deg, #ff4400 0%, #ff8800 25%, #ffff00 50%, #00ffff 75%, #0088ff 100%);
+  border-radius: 2px;
+}
+
+.scale-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 5px;
+  color: #888;
+  margin-top: 4px;
+  height: 60px;
+}
+
+/* Arctic 360° Camera */
+.arctic-360 {
+  background: linear-gradient(180deg, #0a1a28 0%, #051018 100%);
+}
+
+.arctic-view-360 {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.arctic-horizon {
+  position: absolute;
+  top: 40%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 220, 240, 0.3) 50%, transparent 100%);
+}
+
+.arctic-ice-field {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(180deg, rgba(200, 220, 240, 0.1) 0%, rgba(150, 170, 190, 0.2) 100%);
+}
+
+.iceberg {
+  position: absolute;
+  bottom: 30%;
+  width: 40px;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(220, 240, 255, 0.6) 0%, rgba(180, 200, 220, 0.4) 100%);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.snow-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.snow-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: snow-fall linear infinite;
+}
+
+@keyframes snow-fall {
+  0% { transform: translateY(-10px) translateX(0); opacity: 1; }
+  100% { transform: translateY(150px) translateX(20px); opacity: 0; }
+}
+
+.wind-streaks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wind-streak {
+  position: absolute;
+  width: 30px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 220, 240, 0.3) 50%, transparent 100%);
+  animation: wind-blow 0.5s linear infinite;
+}
+
+@keyframes wind-blow {
+  0% { transform: translateX(-50px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(200px); opacity: 0; }
+}
+
+.arctic-compass {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 50px;
+  height: 50px;
+}
+
+.compass-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(0, 204, 255, 0.5);
+  border-radius: 50%;
+}
+
+.compass-dir {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 6px;
+  color: rgba(0, 204, 255, 0.8);
+  transform-origin: center;
+}
+
+.compass-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  background: linear-gradient(180deg, #ff4444 0%, transparent 50%, #00ff44 100%);
+  transform: translate(-50%, -50%);
+  animation: compass-rotate 10s linear infinite;
+}
+
+@keyframes compass-rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Operator Chair */
+.operator-chair {
+  position: absolute;
+  bottom: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 100px;
+  z-index: 10;
+}
+
+.operator-chair.arctic {
+  filter: drop-shadow(0 0 20px rgba(0, 204, 255, 0.3));
+}
+
+.chair-back {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 60px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border-radius: 10px 10px 0 0;
+}
+
+.chair-headrest {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chair-logo {
+  font-size: 10px;
+  filter: grayscale(100%);
+}
+
+.chair-logo.arctic {
+  filter: none;
+  text-shadow: 0 0 8px #00ccff;
+}
+
+.chair-padding {
+  position: absolute;
+  bottom: 0;
+  left: 5px;
+  right: 5px;
+  height: 40px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-radius: 5px;
+}
+
+.chair-armrests {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.armrest {
+  width: 25px;
+  height: 40px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border-radius: 5px;
+  position: relative;
+}
+
+.joystick {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 25px;
+}
+
+.joystick-grip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 15px;
+  background: linear-gradient(180deg, #444 0%, #222 100%);
+  border-radius: 5px;
+}
+
+.joystick-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 10px;
+  background: linear-gradient(180deg, #333 0%, #111 100%);
+  border-radius: 3px;
+}
+
+.joystick.heated .joystick-grip {
+  background: linear-gradient(180deg, #664433 0%, #442211 100%);
+}
+
+.heat-glow {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle, rgba(255, 100, 0, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: heat-pulse 2s ease-in-out infinite;
+}
+
+@keyframes heat-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.chair-base {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, #333 0%, #111 100%);
+  border-radius: 50%;
+}
+
+.chair-base.arctic-glow {
+  box-shadow: 0 0 20px rgba(0, 204, 255, 0.3);
+}
+
+/* Arctic Walls */
+.arctic-walls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wall-padding {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, #e8e8f0 0%, #d0d0e0 100%);
+  border: 2px solid #c0c0d0;
+}
+
+.wall-padding.left {
+  left: 0;
+  background: linear-gradient(90deg, #d0d0e0 0%, #e8e8f0 50%, transparent 100%);
+}
+
+.wall-padding.right {
+  right: 0;
+  background: linear-gradient(270deg, #d0d0e0 0%, #e8e8f0 50%, transparent 100%);
+}
+
+.ceiling-padding {
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 60px;
+  height: 40px;
+  background: linear-gradient(180deg, #e0e0f0 0%, transparent 100%);
+}
+
+/* Arctic Controls */
+.arctic-controls {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+}
+
+.arctic-btn {
+  position: relative;
+  background: linear-gradient(145deg, #1a2a3a 0%, #0d1a28 100%);
+  border: 1px solid #00ccff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.arctic-btn:hover {
+  box-shadow: 0 0 15px rgba(0, 204, 255, 0.4);
+  border-color: #00ffff;
+}
+
+.btn-glow {
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, rgba(0, 204, 255, 0.3) 0%, transparent 50%, rgba(0, 204, 255, 0.3) 100%);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.arctic-btn:hover .btn-glow {
+  opacity: 1;
+}
+
+.arctic-btn .btn-icon {
+  font-size: 14px;
+}
+
+.arctic-btn .btn-label {
+  font-size: 10px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.arctic-btn .btn-hint {
+  font-size: 8px;
+  color: #0088aa;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+/* Weather Effects - Snow */
+.snow-particles {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='20' cy='20' r='1' fill='white' opacity='0.8'/%3E%3Ccircle cx='50' cy='40' r='1.5' fill='white' opacity='0.6'/%3E%3Ccircle cx='80' cy='30' r='1' fill='white' opacity='0.7'/%3E%3Ccircle cx='30' cy='60' r='1' fill='white' opacity='0.5'/%3E%3Ccircle cx='70' cy='70' r='1.2' fill='white' opacity='0.6'/%3E%3C/svg%3E");
+  animation: snow-drift 3s linear infinite;
+  pointer-events: none;
+  z-index: 12;
+}
+
+@keyframes snow-drift {
+  0% { transform: translateX(0) translateY(0); }
+  100% { transform: translateX(10px) translateY(10px); }
+}
+
+.ice-static {
+  position: absolute;
+  inset: 0;
+  background: rgba(200, 230, 255, 0.05);
+  backdrop-filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 13;
+}
+
+/* Enhanced Status Animations */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+
+.status-dot.ok {
+  background: #00ff44;
+  box-shadow: 0 0 4px #00ff44;
+}
+
+.status-dot.warn {
+  background: #ffcc00;
+  box-shadow: 0 0 4px #ffcc00;
+  animation: pulse-dot 0.5s infinite;
+}
+
+.status-dot.error {
+  background: #ff4444;
+  box-shadow: 0 0 4px #ff4444;
+  animation: pulse-dot 0.3s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+
+/* Screen Effects */
+@keyframes screen-flicker {
+  0%, 100% { opacity: 1; }
+  5% { opacity: 0.95; }
+  10% { opacity: 1; }
+  15% { opacity: 0.9; }
+  20% { opacity: 1; }
+}
+
+@keyframes status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Spreader Animations */
+.spreader-beam.moving {
+  animation: beam-shake 0.1s infinite;
+}
+
+@keyframes beam-shake {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(1px); }
+}
+
+.spreader-top.moving {
+  filter: drop-shadow(0 0 5px rgba(0, 204, 255, 0.5));
+}
+
+/* Thermal Effects */
+.thermal-hotspot {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.hotspot-pulse {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: hotspot-glow 2s ease-in-out infinite;
+}
+
+@keyframes hotspot-glow {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+.thermal-coldspot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+.coldspot-indicator {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(0, 136, 255, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: cold-pulse 3s ease-in-out infinite;
+}
+
+@keyframes cold-pulse {
+  0%, 100% { transform: scale(0.8); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+/* Wind Effects */
+.wind-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wind-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid rgba(0, 204, 255, 0.6);
+  animation: wind-spin 1s linear infinite;
+}
+
+@keyframes wind-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.wind-speed {
+  font-size: 8px;
+  color: #00ccff;
+}
+
+/* Ice Effects */
+.ice-frost {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  border-radius: 2px;
+}
+
+.frost-pattern {
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,50 Q25,40 50,50 T100,50' stroke='rgba(255,255,255,0.3)' fill='none'/%3E%3Cpath d='M0,30 Q25,20 50,30 T100,30' stroke='rgba(255,255,255,0.2)' fill='none'/%3E%3Cpath d='M0,70 Q25,60 50,70 T100,70' stroke='rgba(255,255,255,0.2)' fill='none'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+.ice-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.frost-texture {
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.4) 0%, transparent 30%),
+    radial-gradient(circle at 80% 90%, rgba(255,255,255,0.3) 0%, transparent 40%);
+  filter: blur(2px);
+}
+
+/* Screen Reflection */
+.screen-reflection {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 40%,
+    transparent 60%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* Alignment Guides */
+.alignment-target {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+}
+
+/* Depth Indicator */
+.depth-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  border: 2px solid rgba(0, 204, 255, 0.3);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.depth-marker {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: #00ccff;
+  border-radius: 50%;
+  transform-origin: 50% 44px;
+  box-shadow: 0 0 8px #00ccff;
+}
+
+/* Console Animation */
+@keyframes console-pulse {
+  0%, 100% { opacity: 0.6; box-shadow: 0 0 20px rgba(0, 204, 255, 0.3); }
+  50% { opacity: 1; box-shadow: 0 0 40px rgba(0, 204, 255, 0.5); }
+}
