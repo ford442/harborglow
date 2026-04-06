@@ -1,8 +1,9 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { moonSystem } from '../systems/moonSystem'
 
 // =============================================================================
 // PHASE 8: AUDIO-REACTIVE WATER SYSTEM
@@ -425,6 +426,16 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     }
   `
 
+  // Tide height from moon system
+  const [tideHeight, setTideHeight] = useState(0)
+  
+  useEffect(() => {
+    return moonSystem.subscribe((state) => {
+      // Tide height range: -0.5 to +0.5 meters
+      setTideHeight(state.tideHeight * 0.5)
+    })
+  }, [])
+
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uCameraPos: { value: new THREE.Vector3() },
@@ -437,7 +448,9 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
     // PHASE 8: Audio uniforms
     uAudioBass: { value: 0 },
     uAudioEnvelope: { value: 0 },
-    uAudioBeat: { value: 0 }
+    uAudioBeat: { value: 0 },
+    // Moon system: Tide uniform
+    uTideHeight: { value: 0 }
   }), [isNight, weather])
 
   useFrame(() => {
@@ -463,6 +476,9 @@ export default function InteractiveWater({ isNight = true }: InteractiveWaterPro
       materialRef.current.uniforms.uAudioBass.value = audioReactiveRef.current.waveBoost
       materialRef.current.uniforms.uAudioEnvelope.value = audioData.envelope
       materialRef.current.uniforms.uAudioBeat.value = audioData.beat ? audioData.beatIntensity : 0
+      
+      // Update tide height
+      materialRef.current.uniforms.uTideHeight.value = tideHeight
     }
   })
 

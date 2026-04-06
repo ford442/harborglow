@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { useGameStore } from '../store/useGameStore'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useGameStore, Ship, selectUpgradeProgress, ShipType } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { UPGRADE_CONFIGS, shipTypeLabels, shipTypeColors } from './upgrade/upgradeConfigs'
+import { ParticleBurst, ShipFullyUpgradedCelebration, useUpgradeSounds } from './VisualFeedback'
 
 // =============================================================================
-// UPGRADE MENU COMPONENT
-// Shows ship-specific upgrade options and handles crane-snap installation
+// UPGRADE MENU COMPONENT - Phase 7-8 Polish
+// Enhanced with particle effects and celebrations
 // =============================================================================
 
 export default function UpgradeMenu() {
@@ -17,6 +18,7 @@ export default function UpgradeMenu() {
     const setMusicPlaying = useGameStore((state) => state.setMusicPlaying)
     const setSpectatorTarget = useGameStore((state) => state.setSpectatorTarget)
     const upgradeShipVersion = useGameStore((state) => state.upgradeShipVersion)
+    const cranePosition = useGameStore(state => state.spreaderPos)
 
     const [installing, setInstalling] = useState<string | null>(null)
     const [showBandReveal, setShowBandReveal] = useState(false)
@@ -24,6 +26,18 @@ export default function UpgradeMenu() {
     const [isUpgradingVersion, setIsUpgradingVersion] = useState(false)
     const [showFlash, setShowFlash] = useState(false)
     const [showV2Notification, setShowV2Notification] = useState(false)
+    
+    // Visual feedback states
+    const [particleBurst, setParticleBurst] = useState<{
+        active: boolean
+        position: [number, number, number]
+        color: string
+    }>({ active: false, position: [0, 0, 0], color: '#00d4aa' })
+    
+    const [showCelebration, setShowCelebration] = useState(false)
+    const [lastInstalled, setLastInstalled] = useState<string | null>(null)
+    
+    const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
 
     const currentShip = ships.find(ship => ship.id === currentShipId)
 
@@ -38,7 +52,11 @@ export default function UpgradeMenu() {
         const totalUpgrades = UPGRADE_CONFIGS[currentShip.type].length
         const allInstalled = shipUpgrades.length >= totalUpgrades
 
-        if (allInstalled && !showBandReveal) {
+        if (allInstalled && !showBandReveal && !showCelebration) {
+            // Trigger celebration
+            setShowCelebration(true)
+            playCelebrationSound()
+            
             const bandInfo = musicSystem.getBandInfo(currentShip.type)
             setBandName(bandInfo.name)
             setShowBandReveal(true)
@@ -54,7 +72,7 @@ export default function UpgradeMenu() {
                 setShowBandReveal(false)
             }, 8000)
         }
-    }, [installedUpgrades, currentShip, showBandReveal, setMusicPlaying, setSpectatorTarget])
+    }, [installedUpgrades, currentShip, showBandReveal, setMusicPlaying, setSpectatorTarget, playCelebrationSound, showCelebration])
 
     if (!currentShip) {
         return (
@@ -72,12 +90,30 @@ export default function UpgradeMenu() {
     const installedPartNames = new Set(shipUpgrades.map(u => u.partName))
     const availableUpgrades = upgradeOptions.filter(opt => !installedPartNames.has(opt.partName))
     const progress = (shipUpgrades.length / upgradeOptions.length) * 100
+    const shipColor = shipTypeColors[currentShip.type]
 
-    const handleInstall = (partName: string) => {
+    const handleInstall = async (partName: string) => {
         setInstalling(partName)
+        
+        // Play install sound
+        await playInstallSound()
+        
+        // Trigger particle burst at crane position
+        setParticleBurst({
+            active: true,
+            position: [cranePosition.x, cranePosition.y, cranePosition.z],
+            color: shipColor,
+        })
+        
         setTimeout(() => {
             installUpgrade(currentShip.id, partName)
             setInstalling(null)
+            setLastInstalled(partName)
+            
+            // Hide particle burst after animation
+            setTimeout(() => {
+                setParticleBurst(prev => ({ ...prev, active: false }))
+            }, 1000)
         }, 1500)
     }
 
@@ -109,7 +145,6 @@ export default function UpgradeMenu() {
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
     const isMaxVersion = currentVersion === '2.0'
-    const shipColor = shipTypeColors[currentShip.type]
 
     return (
         <>
@@ -159,7 +194,8 @@ export default function UpgradeMenu() {
                         <div style={{
                             ...progressBarFillStyle,
                             width: `${progress}%`,
-                            backgroundColor: shipColor
+                            backgroundColor: shipColor,
+                            boxShadow: `0 0 10px ${shipColor}60`,
                         }} />
                     </div>
                 </div>
@@ -174,12 +210,13 @@ export default function UpgradeMenu() {
                             <button
                                 key={option.partName}
                                 onClick={() => handleInstall(option.partName)}
-                                disabled={installing === option.partName}
+                                disabled={installing === option.partName || !currentShip.isDocked}
                                 style={{
                                     ...buttonStyle,
-                                    opacity: installing === option.partName ? 0.6 : 1,
-                                    cursor: installing === option.partName ? 'wait' : 'pointer',
-                                    borderColor: installing === option.partName ? shipColor : '#555'
+                                    opacity: installing === option.partName || !currentShip.isDocked ? 0.6 : 1,
+                                    cursor: installing === option.partName ? 'wait' : !currentShip.isDocked ? 'not-allowed' : 'pointer',
+                                    borderColor: installing === option.partName ? shipColor : '#555',
+                                    boxShadow: installing === option.partName ? `0 0 15px ${shipColor}40` : 'none',
                                 }}
                             >
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -190,6 +227,9 @@ export default function UpgradeMenu() {
                                         {option.description}
                                     </span>
                                 </div>
+                                {installing === option.partName && (
+                                    <span style={installingSpinnerStyle} />
+                                )}
                             </button>
                         ))}
                     </div>
@@ -215,7 +255,7 @@ export default function UpgradeMenu() {
                                     ...structuralOverhaulButtonStyle,
                                     opacity: isUpgradingVersion ? 0.7 : 1,
                                     cursor: isUpgradingVersion ? 'wait' : 'pointer',
-                                    animation: isUpgradingVersion ? 'none' : 'pulse 2s infinite'
+                                    animation: isUpgradingVersion ? 'none' : 'pulse 2s infinite',
                                 }}
                             >
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -261,6 +301,23 @@ export default function UpgradeMenu() {
                 )}
             </div>
 
+            {/* Particle Burst Effect */}
+            <ParticleBurst
+                position={particleBurst.position}
+                color={particleBurst.color}
+                active={particleBurst.active}
+            />
+
+            {/* Ship Fully Upgraded Celebration */}
+            {currentShip && (
+                <ShipFullyUpgradedCelebration
+                    shipName={currentShip.name || shipTypeLabels[currentShip.type]}
+                    shipType={currentShip.type}
+                    active={showCelebration}
+                    onComplete={() => setShowCelebration(false)}
+                />
+            )}
+
             {/* Flash Effect Overlay */}
             {showFlash && <div style={flashOverlayStyle} />}
 
@@ -302,6 +359,17 @@ export default function UpgradeMenu() {
                     </div>
                 </div>
             )}
+            
+            <style>{`
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.8; transform: scale(1.02); }
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
         </>
     )
 }
@@ -327,23 +395,25 @@ const menuContainerStyle: React.CSSProperties = {
 }
 
 const progressBarBgStyle: React.CSSProperties = {
-    height: '4px',
+    height: '6px',
     backgroundColor: '#333',
-    borderRadius: '2px',
+    borderRadius: '3px',
     overflow: 'hidden'
 }
 
 const progressBarFillStyle: React.CSSProperties = {
     height: '100%',
-    transition: 'width 0.3s ease',
-    borderRadius: '2px'
+    transition: 'width 0.5s ease',
+    borderRadius: '3px'
 }
 
 const buttonStyle: React.CSSProperties = {
-    display: 'block',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     width: '100%',
     margin: '6px 0',
-    padding: '10px 12px',
+    padding: '12px 14px',
     backgroundColor: 'rgba(255,255,255,0.05)',
     border: '1px solid #444',
     borderRadius: '8px',
@@ -354,25 +424,13 @@ const buttonStyle: React.CSSProperties = {
     cursor: 'pointer'
 }
 
-const cinematicOverlayStyle: React.CSSProperties = {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    zIndex: 2000,
-    animation: 'fadeIn 0.5s ease-out'
-}
-
-const cinematicContentStyle: React.CSSProperties = {
-    textAlign: 'center',
-    animation: 'slideUp 0.8s ease-out',
-    textTransform: 'uppercase'
+const installingSpinnerStyle: React.CSSProperties = {
+    width: '16px',
+    height: '16px',
+    border: '2px solid rgba(255,255,255,0.2)',
+    borderTopColor: 'currentColor',
+    borderRadius: '50%',
+    animation: 'spin 0.8s linear infinite',
 }
 
 const structuralOverhaulButtonStyle: React.CSSProperties = {
@@ -419,4 +477,25 @@ const v2NotificationStyle: React.CSSProperties = {
     pointerEvents: 'none',
     animation: 'pulseIn 0.5s ease-out, glow 2s infinite',
     boxShadow: '0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2)'
+}
+
+const cinematicOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+    zIndex: 2000,
+    animation: 'fadeIn 0.5s ease-out'
+}
+
+const cinematicContentStyle: React.CSSProperties = {
+    textAlign: 'center',
+    animation: 'slideUp 0.8s ease-out',
+    textTransform: 'uppercase'
 }

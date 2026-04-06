@@ -5,6 +5,18 @@ import {
   clearSave,
   type GameState as StorageGameState 
 } from '../utils/storage_manager'
+import { 
+  AttachmentSystemConfig, 
+  DEFAULT_ATTACHMENT_CONFIG,
+  InstallationEvent 
+} from '../systems/attachmentSystem'
+import {
+  TrainingProgress,
+  DEFAULT_TRAINING_PROGRESS,
+  TrainingModuleId,
+  trainingSystem
+} from '../systems/trainingSystem'
+import { reputationSystem } from '../systems/reputationSystem'
 
 // =============================================================================
 // TYPES - HarborGlow Game State
@@ -15,7 +27,27 @@ export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
                          'spectator' | 'transition' | 'crane' | 'booth'
+export type CabinViewMode = 'multiview' | 'immersive'
+export type GameMode = 'sandbox' | 'training'
 export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | 'meteor_shower' | 'bioluminescent_bloom' | 'none'
+
+// HarborGlow Bay Research-Based Events
+export type HarborEventType = 
+    | 'whale_migration'      // Gray/humpback migration (Dec-May)
+    | 'dolphin_pod'          // Bottlenose dolphins
+    | 'porpoise_sighting'    // Harbor porpoise (rare)
+    | 'shark_patrol'         // Great whites
+    | 'sea_lion_haulout'     // California sea lions
+    | 'plankton_bloom'       // Bioluminescent display
+    | 'ship_fire'            // Container/tanker fire
+    | 'fireboat_response'    // 5 fireboats
+    | 'navy_fleet_week'      // May/October
+    | 'navy_resupply'        // Random naval visits
+    | 'atmospheric_river'    // Pineapple Express storms
+    | 'cruise_arrival'       // Tourism ship
+    | 'cruise_departure'     // Mexico/Alaska bound
+    | 'suspicious_vessel'    // Rare security event
+    | 'clear'
 export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
 export type QualityPreset = 'low' | 'medium' | 'high'
 export type MultiviewMode = 'single' | 'quad'
@@ -64,6 +96,17 @@ export interface SeaEvent {
     }
 }
 
+export interface HarborEvent {
+    id: string
+    type: HarborEventType
+    startTime: number
+    duration: number  // seconds
+    intensity: number  // 0-1
+    affectedShipId?: string
+    position: [number, number, number]
+    metadata?: Record<string, unknown>
+}
+
 export interface Upgrade {
     shipId: string
     partName: string
@@ -108,6 +151,10 @@ interface SerializableState {
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
+    
+    // Harbor research-based events
+    activeHarborEvents: HarborEvent[]
+    eventEnabledSettings: Record<HarborEventType, boolean>
     // Full crane mechanics
     spreaderPos: { x: number; y: number; z: number }
     spreaderRotation: number
@@ -123,6 +170,22 @@ interface SerializableState {
     boothTier: 1 | 2 | 3
     // Harbor/Booth theme
     currentHarbor: HarborType
+    // Operator Cabin view mode
+    cabinViewMode: CabinViewMode
+    // Attachment system configuration
+    attachmentSystemConfig: AttachmentSystemConfig
+    setAttachmentSystemConfig: (config: Partial<AttachmentSystemConfig>) => void
+    // Last installation for feedback effects
+    lastInstallation: InstallationEvent | null
+    clearLastInstallation: () => void
+    // Training system
+    trainingProgress: TrainingProgress
+    gameMode: GameMode
+    currentTrainingModule: TrainingModuleId | null
+    setGameMode: (mode: GameMode) => void
+    startTrainingModule: (moduleId: TrainingModuleId) => void
+    exitTrainingModule: () => void
+    updateTrainingProgress: (progress: TrainingProgress) => void
 }
 
 interface GameState extends SerializableState {
@@ -131,6 +194,8 @@ interface GameState extends SerializableState {
     musicPlaying: Map<string, boolean>
     spectatorState: SpectatorState
     isNight: boolean
+    // Time system state
+    gameTime: { hour: number; minute: number } | null
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
@@ -176,8 +241,24 @@ interface GameState extends SerializableState {
     removeWildlife: (id: string) => void
     updateWildlife: (id: string, updates: Partial<WildlifeEntity>) => void
     setActiveSeaEvent: (event: SeaEvent | null) => void
+    
+    // Harbor event actions (research-based events)
+    activeHarborEvents: HarborEvent[]
+    addHarborEvent: (event: HarborEvent) => void
+    removeHarborEvent: (id: string) => void
+    setEventEnabled: (type: HarborEventType, enabled: boolean) => void
+    eventEnabledSettings: Record<HarborEventType, boolean>
     // Harbor theme
     setCurrentHarbor: (harbor: HarborType) => void
+    // Operator Cabin view mode
+    setCabinViewMode: (mode: CabinViewMode) => void
+    // Time system
+    setGameTime: (hour: number, minute: number) => void
+    // Traffic system
+    reputation: number
+    dailyShipsCompleted: number
+    dailyShipsMissed: number
+    addReputation: (amount: number) => void
 }
 
 // Default initial state
@@ -193,7 +274,11 @@ const defaultState: Omit<GameState, keyof {
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
-    setCurrentHarbor: unknown;
+    addHarborEvent: unknown; removeHarborEvent: unknown; setEventEnabled: unknown;
+    setCurrentHarbor: unknown; setCabinViewMode: unknown; setGameTime: unknown;
+    setAttachmentSystemConfig: unknown; clearLastInstallation: unknown;
+    setGameMode: unknown; startTrainingModule: unknown; exitTrainingModule: unknown;
+    updateTrainingProgress: unknown; addReputation: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -238,6 +323,38 @@ const defaultState: Omit<GameState, keyof {
     underwaterIntensity: 1,
     wildlife: [],
     activeSeaEvent: null,
+    activeHarborEvents: [],
+    gameTime: null,
+    eventEnabledSettings: {
+        whale_migration: true,
+        dolphin_pod: true,
+        porpoise_sighting: true,
+        shark_patrol: true,
+        sea_lion_haulout: true,
+        plankton_bloom: true,
+        ship_fire: true,
+        fireboat_response: true,
+        navy_fleet_week: true,
+        navy_resupply: true,
+        atmospheric_river: true,
+        cruise_arrival: true,
+        cruise_departure: true,
+        suspicious_vessel: true,
+        clear: true
+    },
+    // Operator Cabin view mode - default to multiview
+    cabinViewMode: 'multiview' as CabinViewMode,
+    // Attachment system configuration
+    attachmentSystemConfig: DEFAULT_ATTACHMENT_CONFIG,
+    lastInstallation: null,
+    // Training system
+    trainingProgress: DEFAULT_TRAINING_PROGRESS,
+    gameMode: 'sandbox',
+    currentTrainingModule: null,
+    // Traffic system
+    reputation: 0,
+    dailyShipsCompleted: 0,
+    dailyShipsMissed: 0,
 }
 
 // =============================================================================
@@ -310,6 +427,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         ]
         const newState = { installedUpgrades: newUpgrades, craneUpgrades: newUpgrades }
         scheduleSave({ ...state, ...newState })
+        
+        // Award reputation for successful installation
+        reputationSystem.recordInstallation({
+            success: true,
+            timeSeconds: 30, // Placeholder - would come from actual timing
+            swayPercent: 0.2, // Placeholder
+            damage: 0
+        })
+        
         return newState
     }),
 
@@ -594,11 +720,103 @@ export const useGameStore = create<GameState>((set, get) => ({
     
     setActiveSeaEvent: (event) => set({ activeSeaEvent: event }),
     
+    // Harbor event actions
+    addHarborEvent: (event) => set((state) => ({
+        activeHarborEvents: [...state.activeHarborEvents, event]
+    })),
+    
+    removeHarborEvent: (id) => set((state) => ({
+        activeHarborEvents: state.activeHarborEvents.filter(e => e.id !== id)
+    })),
+    
+    setEventEnabled: (type, enabled) => set((state) => ({
+        eventEnabledSettings: {
+            ...state.eventEnabledSettings,
+            [type]: enabled
+        }
+    })),
+    
     // Harbor theme
     setCurrentHarbor: (harbor: HarborType) => {
         set({ currentHarbor: harbor })
         console.log(`⚓ Harbor switched to: ${harbor}`)
     },
+    
+    // Operator Cabin view mode
+    setCabinViewMode: (mode: CabinViewMode) => {
+        set({ cabinViewMode: mode })
+        console.log(`🎮 Cabin view mode: ${mode}`)
+    },
+    
+    // Time system - update game time from timeSystem
+    setGameTime: (hour: number, minute: number) => {
+        const currentTime = get().gameTime
+        // Only update if time has changed to avoid re-renders
+        if (!currentTime || currentTime.hour !== hour || currentTime.minute !== minute) {
+            set({ gameTime: { hour, minute } })
+        }
+    },
+    
+    // Attachment system configuration
+    setAttachmentSystemConfig: (config: Partial<AttachmentSystemConfig>) => {
+        set((state) => ({
+            attachmentSystemConfig: { ...state.attachmentSystemConfig, ...config }
+        }))
+    },
+    
+    clearLastInstallation: () => set({ lastInstallation: null }),
+    
+    // Training system
+    setGameMode: (mode: GameMode) => {
+        set({ gameMode: mode })
+        console.log(`🎓 Game mode: ${mode}`)
+    },
+    
+    startTrainingModule: (moduleId: TrainingModuleId) => {
+        const started = trainingSystem.startModule(moduleId)
+        if (started) {
+            const module = trainingSystem.getModule(moduleId)
+            set({ 
+                gameMode: 'training',
+                currentTrainingModule: moduleId,
+                trainingProgress: trainingSystem.getProgress()
+            })
+            // Set weather and time from module config
+            if (module) {
+                set({ 
+                    weather: module.weather as WeatherState,
+                    timeOfDay: module.timeOfDay,
+                    isNight: module.timeOfDay < 6 || module.timeOfDay > 18
+                })
+            }
+            console.log(`🎓 Started training: ${moduleId}`)
+        }
+    },
+    
+    exitTrainingModule: () => {
+        trainingSystem.exitModule()
+        set({ 
+            gameMode: 'sandbox',
+            currentTrainingModule: null,
+            trainingProgress: trainingSystem.getProgress()
+        })
+        console.log('🎓 Exited training module')
+    },
+    
+    updateTrainingProgress: (progress: TrainingProgress) => {
+        set({ trainingProgress: progress })
+    },
+    
+    // Traffic system - reputation management
+    addReputation: (amount: number) => set((state) => {
+        const newReputation = Math.max(0, state.reputation + amount)
+        if (amount > 0) {
+            console.log(`🏆 Reputation +${amount} (Total: ${newReputation})`)
+        } else if (amount < 0) {
+            console.log(`📉 Reputation ${amount} (Total: ${newReputation})`)
+        }
+        return { reputation: newReputation }
+    }),
 }))
 
 // Subscribe to save on all state changes
