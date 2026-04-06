@@ -304,7 +304,31 @@ export class AudioVisualSync {
 export const audioVisualSync = new AudioVisualSync()
 
 // =============================================================================
+// REACT HOOK: useAudioData
+// Subscribe to audio analysis data without useFrame — safe outside Canvas.
+// Use this in DOM/HUD components that only need to read audio state.
+// =============================================================================
+
+export function useAudioData(): AudioAnalysisData {
+  const [audioData, setAudioData] = useState<AudioAnalysisData>(globalAudioData)
+
+  useEffect(() => {
+    let mounted = true
+    const unsubscribe = audioVisualSync.onFrame((data) => {
+      if (mounted) setAudioData(data)
+    })
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
+  }, [])
+
+  return audioData
+}
+
+// =============================================================================
 // REACT HOOK: useAudioVisualSync
+// Full hook with useFrame analysis driver — must be used inside a Canvas.
 // =============================================================================
 
 export function useAudioVisualSync() {

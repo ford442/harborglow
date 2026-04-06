@@ -6,10 +6,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import * as THREE from 'three'
-import { useFrame, useThree } from '@react-three/fiber'
-import { PerspectiveCamera, RenderTexture, useTexture } from '@react-three/drei'
 import { useGameStore, ShipType } from '../store/useGameStore'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioData } from '../systems/audioVisualSync'
 import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
 import { moonSystem, MoonPhaseName, MOON_PHASES } from '../systems/moonSystem'
 import { trafficSystem, TrafficShip, useDockedShip } from '../systems/trafficSystem'
@@ -179,7 +177,7 @@ interface CameraPanelProps {
 
 function CameraPanel({ config, isMain }: CameraPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { audioData } = useAudioVisualSync()
+  const audioData = useAudioData()
   const craneState = useGameStore(state => ({
     spreaderPos: state.spreaderPos,
     rotation: state.craneRotation ?? 0.2,
