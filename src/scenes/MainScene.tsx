@@ -113,6 +113,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const spectatorAngleRef = useRef(0)
     const atSeaShipsRef = useRef<Map<string, AtSeaShip>>(new Map())
     const shipPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map())
+    // Reusable vector for swaySystem — avoids per-frame allocation
+    const swayTrolleyVecRef = useRef(new THREE.Vector3())
     
     // Derived values
     const currentShip = useMemo(() => 
@@ -209,10 +211,20 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         // Update traffic system (ship scheduling and deadlines)
         trafficSystem.update(delta)
         
-        // Update lighting and weather
+        // Update lighting and weather (full update drives transitions + lightning)
         const bpm = useGameStore.getState().bpm
         lightingSystem.update(state.clock.elapsedTime, bpm)
-        weatherSystem.updateLightning()
+        weatherSystem.update(delta)
+        
+        // Update crane sway physics — driven by weather + trolley kinematics
+        const storeState = useGameStore.getState()
+        const trolleyPos = storeState.trolleyPosition
+        swayTrolleyVecRef.current.set(
+            (trolleyPos - 0.5) * 40,  // Match Crane.tsx trolley world X
+            9.2,                       // Trolley height on jib
+            0
+        )
+        swaySystem.update(delta, swayTrolleyVecRef.current)
         
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
