@@ -1,43 +1,62 @@
+// =============================================================================
+// CRANE COMPONENT - HarborGlow Phase 9
+// Animated dock crane with operational lights and dynamic cable system
+// =============================================================================
+
 import { useRef } from 'react'
 import { RigidBody } from '@react-three/rapier'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import CraneDashboard from '../components/CraneDashboard'
-
-// =============================================================================
-// CRANE COMPONENT
-// Animated dock crane with operational lights and cable system
-// =============================================================================
+import CraneCable from './CraneCable'
+import { useGameStore } from '../store/useGameStore'
 
 export default function Crane() {
     const craneRef = useRef<THREE.Group>(null)
     const trolleyRef = useRef<THREE.Group>(null)
     const hookRef = useRef<THREE.Group>(null)
+    
+    // Get crane state from store
+    const spreaderPos = useGameStore((state) => state.spreaderPos)
+    const spreaderRotation = useGameStore((state) => state.spreaderRotation)
+    const loadTension = useGameStore((state) => state.loadTension)
+    const twistlockEngaged = useGameStore((state) => state.twistlockEngaged)
+    const trolleyPosition = useGameStore((state) => state.trolleyPosition)
 
     // Animate crane operations
     useFrame((state) => {
         // Gentle idle movement
         const time = state.clock.elapsedTime
         
-        // Trolley moves back and forth
-        const newTrolleyPos = Math.sin(time * 0.3) * 10
+        // Trolley moves based on store position
+        const newTrolleyPos = (trolleyPosition - 0.5) * 40
         
-        // Hook bobs slightly
-        const newHookHeight = Math.sin(time * 0.5) * 0.5 - 2
+        // Hook follows spreader position from store
+        const newHookHeight = spreaderPos.y - 20 // Relative to trolley
         
         if (trolleyRef.current) {
             trolleyRef.current.position.x = newTrolleyPos
         }
         if (hookRef.current) {
             hookRef.current.position.y = newHookHeight
-            // Update cable scale to match hook position
-            const cable = hookRef.current.parent?.children.find(c => c.name === 'cable')
-            if (cable) {
-                cable.scale.y = Math.abs(newHookHeight) + 2
-                cable.position.y = (newHookHeight - 2) / 2
-            }
+            hookRef.current.rotation.y = spreaderRotation
         }
     })
+
+    // Calculate tension normalized 0-1
+    const normalizedTension = Math.min(1, loadTension / 50)
+    
+    // Calculate cable positions
+    const trolleyWorldPos: [number, number, number] = [
+        (trolleyPosition - 0.5) * 40,
+        9.2,
+        0
+    ]
+    const hookWorldPos: [number, number, number] = [
+        trolleyWorldPos[0] + Math.sin(spreaderRotation) * 0.5,
+        spreaderPos.y - 4, // Hook is below spreader
+        trolleyWorldPos[2] + Math.cos(spreaderRotation) * 0.5
+    ]
 
     return (
         <RigidBody type="fixed" position={[0, 4, 5]}>
@@ -144,7 +163,7 @@ export default function Crane() {
                 </mesh>
 
                 {/* === TROLLEY SYSTEM === */}
-                <group ref={trolleyRef} position={[5, 9.2, 0]}>
+                <group ref={trolleyRef} position={trolleyWorldPos}>
                     {/* Trolley body */}
                     <mesh castShadow>
                         <boxGeometry args={[1.5, 0.8, 2.2]} />
@@ -168,11 +187,14 @@ export default function Crane() {
                         <meshStandardMaterial color="#333333" />
                     </mesh>
 
-                    {/* === HOIST CABLE === */}
-                    <mesh name="cable" position={[0, -2, 0]}>
-                        <cylinderGeometry args={[0.03, 0.03, 4]} />
-                        <meshStandardMaterial color="#222222" />
-                    </mesh>
+                    {/* === DYNAMIC HOIST CABLE === */}
+                    {useGameStore.getState().attachmentSystemConfig?.showCable !== false && (
+                        <CraneCable
+                            startPos={trolleyWorldPos}
+                            endPos={hookWorldPos}
+                            tension={normalizedTension}
+                        />
+                    )}
 
                     {/* === HOOK BLOCK === */}
                     <group ref={hookRef} position={[0, -4, 0]}>
@@ -186,6 +208,38 @@ export default function Crane() {
                             <torusGeometry args={[0.3, 0.08, 8, 16, Math.PI]} />
                             <meshStandardMaterial color="#333333" metalness={0.8} />
                         </mesh>
+                        
+                        {/* Twistlock indicators */}
+                        <group position={[0, 0.6, 0]}>
+                            {/* Twistlock engaged indicator */}
+                            <mesh position={[-0.2, 0, 0]}>
+                                <boxGeometry args={[0.1, 0.1, 0.3]} />
+                                <meshBasicMaterial color={twistlockEngaged ? '#00ff00' : '#ff0000'} />
+                            </mesh>
+                            <mesh position={[0.2, 0, 0]}>
+                                <boxGeometry args={[0.1, 0.1, 0.3]} />
+                                <meshBasicMaterial color={twistlockEngaged ? '#00ff00' : '#ff0000'} />
+                            </mesh>
+                            {/* Glow effect when engaged */}
+                            {twistlockEngaged && (
+                                <>
+                                    <pointLight
+                                        position={[0, 0.3, 0]}
+                                        intensity={2}
+                                        color="#00ff00"
+                                        distance={3}
+                                    />
+                                    <mesh position={[0, 0.3, 0]}>
+                                        <sphereGeometry args={[0.2]} />
+                                        <meshBasicMaterial 
+                                            color="#00ff00" 
+                                            transparent 
+                                            opacity={0.3}
+                                        />
+                                    </mesh>
+                                </>
+                            )}
+                        </group>
                         
                         {/* Light on hook for visibility */}
                         <pointLight 

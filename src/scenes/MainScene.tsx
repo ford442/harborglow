@@ -1,15 +1,25 @@
 import { useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { OrbitControls, Environment } from '@react-three/drei'
+import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
 import { useControls } from 'leva'
 import * as THREE from 'three'
 
-import { useGameStore, ShipType, Ship, CameraMode } from '../store/useGameStore'
+import { useGameStore, ShipType, Ship, CameraMode, GameMode } from '../store/useGameStore'
+import { TrainingModuleId, trainingSystem } from '../systems/trainingSystem'
+import { reputationSystem } from '../systems/reputationSystem'
+import { economySystem } from '../systems/economySystem'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
-import { weatherSystem } from '../systems/weatherSystem'
+import { weatherSystem, WeatherType } from '../systems/weatherSystem'
+import { swaySystem } from '../systems/swaySystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { timeSystem, DayPhase, PHASES, getPhaseDescription } from '../systems/timeSystem'
+import { moonSystem, MOON_PHASES, MoonPhaseName, getPhaseGameplayEffects } from '../systems/moonSystem'
+import { trafficSystem } from '../systems/trafficSystem'
+import AttachmentSystemManager from '../components/AttachmentSystemManager'
+import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
+import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTwistlockEngage } from '../systems/craneSoundSystem'
 
 import ShipComponent from './Ship'
 import Crane from './Crane'
@@ -20,12 +30,17 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
-import MultiviewSystem from './MultiviewSystem'
 import WildlifeRenderer from './Wildlife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
+import OnDockRail from './OnDockRail'
+import SeaBirds from './SeaBirds'
+import DistantShipQueue from './DistantShipQueue'
 import { wildlifeSystem } from '../systems/wildlifeSystem'
 import { seaEventsSystem } from '../systems/seaEventsSystem'
+import { harborEventSystem } from '../systems/eventSystem'
+import { dynamicEventSystem } from '../systems/dynamicEventSystem'
+import { experimentalTechSystem } from '../systems/techSystem'
 
 // =============================================================================
 // CONSTANTS
@@ -42,7 +57,7 @@ const CAMERA_MODES = [
     'ship-rig',
     'spectator',
     'crane',
-    'booth'  // NEW: Immersive control booth view
+    'booth'
 ] as const
 
 // =============================================================================
@@ -56,9 +71,7 @@ interface AtSeaShip {
 }
 
 interface MainSceneProps {
-    /** When true, renders inside ControlBooth. When false, standalone scene. */
-    useBooth?: boolean
-    /** Harbor theme for booth appearance */
+    /** Harbor theme for appearance */
     harborTheme?: 'industrial' | 'arctic' | 'tropical'
 }
 
@@ -66,7 +79,7 @@ interface MainSceneProps {
 // MAIN SCENE COMPONENT
 // =============================================================================
 
-export default function MainScene({ useBooth = false, harborTheme = 'industrial' }: MainSceneProps = {}) {
+export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps = {}) {
     // Store selectors
     const ships = useGameStore(s => s.ships)
     const currentShipId = useGameStore(s => s.currentShipId)
@@ -77,6 +90,7 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
     const weather = useGameStore(s => s.weather)
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
+    const cabinViewMode = useGameStore(s => s.cabinViewMode)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -127,20 +141,41 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
         setMultiviewMode,
         underwaterIntensity,
         setUnderwaterIntensity,
-        useBooth
+        cabinViewMode
     })
 
-    // Lighting calculations
+    // Lighting calculations with enhanced California port atmosphere
     const { sunPosition, ambientIntensity, directionalIntensity, fogColor, fogDensity } = useMemo(() => {
         const sunPos = getSunPosition(timeOfDay)
         const weatherEffects = weatherSystem.getWeatherEffects()
         
+        // California marine layer colors
+        const marineLayerNight = '#0d1520'
+        const marineLayerDawn = '#2a3540'
+        const marineLayerDay = '#c8d4e0'
+        
+        let fogColorValue: string
+        if (weather === 'storm') {
+            fogColorValue = '#1a202c'
+        } else if (weather === 'fog') {
+            fogColorValue = isNight ? marineLayerNight : '#9ab0c0'
+        } else if (isNight) {
+            fogColorValue = marineLayerNight
+        } else if (timeOfDay < 6 || timeOfDay > 18) {
+            fogColorValue = marineLayerDawn
+        } else {
+            fogColorValue = marineLayerDay
+        }
+        
+        const baseFogDensity = isNight ? 0.035 : 0.02
+        const weatherFogMultiplier = weather === 'fog' ? 2.5 : weather === 'storm' ? 1.5 : 1
+        
         return {
             sunPosition: sunPos,
-            ambientIntensity: (isNight ? 0.15 : 0.6) * weatherEffects.ambientLight,
-            directionalIntensity: (isNight ? 0.3 : 1.2) * weatherEffects.ambientLight,
-            fogColor: weather === 'storm' ? '#1a202c' : isNight ? '#0a0a15' : '#87CEEB',
-            fogDensity: weatherEffects.fogDensity
+            ambientIntensity: (isNight ? 0.12 : 0.55) * weatherEffects.ambientLight,
+            directionalIntensity: (isNight ? 0.25 : 1.0) * weatherEffects.ambientLight,
+            fogColor: fogColorValue,
+            fogDensity: baseFogDensity * weatherFogMultiplier
         }
     }, [timeOfDay, isNight, weather])
 
@@ -148,6 +183,12 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
         new THREE.FogExp2(fogColor, fogDensity),
         [fogColor, fogDensity]
     )
+
+    // Start ambient sound system
+    useEffect(() => {
+        startAmbientSystem()
+        return () => stopAmbientSystem()
+    }, [])
 
     // Ship scheduling effect
     useShipScheduling({
@@ -162,6 +203,12 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
 
     // Animation frame updates
     useFrame((state, delta) => {
+        // Update time system (accelerated day/night cycle)
+        timeSystem.update(delta)
+        
+        // Update traffic system (ship scheduling and deadlines)
+        trafficSystem.update(delta)
+        
         // Update lighting and weather
         const bpm = useGameStore.getState().bpm
         lightingSystem.update(state.clock.elapsedTime, bpm)
@@ -170,6 +217,15 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
         seaEventsSystem.update(delta)
+        
+        // Update harbor business events
+        harborEventSystem.update(delta)
+        
+        // Update dynamic event system
+        dynamicEventSystem.update(delta)
+        
+        // Update experimental tech
+        experimentalTechSystem.update(delta)
         
         // Spectator drone camera
         updateSpectatorCamera({
@@ -193,7 +249,7 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
     })
 
     // ================================================================
-    // SCENE CONTENT (shared between booth and standalone modes)
+    // SCENE CONTENT (shared between all modes)
     // ================================================================
     const sceneContent = (
         <>
@@ -201,6 +257,9 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
             
             {/* Environment */}
             <Environment preset={isNight ? 'night' : 'sunset'} />
+
+            {/* Phase 9: Attachment System Manager */}
+            <AttachmentSystemManager />
 
             {/* Lighting */}
             <ambientLight 
@@ -234,6 +293,18 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
             <Dock isNight={isNight} />
             <Crane />
             
+            {/* On-Dock Rail System */}
+            <OnDockRail isNight={isNight} />
+            
+            {/* Sea Birds */}
+            <SeaBirds 
+                isNight={isNight} 
+                cranePositions={[[0, 0, 0], [-20, 0, -10], [20, 0, -10]]}
+            />
+            
+            {/* Distant Ship Queue */}
+            <DistantShipQueue isNight={isNight} />
+            
             {/* Wildlife and Sea Events */}
             <WildlifeRenderer />
             <SeaEvents />
@@ -259,41 +330,44 @@ export default function MainScene({ useBooth = false, harborTheme = 'industrial'
     )
 
     // ================================================================
-    // RENDER: Either in ControlBooth or standalone
+    // RENDER: Based on cabin view mode
     // ================================================================
     
-    if (useBooth) {
-        // IMMERSIVE BOOTH MODE
+    if (cabinViewMode === 'immersive') {
+        // IMMERSIVE CAB MODE - First person inside cabin
         return (
             <>
                 <ControlBooth harborTheme={harborTheme} debug={false}>
                     {sceneContent}
                 </ControlBooth>
-                
-                {/* Note: SpectatorOverlay should be rendered outside Canvas in App.tsx */}
             </>
         )
     }
     
-    // STANDALONE MODE (original behavior)
+    // DEFAULT: MULTIVIEW MODE - 4 camera panels (rendered in HTML overlay via OperatorCabinUI)
     return (
         <>
-            {/* Camera Controls */}
-            {!spectatorState.isActive && cameraMode === 'orbit' && (
-                <OrbitControls 
-                    ref={orbitControlsRef}
-                    target={currentShip?.position || [0, 0, 0]}
-                    enableDamping
-                    dampingFactor={0.05}
-                />
-            )}
+            {/* Main Camera - Crane Cab POV */}
+            <PerspectiveCamera
+                makeDefault
+                position={[18, 24, 8]}
+                fov={60}
+                near={0.1}
+                far={1000}
+            />
+            
+            {/* Orbit controls for main view */}
+            <OrbitControls 
+                ref={orbitControlsRef}
+                target={currentShip?.position || [0, 0, 0]}
+                enableDamping
+                dampingFactor={0.05}
+                maxPolarAngle={Math.PI / 2 - 0.1}
+                minDistance={10}
+                maxDistance={100}
+            />
 
             {sceneContent}
-            
-            {/* Multiview Camera System - DISABLED (renders HTML, use outside Canvas) */}
-            {/* <MultiviewSystem enabled={multiviewMode === 'quad'} underwaterIntensity={underwaterIntensity} /> */}
-
-            {/* Note: UI overlays should be rendered outside Canvas in App.tsx */}
         </>
     )
 }
@@ -449,7 +523,26 @@ interface LevaControlsConfig {
     setMultiviewMode: (mode: 'single' | 'quad') => void
     underwaterIntensity: number
     setUnderwaterIntensity: (intensity: number) => void
-    useBooth: boolean
+    cabinViewMode: string
+}
+
+// Business pattern trigger functions for Leva
+function triggerGeopoliticalEvent() {
+    const regions: ('red_sea' | 'hormuz' | 'panama')[] = ['red_sea', 'hormuz', 'panama']
+    const region = regions[Math.floor(Math.random() * regions.length)]
+    harborEventSystem.triggerGeopoliticalEvent(region)
+}
+
+function triggerTariffEvent() {
+    harborEventSystem.triggerTariffEvent()
+}
+
+function triggerLaborAction() {
+    harborEventSystem.triggerLaborAction()
+}
+
+function triggerPeakSeason() {
+    harborEventSystem.triggerPeakSeason()
 }
 
 function useLevaControls(config: LevaControlsConfig) {
@@ -469,7 +562,7 @@ function useLevaControls(config: LevaControlsConfig) {
         setMultiviewMode,
         underwaterIntensity,
         setUnderwaterIntensity,
-        useBooth
+        cabinViewMode
     } = config
 
     useControls({
@@ -507,7 +600,26 @@ function useLevaControls(config: LevaControlsConfig) {
             min: 0,
             max: 24,
             step: 0.5,
-            onChange: setTimeOfDay
+            onChange: (hour: number) => {
+                setTimeOfDay(hour)
+                timeSystem.setGameTime(hour)
+            }
+        },
+        'Time Speed': {
+            value: 20,
+            min: 1,
+            max: 120,
+            step: 1,
+            onChange: (speed: number) => {
+                timeSystem.setTimeScale(speed)
+            }
+        },
+        'Jump to Phase': {
+            value: 'sunrise',
+            options: ['pre_dawn', 'sunrise', 'mid_morning', 'midday', 'golden_hour', 'night'],
+            onChange: (phase: DayPhase) => {
+                timeSystem.jumpToPhase(phase)
+            }
         },
         'Fog Density': {
             value: 0.02,
@@ -515,8 +627,17 @@ function useLevaControls(config: LevaControlsConfig) {
             max: 0.1,
             step: 0.001
         },
+        'Marine Layer': {
+            value: true
+        },
+        'Rail Activity': {
+            value: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.1
+        },
         'Camera Mode': {
-            value: useBooth ? 'booth' : 'orbit',
+            value: 'orbit',
             options: CAMERA_MODES,
             onChange: (mode: string) => {
                 setCameraMode(mode as CameraMode)
@@ -530,19 +651,491 @@ function useLevaControls(config: LevaControlsConfig) {
                 weatherSystem.forceWeather(w as any)
             }
         },
-        ...(!useBooth && {
-            'Multiview Layout': {
-                value: multiviewMode,
-                options: ['single', 'quad'],
-                onChange: (mode: 'single' | 'quad') => setMultiviewMode(mode)
+        'Cabin View': {
+            value: cabinViewMode,
+            options: ['multiview', 'immersive'],
+            onChange: (mode: string) => {
+                useGameStore.getState().setCabinViewMode(mode as any)
             }
-        }),
+        },
         'Underwater Intensity': {
             value: underwaterIntensity,
             min: 0,
             max: 2,
             step: 0.1,
             onChange: setUnderwaterIntensity
+        },
+        // Phase 9: Attachment System Controls
+        'Show Attachments': {
+            value: true,
+            folder: 'Attachment System',
+            onChange: (value: boolean) => {
+                useGameStore.getState().setAttachmentSystemConfig({ showPoints: value })
+            }
+        },
+        'Attachment Range': {
+            value: 15,
+            min: 5,
+            max: 50,
+            step: 1,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ visibilityRange: value })
+            }
+        },
+        'Snap Radius': {
+            value: 5,
+            min: 1,
+            max: 10,
+            step: 0.5,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ snapRadius: value })
+            }
+        },
+        'Snap Strength': {
+            value: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.1,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ snapStrength: value })
+            }
+        },
+        'Cable Visibility': {
+            value: true,
+            folder: 'Attachment System',
+            onChange: (value: boolean) => {
+                useGameStore.getState().setAttachmentSystemConfig({ showCable: value })
+            }
+        },
+        // Moon System Controls
+        'Moon Phase': {
+            value: 'full_moon',
+            options: ['new_moon', 'waxing_crescent', 'first_quarter', 'waxing_gibbous', 'full_moon', 'waning_gibbous', 'last_quarter', 'waning_crescent'],
+            folder: 'Moon System',
+            onChange: (phase: MoonPhaseName) => {
+                moonSystem.setPhaseOverride(phase)
+            }
+        },
+        'Clear Moon Override': {
+            value: false,
+            folder: 'Moon System',
+            onChange: () => {
+                moonSystem.setPhaseOverride(null)
+            }
+        },
+        'Moon Brightness': {
+            value: 1.0,
+            min: 0,
+            max: 2,
+            step: 0.1,
+            folder: 'Moon System',
+            onChange: (value: number) => {
+                moonSystem.setBrightnessMultiplier(value)
+            }
+        },
+        'Tide Strength': {
+            value: 1.0,
+            min: 0,
+            max: 3,
+            step: 0.1,
+            folder: 'Moon System',
+            onChange: (value: number) => {
+                moonSystem.setTideStrength(value)
+            }
+        },
+        'Jump to Next Phase': {
+            value: false,
+            folder: 'Moon System',
+            onChange: () => {
+                const phases: MoonPhaseName[] = ['new_moon', 'waxing_crescent', 'first_quarter', 'waxing_gibbous', 'full_moon', 'waning_gibbous', 'last_quarter', 'waning_crescent']
+                const currentPhase = moonSystem.getPhase()
+                const nextIndex = (phases.indexOf(currentPhase) + 1) % phases.length
+                moonSystem.jumpToPhase(phases[nextIndex])
+            }
+        },
+        // Traffic System Controls
+        'Traffic Density': {
+            value: 1.0,
+            min: 0.1,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Traffic System',
+            onChange: (value: number) => {
+                trafficSystem.setDensityMultiplier(value)
+            }
+        },
+        'Time Pressure': {
+            value: 1.0,
+            min: 0.5,
+            max: 2.0,
+            step: 0.1,
+            folder: 'Traffic System',
+            onChange: (value: number) => {
+                trafficSystem.setTimePressureMultiplier(value)
+            }
+        },
+        'Simulate Event': {
+            value: 'none',
+            options: ['none', 'surge', 'strike', 'storm_delay'],
+            folder: 'Traffic System',
+            onChange: (value: string) => {
+                trafficSystem.setSimulationEvent(value === 'none' ? null : value)
+            }
+        },
+        'Force Next Ship': {
+            value: false,
+            folder: 'Traffic System',
+            onChange: () => {
+                const docked = trafficSystem.getDockedShip()
+                if (docked) {
+                    trafficSystem.requestEarlyDeparture(docked.id)
+                }
+            }
+        },
+        // Sway System Controls
+        'Base Damping': {
+            value: 1.0,
+            min: 0.5,
+            max: 2.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugDampingMultiplier(value)
+            }
+        },
+        'Load Weight Mult': {
+            value: 1.0,
+            min: 0.5,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugLoadMultiplier(value)
+            }
+        },
+        'Gust Multiplier': {
+            value: 1.0,
+            min: 0,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugGustMultiplier(value)
+            }
+        },
+        'Gust Frequency': {
+            value: 1.0,
+            min: 0.1,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugGustFrequencyMultiplier(value)
+            }
+        },
+        'Gust Duration Min': {
+            value: 0.8,
+            min: 0.2,
+            max: 2.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugGustDurationRange(value, 4.0)
+            }
+        },
+        'Gust Duration Max': {
+            value: 4.0,
+            min: 1.0,
+            max: 8.0,
+            step: 0.1,
+            folder: 'Sway System',
+            onChange: (value: number) => {
+                swaySystem.setDebugGustDurationRange(0.8, value)
+            }
+        },
+        'Show Debug': {
+            value: false,
+            folder: 'Sway System',
+            onChange: (value: boolean) => {
+                swaySystem.setShowDebugLines(value)
+            }
+        },
+        // Weather Controls
+        'Force Weather': {
+            value: 'clear',
+            options: ['clear', 'fog', 'rain', 'storm', 'golden_hour'],
+            folder: 'Weather',
+            onChange: (value: WeatherType) => {
+                weatherSystem.forceWeather(value)
+            }
+        },
+        'Clear Weather Override': {
+            value: false,
+            folder: 'Weather',
+            onChange: () => {
+                weatherSystem.clearOverride()
+            }
+        },
+        // Training System Controls
+        'Quick Start Module': {
+            value: 'none',
+            options: ['none', 'basic-hooks', 'precision', 'wind-sway', 'night-ops', 'multi-crane', 'emergency', 'light-show'],
+            folder: 'Training System',
+            onChange: (value: string) => {
+                if (value !== 'none') {
+                    trainingSystem.startModule(value as TrainingModuleId)
+                }
+            }
+        },
+        'Unlock All Modules': {
+            value: false,
+            folder: 'Training System',
+            onChange: () => {
+                trainingSystem.unlockAll()
+            }
+        },
+        'Complete All Modules': {
+            value: false,
+            folder: 'Training System',
+            onChange: () => {
+                trainingSystem.completeAll()
+            }
+        },
+        'Reset Training': {
+            value: false,
+            folder: 'Training System',
+            onChange: () => {
+                trainingSystem.reset()
+            }
+        },
+        // Dynamic Event System Controls
+        'Force Storm Event': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.forceEvent('atmospheric_river', 0.9)
+            }
+        },
+        'Force Whale Migration': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.forceEvent('whale_migration', 0.8)
+            }
+        },
+        'Force Ship Fire': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.forceEvent('ship_fire', 0.9)
+            }
+        },
+        'Force Navy Visit': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.forceEvent('navy_fleet_week', 0.8)
+            }
+        },
+        'Force Plankton Bloom': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.forceEvent('plankton_bloom', 0.85)
+            }
+        },
+        'Clear Dynamic Events': {
+            value: false,
+            folder: 'Dynamic Events',
+            onChange: () => {
+                dynamicEventSystem.clearAllEvents()
+            }
+        },
+        'Event Spawn Rate': {
+            value: 1.0,
+            min: 0,
+            max: 3,
+            step: 0.1,
+            folder: 'Dynamic Events',
+            onChange: (value: number) => {
+                // Modify event spawn rates
+            }
+        },
+        // Reputation System Controls
+        'Add Reputation': {
+            value: 100,
+            min: 0,
+            max: 1000,
+            step: 50,
+            folder: 'Reputation System',
+            onChange: (value: number) => {
+                reputationSystem.addDebugReputation(value)
+            }
+        },
+        'Set Tier': {
+            value: 'novice',
+            options: ['novice', 'apprentice', 'operator', 'veteran', 'expert', 'master', 'legendary'],
+            folder: 'Reputation System',
+            onChange: (tier: string) => {
+                reputationSystem.forceTier(tier as any)
+            }
+        },
+        'Reset Reputation': {
+            value: false,
+            folder: 'Reputation System',
+            onChange: () => {
+                reputationSystem.reset()
+            }
+        },
+        'Simulate Installation': {
+            value: false,
+            folder: 'Reputation System',
+            onChange: () => {
+                reputationSystem.recordInstallation({
+                    success: true,
+                    timeSeconds: 25,
+                    swayPercent: 0.15,
+                    damage: 0
+                })
+            }
+        },
+        'Simulate Perfect Install': {
+            value: false,
+            folder: 'Reputation System',
+            onChange: () => {
+                reputationSystem.recordInstallation({
+                    success: true,
+                    timeSeconds: 20,
+                    swayPercent: 0.05,
+                    damage: 0
+                })
+            }
+        },
+        // Sound System Controls
+        'Master Volume': {
+            value: -8,
+            min: -30,
+            max: 0,
+            step: 1,
+            folder: 'Sound Design',
+            onChange: (value: number) => {
+                setCraneSoundVolume(value)
+            }
+        },
+        'Crane Sounds': {
+            value: true,
+            folder: 'Sound Design',
+            onChange: (enabled: boolean) => {
+                setCraneSoundsEnabled(enabled)
+            }
+        },
+        'Play Bird Call': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => playBirdCall()
+        },
+        'Play Foghorn': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => playFoghorn()
+        },
+        'Play Ship Horn': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => playShipHorn('far')
+        },
+        'Play Radio Chatter': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => {
+                playRadioChatter()
+            }
+        },
+        'Test Impact Sound': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => playContainerImpact('medium')
+        },
+        'Test Lock Sound': {
+            value: false,
+            folder: 'Sound Design',
+            onChange: () => playTwistlockEngage()
+        },
+        // Economy System Controls
+        'Set Credits': {
+            value: 0,
+            min: 0,
+            max: 10000,
+            step: 100,
+            folder: 'Economy System',
+            onChange: (value: number) => {
+                economySystem.setCredits(value)
+            }
+        },
+        'Set Reputation': {
+            value: 0,
+            min: 0,
+            max: 1000,
+            step: 10,
+            folder: 'Economy System',
+            onChange: (value: number) => {
+                economySystem.setReputation(value)
+            }
+        },
+        'Eco: Simulate Install': {
+            value: false,
+            folder: 'Economy System',
+            onChange: () => {
+                economySystem.recordInstallation({
+                    rigType: 'rgb_matrix',
+                    timeSeconds: 25,
+                    targetTimeSeconds: 30,
+                    swayPercent: 0.15,
+                    syncAccuracy: 0.7,
+                    weather: 'clear',
+                    isEventActive: false
+                })
+            }
+        },
+        'Eco: Simulate Perfect': {
+            value: false,
+            folder: 'Economy System',
+            onChange: () => {
+                economySystem.recordInstallation({
+                    rigType: 'rgb_matrix',
+                    timeSeconds: 20,
+                    targetTimeSeconds: 30,
+                    swayPercent: 0.05,
+                    syncAccuracy: 0.9,
+                    weather: 'clear',
+                    isEventActive: false
+                })
+            }
+        },
+        'Simulate Shift': {
+            value: false,
+            folder: 'Economy System',
+            onChange: () => {
+                economySystem.simulateShift(5, 0.6)
+            }
+        },
+        'End Shift': {
+            value: false,
+            folder: 'Economy System',
+            onChange: () => {
+                const result = economySystem.endShift()
+                console.log(`Shift ended: ${result.credits} HC earned, ${result.reputation} rep gained`)
+            }
+        },
+        'Reset Economy': {
+            value: false,
+            folder: 'Economy System',
+            onChange: () => {
+                economySystem.reset()
+            }
         }
     })
 }

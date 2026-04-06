@@ -1,3 +1,8 @@
+// =============================================================================
+// SHIP COMPONENT - HarborGlow Phase 9
+// Ship rendering with LOD, attachment points, and music-reactive lighting
+// =============================================================================
+
 import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
@@ -6,6 +11,12 @@ import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'
 import { useLOD } from '../systems/performanceSystem'
+import AttachmentPointVisual from './AttachmentPoint'
+import { 
+  getRigTypeForPart, 
+  AttachmentState,
+  SHIP_TYPE_LIGHT_COLORS 
+} from '../systems/attachmentSystem'
 
 interface ShipProps {
     ship: Ship
@@ -52,6 +63,9 @@ export default function ShipComponent({ ship }: ShipProps) {
     const lightIntensity = useGameStore((state) => state.lightIntensity)
     const musicPlaying = useGameStore((state) => state.musicPlaying)
     const bpm = useGameStore((state) => state.bpm)
+    const spreaderPos = useGameStore((state) => state.spreaderPos)
+    const twistlockEngaged = useGameStore((state) => state.twistlockEngaged)
+    const attachmentConfig = useGameStore((state) => state.attachmentSystemConfig)
     
     // PHASE 10: Get LOD level based on distance
     const lod = useLOD(ship.position)
@@ -62,6 +76,47 @@ export default function ShipComponent({ ship }: ShipProps) {
     )
 
     const isUpgraded = (partName: string) => shipUpgrades.some(u => u.partName === partName)
+    
+    // Calculate attachment point states
+    const attachmentPointsWithState = useMemo(() => {
+        if (!ship.attachmentPoints) return []
+        
+        return ship.attachmentPoints.map(point => {
+            const worldPos: [number, number, number] = [
+                ship.position[0] + point.position[0],
+                ship.position[1] + point.position[1],
+                ship.position[2] + point.position[2],
+            ]
+            
+            const dx = worldPos[0] - spreaderPos.x
+            const dy = worldPos[1] - spreaderPos.y
+            const dz = worldPos[2] - spreaderPos.z
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+            
+            let state: AttachmentState = 'available'
+            let snapStrength = 0
+            
+            if (isUpgraded(point.partName)) {
+                state = 'installed'
+            } else if (distance <= attachmentConfig.installDistance && twistlockEngaged) {
+                state = 'installing'
+            } else if (distance <= attachmentConfig.snapRadius) {
+                state = 'snapping'
+                snapStrength = 1 - (distance / attachmentConfig.snapRadius)
+            } else if (distance <= attachmentConfig.visibilityRange * 1.5) {
+                state = 'hovered'
+            }
+            
+            return {
+                point,
+                worldPos,
+                state,
+                distance,
+                snapStrength,
+                rigType: getRigTypeForPart(point.partName),
+            }
+        })
+    }, [ship, spreaderPos, twistlockEngaged, attachmentConfig, shipUpgrades])
 
     useFrame((state) => {
         if (!groupRef.current) return
@@ -108,63 +163,31 @@ export default function ShipComponent({ ship }: ShipProps) {
         <RigidBody type="fixed" position={ship.position}>
             <group ref={groupRef}>
                 <ProceduralShip blueprintId={ship.type} version={ship.version}>
-                    {/* PHASE 10: Skip attachment points at medium+ LOD */}
-                    {lod < 2 && ship.attachmentPoints?.map((point) => {
-                        const isInstalled = isUpgraded(point.partName)
-                        return (
-                            <group key={point.partName}>
-                                {!isInstalled && lod < 1 && (
-                                    <mesh position={[point.position[0], point.position[1] + 0.5, point.position[2]]}>
-                                        <sphereGeometry args={[0.12]} />
-                                        <meshBasicMaterial color="#ffff00" transparent opacity={0.4} />
-                                    </mesh>
-                                )}
-                                {isInstalled && (
-                                    <>
-                                        {/* PHASE 10: Skip lights at medium LOD */}
-                                        {lod < 1 && (
-                                            <pointLight
-                                                position={[point.position[0], point.position[1] + 0.8, point.position[2]]}
-                                                intensity={2 * lightIntensity}
-                                                color={getLightColor(ship.type, point.partName)}
-                                                distance={15}
-                                                decay={2}
-                                            />
-                                        )}
-                                        <mesh position={[point.position[0], point.position[1] + 0.8, point.position[2]]}>
-                                            <sphereGeometry args={[0.15]} />
-                                            <meshBasicMaterial color={getLightColor(ship.type, point.partName)} />
-                                        </mesh>
-                                    </>
-                                )}
-                            </group>
-                        )
-                    })}
+                    {/* PHASE 9: Enhanced attachment points */}
+                    {attachmentConfig.showPoints && lod < 2 && attachmentPointsWithState.map(({ 
+                        point, 
+                        worldPos, 
+                        state, 
+                        distance,
+                        snapStrength,
+                        rigType 
+                    }) => (
+                        <AttachmentPointVisual
+                            key={point.partName}
+                            position={point.position}
+                            rotation={point.rotation}
+                            partName={point.partName}
+                            shipType={ship.type}
+                            state={state}
+                            rigType={rigType}
+                            distance={distance}
+                            snapStrength={snapStrength}
+                            visibilityRange={attachmentConfig.visibilityRange}
+                            showDistance={true}
+                        />
+                    ))}
                 </ProceduralShip>
             </group>
         </RigidBody>
     )
-}
-
-function getLightColor(type: Ship['type'], partName: string): string {
-    switch (type) {
-        case 'cruise':
-            return partName.includes('funnel') ? '#ff6600' : '#ffffff'
-        case 'container':
-            return partName.includes('mast') ? '#ff00ff' : '#00ff88'
-        case 'tanker':
-            return partName.includes('flare') ? '#ff4400' : '#ff6600'
-        case 'bulk':
-            return partName.includes('crane') ? '#ffaa00' : '#ffdd88'
-        case 'lng':
-            return partName.includes('membrane') ? '#00ccff' : partName.includes('loading') ? '#silver' : '#ffffff'
-        case 'roro':
-            return partName.includes('lifeboat') ? '#ff4444' : '#ffdd00'
-        case 'research':
-            return partName.includes('sonar') ? '#00ff88' : partName.includes('radar') ? '#4488ff' : '#ffffff'
-        case 'droneship':
-            return partName.includes('thruster') ? '#ff6600' : partName.includes('octagrabber') ? '#ffaa00' : '#00ccff'
-        default:
-            return '#ffffff'
-    }
 }
