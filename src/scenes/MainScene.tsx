@@ -60,6 +60,11 @@ const CAMERA_MODES = [
     'booth'
 ] as const
 
+// Total crane jib travel span in world units (matches Crane.tsx trolley calc)
+const CRANE_JIB_SPAN = 40
+// Trolley rail height above the scene origin (matches Crane.tsx jib Y)
+const CRANE_TROLLEY_HEIGHT = 9.2
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -113,6 +118,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const spectatorAngleRef = useRef(0)
     const atSeaShipsRef = useRef<Map<string, AtSeaShip>>(new Map())
     const shipPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map())
+    // Reusable vector for swaySystem — avoids per-frame allocation
+    const swayTrolleyVecRef = useRef(new THREE.Vector3())
     
     // Derived values
     const currentShip = useMemo(() => 
@@ -209,10 +216,19 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         // Update traffic system (ship scheduling and deadlines)
         trafficSystem.update(delta)
         
-        // Update lighting and weather
+        // Update lighting and weather (full update drives transitions + lightning)
         const bpm = useGameStore.getState().bpm
         lightingSystem.update(state.clock.elapsedTime, bpm)
-        weatherSystem.updateLightning()
+        weatherSystem.update(delta)
+        
+        // Update crane sway physics — driven by weather + trolley kinematics
+        const trolleyPos = useGameStore.getState().trolleyPosition
+        swayTrolleyVecRef.current.set(
+            (trolleyPos - 0.5) * CRANE_JIB_SPAN,
+            CRANE_TROLLEY_HEIGHT,
+            0
+        )
+        swaySystem.update(delta, swayTrolleyVecRef.current)
         
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
