@@ -26,16 +26,14 @@ export default defineConfig(({ mode }) => ({
         chunkSizeWarningLimit: 4000,
         rollupOptions: {
             output: {
-                // Manual chunk splitting for optimal loading
+                // Manual chunk splitting - only split non-React libraries
                 manualChunks: {
-                    // Core vendor libs (no circular deps)
-                    'vendor-core': ['react', 'react-dom', 'zustand'],
-                    // 3D libs (large) - includes leva deps to avoid circularity
+                    // 3D libraries only - no React deps
                     'vendor-3d': ['three', '@react-three/fiber', '@react-three/drei', '@react-three/rapier', '@react-three/postprocessing'],
-                    // Audio 
+                    // Audio only
                     'vendor-audio': ['tone'],
-                    // UI libs - keep separate
-                    'vendor-ui': ['leva'],
+                    // Note: React, React-DOM, Leva, and Zustand stay in main bundle
+                    // to avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED error
                 },
                 // Ensure chunks are named predictably
                 chunkFileNames: 'assets/[name]-[hash].js',
