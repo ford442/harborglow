@@ -60,6 +60,11 @@ const CAMERA_MODES = [
     'booth'
 ] as const
 
+// Total crane jib travel span in world units (matches Crane.tsx trolley calc)
+const CRANE_JIB_SPAN = 40
+// Trolley rail height above the scene origin (matches Crane.tsx jib Y)
+const CRANE_TROLLEY_HEIGHT = 9.2
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -217,11 +222,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         weatherSystem.update(delta)
         
         // Update crane sway physics — driven by weather + trolley kinematics
-        const storeState = useGameStore.getState()
-        const trolleyPos = storeState.trolleyPosition
+        const trolleyPos = useGameStore.getState().trolleyPosition
         swayTrolleyVecRef.current.set(
-            (trolleyPos - 0.5) * 40,  // Match Crane.tsx trolley world X
-            9.2,                       // Trolley height on jib
+            (trolleyPos - 0.5) * CRANE_JIB_SPAN,
+            CRANE_TROLLEY_HEIGHT,
             0
         )
         swaySystem.update(delta, swayTrolleyVecRef.current)
