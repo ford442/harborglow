@@ -361,7 +361,7 @@ export class HarborEventSystem {
         return event
     }
 
-    triggerShipFire(shipId?: string): HarborEvent {
+    triggerShipFire(shipId?: string): HarborEvent | null {
         const state = useGameStore.getState()
         const ships = state.ships
         
@@ -372,10 +372,15 @@ export class HarborEventSystem {
             const flammableShips = ships.filter(s => 
                 s.type === 'container' || s.type === 'tanker' || s.type === 'cruise'
             )
+            if (flammableShips.length === 0) return null
             targetShip = flammableShips[Math.floor(Math.random() * flammableShips.length)]
         }
 
-        if (!targetShip) throw new Error('No suitable ship found for fire event')
+        if (!targetShip) return null
+
+        // Store ship ID locally since targetShip may become undefined in async callbacks
+        const targetShipId = targetShip.id
+        const targetShipPosition = targetShip.position
 
         const event: HarborEvent = {
             id: `fire-${Date.now()}`,
@@ -383,8 +388,8 @@ export class HarborEventSystem {
             startTime: Date.now(),
             duration: 240 + Math.random() * 300,
             intensity: 0.7 + Math.random() * 0.3,
-            affectedShipId: targetShip.id,
-            position: targetShip.position,
+            affectedShipId: targetShipId,
+            position: targetShipPosition,
             metadata: {
                 deck: Math.random() > 0.5 ? 'cargo' : 'engine',
                 spreading: false,
@@ -395,7 +400,9 @@ export class HarborEventSystem {
         this.activeEvents.set(event.id, event)
         
         setTimeout(() => {
-            this.triggerFireboatResponse(targetShip!.id)
+            if (useGameStore.getState().ships.find(s => s.id === targetShipId)) {
+                this.triggerFireboatResponse(targetShipId)
+            }
         }, 5000)
 
         this.triggerEmergencyMusic()
@@ -657,9 +664,11 @@ export class HarborEventSystem {
             if (newTimer >= config.minInterval && timeSinceLast >= config.minInterval) {
                 if (this.canSpawnEvent(type, config, month, isNight, state)) {
                     if (Math.random() < config.probability * delta) {
-                        this.spawnEvent(type)
-                        this.eventTimers.set(type, 0)
-                        this.lastEventTime.set(type, now)
+                        const event = this.spawnEvent(type)
+                        if (event) {
+                            this.eventTimers.set(type, 0)
+                            this.lastEventTime.set(type, now)
+                        }
                     }
                 }
             }
