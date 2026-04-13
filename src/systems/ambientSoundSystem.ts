@@ -319,7 +319,7 @@ function updateWeatherAmbience(weather: string, phase: string) {
 // =============================================================================
 
 let birdInterval: ReturnType<typeof setInterval> | null = null
-let foghornInterval: ReturnType<typeof setInterval> | null = null
+const foghornInterval: ReturnType<typeof setInterval> | null = null
 
 function updateBirdActivity(intensity: number) {
   if (birdInterval) {

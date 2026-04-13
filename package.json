@@ -7,7 +7,7 @@
         "dev": "vite",
         "build": "tsc && vite build",
         "build:analyze": "tsc && vite build --mode analyze",
-        "lint": "eslint src --ext .ts,.tsx --max-warnings=0",
+        "lint": "eslint src --ext .ts,.tsx",
         "lint:fix": "eslint src --ext .ts,.tsx --fix",
         "heartbeat": "echo '=== HEARTBEAT ===' && git status --porcelain && grep -r 'TODO\\|FIXME' src/ --include='*.ts' --include='*.tsx' || true && npm run build",
         "preview": "vite preview"

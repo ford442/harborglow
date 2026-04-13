@@ -480,9 +480,9 @@ export class DynamicEventSystem {
 
   private recalculateEffects() {
     // Reset to base values
-    let combinedLighting = { intensity: 1, fogDensity: 0.02, ambientMultiplier: 1 }
-    let combinedCrane = { swayMultiplier: 1, maxSpeed: 1 }
-    let combinedShips = { arrivalModifier: 1 }
+    const combinedLighting = { intensity: 1, fogDensity: 0.02, ambientMultiplier: 1 }
+    const combinedCrane = { swayMultiplier: 1, maxSpeed: 1 }
+    const combinedShips = { arrivalModifier: 1 }
 
     // Combine all active event effects
     this.activeEvents.forEach(event => {

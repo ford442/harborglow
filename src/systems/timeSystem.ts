@@ -416,8 +416,8 @@ class TimeSystem {
         const phaseConfig = PHASES[currentPhase]
         
         // Calculate phase progress
-        let phaseStart = phaseConfig.startHour
-        let phaseEnd = phaseConfig.endHour
+        const phaseStart = phaseConfig.startHour
+        const phaseEnd = phaseConfig.endHour
         let phaseProgress = 0
         
         // Handle night wrap-around

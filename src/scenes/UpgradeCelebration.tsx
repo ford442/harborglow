@@ -192,7 +192,7 @@ function FireworksDisplay({ position, theme, active }: {
   // Prepare burst particles for rendering
   const burstParticles = useMemo(() => {
     const bursts = fireworks.filter(fw => fw.phase === 'burst')
-    let allParticles: Array<{ pos: THREE.Vector3; color: THREE.Color; life: number }> = []
+    const allParticles: Array<{ pos: THREE.Vector3; color: THREE.Color; life: number }> = []
 
     bursts.forEach(fw => {
       fw.particles.forEach(p => {

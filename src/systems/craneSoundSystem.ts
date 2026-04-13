@@ -40,7 +40,7 @@ interface CraneState {
   tension: number
 }
 
-let craneState: CraneState = {
+const craneState: CraneState = {
   isMovingHorizontal: false,
   isMovingVertical: false,
   isRotating: false,

@@ -393,8 +393,7 @@ export function useCameraTransition() {
 
 // Focus on ship with smooth pan
 export function focusOnShip(shipPosition: [number, number, number], duration = 1.5) {
-  const { camera } = useThree()
-  const startPos = camera.position.clone()
+  // startPos should be computed by the caller
   const endPos = new THREE.Vector3(
     shipPosition[0] + 30,
     shipPosition[1] + 20,
@@ -402,6 +401,5 @@ export function focusOnShip(shipPosition: [number, number, number], duration = 1
   )
   const targetLook = new THREE.Vector3(...shipPosition)
   
-  // This would be called from a useFrame in the component
-  return { startPos, endPos, targetLook, duration }
+  return { endPos, targetLook, duration }
 }
