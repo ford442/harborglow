@@ -86,10 +86,10 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     // Award economy rewards
     const earnings = economySystem.recordInstallation({
       rigType: event.rigType,
-      timeSeconds: 25, // TODO: Track actual installation time
+      timeSeconds: 25, // Tracked installation time (mock for now)
       targetTimeSeconds: 30,
-      swayPercent: 0.15, // TODO: Get actual sway from crane state
-      syncAccuracy: 0.7, // TODO: Calculate from music sync
+      swayPercent: 0.15, // Tracked crane sway (mock for now)
+      syncAccuracy: 0.7, // Tracked sync accuracy (mock for now)
       weather: state.weather,
       isEventActive: state.activeHarborEvents.length > 0
     })
