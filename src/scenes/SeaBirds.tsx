@@ -40,7 +40,7 @@ function Bird({ position, type, behavior, perchTarget }: BirdProps) {
         const delta = state.clock.getDelta()
         
         switch (behavior) {
-            case 'flying':
+            case 'flying': {
                 // Gull-like flight pattern - soaring with wing beats
                 const flyRadius = 30 + Math.random() * 20
                 const flySpeed = 0.3 + Math.random() * 0.2
@@ -61,8 +61,9 @@ function Bird({ position, type, behavior, perchTarget }: BirdProps) {
                     wingsRef.current.rotation.z = Math.sin(time * flapSpeed) * flapAmp
                 }
                 break
+            }
                 
-            case 'soaring':
+            case 'soaring': {
                 // Pelican-style soaring in circles
                 const soarRadius = 50 + Math.random() * 30
                 const soarSpeed = 0.15
@@ -78,6 +79,7 @@ function Bird({ position, type, behavior, perchTarget }: BirdProps) {
                     wingsRef.current.rotation.z = Math.sin(time * 2) * 0.1
                 }
                 break
+            }
                 
             case 'perched':
                 // Stationary with slight head movements
@@ -94,7 +96,7 @@ function Bird({ position, type, behavior, perchTarget }: BirdProps) {
                 }
                 break
                 
-            case 'diving':
+            case 'diving': {
                 // Tern-style dive for fish
                 const diveCycle = (time * 0.5) % (Math.PI * 2)
                 const diveX = position[0] + Math.cos(diveCycle) * 10
@@ -109,6 +111,7 @@ function Bird({ position, type, behavior, perchTarget }: BirdProps) {
                     wingsRef.current.rotation.z = Math.PI * 0.4
                 }
                 break
+            }
         }
     })
     

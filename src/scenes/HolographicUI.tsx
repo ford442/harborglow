@@ -24,17 +24,15 @@ export function HolographicShipStatus({ shipId, position }: HologramShipProps) {
   const installedUpgrades = useGameStore(state => state.installedUpgrades)
   const ship = ships.find(s => s.id === shipId)
   
-  if (!ship) return null
-  
   const shipUpgrades = installedUpgrades.filter(u => u.shipId === shipId)
-  const progress = shipUpgrades.length / (ship.attachmentPoints?.length || 1)
+  const progress = shipUpgrades.length / (ship?.attachmentPoints?.length || 1)
   
   // Ship type color
-  const shipColor = ship.type === 'cruise' ? '#ff6b9d' : 
-                    ship.type === 'container' ? '#00d4aa' : '#ff9500'
+  const shipColor = ship?.type === 'cruise' ? '#ff6b9d' :
+                    ship?.type === 'container' ? '#00d4aa' : '#ff9500'
   
   useFrame((state) => {
-    if (!groupRef.current || !wireframeRef.current) return
+    if (!groupRef.current || !wireframeRef.current || !ship) return
     
     const time = state.clock.elapsedTime
     
@@ -60,14 +58,14 @@ export function HolographicShipStatus({ shipId, position }: HologramShipProps) {
   const wireframeGeometry = useMemo(() => {
     const shape = new THREE.Shape()
     
-    if (ship.type === 'cruise') {
+    if (ship?.type === 'cruise') {
       // Cruise ship silhouette
       shape.moveTo(-2, 0)
       shape.lineTo(2, 0)
       shape.lineTo(1.8, 0.8)
       shape.lineTo(-1.5, 1)
       shape.lineTo(-2, 0)
-    } else if (ship.type === 'container') {
+    } else if (ship?.type === 'container') {
       // Container ship - boxy
       shape.moveTo(-2.5, 0)
       shape.lineTo(2.5, 0)
@@ -82,7 +80,9 @@ export function HolographicShipStatus({ shipId, position }: HologramShipProps) {
     const extrudeSettings = { depth: 0.5, bevelEnabled: false }
     const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings)
     return new THREE.WireframeGeometry(geometry)
-  }, [ship.type])
+  }, [ship?.type])
+
+  if (!ship) return null
   
   return (
     <group ref={groupRef} position={position}>

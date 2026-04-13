@@ -169,11 +169,12 @@ export async function playSound(
       break
     }
       
-    case 'tensionWarning':
+    case 'tensionWarning': {
       // Rising pitch based on tension level
       const baseFreq = 100 + (params?.tension || 0.5) * 200
       tensionSynth?.triggerAttackRelease(baseFreq, '16n', now)
       break
+    }
       
     case 'twistlockEngage':
       twistlockSynth?.triggerAttackRelease('16n', now)

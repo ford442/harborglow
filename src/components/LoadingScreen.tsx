@@ -30,7 +30,7 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
             setDots(prev => prev.length >= 3 ? '' : prev + '.')
         }, 500)
         return () => clearInterval(interval)
-    }, [])
+    }, [stages])
     
     // Update current stage based on progress
     useEffect(() => {
