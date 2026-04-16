@@ -2,68 +2,36 @@
 
 ## Project Overview
 
-HarborGlow is a 3D browser-based game built with React, Three.js, and TypeScript. Players spawn different ship types (cruise liner, container vessel, oil tanker), use a crane to install light upgrades, and enjoy synchronized music with lyrics when ships are fully upgraded.
+HarborGlow is a 3D browser-based crane-operator game built with React, Three.js, and TypeScript. Players spawn ships, operate a physics-based crane to install light upgrades, and trigger synchronized procedural music with lyrics when vessels are fully upgraded.
 
-### Key Features
-- Three unique ship types with distinct visual styles and music genres
-- Procedural music generation using Tone.js
-- Dynamic lighting system that pulses to the beat
-- Spectator drone camera mode after ship completion
-- Day/night cycle with atmospheric fog
-- Physics-based crane simulation
+The project has evolved from a simple 3-ship prototype into a feature-rich harbor simulation with training modules, economy and reputation systems, dynamic weather and wildlife, sea events, multiview camera dashboards, and tiered control booth themes.
+
+### Core Gameplay Loop
+1. Spawn a ship from the harbor menu
+2. Use the crane to position the spreader near attachment points
+3. Install light rigs on each attachment point
+4. When all upgrades are installed, a band-reveal cinematic plays, music starts, and the spectator drone orbits the ship
 
 ## Technology Stack
 
-| Category | Technology |
-|----------|------------|
-| Framework | React 18 + TypeScript |
-| Build Tool | Vite 5 |
-| 3D Rendering | React Three Fiber (@react-three/fiber) |
-| Physics | React Three Rapier (@react-three/rapier) |
-| Audio | Tone.js |
-| State Management | Zustand |
-| Debug UI | Leva |
-| Styling | Tailwind CSS + PostCSS |
-| Linting | ESLint with TypeScript support |
-
-## Project Structure
-
-```
-src/
-├── components/           # React UI components
-│   ├── HUD.tsx          # Main HUD container (composes other UI)
-│   ├── ShipSpawner.tsx  # Ship spawn buttons UI
-│   ├── UpgradeMenu.tsx  # Upgrade installation UI with progress
-│   ├── LyricsDisplay.tsx # Synchronized lyrics overlay
-│   ├── LyricsOverlay.tsx # Alternative lyrics component
-│   ├── CraneControls.tsx # Crane control panel
-│   └── WebGPUWarning.tsx # WebGPU support warning banner
-├── scenes/              # 3D scene components
-│   ├── MainScene.tsx    # Scene composition, lighting, spectator drone
-│   ├── Ship.tsx         # Ship rendering with upgrade lights
-│   ├── Crane.tsx        # Animated dock crane
-│   ├── Dock.tsx         # Night dock with volumetric lights
-│   └── Water.tsx        # Animated shader water surface
-├── store/               # State management
-│   └── useGameStore.ts  # Zustand game state (ships, upgrades, music)
-├── systems/             # Game logic systems
-│   ├── musicSystem.ts   # Tone.js music + lyrics synchronization
-│   ├── shipSpawner.ts   # Ship factory with attachment points
-│   ├── lightingSystem.ts # Beat-synced lighting hook
-│   └── physicsSystem.ts # Physics configuration constants
-├── shaders/             # Custom shaders
-│   └── lightShowNodes.ts # TSL shaders and god-ray effects
-├── App.tsx              # Root app component
-├── main.tsx             # Entry point
-└── index.css            # Global styles
-
-public/
-├── models/              # GLB model files (currently empty, uses fallbacks)
-│   └── .gitkeep
-└── vite.svg             # Vite logo
-
-deploy.py                # Python SFTP deployment script
-```
+| Category | Technology | Version |
+|----------|------------|---------|
+| Framework | React | ^18.2.0 |
+| Language | TypeScript | ^5.2.2 |
+| Build Tool | Vite | ^5.0.8 |
+| 3D Rendering | @react-three/fiber | ^8.15.11 |
+| 3D Helpers | @react-three/drei | ^9.122.0 |
+| 3D Physics | @react-three/rapier | ^1.3.1 |
+| 3D Post-Processing | @react-three/postprocessing | ^2.15.1 |
+| 3D Core | three | ^0.160.0 |
+| Audio | tone | ^14.7.77 |
+| State Management | zustand | ^4.4.7 |
+| Debug UI | leva | ^0.9.35 |
+| Styling | Tailwind CSS | ^3.4.19 |
+| CSS Processing | PostCSS + Autoprefixer | ^8.5.6 / ^10.4.27 |
+| Linting | ESLint + @typescript-eslint | ^8.55.0 |
+| Bundle Analysis | rollup-plugin-visualizer | ^5.12.0 |
+| Minification | terser | ^5.46.1 |
 
 ## Build and Development Commands
 
@@ -71,23 +39,208 @@ deploy.py                # Python SFTP deployment script
 # Install dependencies
 npm install
 
-# Start development server (Vite dev server)
+# Start development server (host: 0.0.0.0, port: 5173)
 npm run dev
 
-# Build for production
+# Type-check and build for production (outputs to dist/)
 npm run build
 
-# Preview production build locally
-npm run preview
+# Build and open bundle visualizer
+npm run build:analyze
 
 # Run ESLint
 npm run lint
+
+# Run ESLint with auto-fix
+npm run lint:fix
+
+# Smoke test: check git status, grep TODO/FIXME, then run build
+npm run heartbeat
+
+# Preview production build locally
+npm run preview
 ```
 
-### Build Output
-- Production build is output to `dist/` directory
+### Build Output Details
+- Production build is output to `dist/`
 - Vite handles TypeScript compilation and bundling
 - Static assets from `public/` are copied to `dist/`
+- `base: './'` in `vite.config.ts` enables relative-path deployment
+- Manual chunk splitting creates `vendor-3d` (three, R3F, drei, rapier, postprocessing) and `vendor-audio` (tone)
+- React, React-DOM, Leva, and Zustand are intentionally kept in the main bundle to avoid `__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` errors
+- Terser drops `console.log` and `debugger` in production
+
+## Project Structure
+
+```
+src/
+├── components/           # React UI components
+│   ├── MainMenu/         # Menu modals, buttons, styles
+│   ├── controls/         # JoystickControl, useCranePhysics
+│   ├── dashboard/        # Monitor feeds (Arctic360Cam, TwistlockCam, WinchCam, etc.)
+│   ├── hud/              # TopBar, TimeDisplay, ShipStatusPanel, CameraMultiviewControls
+│   ├── upgrade/          # Upgrade configs
+│   ├── HUD.tsx           # Main HUD container
+│   ├── ShipSpawner.tsx   # Ship spawn buttons
+│   ├── UpgradeMenu.tsx   # Upgrade installation UI
+│   ├── LyricsDisplay.tsx # Synchronized lyrics overlay
+│   ├── CraneControls.tsx # Crane control panel
+│   ├── TrainingMode.tsx  # Training hub
+│   ├── TrainingHUD.tsx   # In-training UI
+│   ├── LoadingScreen.tsx # Loading progress screen
+│   ├── ErrorBoundary.tsx # Error boundary for 3D scene
+│   └── DesignSystem.ts   # Shared glassmorphism / cyber styles
+├── scenes/               # R3F 3D scene components
+│   ├── MainScene.tsx     # Scene composition, lazy-loaded
+│   ├── Ship.tsx          # Ship rendering (procedural + fallback)
+│   ├── ProceduralShip.tsx# Blueprint-driven procedural ships
+│   ├── Crane.tsx         # Animated dock crane
+│   ├── Dock.tsx          # Night dock with volumetric lights
+│   ├── Water.tsx         # Water surface
+│   ├── EnhancedWeather.tsx
+│   ├── Wildlife.tsx / SeaBirds.tsx
+│   ├── SeaEvents.tsx
+│   ├── ControlBooth.tsx / ControlBoothSwappable.tsx
+│   ├── PostProcessing.tsx
+│   ├── VolumetricLighting.tsx
+│   ├── HolographicUI.tsx
+│   └── LightShow.tsx
+├── store/                # State management
+│   ├── useGameStore.ts   # Monolithic Zustand store (~860 lines)
+│   └── harborThemes.ts   # Theme definitions
+├── systems/              # Game logic singletons
+│   ├── musicSystem.ts    # Tone.js music + lyrics sync
+│   ├── lightingSystem.ts # Beat-synced lighting
+│   ├── shipSpawner.ts    # Ship factory with attachment points
+│   ├── attachmentSystem.ts# Crane-to-ship attachment logic
+│   ├── weatherSystem.ts  # Weather state machine
+│   ├── swaySystem.ts     # Ship sway physics
+│   ├── trainingSystem.ts # Training module definitions
+│   ├── economySystem.ts  # Harbor Credits / shop logic
+│   ├── reputationSystem.ts
+│   ├── dynamicEventSystem.ts
+│   ├── trafficSystem.ts
+│   ├── timeSystem.ts / moonSystem.ts
+│   ├── ambientSoundSystem.ts / craneSoundSystem.ts
+│   └── eventSystem/      # Event helpers
+├── shaders/              # Custom shaders
+│   └── lightShowNodes.ts # God-ray shader + TSL fallback
+├── types/                # Type definitions
+│   └── ShipBlueprint.ts  # Blueprint registry loader (ships.json)
+├── utils/                # Utilities
+│   └── storage_manager.ts# localStorage persistence wrapper
+├── hooks/                # Custom React hooks
+│   └── useScreenShake.ts
+├── blueprints/           # Procedural definitions
+│   └── ships.json        # Ship geometry blueprints
+├── App.tsx               # Root app component
+├── main.tsx              # Entry point
+└── index.css / App.css   # Global styles
+
+public/
+├── models/               # GLB model files (currently empty)
+│   └── .gitkeep
+└── vite.svg
+
+docs/
+├── research/             # DAY_NIGHT_CYCLE.md, MOON_PHASES.md, etc.
+└── systems/              # ECONOMY_SYSTEM.md, WEATHER_AND_SWAY.md
+
+Root files:
+├── deploy.py             # Python SFTP deployment script
+├── fix_components.cjs    # Recent cleanup scripts
+├── fix_deps.cjs
+├── fix_hologram.cjs
+├── fix_let_const.cjs
+└── package.json / vite.config.ts / tsconfig.json / tailwind.config.js / postcss.config.js
+```
+
+## Code Organization Patterns
+
+### State Management (Zustand)
+- All game state lives in `useGameStore.ts`
+- Store includes: ships, upgrades, crane kinematics, camera modes, weather, wildlife, harbor events, training progress, reputation, economy, booth tier, time of day
+- Actions are defined inline inside the store
+- Auto-persistence to `localStorage` via `storage_manager.ts` with a 500ms debounced `scheduleSave`
+- A `.subscribe()` hook triggers saves on every state change
+- Save data includes a version string for basic compatibility checks
+
+### 3D Component Patterns
+- All 3D components use `@react-three/fiber` JSX syntax
+- Physics bodies use `@react-three/rapier` `RigidBody` components
+- `useFrame` drives per-frame animations (ship bobbing, crane trolley, drone orbit, sway)
+- `useMemo` caches expensive objects (geometries, materials, fog)
+- `MainScene.tsx` is lazy-loaded with a `Suspense` fallback inside `App.tsx`
+- Ships are procedurally generated from `ships.json` blueprints; a colored box impostor is used as a LOD fallback at distance
+
+### System Singletons
+- `MusicSystem`, `LightingSystem`, `WeatherSystem`, `SwaySystem`, `TrainingSystem`, etc. are ES6 classes instantiated as module-level singletons
+- Some systems expose React hooks (e.g., `useTrainingSystem`, `useAttachmentSystem`) that subscribe to internal listeners
+
+### Audio Architecture
+- `MusicSystem` in `musicSystem.ts` is a singleton using Tone.js
+- Each of the 8 ship types has its own synth/effect chain and `Tone.Transport` sequence
+- Lyrics are arrays of `{ time, text }` synced against `transport.position`
+- BPM is globally adjustable; climax mode temporarily boosts BPM and volume
+- Additional audio layers: `ambientSoundSystem.ts`, `craneSoundSystem.ts`, `audioVisualSync.ts`
+
+### Ship Upgrades & Attachment Points
+- Ships have `attachmentPoints` derived from blueprint `parts`
+- `attachmentSystem.ts` calculates distance from crane spreader to each point
+- States cycle through: `available | hovered | snapping | installing | installed`
+- When within `installDistance` and `twistlockEngaged`, the upgrade is installed into the Zustand store
+- Completion triggers a band-reveal cinematic, music start, and spectator drone camera
+
+## Development Conventions
+
+### File Naming
+- Components: `PascalCase.tsx` (e.g., `ShipSpawner.tsx`)
+- Utilities / systems: `camelCase.ts` (e.g., `musicSystem.ts`)
+- Store hooks: `camelCase` with `use` prefix (e.g., `useGameStore.ts`)
+
+### Component Structure
+- One component per file, default export
+- Props interfaces defined at the top of the file
+- Inline styles used for dynamic values
+- CSS-in-JS objects named with `Style` suffix (e.g., `containerStyle`)
+- Heavy use of glassmorphism via shared `DesignSystem.ts`
+
+### Comments
+- File headers use `// === TITLE ===` format
+- Section separators use `// -------------------------------------------------------------------------`
+- JSDoc comments for public functions
+
+### TypeScript Configuration
+- `strict: true`
+- `moduleResolution: bundler`
+- `jsx: react-jsx`
+- `noUnusedLocals: false` and `noUnusedParameters: false`
+
+### ESLint Rules
+- Extends: `eslint:recommended`, `@typescript-eslint/recommended`, `react-hooks/recommended`
+- `@typescript-eslint/no-explicit-any`: **off**
+- `@typescript-eslint/no-unused-vars`: **off**
+- `react-refresh/only-export-components`: **warn**
+
+### Recent Cleanup
+- Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (`fix_let_const.cjs`, `fix_deps.cjs`)
+
+## Testing Strategy
+
+**No automated test suite exists.** There are no test frameworks (Jest, Vitest, Playwright, Cypress) configured.
+
+### Smoke Test
+- `npm run heartbeat` acts as a basic smoke test by running `npm run build` and checking for uncommitted changes or remaining TODO/FIXME comments
+
+### Manual Testing Checklist
+1. Spawn each ship type and verify unique appearance
+2. Install all upgrades on a ship and verify music starts
+3. Verify lyrics sync with music
+4. Check spectator drone activates after completion
+5. Test day/night cycle affects lighting
+6. Verify WebGPU warning appears on unsupported browsers
+7. Test training module flow (open hub, start module, complete, return)
+8. Verify save/load persistence across page reloads
 
 ## Deployment
 
@@ -105,82 +258,21 @@ python deploy.py
 - Remote directory: `test.1ink.us/harborglow`
 - Local source: `dist/`
 
-**Security Note**: The deploy script contains hardcoded credentials. In production, use environment variables.
+**Security Note**: The deploy script contains a hardcoded password. In production, use environment variables.
 
-## Code Organization Patterns
+## Security Considerations
 
-### State Management (Zustand)
-- All game state is centralized in `useGameStore.ts`
-- Store includes: ships, upgrades, music state, camera mode, time of day
-- Selector functions provided for derived state (e.g., `selectUpgradeProgress`)
-- Actions are defined within the store (addShip, installUpgrade, etc.)
-
-### 3D Component Patterns
-- All 3D components use `@react-three/fiber` JSX syntax
-- Physics bodies use `@react-three/rapier` RigidBody components
-- `useFrame` hook used for per-frame animations
-- `useMemo` for expensive calculations (shaders, geometries)
-
-### Music System Architecture
-- `MusicSystem` class in `musicSystem.ts` is a singleton
-- Each ship type has unique synth/effect chains
-- Transport timeline drives lyric synchronization
-- Audio initializes on first user interaction (browser requirement)
-
-### Ship Rendering
-- Ships attempt to load GLB models from `/models/`
-- Falls back to primitive geometry if model fails to load
-- Upgrade lights conditionally rendered based on `installedUpgrades` state
-- Light intensity scales with global `lightIntensity` setting
-
-## Configuration Files
-
-### TypeScript (`tsconfig.json`)
-- Target: ES2020
-- Module: ESNext with bundler resolution
-- Strict mode enabled
-- JSX: react-jsx (transform)
-
-### Vite (`vite.config.ts`)
-- Standard React plugin configuration
-- No custom plugins or aliases
-
-### Tailwind (`tailwind.config.js`)
-- Content paths: `./index.html`, `./src/**/*.{ts,tsx}`
-- Custom colors: `cyber` palette (50, 900, 950)
-- Custom font: JetBrains Mono for monospace
-
-### PostCSS (`postcss.config.js`)
-- Plugins: tailwindcss, autoprefixer
-
-## Development Conventions
-
-### File Naming
-- Components: PascalCase (e.g., `ShipSpawner.tsx`)
-- Utilities/systems: camelCase (e.g., `musicSystem.ts`)
-- Store hooks: camelCase with 'use' prefix (e.g., `useGameStore.ts`)
-
-### Component Structure
-- One component per file (default export)
-- Props interfaces defined at top of file
-- Inline styles used for dynamic values
-- CSS-in-JS objects named with `Style` suffix (e.g., `containerStyle`)
-
-### Comments
-- File headers use `// === TITLE ===` format
-- Section separators use `// -------------------------------------------------------------------------`
-- JSDoc comments for public functions
-
-### Type Safety
-- All store state is typed
-- Ship types use discriminated union: `'cruise' | 'container' | 'tanker'`
-- Attachment points and upgrades have defined interfaces
+1. **Hardcoded credentials** in `deploy.py` — username and password are plaintext
+2. **No input validation** on ship spawn positions (currently random generation only)
+3. **No rate limiting** on upgrade installation
+4. **No CSP headers** configured in the build output
+5. **Save game state** stored in `localStorage` without encryption or integrity checks beyond a version string check
 
 ## Key Data Types
 
 ```typescript
 // Ship types and their characteristics
-type ShipType = 'cruise' | 'container' | 'tanker'
+type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship'
 
 // Ship definition with attachment points
 interface Ship {
@@ -191,93 +283,52 @@ interface Ship {
   length: number
   attachmentPoints: AttachmentPoint[]
   name?: string
+  sailTime?: number
+  isDocked?: boolean
+  version?: string
+  blueprintVersion?: string
 }
 
-// Upgrade tracking
-interface Upgrade {
-  shipId: string
-  partName: string
-  installed: boolean
-  installedAt?: number
-}
+// Camera modes
+ type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
+                   'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
+                   'spectator' | 'transition' | 'crane' | 'booth'
+
+type GameMode = 'sandbox' | 'training'
+type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 ```
-
-## Testing Strategy
-
-**Note**: The project currently has no automated test suite. Manual testing checklist:
-
-1. Spawn each ship type and verify unique appearance
-2. Install all upgrades on a ship and verify music starts
-3. Verify lyrics sync with music
-4. Check spectator drone activates after completion
-5. Test day/night cycle affects lighting
-6. Verify WebGPU warning appears on unsupported browsers
-
-## Browser Requirements
-
-- **Minimum**: WebGL-enabled browser
-- **Recommended**: WebGPU support (Chrome 113+, Edge 113+)
-- **Audio**: Requires user interaction to start (browser policy)
 
 ## TODOs and Future Work
 
-From README.md and code comments:
-
-### Models
-- Add GLB model files to `/public/models/`:
+### Missing Assets
+- **GLB models** are not present in `/public/models/`. The code falls back to procedural primitives. Planned models:
   - `cruise_liner.glb`
   - `container_vessel.glb`
   - `oil_tanker.glb`
-- Tune ship scales after model testing (marked with TODO in Ship.tsx)
 
-### Features
+### Partially Implemented Systems
+- **Training System**: Modules 1–4 have full definitions and tutorials; modules 5–7 (`multi-crane`, `emergency`, `light-show`) are marked **(planned)** with empty tutorials
+- **Economy System**: Documented in `docs/systems/ECONOMY_SYSTEM.md` (Harbor Credits, shop, specialists), but the full shop UI and purchase flow are not yet wired into the main HUD
+- **TSL Shaders**: `lightShowNodes.ts` has a placeholder fallback to `MeshStandardMaterial`; true WebGPU TSL nodes are commented out
+
+### Future Ideas (from README / docs)
 - Multiplayer crane battles
 - Ship naming by players
 - Export light show as video
 - VR mode for crane operation
 - Mobile touch controls
-
-### Audio
-- Import custom audio files
-- Procedural music generation expansion
 - Voice synthesis for lyrics
+- Daily contracts / market fluctuations
 
-## Security Considerations
+### Code-level TODOs
+- After the recent cleanup (`fix_components.cjs`), there are **zero** `TODO` or `FIXME` comments remaining in `src/`.
 
-1. **deploy.py contains hardcoded credentials** - Should use environment variables
-2. **No input validation** on ship spawn positions (currently random)
-3. **No rate limiting** on upgrade installation
-4. **No CSP headers** configured in build output
+## Browser Requirements
 
-## Dependencies of Note
-
-| Package | Purpose |
-|---------|---------|
-| `@react-three/drei` | Helper components (OrbitControls, Environment, useGLTF) |
-| `leva` | Debug GUI panels |
-| `tone` | Audio synthesis and sequencing |
-| `zustand` | Minimal state management |
-| `three` | Core 3D library |
-
-## Common Development Tasks
-
-### Adding a New Ship Type
-1. Add to `ShipType` union in `useGameStore.ts`
-2. Add name lists and config in `shipSpawner.ts`
-3. Add music config in `musicSystem.ts`
-4. Add rendering logic in `Ship.tsx`
-5. Add upgrade config in `UpgradeMenu.tsx`
-
-### Modifying Lighting Behavior
-- Global intensity: Update `lightIntensity` in store
-- Ship-specific lights: Modify the respective ship component in `Ship.tsx`
-- Beat pulsing: Adjust logic in `useFrame` within `Ship.tsx`
-
-### Adding New Music Tracks
-- Define synth chains in `musicSystem.ts` initialization methods
-- Add lyrics array with timing
-- Create band info entry
+- **Minimum**: WebGL-enabled browser
+- **Recommended**: WebGPU support (Chrome 113+, Edge 113+)
+- **Audio**: Requires user interaction to start (browser autoplay policy)
 
 ---
 
-*Last updated: Based on codebase analysis, March 2026*
+*Last updated: Based on codebase analysis, April 2026*
