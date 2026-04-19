@@ -13,6 +13,7 @@ import {
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
 import { CAMERA_PRESETS, DEFAULT_DASHBOARD_PRESETS, getCameraPresetById } from '../systems/cameraSystem'
+import { isCameraPresetId } from '../types/CameraPreset'
 import type { CameraPreset, DashboardViewportId } from '../types/CameraPreset'
 
 // =============================================================================
@@ -170,6 +171,13 @@ export default function MonitorSystem({
     points.push(points[0].clone())
     return new THREE.CatmullRomCurve3(points, true)
   }, [currentShip])
+
+  const selectedPresets = useMemo(() => ({
+    crane: getCameraPresetById(dashboardPresets.crane ?? DEFAULT_DASHBOARD_PRESETS.crane),
+    hook: getCameraPresetById(dashboardPresets.hook ?? DEFAULT_DASHBOARD_PRESETS.hook),
+    drone: getCameraPresetById(dashboardPresets.drone ?? DEFAULT_DASHBOARD_PRESETS.drone),
+    underwater: getCameraPresetById(dashboardPresets.underwater ?? DEFAULT_DASHBOARD_PRESETS.underwater)
+  }), [dashboardPresets])
   
   // ================================================================
   // CAMERA ANIMATION LOOP
@@ -193,8 +201,7 @@ export default function MonitorSystem({
       const cam = cameraRefs[viewportId].current
       if (!cam) return
 
-      const presetId = dashboardPresets[viewportId] ?? DEFAULT_DASHBOARD_PRESETS[viewportId]
-      const preset = getCameraPresetById(presetId)
+      const preset = selectedPresets[viewportId]
       const pose = getPresetPose(preset, time, shipPos, craneState, dronePath, droneProgressRef)
       const beatFovBoost = beatPhase < 0.15 ? audioData.bass * 2.5 : 0
 
@@ -231,7 +238,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI / 2 + 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number], // 16:9 aspect
       cameraRef: hookCamRef,
-      fov: getCameraPresetById(dashboardPresets.hook ?? DEFAULT_DASHBOARD_PRESETS.hook).fov,
+      fov: selectedPresets.hook.fov,
       accentColor: '#ff6600'
     },
     {
@@ -241,7 +248,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI / 2 + 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number],
       cameraRef: droneCamRef,
-      fov: getCameraPresetById(dashboardPresets.drone ?? DEFAULT_DASHBOARD_PRESETS.drone).fov,
+      fov: selectedPresets.drone.fov,
       accentColor: '#00d4aa'
     }
   ]
@@ -255,7 +262,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI, 0] as [number, number, number],
       size: [2.4, 1.35] as [number, number], // 16:9 aspect
       cameraRef: underwaterCamRef,
-      fov: getCameraPresetById(dashboardPresets.underwater ?? DEFAULT_DASHBOARD_PRESETS.underwater).fov,
+      fov: selectedPresets.underwater.fov,
       accentColor: '#00aaff'
     }
   ]
@@ -269,7 +276,7 @@ export default function MonitorSystem({
       rotation: [0, -Math.PI / 2 - 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number],
       cameraRef: craneCabCamRef,
-      fov: getCameraPresetById(dashboardPresets.crane ?? DEFAULT_DASHBOARD_PRESETS.crane).fov,
+      fov: selectedPresets.crane.fov,
       accentColor: '#ffcc00'
     }
   ]
@@ -323,7 +330,11 @@ export default function MonitorSystem({
                 <span style={{ fontSize: 11, letterSpacing: 0.6 }}>{VIEWPORT_LABELS[viewportId]}</span>
                 <select
                   value={dashboardPresets[viewportId] ?? DEFAULT_DASHBOARD_PRESETS[viewportId]}
-                  onChange={(event) => setDashboardPreset(viewportId, event.target.value as CameraPreset['id'])}
+                  onChange={(event) => {
+                    if (isCameraPresetId(event.target.value)) {
+                      setDashboardPreset(viewportId, event.target.value)
+                    }
+                  }}
                   style={{
                     background: 'rgba(255, 255, 255, 0.08)',
                     color: '#ffffff',

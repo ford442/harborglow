@@ -18,6 +18,7 @@ import {
 } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
+import { isCameraPresetId } from '../types/CameraPreset'
 
 const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
     crane: 'gantry-top-down',
@@ -25,18 +26,6 @@ const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
     drone: 'drone-chase',
     underwater: 'dock-level'
 }
-
-const CAMERA_PRESET_IDS: CameraPresetId[] = [
-    'orbit-overview',
-    'gantry-top-down',
-    'cable-tip-follow',
-    'dock-level',
-    'drone-chase',
-    'ship-interior'
-]
-
-const isCameraPresetId = (value: unknown): value is CameraPresetId =>
-    typeof value === 'string' && CAMERA_PRESET_IDS.includes(value as CameraPresetId)
 
 // =============================================================================
 // TYPES - HarborGlow Game State

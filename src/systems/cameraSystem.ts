@@ -75,7 +75,12 @@ export const DEFAULT_DASHBOARD_PRESETS: DashboardPresets = {
 }
 
 export function getCameraPresetById(id: CameraPresetId): CameraPreset {
-  return CAMERA_PRESET_MAP[id] ?? CAMERA_PRESET_MAP['orbit-overview']
+  const preset = CAMERA_PRESET_MAP[id]
+  if (!preset) {
+    console.warn(`⚠️ Unknown camera preset "${id}", falling back to orbit-overview`)
+    return CAMERA_PRESET_MAP['orbit-overview']
+  }
+  return preset
 }
 
 interface CameraTarget {

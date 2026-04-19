@@ -24,3 +24,15 @@ export interface CameraPreset {
 
 export type DashboardViewportId = 'crane' | 'hook' | 'drone' | 'underwater'
 export type DashboardPresets = Record<DashboardViewportId, CameraPresetId>
+
+export const CAMERA_PRESET_IDS: CameraPresetId[] = [
+  'orbit-overview',
+  'gantry-top-down',
+  'cable-tip-follow',
+  'dock-level',
+  'drone-chase',
+  'ship-interior'
+]
+
+export const isCameraPresetId = (value: unknown): value is CameraPresetId =>
+  typeof value === 'string' && CAMERA_PRESET_IDS.includes(value as CameraPresetId)
