@@ -52,4 +52,4 @@ Prune occasionally when this gets long.
 Date: 2026-04-19
 Mode: New Idea (weekly_plan.md did not exist; Ideas empty)
 Focus: Crane-to-ship physics attachment tuning (jitter, oscillation, framerate-independent joints)
-Outcome: _pending end-of-day_
+Outcome: All 4 symptoms addressed — 150ms bind-interpolation (AttachmentSystemManager), delta-corrected cable sway decay (CraneCable), framerate-independent damping (swaySystem), twistlock cable lockout (CraneCable + Crane). Build/heartbeat clean.

@@ -193,6 +193,7 @@ export default function Crane() {
                             startPos={trolleyWorldPos}
                             endPos={hookWorldPos}
                             tension={normalizedTension}
+                            twistlockEngaged={twistlockEngaged}
                         />
                     )}
 

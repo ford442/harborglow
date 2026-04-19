@@ -455,9 +455,13 @@ class SwaySystem {
         this.state.velocityZ += accelZ * dt
         
         // Apply damping (air resistance + internal friction)
+        // Convert per-frame damping to framerate-independent form.
+        // dampingBase=0.98 was tuned at ~60fps; we preserve that feel
+        // by raising to (dt * 60) so behaviour is identical at 30/60/120Hz.
         const totalDamping = this.config.dampingBase * this.debugDampingMultiplier
-        this.state.velocityX *= totalDamping
-        this.state.velocityZ *= totalDamping
+        const dtDamping = Math.pow(Math.max(0.001, totalDamping), dt * 60)
+        this.state.velocityX *= dtDamping
+        this.state.velocityZ *= dtDamping
         
         // Integrate velocity
         this.state.angleX += this.state.velocityX * dt

@@ -59,6 +59,7 @@ export interface AttachmentSystemConfig {
   snapRadius: number       // meters
   installDistance: number  // meters (how close crane needs to be)
   showCable: boolean       // show/hide crane cable
+  bindDurationMs: number   // ms to interpolate spreader to anchor before install
 }
 
 // Default configuration
@@ -69,6 +70,7 @@ export const DEFAULT_ATTACHMENT_CONFIG: AttachmentSystemConfig = {
   snapRadius: 5,
   installDistance: 2,
   showCable: true,
+  bindDurationMs: 150,
 }
 
 // Active attachment point tracking
@@ -284,6 +286,41 @@ export function triggerInstallation(
   onComplete?.(event)
 }
 
+// Find a bind candidate without triggering installation
+export function findBindCandidate(
+  ships: Ship[],
+  cranePosition: { x: number; y: number; z: number },
+  twistlockEngaged: boolean,
+  config: AttachmentSystemConfig
+): InstallationEvent | null {
+  if (!twistlockEngaged) return null
+
+  for (const ship of ships) {
+    for (const point of ship.attachmentPoints || []) {
+      const pointWorldPos: [number, number, number] = [
+        ship.position[0] + point.position[0],
+        ship.position[1] + point.position[1],
+        ship.position[2] + point.position[2],
+      ]
+
+      const distance = distance3D(pointWorldPos, [cranePosition.x, cranePosition.y, cranePosition.z])
+
+      if (distance <= config.installDistance && !isPointUpgraded(ship.id, point.partName)) {
+        return {
+          shipId: ship.id,
+          partName: point.partName,
+          position: pointWorldPos,
+          rigType: getRigTypeForPart(point.partName),
+          shipType: ship.type,
+          timestamp: Date.now(),
+        }
+      }
+    }
+  }
+
+  return null
+}
+
 // Check for installation trigger (call this in game loop)
 export function checkInstallationTrigger(
   ships: Ship[],
@@ -293,7 +330,7 @@ export function checkInstallationTrigger(
   onInstall?: (event: InstallationEvent) => void
 ): InstallationEvent | null {
   if (!twistlockEngaged) return null
-  
+
   for (const ship of ships) {
     for (const point of ship.attachmentPoints || []) {
       const pointWorldPos: [number, number, number] = [
@@ -301,9 +338,9 @@ export function checkInstallationTrigger(
         ship.position[1] + point.position[1],
         ship.position[2] + point.position[2],
       ]
-      
+
       const distance = distance3D(pointWorldPos, [cranePosition.x, cranePosition.y, cranePosition.z])
-      
+
       if (distance <= config.installDistance && !isPointUpgraded(ship.id, point.partName)) {
         triggerInstallation(ship.id, point.partName, pointWorldPos, onInstall)
         return {
@@ -317,7 +354,7 @@ export function checkInstallationTrigger(
       }
     }
   }
-  
+
   return null
 }
 
@@ -362,26 +399,17 @@ export function useAttachmentSystem() {
     const nearest = findNearestAttachmentPoint(ships, cranePos, config)
     setNearestPoint(nearest)
     
-    // Check for installation trigger
-    const installEvent = checkInstallationTrigger(
-      ships,
-      cranePos,
-      twistlockEngaged,
-      config,
-      (event) => {
-        setLastInstall(event)
-      }
-    )
-    
-    if (installEvent) {
-      setLastInstall(installEvent)
-    }
+    // Installation is now driven by AttachmentSystemManager.tsx
+    // so that a bind-interpolation can run before triggerInstallation.
+    // We still compute nearest point for UI feedback.
+
   }, [ships, cranePos, twistlockEngaged, config])
   
   return {
     activePoints,
     nearestPoint,
     lastInstall,
+    setLastInstall,
     config,
     updateCameraPosition,
     clearLastInstall: useCallback(() => setLastInstall(null), []),

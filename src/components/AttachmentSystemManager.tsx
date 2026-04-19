@@ -8,7 +8,9 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { 
   useAttachmentSystem, 
-  InstallationEvent 
+  InstallationEvent,
+  findBindCandidate,
+  triggerInstallation,
 } from '../systems/attachmentSystem'
 import { useScreenShake } from '../hooks/useScreenShake'
 import { playSound, playInstallationCelebration } from '../systems/soundEffects'
@@ -26,6 +28,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     activePoints,
     nearestPoint,
     lastInstall,
+    setLastInstall,
     config,
     updateCameraPosition,
     clearLastInstall,
@@ -47,10 +50,75 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     position: [number, number, number]
   } | null>(null)
   
-  // Update camera position for distance calculations
-  useFrame(() => {
+  // Bind-interpolation state
+  const bindCandidateRef = useRef<InstallationEvent | null>(null)
+  const bindStartTimeRef = useRef<number>(0)
+  const isBindingRef = useRef(false)
+  const prevSpreaderPosRef = useRef<{ x: number; y: number; z: number } | null>(null)
+  
+  // Update camera position for distance calculations + drive bind interpolation
+  useFrame((state, delta) => {
     const camPos = camera.position
     updateCameraPosition([camPos.x, camPos.y, camPos.z])
+    
+    const store = useGameStore.getState()
+    const candidate = findBindCandidate(
+      store.ships,
+      store.spreaderPos,
+      store.twistlockEngaged,
+      config
+    )
+    
+    // Start binding when we first see a valid candidate
+    if (candidate && !isBindingRef.current) {
+      isBindingRef.current = true
+      bindCandidateRef.current = candidate
+      bindStartTimeRef.current = state.clock.elapsedTime
+      prevSpreaderPosRef.current = { ...store.spreaderPos }
+    }
+    
+    // Cancel binding if twistlock disengaged or candidate lost
+    if (isBindingRef.current && !candidate) {
+      isBindingRef.current = false
+      bindCandidateRef.current = null
+      prevSpreaderPosRef.current = null
+      return
+    }
+    
+    // Interpolate spreader toward attachment anchor
+    if (isBindingRef.current && bindCandidateRef.current && prevSpreaderPosRef.current) {
+      const elapsed = (state.clock.elapsedTime - bindStartTimeRef.current) * 1000
+      const duration = config.bindDurationMs
+      const rawProgress = Math.min(1, elapsed / duration)
+      
+      // Critically-damped smoothstep easing
+      const t = rawProgress * rawProgress * (3 - 2 * rawProgress)
+      
+      const target = bindCandidateRef.current.position
+      const start = prevSpreaderPosRef.current
+      
+      store.setSpreaderPos({
+        x: start.x + (target[0] - start.x) * t,
+        y: start.y + (target[1] - start.y) * t,
+        z: start.z + (target[2] - start.z) * t,
+      })
+      
+      if (rawProgress >= 1) {
+        // Binding complete — fire installation
+        triggerInstallation(
+          bindCandidateRef.current.shipId,
+          bindCandidateRef.current.partName,
+          bindCandidateRef.current.position,
+          (event) => {
+            setLastInstall(event)
+          }
+        )
+        setLastInstall(bindCandidateRef.current)
+        isBindingRef.current = false
+        bindCandidateRef.current = null
+        prevSpreaderPosRef.current = null
+      }
+    }
   })
   
   // Handle nearest point changes (snap enter/exit)

@@ -12,6 +12,7 @@ interface CraneCableProps {
   endPos: [number, number, number]    // Spreader/hook position
   tension: number                      // 0-1 based on loadTension
   showPhysics?: boolean                // Show debug visualization
+  twistlockEngaged?: boolean           // When true, cable should appear taut/locked
 }
 
 // Calculate catenary curve between two points
@@ -76,9 +77,14 @@ export default function CraneCable({
   endPos,
   tension,
   showPhysics = false,
+  twistlockEngaged = false,
 }: CraneCableProps) {
   const cableRef = useRef<THREE.Mesh>(null)
   const curveRef = useRef<THREE.CatmullRomCurve3 | null>(null)
+  
+  // Delta-corrected sway state
+  const swayAmplitudeRef = useRef(0)
+  const prevTensionRef = useRef(tension)
   
   // Create curve
   const curve = useMemo(() => {
@@ -96,7 +102,7 @@ export default function CraneCable({
   }, [startPos, endPos, tension])
   
   // Update cable geometry each frame for sway animation
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!cableRef.current) return
     
     const time = state.clock.elapsedTime
@@ -106,9 +112,25 @@ export default function CraneCable({
     // Calculate base slack
     const slack = Math.max(0, 1 - tension * 1.2)
     
+    // --- Framerate-independent sway decay ---
+    // Inject energy when tension changes rapidly (player is moving)
+    const tensionDelta = Math.abs(tension - prevTensionRef.current)
+    prevTensionRef.current = tension
+    swayAmplitudeRef.current += tensionDelta * 1.5
+    swayAmplitudeRef.current = Math.min(swayAmplitudeRef.current, 0.12)
+    
+    // Decay sway over time (~15% per second)
+    const decayPerSecond = 0.15
+    swayAmplitudeRef.current *= Math.pow(decayPerSecond, delta)
+    
+    // When twistlock is engaged, kill sway immediately (visual lock)
+    if (twistlockEngaged && tension > 0.3) {
+      swayAmplitudeRef.current *= Math.pow(0.005, delta)
+    }
+    
     // Add sway based on movement and wind
-    const swayX = Math.sin(time * 0.5) * 0.1 * (1 - tension)
-    const swayZ = Math.cos(time * 0.3) * 0.08 * (1 - tension)
+    const swayX = Math.sin(time * 0.5) * swayAmplitudeRef.current
+    const swayZ = Math.cos(time * 0.3) * swayAmplitudeRef.current * 0.8
     
     // Generate points with sway
     const points: THREE.Vector3[] = []
