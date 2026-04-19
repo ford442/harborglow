@@ -204,10 +204,11 @@ export default function MonitorSystem({
       const preset = selectedPresets[viewportId]
       const pose = getPresetPose(preset, time, shipPos, craneState, dronePath, droneProgressRef)
       const beatFovBoost = beatPhase < 0.15 ? audioData.bass * 2.5 : 0
+      const nextFov = Math.max(35, Math.min(90, pose.fov + beatFovBoost))
 
       cam.position.copy(pose.position)
       cam.lookAt(pose.lookAt)
-      cam.fov = pose.fov + beatFovBoost
+      cam.fov = nextFov
       cam.updateProjectionMatrix()
     })
   })
