@@ -12,7 +12,7 @@ import {
 } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
-import { CAMERA_PRESETS, DEFAULT_DASHBOARD_PRESETS, getCameraPresetById } from '../systems/cameraSystem'
+import { CAMERA_PRESETS, getCameraPresetById } from '../systems/cameraSystem'
 import { isCameraPresetId } from '../types/CameraPreset'
 import type { CameraPreset, DashboardViewportId } from '../types/CameraPreset'
 
@@ -173,10 +173,10 @@ export default function MonitorSystem({
   }, [currentShip])
 
   const selectedPresets = useMemo(() => ({
-    crane: getCameraPresetById(dashboardPresets.crane ?? DEFAULT_DASHBOARD_PRESETS.crane),
-    hook: getCameraPresetById(dashboardPresets.hook ?? DEFAULT_DASHBOARD_PRESETS.hook),
-    drone: getCameraPresetById(dashboardPresets.drone ?? DEFAULT_DASHBOARD_PRESETS.drone),
-    underwater: getCameraPresetById(dashboardPresets.underwater ?? DEFAULT_DASHBOARD_PRESETS.underwater)
+    crane: getCameraPresetById(dashboardPresets.crane),
+    hook: getCameraPresetById(dashboardPresets.hook),
+    drone: getCameraPresetById(dashboardPresets.drone),
+    underwater: getCameraPresetById(dashboardPresets.underwater)
   }), [dashboardPresets])
   
   // ================================================================
@@ -289,7 +289,7 @@ export default function MonitorSystem({
   }, [])
 
   const cyclePreset = useCallback((viewportId: DashboardViewportId) => {
-    const currentPreset = dashboardPresets[viewportId] ?? DEFAULT_DASHBOARD_PRESETS[viewportId]
+    const currentPreset = dashboardPresets[viewportId]
     const currentIndex = CAMERA_PRESETS.findIndex(preset => preset.id === currentPreset)
     const nextPreset = CAMERA_PRESETS[(currentIndex + 1) % CAMERA_PRESETS.length]
     setDashboardPreset(viewportId, nextPreset.id)
@@ -329,7 +329,7 @@ export default function MonitorSystem({
               >
                 <span style={{ fontSize: 11, letterSpacing: 0.6 }}>{VIEWPORT_LABELS[viewportId]}</span>
                 <select
-                  value={dashboardPresets[viewportId] ?? DEFAULT_DASHBOARD_PRESETS[viewportId]}
+                  value={dashboardPresets[viewportId]}
                   onChange={(event) => {
                     if (isCameraPresetId(event.target.value)) {
                       setDashboardPreset(viewportId, event.target.value)
