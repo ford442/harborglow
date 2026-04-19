@@ -2,6 +2,7 @@ import { useRef, useMemo, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { 
+  Html,
   RenderTexture, 
   PerspectiveCamera,
   Box,
@@ -11,6 +12,9 @@ import {
 } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { CAMERA_PRESETS, getCameraPresetById } from '../systems/cameraSystem'
+import { isCameraPresetId } from '../types/CameraPreset'
+import type { CameraPreset, DashboardViewportId } from '../types/CameraPreset'
 
 // =============================================================================
 // MONITOR SYSTEM - Modular multi-camera setup for ControlBooth
@@ -26,6 +30,85 @@ interface MonitorSystemProps {
   interactive?: boolean
   /** Harbor theme for monitor colors */
   theme?: any
+}
+
+const VIEWPORT_ORDER: DashboardViewportId[] = ['crane', 'hook', 'drone', 'underwater']
+const VIEWPORT_LABELS: Record<DashboardViewportId, string> = {
+  crane: 'CRANE CAB',
+  hook: 'HOOK CAM',
+  drone: 'DRONE',
+  underwater: 'UNDERWATER'
+}
+
+interface CameraPose {
+  position: THREE.Vector3
+  lookAt: THREE.Vector3
+  fov: number
+}
+
+function getPresetPose(
+  preset: CameraPreset,
+  time: number,
+  shipPos: THREE.Vector3,
+  craneState: { rotation: number; spreaderPos: { x: number; y: number; z: number }; height: number },
+  dronePath: THREE.CatmullRomCurve3 | null,
+  droneProgressRef: React.MutableRefObject<number>
+): CameraPose {
+  if (preset.mode === 'drone-orbit' && dronePath) {
+    droneProgressRef.current += 0.001
+    if (droneProgressRef.current > 1) droneProgressRef.current = 0
+    const dronePos = dronePath.getPoint(droneProgressRef.current)
+    return {
+      position: dronePos,
+      lookAt: shipPos.clone().add(new THREE.Vector3(...preset.target)),
+      fov: preset.fov
+    }
+  }
+
+  if (preset.mode === 'spreader-relative') {
+    const spreader = new THREE.Vector3(
+      craneState.spreaderPos.x,
+      craneState.spreaderPos.y,
+      craneState.spreaderPos.z
+    )
+    return {
+      position: spreader.clone().add(new THREE.Vector3(...preset.position)),
+      lookAt: spreader.clone().add(new THREE.Vector3(...preset.target)),
+      fov: preset.fov
+    }
+  }
+
+  if (preset.mode === 'crane-relative') {
+    const rotation = craneState.rotation
+    const positionOffset = new THREE.Vector3(...preset.position)
+    positionOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotation)
+    const targetOffset = new THREE.Vector3(...preset.target)
+    targetOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotation)
+    const craneOrigin = new THREE.Vector3(0, craneState.height, 0)
+    return {
+      position: craneOrigin.clone().add(positionOffset),
+      lookAt: craneOrigin.clone().add(targetOffset),
+      fov: preset.fov
+    }
+  }
+
+  if (preset.mode === 'world-static') {
+    return {
+      position: new THREE.Vector3(...preset.position),
+      lookAt: new THREE.Vector3(...preset.target),
+      fov: preset.fov
+    }
+  }
+
+  const dockSway = preset.id === 'dock-level'
+    ? new THREE.Vector3(Math.sin(time * 0.1) * 1.5, Math.cos(time * 0.08) * 0.5, 0)
+    : new THREE.Vector3()
+
+  return {
+    position: shipPos.clone().add(new THREE.Vector3(...preset.position)).add(dockSway),
+    lookAt: shipPos.clone().add(new THREE.Vector3(...preset.target)),
+    fov: preset.fov
+  }
 }
 
 // =============================================================================
@@ -45,6 +128,8 @@ export default function MonitorSystem({
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 },
     height: state.craneHeight ?? 15.5
   }))
+  const dashboardPresets = useGameStore(state => state.dashboardPresets)
+  const setDashboardPreset = useGameStore(state => state.setDashboardPreset)
   const bpm = useGameStore(state => state.bpm)
   const { audioData } = useAudioVisualSync()
   
@@ -61,8 +146,6 @@ export default function MonitorSystem({
   
   // Animation refs
   const droneProgressRef = useRef(0)
-  const hookShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
-  const craneShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
   
   // Drone orbit path
   const dronePath = useMemo(() => {
@@ -88,6 +171,20 @@ export default function MonitorSystem({
     points.push(points[0].clone())
     return new THREE.CatmullRomCurve3(points, true)
   }, [currentShip])
+
+  const selectedPresets = useMemo(() => ({
+    crane: getCameraPresetById(dashboardPresets.crane),
+    hook: getCameraPresetById(dashboardPresets.hook),
+    drone: getCameraPresetById(dashboardPresets.drone),
+    underwater: getCameraPresetById(dashboardPresets.underwater)
+  }), [dashboardPresets])
+
+  const cameraRefs = useMemo((): Record<DashboardViewportId, React.RefObject<THREE.PerspectiveCamera>> => ({
+    crane: craneCabCamRef,
+    hook: hookCamRef,
+    drone: droneCamRef,
+    underwater: underwaterCamRef
+  }), [])
   
   // ================================================================
   // CAMERA ANIMATION LOOP
@@ -99,76 +196,21 @@ export default function MonitorSystem({
     const beatDuration = 60 / bpm
     const beatPhase = (time % beatDuration) / beatDuration
     const shipPos = new THREE.Vector3(...currentShip.position)
-    
-    // === CRANE CAB CAMERA (Primary crane view) ===
-    if (craneCabCamRef.current) {
-      const craneBaseX = Math.sin(craneState.rotation) * 18
-      const craneBaseZ = Math.cos(craneState.rotation) * 8
-      
-      // Beat-reactive shake
-      if (beatPhase < 0.15) craneShakeRef.current.intensity = 0.15
-      else craneShakeRef.current.intensity *= 0.9
-      
-      craneShakeRef.current.x = (Math.random() - 0.5) * craneShakeRef.current.intensity
-      craneShakeRef.current.y = (Math.random() - 0.5) * craneShakeRef.current.intensity
-      
-      craneCabCamRef.current.position.set(
-        craneBaseX + craneShakeRef.current.x,
-        24 + craneShakeRef.current.y,
-        craneBaseZ
-      )
-      craneCabCamRef.current.lookAt(shipPos.x, shipPos.y + 5, shipPos.z)
-      craneCabCamRef.current.fov = 60 + audioData.bass * 3
-      craneCabCamRef.current.updateProjectionMatrix()
-    }
-    
-    // === HOOK CAMERA ===
-    if (hookCamRef.current) {
-      const hookPos = new THREE.Vector3(
-        craneState.spreaderPos.x,
-        craneState.spreaderPos.y - 5,
-        craneState.spreaderPos.z
-      )
-      
-      if (beatPhase < 0.15) hookShakeRef.current.intensity = 0.12
-      else hookShakeRef.current.intensity *= 0.9
-      
-      hookShakeRef.current.x = (Math.random() - 0.5) * hookShakeRef.current.intensity
-      hookShakeRef.current.y = (Math.random() - 0.5) * hookShakeRef.current.intensity
-      
-      hookCamRef.current.position.set(
-        hookPos.x + hookShakeRef.current.x,
-        hookPos.y + hookShakeRef.current.y,
-        hookPos.z
-      )
-      hookCamRef.current.lookAt(hookPos.x, hookPos.y - 10, hookPos.z)
-      hookCamRef.current.fov = 75 + audioData.bass * 5
-      hookCamRef.current.updateProjectionMatrix()
-    }
-    
-    // === DRONE CAMERA ===
-    if (droneCamRef.current && dronePath) {
-      droneProgressRef.current += 0.001 + audioData.treble * 0.005
-      if (droneProgressRef.current > 1) droneProgressRef.current = 0
-      
-      const dronePos = dronePath.getPoint(droneProgressRef.current)
-      const droneTarget = dronePath.getPoint((droneProgressRef.current + 0.1) % 1)
-      
-      droneCamRef.current.position.copy(dronePos)
-      droneCamRef.current.lookAt(droneTarget)
-      droneCamRef.current.updateProjectionMatrix()
-    }
-    
-    // === UNDERWATER CAMERA ===
-    if (underwaterCamRef.current) {
-      underwaterCamRef.current.position.set(
-        shipPos.x + Math.sin(time * 0.1) * 12,
-        -5, // Below water level
-        shipPos.z + 15 + Math.cos(time * 0.08) * 8
-      )
-      underwaterCamRef.current.lookAt(shipPos.x, 0, shipPos.z) // Look up at ship
-      underwaterCamRef.current.updateProjectionMatrix()
-    }
+
+    VIEWPORT_ORDER.forEach((viewportId) => {
+      const cam = cameraRefs[viewportId].current
+      if (!cam) return
+
+      const preset = selectedPresets[viewportId]
+      const pose = getPresetPose(preset, time, shipPos, craneState, dronePath, droneProgressRef)
+      const beatFovBoost = beatPhase < 0.15 ? audioData.bass * 2.5 : 0
+      const nextFov = Math.max(35, Math.min(90, pose.fov + beatFovBoost))
+
+      cam.position.copy(pose.position)
+      cam.lookAt(pose.lookAt)
+      cam.fov = nextFov
+      cam.updateProjectionMatrix()
+    })
   })
   
   // ================================================================
@@ -197,7 +239,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI / 2 + 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number], // 16:9 aspect
       cameraRef: hookCamRef,
-      fov: 75,
+      fov: selectedPresets.hook.fov,
       accentColor: '#ff6600'
     },
     {
@@ -207,7 +249,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI / 2 + 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number],
       cameraRef: droneCamRef,
-      fov: 50,
+      fov: selectedPresets.drone.fov,
       accentColor: '#00d4aa'
     }
   ]
@@ -221,7 +263,7 @@ export default function MonitorSystem({
       rotation: [0, Math.PI, 0] as [number, number, number],
       size: [2.4, 1.35] as [number, number], // 16:9 aspect
       cameraRef: underwaterCamRef,
-      fov: 70,
+      fov: selectedPresets.underwater.fov,
       accentColor: '#00aaff'
     }
   ]
@@ -235,7 +277,7 @@ export default function MonitorSystem({
       rotation: [0, -Math.PI / 2 - 0.15, 0] as [number, number, number],
       size: [1.6, 0.9] as [number, number],
       cameraRef: craneCabCamRef,
-      fov: 60,
+      fov: selectedPresets.crane.fov,
       accentColor: '#ffcc00'
     }
   ]
@@ -246,9 +288,90 @@ export default function MonitorSystem({
   const handleMonitorClick = useCallback((id: string) => {
     setEnlargedMonitor(prev => prev === id ? null : id)
   }, [])
+
+  const cyclePreset = useCallback((viewportId: DashboardViewportId) => {
+    const currentPreset = dashboardPresets[viewportId]
+    const currentIndex = CAMERA_PRESETS.findIndex(preset => preset.id === currentPreset)
+    const nextPreset = CAMERA_PRESETS[(currentIndex + 1) % CAMERA_PRESETS.length]
+    setDashboardPreset(viewportId, nextPreset.id)
+  }, [dashboardPresets, setDashboardPreset])
   
   return (
     <>
+      {interactive && (
+        <Html fullscreen style={{ pointerEvents: 'none' }}>
+          <div
+            style={{
+              position: 'fixed',
+              right: 16,
+              top: 16,
+              width: 360,
+              background: 'rgba(10, 16, 24, 0.82)',
+              border: '1px solid rgba(0, 212, 170, 0.45)',
+              borderRadius: 10,
+              padding: 10,
+              display: 'grid',
+              gap: 8,
+              pointerEvents: 'auto',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              color: '#d6f7ff',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            {VIEWPORT_ORDER.map(viewportId => (
+              <div
+                key={viewportId}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '120px 1fr auto',
+                  gap: 8,
+                  alignItems: 'center'
+                }}
+              >
+                <span style={{ fontSize: 11, letterSpacing: 0.6 }}>{VIEWPORT_LABELS[viewportId]}</span>
+                <select
+                  value={dashboardPresets[viewportId]}
+                  onChange={(event) => {
+                    if (isCameraPresetId(event.target.value)) {
+                      setDashboardPreset(viewportId, event.target.value)
+                    }
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: 6,
+                    padding: '4px 6px',
+                    fontSize: 11
+                  }}
+                >
+                  {CAMERA_PRESETS.map(preset => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => cyclePreset(viewportId)}
+                  style={{
+                    background: 'rgba(0, 212, 170, 0.2)',
+                    color: '#7fffe6',
+                    border: '1px solid rgba(0, 212, 170, 0.45)',
+                    borderRadius: 6,
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    cursor: 'pointer'
+                  }}
+                >
+                  SWAP
+                </button>
+              </div>
+            ))}
+          </div>
+        </Html>
+      )}
+
       {/* Render all monitors */}
       {allMonitors.map((monitor) => (
         <MonitorScreen
