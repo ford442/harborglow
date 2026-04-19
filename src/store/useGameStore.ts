@@ -26,6 +26,18 @@ const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
     underwater: 'dock-level'
 }
 
+const CAMERA_PRESET_IDS: CameraPresetId[] = [
+    'orbit-overview',
+    'gantry-top-down',
+    'cable-tip-follow',
+    'dock-level',
+    'drone-chase',
+    'ship-interior'
+]
+
+const isCameraPresetId = (value: unknown): value is CameraPresetId =>
+    typeof value === 'string' && CAMERA_PRESET_IDS.includes(value as CameraPresetId)
+
 // =============================================================================
 // TYPES - HarborGlow Game State
 // =============================================================================
@@ -584,8 +596,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 weatherIntensity: saved.weatherIntensity ?? 0.5,
                 qualityPreset: saved.qualityPreset ?? 'high',
                 dashboardPresets: {
-                    ...DEFAULT_STORE_DASHBOARD_PRESETS,
-                    ...(saved.dashboardPresets ?? {})
+                    crane: isCameraPresetId(saved.dashboardPresets?.crane) ? saved.dashboardPresets.crane : DEFAULT_STORE_DASHBOARD_PRESETS.crane,
+                    hook: isCameraPresetId(saved.dashboardPresets?.hook) ? saved.dashboardPresets.hook : DEFAULT_STORE_DASHBOARD_PRESETS.hook,
+                    drone: isCameraPresetId(saved.dashboardPresets?.drone) ? saved.dashboardPresets.drone : DEFAULT_STORE_DASHBOARD_PRESETS.drone,
+                    underwater: isCameraPresetId(saved.dashboardPresets?.underwater) ? saved.dashboardPresets.underwater : DEFAULT_STORE_DASHBOARD_PRESETS.underwater,
                 },
             })
             console.log('📂 Loaded from storage_manager')
