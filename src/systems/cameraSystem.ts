@@ -62,10 +62,9 @@ export const CAMERA_PRESETS: CameraPreset[] = [
   }
 ]
 
-const CAMERA_PRESET_MAP: Record<CameraPresetId, CameraPreset> = CAMERA_PRESETS.reduce((acc, preset) => {
-  acc[preset.id] = preset
-  return acc
-}, {} as Record<CameraPresetId, CameraPreset>)
+const CAMERA_PRESET_MAP: Record<CameraPresetId, CameraPreset> = Object.fromEntries(
+  CAMERA_PRESETS.map((preset) => [preset.id, preset])
+) as Record<CameraPresetId, CameraPreset>
 
 export const DEFAULT_DASHBOARD_PRESETS: DashboardPresets = {
   crane: 'gantry-top-down',

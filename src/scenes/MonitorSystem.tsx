@@ -178,6 +178,13 @@ export default function MonitorSystem({
     drone: getCameraPresetById(dashboardPresets.drone),
     underwater: getCameraPresetById(dashboardPresets.underwater)
   }), [dashboardPresets])
+
+  const cameraRefs = useMemo((): Record<DashboardViewportId, React.RefObject<THREE.PerspectiveCamera>> => ({
+    crane: craneCabCamRef,
+    hook: hookCamRef,
+    drone: droneCamRef,
+    underwater: underwaterCamRef
+  }), [])
   
   // ================================================================
   // CAMERA ANIMATION LOOP
@@ -189,13 +196,6 @@ export default function MonitorSystem({
     const beatDuration = 60 / bpm
     const beatPhase = (time % beatDuration) / beatDuration
     const shipPos = new THREE.Vector3(...currentShip.position)
-
-    const cameraRefs: Record<DashboardViewportId, React.RefObject<THREE.PerspectiveCamera>> = {
-      crane: craneCabCamRef,
-      hook: hookCamRef,
-      drone: droneCamRef,
-      underwater: underwaterCamRef
-    }
 
     VIEWPORT_ORDER.forEach((viewportId) => {
       const cam = cameraRefs[viewportId].current
