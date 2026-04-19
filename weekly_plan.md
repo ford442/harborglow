@@ -22,6 +22,21 @@ Routine maintains this automatically — you can add items too.
 - [ ] Dead-code prune: `src/scenes/ControlBooth{,Example,Integration,Optimized,Swappable,WithMonitorSystem}.tsx` — only one is active; others are historical forks.
 - [ ] Root-level codemod scripts (`fix_components.cjs`, `fix_deps.cjs`, `fix_hologram.cjs`, `fix_let_const.cjs`, `fix_lightshow.cjs`, `fix_lint.cjs`) appear to be one-shot post-refactor tools — either move to `scripts/` or delete.
 - [ ] Only 1 TODO/FIXME left per HEARTBEAT ("crane interactivity") — confirm and close out.
+- [ ] No test runner wired in package.json (confirmed by K2/Jules analysis) — vitest setup is a future hygiene task.
+
+## Research notes — multiview camera dashboard (2026-04-19)
+Architecture decision locked after running C-prompts:
+- **Approach: Alt A — Viewport-Local History Stack** (K2 recommendation, adopted).
+  Drop the CameraPreset type + 6-preset registry + dropdown. Instead: per-viewport `history: CameraTransform[]` + `pinned: CameraTransform[]`. Back/forward arrows + 📌 pin button in viewport chrome. Shift+1–6 recalls pinned views (avoids training-mode key conflict).
+  Files to touch: `src/scenes/MultiviewSystem.tsx`, `src/systems/cameraSystem.ts` only. ~90–120 LOC.
+- **Render path:** use `<View>` from `@react-three/drei` (confirmed by Grok). Do not roll a custom scissor loop.
+- **Four traps to avoid** (Gemini):
+  1. Zustand selector invalidation in `useFrame` — use `useGameStore.getState()` transiently, not a reactive selector.
+  2. `gl.setScissorTest` leak on Suspense abort — wrap multiview render loop in try/finally.
+  3. Raycaster single-camera assumption — `useThree(({ camera })` defaults to primary camera; each viewport must project from its own.
+  4. CameraMode type collision — `CameraTransform` must not compete with the existing `CameraMode` union.
+- **Stack is safe at current pins** (Grok); r162 removes `WebGLMultipleRenderTargets`, drei 10+ is React 19 only — do not upgrade mid-feature.
+- Copilot handoff revised to reflect Alt A approach (see session transcript 2026-04-19).
 
 ## Done
 <!--
