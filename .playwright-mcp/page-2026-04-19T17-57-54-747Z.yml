@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - generic [ref=e43]:
+    - generic [ref=e44]:
+      - heading "HARBOR GLOW" [level=1] [ref=e45]:
+        - generic [ref=e46]: HARBOR
+        - generic [ref=e47]: GLOW
+      - paragraph [ref=e49]: Crane Operator Experience
+    - navigation [ref=e50]:
+      - button "🚢 New Game" [ref=e51] [cursor=pointer]:
+        - generic [ref=e52]: 🚢
+        - generic [ref=e53]: New Game
+      - button "🎓 Training" [ref=e55] [cursor=pointer]:
+        - generic [ref=e56]: 🎓
+        - generic [ref=e57]: Training
+      - button "❓ How to Play" [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]: ❓
+        - generic [ref=e60]: How to Play
+      - button "⚙️ Settings" [ref=e61] [cursor=pointer]:
+        - generic [ref=e62]: ⚙️
+        - generic [ref=e63]: Settings
+      - button "⭐ Credits" [ref=e64] [cursor=pointer]:
+        - generic [ref=e65]: ⭐
+        - generic [ref=e66]: Credits
+    - generic [ref=e67]:
+      - generic [ref=e68]: ESC
+      - generic [ref=e69]: to close modals
+  - generic [ref=e72]: v2.0.0
