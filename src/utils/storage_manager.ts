@@ -24,6 +24,13 @@ export type GameState = {
   craneRotation?: number;
   // Booth tier (1=standard, 3=arctic)
   boothTier?: 1 | 2 | 3;
+  // Per-viewport monitor camera presets
+  dashboardPresets?: {
+    crane?: string;
+    hook?: string;
+    drone?: string;
+    underwater?: string;
+  };
   // add more as needed
 };
 

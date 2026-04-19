@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore, type CameraMode } from '../store/useGameStore'
+import type { CameraPreset, CameraPresetId, DashboardPresets } from '../types/CameraPreset'
 
 // =============================================================================
 // PHASE 7: CINEMATIC CAMERA SYSTEM
@@ -9,6 +10,73 @@ import { useGameStore, type CameraMode } from '../store/useGameStore'
 // =============================================================================
 
 export type { CameraMode }
+
+export const CAMERA_PRESETS: CameraPreset[] = [
+  {
+    id: 'orbit-overview',
+    label: 'Orbit Overview',
+    position: [30, 20, 30],
+    target: [0, 0, 0],
+    fov: 50,
+    mode: 'ship-relative'
+  },
+  {
+    id: 'gantry-top-down',
+    label: 'Gantry Top-Down',
+    position: [0, 28, 0],
+    target: [0, -12, 0],
+    fov: 46,
+    mode: 'crane-relative'
+  },
+  {
+    id: 'cable-tip-follow',
+    label: 'Cable Tip Follow',
+    position: [0, 4, 0],
+    target: [0, -10, 0],
+    fov: 68,
+    mode: 'spreader-relative'
+  },
+  {
+    id: 'dock-level',
+    label: 'Dock Level',
+    position: [20, 5, 25],
+    target: [0, 6, 0],
+    fov: 58,
+    mode: 'ship-relative'
+  },
+  {
+    id: 'drone-chase',
+    label: 'Drone Chase',
+    position: [0, 16, 0],
+    target: [0, 5, 0],
+    fov: 52,
+    mode: 'drone-orbit'
+  },
+  {
+    id: 'ship-interior',
+    label: 'Ship Interior',
+    position: [0, 8, 0],
+    target: [18, 8, 0],
+    fov: 72,
+    mode: 'ship-relative'
+  }
+]
+
+const CAMERA_PRESET_MAP: Record<CameraPresetId, CameraPreset> = CAMERA_PRESETS.reduce((acc, preset) => {
+  acc[preset.id] = preset
+  return acc
+}, {} as Record<CameraPresetId, CameraPreset>)
+
+export const DEFAULT_DASHBOARD_PRESETS: DashboardPresets = {
+  crane: 'gantry-top-down',
+  hook: 'cable-tip-follow',
+  drone: 'drone-chase',
+  underwater: 'dock-level'
+}
+
+export function getCameraPresetById(id: CameraPresetId): CameraPreset {
+  return CAMERA_PRESET_MAP[id] ?? CAMERA_PRESET_MAP['orbit-overview']
+}
 
 interface CameraTarget {
   position: THREE.Vector3

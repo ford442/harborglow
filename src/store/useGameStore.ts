@@ -17,6 +17,14 @@ import {
   trainingSystem
 } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
+import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
+
+const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
+    crane: 'gantry-top-down',
+    hook: 'cable-tip-follow',
+    drone: 'drone-chase',
+    underwater: 'dock-level'
+}
 
 // =============================================================================
 // TYPES - HarborGlow Game State
@@ -148,6 +156,7 @@ interface SerializableState {
     // Multiview system
     multiviewMode: MultiviewMode
     underwaterIntensity: number
+    dashboardPresets: DashboardPresets
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
@@ -225,6 +234,7 @@ interface GameState extends SerializableState {
     // Multiview system
     setMultiviewMode: (mode: MultiviewMode) => void
     setUnderwaterIntensity: (intensity: number) => void
+    setDashboardPreset: (viewportId: DashboardViewportId, presetId: CameraPresetId) => void
     // Crane control actions
     setSpreaderPos: (pos: { x: number; y: number; z: number }) => void
     setSpreaderRotation: (rotation: number) => void
@@ -272,7 +282,7 @@ const defaultState: Omit<GameState, keyof {
     setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
     setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
-    setMultiviewMode: unknown; setUnderwaterIntensity: unknown;
+    setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
     addHarborEvent: unknown; removeHarborEvent: unknown; setEventEnabled: unknown;
     setCurrentHarbor: unknown; setCabinViewMode: unknown; setGameTime: unknown;
@@ -321,6 +331,7 @@ const defaultState: Omit<GameState, keyof {
     currentHarbor: 'rotterdam', // Default harbor
     multiviewMode: 'single' as MultiviewMode,
     underwaterIntensity: 1,
+    dashboardPresets: DEFAULT_STORE_DASHBOARD_PRESETS,
     wildlife: [],
     activeSeaEvent: null,
     activeHarborEvents: [],
@@ -378,6 +389,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     shipDockedStatus: state.shipDockedStatus,
     weather: state.weather,
     weatherIntensity: state.weatherIntensity,
+    dashboardPresets: state.dashboardPresets,
 })
 
 const scheduleSave = (state: GameState) => {
@@ -539,6 +551,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             weather: 'clear',
             weatherIntensity: 0.5,
             qualityPreset: 'high',
+            dashboardPresets: DEFAULT_STORE_DASHBOARD_PRESETS,
         })
         console.log('🗑️ Game reset')
     },
@@ -570,6 +583,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 weather: saved.weather ?? 'clear',
                 weatherIntensity: saved.weatherIntensity ?? 0.5,
                 qualityPreset: saved.qualityPreset ?? 'high',
+                dashboardPresets: {
+                    ...DEFAULT_STORE_DASHBOARD_PRESETS,
+                    ...(saved.dashboardPresets ?? {})
+                },
             })
             console.log('📂 Loaded from storage_manager')
         }
@@ -701,6 +718,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     setUnderwaterIntensity: (intensity) => {
         const newIntensity = Math.max(0, Math.min(2, intensity))
         set({ underwaterIntensity: newIntensity })
+    },
+    setDashboardPreset: (viewportId, presetId) => {
+        set((state) => {
+            const dashboardPresets = {
+                ...state.dashboardPresets,
+                [viewportId]: presetId
+            }
+            const newState = { dashboardPresets }
+            scheduleSave({ ...state, ...newState })
+            return newState
+        })
     },
     
     // Wildlife and sea event actions
