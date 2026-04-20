@@ -202,6 +202,7 @@ Skilled players can reduce sway by:
 - [ ] Ice buildup on cables in arctic mode
 - [ ] Dust storms reducing visibility
 - [ ] Rainbow after rain clears
+- [ ] **Sun dogs (parhelia)** — bright luminous spots at ~22° from the sun caused by hexagonal ice crystal refraction; appears during cold clear conditions (arctic/polar locations or winter mode). See: https://en.wikipedia.org/wiki/Sun_dog
 
 ## Troubleshooting
 

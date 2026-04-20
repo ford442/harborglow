@@ -442,6 +442,10 @@ float RainRipple(vec2 uv, float time, float intensity) {
 │  Light Pillars                              │
 │  ├── Ice crystal reflection (cold nights)   │
 │  └── Vertical beams above lights            │
+│  Sun Dogs (Parhelia)                        │
+│  ├── Ice crystal refraction of sunlight     │
+│  ├── Bright spots ~22° from the sun         │
+│  └── Appears in cold clear arctic conditions│
 │                                             │
 └─────────────────────────────────────────────┘
 ```
