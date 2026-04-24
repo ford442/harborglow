@@ -1,8 +1,8 @@
 # 🫀 HarborGlow HEARTBEAT
-**Last checked:** Sun Apr 19 2026 (pipeline hygiene pass)
+**Last checked:** Sun Apr 19 2026 (crane physics tuning)
 
 ## Status
-- Git status: src/ unchanged; 21 files differ (dist/ rehash + package-lock.json + stats.html from hygiene run)
+- Git status: src/ changed; crane physics tuning wrap-up
 - TODO/FIXME count: 0 items in src/
 - Build status: ✅ SUCCESS (4.13 MB raw / 1.32 MB gzip; 1760 modules; 23.74s)
 - Save status: localStorage 'harborglow-save-v2' ready

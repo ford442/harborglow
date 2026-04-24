@@ -255,6 +255,7 @@ export interface InstallationEvent {
 }
 
 // Trigger installation
+/** Triggers an installation event and binds part to ship. */
 export function triggerInstallation(
   shipId: string,
   partName: string,
@@ -287,6 +288,7 @@ export function triggerInstallation(
 }
 
 // Find a bind candidate without triggering installation
+/** Finds a valid candidate to bind to based on distance and configuration without triggering the install. */
 export function findBindCandidate(
   ships: Ship[],
   cranePosition: { x: number; y: number; z: number },
