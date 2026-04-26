@@ -139,5 +139,5 @@ export const sequencerSystem = new SequencerSystem()
 
 // Expose on window so Noah can call seekTo() / schedule() from the browser console.
 if (typeof window !== 'undefined') {
-  ;(window as unknown as Record<string, unknown>).sequencerSystem = sequencerSystem
+  (window as unknown as Record<string, unknown>).sequencerSystem = sequencerSystem
 }
