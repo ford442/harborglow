@@ -216,6 +216,74 @@
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
       "notes": "SpaceX Autonomous Spaceport Drone Ship (ASDS) based on Marmac 304 barge. 90m x 46m with 4 azimuth thrusters for station-keeping within 3m accuracy. Used for Falcon 9 booster landings at sea. Features Octagrabber robot for securing boosters."
+    },
+    {
+      "id": "ferry",
+      "version": "1.0",
+      "name": "Passenger Ferry \"Island Hopper\" v1.0",
+      "scale": 1.4,
+      "baseColor": "#d0e4f0",
+      "musicTheme": "harbor_commute",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [26, 5, 65], "material": { "emissive": "#a0c4d0" } },
+        { "id": "bowRamp", "type": "box", "position": [0, 0, -32], "rotation": [0.2, 0, 0], "size": [20, 1, 10], "material": { "emissive": "#b0d4e0" } },
+        { "id": "passengerDeck", "type": "box", "position": [0, 3, -6], "rotation": [0, 0, 0], "size": [24, 4, 32] },
+        { "id": "carDeck", "type": "box", "position": [0, 2, 20], "rotation": [0, 0, 0], "size": [24, 0.5, 22] },
+        { "id": "bridge", "type": "box", "position": [0, 7, -22], "rotation": [0, 0, 0], "size": [12, 5, 8] },
+        { "id": "funnel", "type": "cylinder", "position": [-9, 12, -5], "rotation": [0, 0, 0], "size": [3, 10, 3], "material": { "emissive": "#ff6600" } },
+        { "id": "windowStripL", "type": "box", "position": [-11, 4, -6], "rotation": [0, 0, 0], "size": [0.3, 1.5, 28] },
+        { "id": "windowStripR", "type": "box", "position": [11, 4, -6], "rotation": [0, 0, 0], "size": [0.3, 1.5, 28] }
+      ],
+      "attachmentPoints": ["bowRamp", "passengerDeck", "bridge", "funnel"],
+      "contributor": "Kimi Code CLI",
+      "added": "2026-04-26",
+      "notes": "Wide shallow ferry with enclosed passenger saloon, open car deck aft, and bow ramp suggestion. Perfect for harbor commute lighting."
+    },
+    {
+      "id": "trawler",
+      "version": "1.0",
+      "name": "Fishing Trawler \"North Star\" v1.0",
+      "scale": 0.9,
+      "baseColor": "#4a5568",
+      "musicTheme": "open_sea_folk",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [14, 4, 40], "material": { "emissive": "#3a4558" } },
+        { "id": "wheelhouse", "type": "box", "position": [0, 4, -12], "rotation": [0, 0, 0], "size": [10, 6, 10], "material": { "emissive": "#5a6578" } },
+        { "id": "deck", "type": "box", "position": [0, 1.5, 3], "rotation": [0, 0, 0], "size": [13, 0.5, 30] },
+        { "id": "netGantry", "type": "box", "position": [0, 6, 12], "rotation": [0.8, 0, 0], "size": [1, 1, 14], "material": { "emissive": "#ff8800" } },
+        { "id": "netPipe1", "type": "cylinder", "position": [-5, 3, 10], "rotation": [0.5, 0, 0], "size": [0.3, 8, 0.3], "material": { "emissive": "#666677" } },
+        { "id": "netPipe2", "type": "cylinder", "position": [5, 3, 10], "rotation": [0.5, 0, 0], "size": [0.3, 8, 0.3], "material": { "emissive": "#666677" } },
+        { "id": "masthead", "type": "cylinder", "position": [0, 10, -12], "rotation": [0, 0, 0], "size": [0.4, 10, 0.4], "material": { "emissive": "#ffffff" } },
+        { "id": "fishHold", "type": "box", "position": [0, 3, 8], "rotation": [0, 0, 0], "size": [10, 3, 8], "material": { "emissive": "#2a3548" } },
+        { "id": "bow", "type": "cone", "position": [0, 0, 20], "rotation": [1.57, 0, 0], "size": [6, 8, 6] }
+      ],
+      "attachmentPoints": ["masthead", "deck", "netGantry", "fishHold"],
+      "contributor": "Kimi Code CLI",
+      "added": "2026-04-26",
+      "notes": "Low-profile workboat with prominent wheelhouse forward, boom/gantry aft, and pipe geometry implying nets. Weathered steel finish."
+    },
+    {
+      "id": "horizon",
+      "version": "1.0",
+      "name": "Research Vessel \"Horizon Deep\" v1.0",
+      "scale": 1.2,
+      "baseColor": "#f97316",
+      "musicTheme": "deep_ocean_ambient",
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [16, 5, 55], "material": { "emissive": "#d65a0f" } },
+        { "id": "sonarDome", "type": "box", "position": [0, -3, 24], "rotation": [0, 0, 0], "size": [6, 2, 5], "material": { "emissive": "#00ff88" } },
+        { "id": "aFrame", "type": "box", "position": [0, 10, -18], "rotation": [0.4, 0, 0], "size": [12, 1, 10], "material": { "emissive": "#f1c40f" } },
+        { "id": "aFrameSupport1", "type": "cylinder", "position": [-5, 6, -18], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
+        { "id": "aFrameSupport2", "type": "cylinder", "position": [5, 6, -18], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
+        { "id": "labModule", "type": "box", "position": [0, 4, 5], "rotation": [0, 0, 0], "size": [8, 5, 10], "material": { "emissive": "#9b59b6" } },
+        { "id": "bridge", "type": "box", "position": [0, 8, 18], "rotation": [0, 0, 0], "size": [10, 5, 8] },
+        { "id": "mastArray", "type": "cylinder", "position": [0, 14, 18], "rotation": [0, 0, 0], "size": [0.6, 12, 0.6], "material": { "emissive": "#ffffff" } },
+        { "id": "deck", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [15, 0.5, 50] }
+      ],
+      "attachmentPoints": ["sonarDome", "aFrame", "labModule", "mastArray"],
+      "contributor": "Kimi Code CLI",
+      "added": "2026-04-26",
+      "notes": "Mid-size research vessel with distinctive A-frame crane aft, multibeam sonar dome at bow, and lab module amidships. Scientific orange/white finish."
     }
   ]
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+git pull
 set -euo pipefail
   # 2.5. Colab secret (if running in Colab environment)
   if command -v python3 >/dev/null 2>&1 && python3 -c "import google.colab" 2>/dev/null; then
