@@ -38,7 +38,7 @@ import SeaBirds from './SeaBirds'
 import DistantShipQueue from './DistantShipQueue'
 import { wildlifeSystem } from '../systems/wildlifeSystem'
 import { seaEventsSystem } from '../systems/seaEventsSystem'
-import { harborEventSystem } from '../systems/eventSystem'
+import { harborEventSystem } from '../systems/eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../systems/dynamicEventSystem'
 import { experimentalTechSystem } from '../systems/techSystem'
 

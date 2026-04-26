@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { useGameStore, Ship, ShipType } from '../store/useGameStore'
-import { harborEventSystem } from './eventSystem'
+import { harborEventSystem } from './eventSystem/HarborEventSystem'
 
 // =============================================================================
 // TYPES
