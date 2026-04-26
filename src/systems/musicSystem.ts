@@ -848,15 +848,16 @@ class MusicSystem {
             }
         })
         
-        // Restore after 5 seconds
-        setTimeout(() => {
+        // Restore after 5 seconds — use Transport.scheduleOnce so the timing
+        // stays locked to the Tone.js clock rather than a wall-clock setTimeout.
+        transport.scheduleOnce((_: number) => {
             transport.bpm.value = originalBPM
             synths.forEach((synth: any) => {
                 if (synth.volume) {
                     synth.volume.rampTo(synth.volume.value - 3, 1)
                 }
             })
-        }, 5000)
+        }, '+5')
     }
 
     // Cleanup

@@ -226,7 +226,11 @@ export class AudioVisualSync {
     let beatPhase = 0
     if (isBeat && now - this.lastBeatTime > 0.2) { // Minimum 200ms between beats
       this.lastBeatTime = now
-      this.onBeatCallbacks.forEach(cb => cb(bassFinal))
+      // Only fire beat callbacks while the Tone.js Transport is actively running,
+      // so that Tone.Transport.stop() correctly pauses all visual sync.
+      if (Tone.getTransport().state === 'started') {
+        this.onBeatCallbacks.forEach(cb => cb(bassFinal))
+      }
       beatPhase = 0
     } else {
       // Calculate phase within beat
