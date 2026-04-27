@@ -98,6 +98,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const cameraMode = useGameStore(s => s.cameraMode)
     const isNight = useGameStore(s => s.isNight)
     const timeOfDay = useGameStore(s => s.timeOfDay)
+    const stormIntensity = useGameStore(s => s.stormIntensity)
     const weather = useGameStore(s => s.weather)
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
@@ -230,14 +231,18 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         const baseFogDensity = isNight ? 0.035 : 0.02
         const weatherFogMultiplier = weather === 'fog' ? 2.5 : weather === 'storm' ? 1.5 : 1
         
+        // Storm darkens and thickens everything
+        const stormDarken = 1 - stormIntensity * 0.6
+        const stormFogMult = 1 + stormIntensity * 2.0
+        
         return {
             sunPosition: sunPos,
-            ambientIntensity: (isNight ? 0.12 : 0.55) * weatherEffects.ambientLight,
-            directionalIntensity: (isNight ? 0.25 : 1.0) * weatherEffects.ambientLight,
+            ambientIntensity: (isNight ? 0.12 : 0.55) * weatherEffects.ambientLight * stormDarken,
+            directionalIntensity: (isNight ? 0.25 : 1.0) * weatherEffects.ambientLight * stormDarken,
             fogColor: fogColorValue,
-            fogDensity: baseFogDensity * weatherFogMultiplier
+            fogDensity: baseFogDensity * weatherFogMultiplier * stormFogMult
         }
-    }, [timeOfDay, isNight, weather])
+    }, [timeOfDay, isNight, weather, stormIntensity])
 
     const sceneFog = useMemo(() => 
         new THREE.FogExp2(fogColor, fogDensity),
@@ -248,6 +253,17 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     useEffect(() => {
         startAmbientSystem()
         return () => stopAmbientSystem()
+    }, [])
+
+    // Storm toggle keybind (P)
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'p' || e.key === 'P') {
+                stormSystem.toggle()
+            }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
     }, [])
 
     // Ship scheduling effect
@@ -1037,6 +1053,16 @@ function useLevaControls(config: LevaControlsConfig) {
             folder: 'Storm System',
             onChange: (value: number) => {
                 useGameStore.getState().setWindStrength(value)
+            }
+        },
+        'Rain Density': {
+            value: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            folder: 'Storm System',
+            onChange: (value: number) => {
+                useGameStore.getState().setRainDensity(value)
             }
         },
         // Tugboat Mode Controls

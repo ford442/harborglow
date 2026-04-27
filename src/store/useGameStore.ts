@@ -228,6 +228,7 @@ interface SerializableState {
     isStormActive: boolean
     windDirection: number
     windStrength: number
+    rainDensity: number
     waveParams: WaveParams
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
@@ -239,6 +240,7 @@ interface SerializableState {
     setStormActive: (active: boolean) => void
     setWindDirection: (direction: number) => void
     setWindStrength: (strength: number) => void
+    setRainDensity: (density: number) => void
     triggerTugboatWin: () => void
     setWaveParams: (patch: Partial<WaveParams>) => void
 }
@@ -348,6 +350,7 @@ const defaultState: Omit<GameState, keyof {
     completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
     setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
     setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
+    setRainDensity: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -442,6 +445,7 @@ const defaultState: Omit<GameState, keyof {
     isStormActive: false,
     windDirection: 0,
     windStrength: 0,
+    rainDensity: 0.5,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
 }
 
@@ -650,6 +654,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             isStormActive: false,
             windDirection: 0,
             windStrength: 0,
+            rainDensity: 0.5,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
         })
         console.log('🗑️ Game reset')
@@ -997,6 +1002,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             isStormActive: false,
             windDirection: 0,
             windStrength: 0,
+            rainDensity: 0.5,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
             tugboatState: {
                 position: [20, 0.5, 10],
@@ -1027,6 +1033,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     setWindStrength: (strength: number) => {
         set({ windStrength: Math.max(0, strength) })
+    },
+
+    setRainDensity: (density: number) => {
+        set({ rainDensity: Math.max(0, Math.min(1, density)) })
     },
 
     triggerTugboatWin: () => {

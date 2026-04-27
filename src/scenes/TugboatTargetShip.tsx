@@ -132,6 +132,13 @@ export default function TugboatTargetShip({
       }
     }
 
+    // --- Storm buoyancy chaos ---
+    const stormInt = stormSystem.getIntensity()
+    if (stormInt > 0) {
+      const chaosForce = (Math.random() - 0.5) * stormInt * 20 * delta
+      rb.applyImpulse({ x: 0, y: chaosForce, z: 0 }, true)
+    }
+
     // --- Vertical damping ---
     const vel = rb.linvel()
     if (vel.y !== 0) {

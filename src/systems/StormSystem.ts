@@ -1,9 +1,10 @@
 // =============================================================================
 // STORM SYSTEM - HarborGlow Tugboat Mode
-// Timed storm escalation with wind forces and lightning for tugboat gameplay
+// Timed storm escalation with wind forces, lightning, thunder, and rain density.
 // =============================================================================
 
 import * as THREE from 'three'
+import * as Tone from 'tone'
 import { useGameStore } from '../store/useGameStore'
 import { weatherSystem } from './weatherSystem'
 
@@ -19,6 +20,8 @@ export interface StormState {
   windDirection: number   // radians
   windSpeed: number       // m/s
   lightningFlash: boolean // single-frame flash
+  rainDensity: number     // 0..1
+  visibility: number      // 0..1 (1 = clear, 0 = zero vis)
 }
 
 // =============================================================================
@@ -32,6 +35,8 @@ class StormSystem {
   private windDirCurrent: number = 0
   private lastLightning: number = 0
   private lightningEnd: number = 0
+  private thunderSynth: Tone.NoiseSynth | null = null
+  private thunderDelay: number = 0
 
   constructor() {
     this.state = {
@@ -42,6 +47,8 @@ class StormSystem {
       windDirection: 0,
       windSpeed: 0,
       lightningFlash: false,
+      rainDensity: 0,
+      visibility: 1,
     }
     this.windDirTarget = Math.random() * Math.PI * 2
     this.windDirCurrent = this.windDirTarget
@@ -56,6 +63,8 @@ class StormSystem {
     this.state.duration = duration
     this.state.elapsed = 0
     this.state.intensity = 0.2
+    this.state.rainDensity = 0.3
+    this.state.visibility = 0.7
     this.windDirTarget = Math.random() * Math.PI * 2
     this.windDirCurrent = this.windDirTarget
     this.lastLightning = 0
@@ -69,9 +78,68 @@ class StormSystem {
     this.state.active = false
     this.state.intensity = 0
     this.state.lightningFlash = false
+    this.state.rainDensity = 0
+    this.state.visibility = 1
     weatherSystem.clearOverride()
     this.notifyListeners()
     console.log('🌤️ Storm ended')
+  }
+
+  toggle() {
+    if (this.state.active) {
+      this.stop()
+    } else {
+      this.start()
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Audio
+  // ---------------------------------------------------------------------------
+
+  private initThunderSynth() {
+    if (this.thunderSynth) return
+    this.thunderSynth = new Tone.NoiseSynth({
+      noise: { type: 'brown' },
+      envelope: {
+        attack: 0.01,
+        decay: 0.4,
+        sustain: 0,
+        release: 1.2,
+      },
+      volume: -5,
+    }).toDestination()
+
+    // Low rumble filter
+    const filter = new Tone.Filter(200, 'lowpass').toDestination()
+    this.thunderSynth.connect(filter)
+  }
+
+  private async playThunder(intensity: number) {
+    try {
+      this.initThunderSynth()
+      await Tone.start()
+      if (!this.thunderSynth) return
+
+      const vol = Tone.gainToDb(Math.min(1, intensity * 0.8 + 0.2))
+      this.thunderSynth.volume.rampTo(vol, 0.01)
+      this.thunderSynth.triggerAttackRelease(
+        0.3 + Math.random() * 0.4,
+        Tone.now() + this.thunderDelay
+      )
+
+      // Secondary crack for high intensity
+      if (intensity > 0.6) {
+        const crack = new Tone.NoiseSynth({
+          noise: { type: 'white' },
+          envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 },
+          volume: vol + 3,
+        }).toDestination()
+        crack.triggerAttackRelease(0.05, Tone.now() + this.thunderDelay + 0.05)
+      }
+    } catch {
+      // Audio context may not be started; ignore
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -86,6 +154,12 @@ class StormSystem {
 
     // Intensity ramps from 0.2 -> 1.0 over duration
     this.state.intensity = 0.2 + progress * 0.8
+
+    // Rain density follows intensity with slight lag
+    this.state.rainDensity = this.state.intensity * (0.5 + Math.random() * 0.5)
+
+    // Visibility drops as intensity rises
+    this.state.visibility = Math.max(0.15, 1 - this.state.intensity * 0.85)
 
     // Wind direction drifts slowly
     this.windDirTarget += (Math.random() - 0.5) * 0.1 * delta
@@ -104,6 +178,10 @@ class StormSystem {
         this.state.lightningFlash = true
         this.lightningEnd = now + 150
         this.lastLightning = now
+
+        // Thunder follows lightning after a distance delay
+        this.thunderDelay = 0.2 + Math.random() * 0.8
+        this.playThunder(this.state.intensity)
       }
     }
 
@@ -146,6 +224,14 @@ class StormSystem {
 
   getIntensity(): number {
     return this.state.intensity
+  }
+
+  getRainDensity(): number {
+    return this.state.rainDensity
+  }
+
+  getVisibility(): number {
+    return this.state.visibility
   }
 
   isActive(): boolean {
