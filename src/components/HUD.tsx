@@ -24,6 +24,7 @@ import {
   HotkeyHints,
   ModeToggle,
   TugboatHUD,
+  WaveHeightDebug,
   hudContainerStyle,
 } from './hud'
 
@@ -52,6 +53,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <TimeDisplay />
       
       <TugboatHUD />
+      
+      <WaveHeightDebug />
       
       {currentShip && <ShipStatusPanel ship={currentShip} />}
       

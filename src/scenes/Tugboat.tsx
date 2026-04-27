@@ -1,6 +1,7 @@
 // =============================================================================
-// TUGBOAT COMPONENT - HarborGlow Tugboat Mode
-// Physics-based tugboat with helm camera, wake particles, and dashboard
+// TUGBOAT COMPONENT — HarborGlow Tugboat Mode
+// Physics-based tugboat with Rapier buoyancy, helm camera, and dashboard.
+// Now supports realistic pitch/roll on waves via WaveSystem buoyancy probes.
 // =============================================================================
 
 import { useRef, useEffect, useMemo } from 'react'
@@ -11,22 +12,34 @@ import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore } from '../store/useGameStore'
 import { stormSystem } from '../systems/StormSystem'
+import { waveSystem } from '../systems/WaveSystem'
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-const TUGBOAT_MASS = 8
-const TUGBOAT_LINEAR_DAMPING = 2.5
-const TUGBOAT_ANGULAR_DAMPING = 3.0
+const TUGBOAT_MASS = 15
+const TUGBOAT_LINEAR_DAMPING = 2.2
+const TUGBOAT_ANGULAR_DAMPING = 2.5
 const MAX_SPEED = 12
-const THROTTLE_FORCE = 35
+const THROTTLE_FORCE = 45
 const STEER_TORQUE = 8
 const BOOST_MULTIPLIER = 2.0
 const BOOST_COOLDOWN = 5
 
+// Buoyancy
+const BUOYANCY_SCALE = 18.0   // upward force per meter submerged
+const DAMPING_SCALE = 2.5     // vertical velocity damping
+const RESTORING_TORQUE = 4.0  // metacentric stability
+const PROBE_OFFSETS = [
+  { x: 0, z: 2.5 },   // bow
+  { x: 0, z: -2.5 },  // stern
+  { x: -1.2, z: 0 },  // port
+  { x: 1.2, z: 0 },   // starboard
+]
+
 // =============================================================================
-// RADAR SWEEP LINE (animated)
+// RADAR SWEEP LINE
 // =============================================================================
 
 function RadarSweepLine({ position }: { position: [number, number, number] }) {
@@ -45,49 +58,6 @@ function RadarSweepLine({ position }: { position: [number, number, number] }) {
 }
 
 // =============================================================================
-// WAKE PARTICLE SYSTEM
-// =============================================================================
-
-interface WakeParticle {
-  id: number
-  position: THREE.Vector3
-  scale: number
-  opacity: number
-  life: number
-  maxLife: number
-}
-
-function useWakeParticles() {
-  const particlesRef = useRef<WakeParticle[]>([])
-  const nextIdRef = useRef(0)
-  const meshRefs = useRef<THREE.Mesh[]>([])
-
-  const spawn = (position: THREE.Vector3) => {
-    const id = nextIdRef.current++
-    particlesRef.current.push({
-      id,
-      position: position.clone(),
-      scale: 0.2 + Math.random() * 0.3,
-      opacity: 0.6,
-      life: 0,
-      maxLife: 2.0 + Math.random() * 1.0,
-    })
-  }
-
-  const update = (delta: number) => {
-    particlesRef.current = particlesRef.current.filter((p) => {
-      p.life += delta
-      const progress = p.life / p.maxLife
-      p.scale += delta * 0.5
-      p.opacity = 0.6 * (1 - progress)
-      return p.life < p.maxLife
-    })
-  }
-
-  return { particlesRef, meshRefs, spawn, update }
-}
-
-// =============================================================================
 // TUGBOAT COMPONENT
 // =============================================================================
 
@@ -97,9 +67,6 @@ export default function Tugboat() {
 
   const keysRef = useRef<Set<string>>(new Set())
   const boostRef = useRef({ active: false, cooldown: 0 })
-  const spawnTimerRef = useRef(0)
-
-  const { particlesRef, spawn, update: updateWake } = useWakeParticles()
 
   const operationMode = useGameStore((s) => s.operationMode)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
@@ -160,9 +127,13 @@ export default function Tugboat() {
 
     const boostMult = boostRef.current.active ? BOOST_MULTIPLIER : 1.0
 
-    // Get current heading from rotation
+    // Get current heading from rotation (Yaw around Y)
     const rot = rb.rotation()
-    const heading = 2 * Math.atan2(rot.y, rot.w)
+    // quaternion to euler y — robust extraction
+    const sy = 2.0 * (rot.w * rot.y + rot.z * rot.x)
+    const heading = Math.abs(sy) >= 1.0
+      ? Math.sign(sy) * (Math.PI / 2)
+      : Math.asin(sy)
 
     // Apply throttle force along heading
     if (throttle !== 0) {
@@ -188,18 +159,84 @@ export default function Tugboat() {
       )
     }
 
-    // Clamp max speed
+    // Apply surface current drift
+    const pos = rb.translation()
+    const current = waveSystem.getSurfaceCurrent(pos.x, pos.z)
+    if (current.lengthSq() > 0) {
+      rb.applyImpulse(
+        { x: current.x * delta * 0.5, y: 0, z: current.z * delta * 0.5 },
+        true
+      )
+    }
+
+    // -----------------------------------------------------------------
+    // BUOYANCY: sample wave height at hull probe points
+    // -----------------------------------------------------------------
+    const time = waveSystem.getTime()
+    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
+    let totalSubmerged = 0
+
+    for (const offset of PROBE_OFFSETS) {
+      // Transform local probe offset to world space
+      const localOff = new THREE.Vector3(offset.x, 0, offset.z)
+      localOff.applyQuaternion(quat)
+
+      const probeX = pos.x + localOff.x
+      const probeZ = pos.z + localOff.z
+      const waterH = waveSystem.getWaterHeight(probeX, probeZ, time)
+      const probeY = pos.y + localOff.y
+      const submerged = waterH - 2.5 - probeY // water plane at -2.5 + wave height
+
+      if (submerged > 0) {
+        // Archimedes: upward force proportional to submerged depth
+        const force = submerged * BUOYANCY_SCALE * delta
+        rb.applyImpulseAtPoint(
+          { x: 0, y: force, z: 0 },
+          { x: probeX, y: probeY, z: probeZ },
+          true
+        )
+        totalSubmerged += submerged
+      }
+    }
+
+    // Vertical damping (prevent infinite oscillation)
     const vel = rb.linvel()
+    if (vel.y !== 0) {
+      rb.applyImpulse(
+        { x: 0, y: -vel.y * DAMPING_SCALE * delta, z: 0 },
+        true
+      )
+    }
+
+    // Metacentric restoring torque (keep upright)
+    const angVel = rb.angvel()
+    // Dampen angular velocity on X and Z axes
+    rb.applyTorqueImpulse(
+      { x: -angVel.x * TUGBOAT_ANGULAR_DAMPING * delta, y: 0, z: -angVel.z * TUGBOAT_ANGULAR_DAMPING * delta },
+      true
+    )
+
+    // Additional restoring torque based on tilt angle
+    const euler = new THREE.Euler().setFromQuaternion(quat)
+    rb.applyTorqueImpulse(
+      {
+        x: -euler.x * RESTORING_TORQUE * delta,
+        y: 0,
+        z: -euler.z * RESTORING_TORQUE * delta,
+      },
+      true
+    )
+
+    // Clamp max speed
     const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
     if (speed > MAX_SPEED) {
       const scale = MAX_SPEED / speed
       rb.setLinvel({ x: vel.x * scale, y: vel.y, z: vel.z * scale }, true)
     }
 
-    // Sync group to physics body
-    const pos = rb.translation()
+    // Sync visual group to physics body
     groupRef.current.position.set(pos.x, pos.y, pos.z)
-    groupRef.current.rotation.set(0, heading, 0)
+    groupRef.current.quaternion.set(rot.x, rot.y, rot.z, rot.w)
 
     // Update store
     updateTugboatState({
@@ -209,34 +246,8 @@ export default function Tugboat() {
       steering,
       heading,
     })
-
-    // Wake particles
-    spawnTimerRef.current += delta
-    const spawnInterval = throttle !== 0 ? 0.15 : 0.3
-    if (spawnTimerRef.current >= spawnInterval) {
-      spawnTimerRef.current = 0
-      // Spawn wake behind stern
-      const sternOffset = new THREE.Vector3(
-        -Math.cos(heading) * 2.5,
-        0.1,
-        -Math.sin(heading) * 2.5
-      )
-      const spawnPos = new THREE.Vector3(pos.x, pos.y, pos.z).add(sternOffset)
-      spawn(spawnPos)
-    }
-
-    updateWake(delta)
-
-    // Screen shake from storm (applied to group)
-    const stormIntensity = stormSystem.getIntensity()
-    if (stormIntensity > 0.3 && groupRef.current) {
-      const shake = stormIntensity * 0.04
-      groupRef.current.position.x += (Math.random() - 0.5) * shake
-      groupRef.current.position.y += (Math.random() - 0.5) * shake
-    }
   })
 
-  // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
   // Geometry helpers
   // ---------------------------------------------------------------------------
@@ -251,7 +262,7 @@ export default function Tugboat() {
 
   return (
     <>
-      {/* Physics body */}
+      {/* Physics body — allow pitch/roll for wave riding */}
       <RigidBody
         ref={rbRef}
         type="dynamic"
@@ -259,7 +270,7 @@ export default function Tugboat() {
         linearDamping={TUGBOAT_LINEAR_DAMPING}
         angularDamping={TUGBOAT_ANGULAR_DAMPING}
         position={[20, 0.5, 10]}
-        enabledRotations={[false, true, false]}
+        enabledRotations={[true, true, true]}
         colliders="cuboid"
       >
         <group ref={groupRef}>
@@ -312,7 +323,6 @@ export default function Tugboat() {
             <cylinderGeometry args={[0.25, 0.35, 0.8, 16]} />
             <meshStandardMaterial color="#333333" roughness={0.8} />
           </mesh>
-          {/* Funnel top rim */}
           <mesh position={[0, 3.05, -1.2]}>
             <torusGeometry args={[0.3, 0.05, 8, 16]} />
             <meshStandardMaterial color="#555555" roughness={0.6} metalness={0.5} />
@@ -345,13 +355,7 @@ export default function Tugboat() {
             target-position={[0.8, 1.0, 5]}
           />
 
-          {/* Helm camera marker (visual only, actual camera is outside RigidBody) */}
-          <mesh position={[0, 2.3, 0.2]} visible={false}>
-            <boxGeometry args={[0.01, 0.01, 0.01]} />
-          </mesh>
-
           {/* === DASHBOARD SCREENS === */}
-          {/* Main radar screen */}
           <mesh position={[0, 2.05, 0.45]} rotation={[-0.3, 0, 0]}>
             <planeGeometry args={[0.6, 0.4]} />
             <meshBasicMaterial color="#001122" />
@@ -360,12 +364,8 @@ export default function Tugboat() {
             <ringGeometry args={[0.15, 0.16, 32]} />
             <meshBasicMaterial color="#00ff88" transparent opacity={0.8} />
           </mesh>
-          {/* Radar sweep line */}
           <RadarSweepLine position={[0, 2.05, 0.465]} />
 
-          {/* Side gauges */}
-
-          {/* Side gauges */}
           <mesh position={[-0.5, 2.05, 0.4]} rotation={[-0.3, 0, 0]}>
             <planeGeometry args={[0.25, 0.2]} />
             <meshBasicMaterial color="#220011" />
@@ -382,19 +382,6 @@ export default function Tugboat() {
           </mesh>
         </group>
       </RigidBody>
-
-      {/* === WAKE PARTICLES === */}
-      {particlesRef.current.map((p, i) => (
-        <mesh key={p.id} position={[p.position.x, p.position.y, p.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[p.scale, p.scale]} />
-          <meshBasicMaterial
-            color="#ffffff"
-            transparent
-            opacity={p.opacity}
-            depthWrite={false}
-          />
-        </mesh>
-      ))}
     </>
   )
 }

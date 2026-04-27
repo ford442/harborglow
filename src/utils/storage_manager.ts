@@ -42,6 +42,10 @@ export type GameState = {
   };
   tugboatDockedCount?: number;
   tugboatWinTriggered?: boolean;
+  waveParams?: { amplitude: number; speed: number; chaos: number };
+  isStormActive?: boolean;
+  windDirection?: number;
+  windStrength?: number;
   // add more as needed
 };
 

@@ -17,6 +17,7 @@ import {
   AttachmentState,
   SHIP_TYPE_LIGHT_COLORS 
 } from '../systems/attachmentSystem'
+import { waveSystem } from '../systems/WaveSystem'
 
 interface ShipProps {
     ship: Ship
@@ -132,7 +133,13 @@ export default function ShipComponent({ ship }: ShipProps) {
             droneship: 0.10  // Barge is more stable
         }
         const bobOffset = bobOffsets[ship.type]
-        groupRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset
+        const sineBob = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset
+        
+        // Wave-following visual offset (does not affect fixed rigid body)
+        const waveH = waveSystem.getWaterHeight(ship.position[0], ship.position[2], waveSystem.getTime())
+        const waveOffset = Math.max(-0.5, Math.min(0.5, waveH * 0.15))
+        
+        groupRef.current.position.y = sineBob + waveOffset
         
         // PHASE 10: Skip light updates at low LOD
         if (lod >= 2) return

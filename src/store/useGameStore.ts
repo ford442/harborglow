@@ -18,6 +18,7 @@ import {
 } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
+import type { WaveParams } from '../systems/WaveSystem'
 import { isCameraPresetId } from '../types/CameraPreset'
 
 const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
@@ -134,6 +135,8 @@ export interface TugboatObjective {
     shipType: ShipType
 }
 
+export { WaveParams }
+
 export interface Upgrade {
     shipId: string
     partName: string
@@ -222,6 +225,10 @@ interface SerializableState {
     tugboatWinTriggered: boolean
     stormIntensity: number
     stormTimeRemaining: number
+    isStormActive: boolean
+    windDirection: number
+    windStrength: number
+    waveParams: WaveParams
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
@@ -229,7 +236,11 @@ interface SerializableState {
     resetTugboatMode: () => void
     setStormIntensity: (intensity: number) => void
     setStormTimeRemaining: (time: number) => void
+    setStormActive: (active: boolean) => void
+    setWindDirection: (direction: number) => void
+    setWindStrength: (strength: number) => void
     triggerTugboatWin: () => void
+    setWaveParams: (patch: Partial<WaveParams>) => void
 }
 
 interface GameState extends SerializableState {
@@ -335,7 +346,8 @@ const defaultState: Omit<GameState, keyof {
     updateTrainingProgress: unknown; addReputation: unknown;
     setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown;
     completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
-    setStormTimeRemaining: unknown; triggerTugboatWin: unknown;
+    setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
+    setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -427,6 +439,10 @@ const defaultState: Omit<GameState, keyof {
     tugboatWinTriggered: false,
     stormIntensity: 0,
     stormTimeRemaining: 0,
+    isStormActive: false,
+    windDirection: 0,
+    windStrength: 0,
+    waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
 }
 
 // =============================================================================
@@ -455,6 +471,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatState: state.tugboatState,
     tugboatDockedCount: state.tugboatDockedCount,
     tugboatWinTriggered: state.tugboatWinTriggered,
+    waveParams: state.waveParams,
 })
 
 const scheduleSave = (state: GameState) => {
@@ -630,6 +647,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             tugboatWinTriggered: false,
             stormIntensity: 0,
             stormTimeRemaining: 0,
+            isStormActive: false,
+            windDirection: 0,
+            windStrength: 0,
+            waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
         })
         console.log('🗑️ Game reset')
     },
@@ -677,6 +698,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
+                isStormActive: saved.isStormActive ?? false,
+                windDirection: saved.windDirection ?? 0,
+                windStrength: saved.windStrength ?? 0,
+                waveParams: saved.waveParams ?? { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
             })
             console.log('📂 Loaded from storage_manager')
         }
@@ -969,6 +994,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             tugboatWinTriggered: false,
             stormIntensity: 0,
             stormTimeRemaining: 0,
+            isStormActive: false,
+            windDirection: 0,
+            windStrength: 0,
+            waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
             tugboatState: {
                 position: [20, 0.5, 10],
                 velocity: [0, 0, 0],
@@ -979,19 +1008,36 @@ export const useGameStore = create<GameState>((set, get) => ({
         })
         console.log('🚤 Tugboat mode reset')
     },
-    
+
     setStormIntensity: (intensity: number) => {
         set({ stormIntensity: Math.max(0, Math.min(1, intensity)) })
     },
-    
+
     setStormTimeRemaining: (time: number) => {
         set({ stormTimeRemaining: Math.max(0, time) })
     },
-    
+
+    setStormActive: (active: boolean) => {
+        set({ isStormActive: active })
+    },
+
+    setWindDirection: (direction: number) => {
+        set({ windDirection: direction })
+    },
+
+    setWindStrength: (strength: number) => {
+        set({ windStrength: Math.max(0, strength) })
+    },
+
     triggerTugboatWin: () => {
         set({ tugboatWinTriggered: true })
         console.log('🏆 Tugboat mission complete!')
     },
+
+    setWaveParams: (patch: Partial<WaveParams>) => set((state) => {
+        const newParams = { ...state.waveParams, ...patch }
+        return { waveParams: newParams }
+    }),
 }))
 
 // Subscribe to save on all state changes

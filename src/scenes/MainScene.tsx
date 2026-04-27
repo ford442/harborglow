@@ -27,7 +27,9 @@ import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
 import Dock from './Dock'
 import Water from './Water'
+import FoamSystem from './FoamSystem'
 import { stormSystem } from '../systems/StormSystem'
+import { waveSystem } from '../systems/WaveSystem'
 import { useCameraTransition } from '../hooks/useCameraTransition'
 import GlobalIllumination from './GlobalIllumination'
 import AudioReactiveLightShow from './AudioReactiveLightShow'
@@ -310,7 +312,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         
         // Update experimental tech
         experimentalTechSystem.update(delta)
-        
+
+        // Update wave system (drives shader + physics sync)
+        waveSystem.update(delta)
+
         // Update storm system in tugboat mode
         if (operationMode === 'tugboat') {
             stormSystem.update(delta)
@@ -391,6 +396,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 
             {/* Scene Objects */}
             <Water isNight={isNight} />
+            <FoamSystem />
             <Dock isNight={isNight} />
             
             {/* Crane or Tugboat depending on mode */}
@@ -1002,6 +1008,50 @@ function useLevaControls(config: LevaControlsConfig) {
                 weatherSystem.clearOverride()
             }
         },
+        // Storm System Controls
+        'Storm Active': {
+            value: false,
+            folder: 'Storm System',
+            onChange: (value: boolean) => {
+                useGameStore.getState().setStormActive(value)
+                if (value) {
+                    stormSystem.start(180)
+                } else {
+                    stormSystem.stop()
+                }
+            }
+        },
+        'Storm Intensity': {
+            value: 0,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            folder: 'Storm System',
+            onChange: (value: number) => {
+                useGameStore.getState().setStormIntensity(value)
+                waveSystem.setStormIntensity(value)
+            }
+        },
+        'Wind Direction': {
+            value: 0,
+            min: 0,
+            max: 360,
+            step: 5,
+            folder: 'Storm System',
+            onChange: (value: number) => {
+                useGameStore.getState().setWindDirection((value * Math.PI) / 180)
+            }
+        },
+        'Wind Strength': {
+            value: 0,
+            min: 0,
+            max: 30,
+            step: 1,
+            folder: 'Storm System',
+            onChange: (value: number) => {
+                useGameStore.getState().setWindStrength(value)
+            }
+        },
         // Tugboat Mode Controls
         'Force Operation Mode': {
             value: 'crane',
@@ -1286,6 +1336,48 @@ function useLevaControls(config: LevaControlsConfig) {
             folder: 'Economy System',
             onChange: () => {
                 economySystem.reset()
+            }
+        },
+        // Wave System Controls
+        'Wave Amplitude': {
+            value: 1.0,
+            min: 0.1,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Wave System',
+            onChange: (value: number) => {
+                useGameStore.getState().setWaveParams({ amplitude: value })
+                waveSystem.setParams({ amplitude: value })
+            }
+        },
+        'Wave Speed': {
+            value: 1.0,
+            min: 0.1,
+            max: 3.0,
+            step: 0.1,
+            folder: 'Wave System',
+            onChange: (value: number) => {
+                useGameStore.getState().setWaveParams({ speed: value })
+                waveSystem.setParams({ speed: value })
+            }
+        },
+        'Wave Chaos': {
+            value: 0.0,
+            min: 0,
+            max: 1.0,
+            step: 0.05,
+            folder: 'Wave System',
+            onChange: (value: number) => {
+                useGameStore.getState().setWaveParams({ chaos: value })
+                waveSystem.setParams({ chaos: value })
+            }
+        },
+        'Reset Waves': {
+            value: false,
+            folder: 'Wave System',
+            onChange: () => {
+                useGameStore.getState().setWaveParams({ amplitude: 1.0, speed: 1.0, chaos: 0.0 })
+                waveSystem.setParams({ amplitude: 1.0, speed: 1.0, chaos: 0.0 })
             }
         }
     })
