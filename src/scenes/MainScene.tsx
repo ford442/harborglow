@@ -25,6 +25,7 @@ import ShipComponent from './Ship'
 import Crane from './Crane'
 import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
+import DistressedShip from './DistressedShip'
 import Dock from './Dock'
 import Water from './Water'
 import FoamSystem from './FoamSystem'
@@ -124,6 +125,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const completeTugboatObjective = useGameStore(s => s.completeTugboatObjective)
     const triggerTugboatWin = useGameStore(s => s.triggerTugboatWin)
     const resetTugboatMode = useGameStore(s => s.resetTugboatMode)
+    const activeMission = useGameStore(s => s.activeMission)
+    const setActiveMission = useGameStore(s => s.setActiveMission)
+    const updateMission = useGameStore(s => s.updateMission)
+    const completeMission = useGameStore(s => s.completeMission)
+    const failMission = useGameStore(s => s.failMission)
 
     // Local state
     const [departingShips, setDepartingShips] = useState<Set<string>>(new Set())
@@ -439,22 +445,52 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             ))}
             
             {/* Tugboat target ships */}
-            {operationMode === 'tugboat' && tugboatObjectives.map((obj, i) => (
-                <TugboatTargetShip
-                    key={obj.id}
-                    id={obj.id}
-                    shipType={obj.shipType}
-                    startPosition={[
-                        obj.berthCenter[0] + (Math.random() - 0.5) * 20,
-                        0,
-                        obj.berthCenter[2] + 25 + Math.random() * 15
-                    ]}
-                    startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
-                    berthCenter={obj.berthCenter}
-                    berthRadius={obj.berthRadius}
-                    onDocked={(id) => completeTugboatObjective(id)}
-                />
-            ))}
+            {operationMode === 'tugboat' && tugboatObjectives.map((obj, i) => {
+                const isDistressed = activeMission?.status === 'active' && i === 0
+                if (isDistressed) {
+                    return (
+                        <DistressedShip
+                            key={obj.id}
+                            id={obj.id}
+                            shipType={obj.shipType}
+                            startPosition={[
+                                obj.berthCenter[0] + (Math.random() - 0.5) * 20,
+                                0,
+                                obj.berthCenter[2] + 25 + Math.random() * 15
+                            ]}
+                            startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
+                            berthCenter={obj.berthCenter}
+                            berthRadius={obj.berthRadius}
+                            timeLimit={activeMission!.timeLimit}
+                            maxDamage={activeMission!.maxDamage}
+                            onDamageUpdate={(dmg) => updateMission({ damage: dmg })}
+                            onDocked={(id) => {
+                                completeTugboatObjective(id)
+                                completeMission()
+                            }}
+                            onDestroyed={(id) => {
+                                failMission()
+                            }}
+                        />
+                    )
+                }
+                return (
+                    <TugboatTargetShip
+                        key={obj.id}
+                        id={obj.id}
+                        shipType={obj.shipType}
+                        startPosition={[
+                            obj.berthCenter[0] + (Math.random() - 0.5) * 20,
+                            0,
+                            obj.berthCenter[2] + 25 + Math.random() * 15
+                        ]}
+                        startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
+                        berthCenter={obj.berthCenter}
+                        berthRadius={obj.berthRadius}
+                        onDocked={(id) => completeTugboatObjective(id)}
+                    />
+                )
+            })}
         </>
     )
 
@@ -1063,6 +1099,44 @@ function useLevaControls(config: LevaControlsConfig) {
             folder: 'Storm System',
             onChange: (value: number) => {
                 useGameStore.getState().setRainDensity(value)
+            }
+        },
+        'Start Storm Rescue': {
+            value: false,
+            folder: 'Storm System',
+            onChange: () => {
+                const store = useGameStore.getState()
+                if (store.operationMode !== 'tugboat') {
+                    store.setOperationMode('tugboat')
+                }
+                // Wait for objectives to spawn then replace first with mission
+                setTimeout(() => {
+                    const objectives = store.tugboatObjectives
+                    if (objectives.length > 0 && !store.activeMission) {
+                        const target = objectives[0]
+                        const rewards: Record<string, number> = {
+                            cruise: 800, container: 1200, tanker: 1500,
+                            bulk: 1000, lng: 1400, roro: 900,
+                            research: 700, droneship: 600
+                        }
+                        store.setActiveMission({
+                            id: `rescue-${Date.now()}`,
+                            type: 'storm_rescue',
+                            targetShipType: target.shipType,
+                            targetShipId: target.id,
+                            timeLimit: 120,
+                            timeRemaining: 120,
+                            damage: 0,
+                            maxDamage: 100,
+                            reward: rewards[target.shipType] || 1000,
+                            status: 'active',
+                            berthCenter: target.berthCenter,
+                            berthRadius: target.berthRadius,
+                        })
+                        stormSystem.start(180)
+                        console.log('🆘 Storm Rescue mission started!')
+                    }
+                }, 100)
             }
         },
         // Tugboat Mode Controls

@@ -46,6 +46,7 @@ export type GameState = {
   isStormActive?: boolean;
   windDirection?: number;
   windStrength?: number;
+  money?: number;
   // add more as needed
 };
 

@@ -137,6 +137,29 @@ export interface TugboatObjective {
 
 export { WaveParams }
 
+export interface Mission {
+    id: string
+    type: 'storm_rescue'
+    targetShipType: ShipType
+    targetShipId: string
+    timeLimit: number
+    timeRemaining: number
+    damage: number
+    maxDamage: number
+    reward: number
+    status: 'active' | 'completed' | 'failed'
+    berthCenter: [number, number, number]
+    berthRadius: number
+}
+
+export interface MissionObjective {
+    id: string
+    label: string
+    completed: boolean
+    progress: number
+}
+
+
 export interface Upgrade {
     shipId: string
     partName: string
@@ -197,6 +220,8 @@ interface SerializableState {
     isMoving: boolean
     heaterActive: boolean
     iceBuildup: number
+    // Economy
+    money: number
     // Booth tier (1=standard, 3=arctic)
     boothTier: 1 | 2 | 3
     // Harbor/Booth theme
@@ -243,6 +268,15 @@ interface SerializableState {
     setRainDensity: (density: number) => void
     triggerTugboatWin: () => void
     setWaveParams: (patch: Partial<WaveParams>) => void
+    // Economy
+    addMoney: (amount: number) => void
+    deductMoney: (amount: number) => void
+    // Mission system
+    activeMission: Mission | null
+    setActiveMission: (mission: Mission | null) => void
+    updateMission: (patch: Partial<Mission>) => void
+    completeMission: (bonus?: number) => void
+    failMission: (penalty?: number) => void
 }
 
 interface GameState extends SerializableState {
@@ -351,6 +385,9 @@ const defaultState: Omit<GameState, keyof {
     setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
     setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
     setRainDensity: unknown;
+    addMoney: unknown; deductMoney: unknown;
+    setActiveMission: unknown; updateMission: unknown;
+    completeMission: unknown; failMission: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -446,6 +483,8 @@ const defaultState: Omit<GameState, keyof {
     windDirection: 0,
     windStrength: 0,
     rainDensity: 0.5,
+    money: 0,
+    activeMission: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
 }
 
@@ -476,6 +515,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatDockedCount: state.tugboatDockedCount,
     tugboatWinTriggered: state.tugboatWinTriggered,
     waveParams: state.waveParams,
+    money: state.money,
 })
 
 const scheduleSave = (state: GameState) => {
@@ -655,6 +695,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             windDirection: 0,
             windStrength: 0,
             rainDensity: 0.5,
+            money: 0,
+            activeMission: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
         })
         console.log('🗑️ Game reset')
@@ -707,6 +749,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 windDirection: saved.windDirection ?? 0,
                 windStrength: saved.windStrength ?? 0,
                 waveParams: saved.waveParams ?? { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
+                money: saved.money ?? 0,
+                activeMission: null,
             })
             console.log('📂 Loaded from storage_manager')
         }
@@ -1003,6 +1047,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             windDirection: 0,
             windStrength: 0,
             rainDensity: 0.5,
+            money: 0,
+            activeMission: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
             tugboatState: {
                 position: [20, 0.5, 10],
@@ -1038,6 +1084,53 @@ export const useGameStore = create<GameState>((set, get) => ({
     setRainDensity: (density: number) => {
         set({ rainDensity: Math.max(0, Math.min(1, density)) })
     },
+
+    addMoney: (amount: number) => set((state) => {
+        const newMoney = Math.max(0, state.money + amount)
+        const newState = { money: newMoney }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
+
+    deductMoney: (amount: number) => set((state) => {
+        const newMoney = Math.max(0, state.money - amount)
+        const newState = { money: newMoney }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
+
+    setActiveMission: (mission: Mission | null) => {
+        set({ activeMission: mission })
+    },
+
+    updateMission: (patch: Partial<Mission>) => set((state) => {
+        if (!state.activeMission) return state
+        const updated = { ...state.activeMission, ...patch }
+        return { activeMission: updated }
+    }),
+
+    completeMission: (bonus = 0) => set((state) => {
+        if (!state.activeMission) return state
+        const reward = state.activeMission.reward + bonus
+        const newMoney = state.money + reward
+        scheduleSave({ ...state, money: newMoney })
+        console.log(`💰 Mission complete! Earned $${reward}`)
+        return {
+            money: newMoney,
+            activeMission: { ...state.activeMission, status: 'completed' as const },
+        }
+    }),
+
+    failMission: (penalty = 100) => set((state) => {
+        if (!state.activeMission) return state
+        const newMoney = Math.max(0, state.money - penalty)
+        scheduleSave({ ...state, money: newMoney })
+        console.log(`❌ Mission failed. Penalty: $${penalty}`)
+        return {
+            money: newMoney,
+            activeMission: { ...state.activeMission, status: 'failed' as const },
+        }
+    }),
 
     triggerTugboatWin: () => {
         set({ tugboatWinTriggered: true })

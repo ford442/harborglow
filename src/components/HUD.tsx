@@ -25,6 +25,8 @@ import {
   ModeToggle,
   TugboatHUD,
   WaveHeightDebug,
+  MissionHUD,
+  RewardAnimation,
   hudContainerStyle,
 } from './hud'
 
@@ -53,6 +55,10 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <TimeDisplay />
       
       <TugboatHUD />
+      
+      <MissionHUD />
+      
+      <RewardAnimation />
       
       <WaveHeightDebug />
       
