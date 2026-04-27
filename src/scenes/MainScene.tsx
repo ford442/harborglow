@@ -283,22 +283,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         )
         swaySystem.update(delta, swayTrolleyVecRef.current)
         
-        // Tugboat camera follow
-        if (operationMode === 'tugboat') {
-            const tbState = useGameStore.getState().tugboatState
-            const targetPos = new THREE.Vector3(
-                tbState.position[0] - Math.cos(tbState.heading) * 3,
-                tbState.position[1] + 3,
-                tbState.position[2] - Math.sin(tbState.heading) * 3
-            )
-            const lookAtPos = new THREE.Vector3(
-                tbState.position[0] + Math.cos(tbState.heading) * 10,
-                tbState.position[1] + 1,
-                tbState.position[2] + Math.sin(tbState.heading) * 10
-            )
-            state.camera.position.lerp(targetPos, delta * 3)
-            state.camera.lookAt(lookAtPos)
-        }
+        // Tugboat helm camera is handled inside Tugboat.tsx (first-person)
         
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
@@ -475,14 +460,16 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     // DEFAULT: MULTIVIEW MODE - 4 camera panels (rendered in HTML overlay via OperatorCabinUI)
     return (
         <>
-            {/* Main Camera - Crane Cab POV or Tugboat helm */}
-            <PerspectiveCamera
-                makeDefault
-                position={[18, 24, 8]}
-                fov={60}
-                near={0.1}
-                far={1000}
-            />
+            {/* Main Camera - Crane Cab POV (hidden in tugboat mode; helm cam is inside Tugboat.tsx) */}
+            {operationMode !== 'tugboat' && (
+                <PerspectiveCamera
+                    makeDefault
+                    position={[18, 24, 8]}
+                    fov={60}
+                    near={0.1}
+                    far={1000}
+                />
+            )}
             
             {operationMode === 'crane' && (
                 <OrbitControls 

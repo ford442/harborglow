@@ -134,9 +134,13 @@ export default function FoamSystem() {
     )
     const speed = tbVel.length()
 
+    const stormIntensity = waveSystem.getStormIntensity()
+
     if (speed > 0.5 && lastTugboatPos.current) {
       const dist = tbPos.distanceTo(lastTugboatPos.current)
-      const spawnInterval = Math.max(0.3, 1.5 - speed * 0.15)
+      // Tighter spawn interval at high speed + in storms
+      const stormFactor = 1.0 + stormIntensity * 1.5
+      const spawnInterval = Math.max(0.2, (1.5 - speed * 0.15) / stormFactor)
 
       if (dist > spawnInterval * 0.5) {
         // Spawn behind stern
@@ -150,7 +154,23 @@ export default function FoamSystem() {
         const waterH = waveSystem.getWaterHeight(spawnPos.x, spawnPos.z, time)
         spawnPos.y = waterH - 2.5 + 0.05
 
-        spawn(spawnPos, 'wake', 0.4 + Math.min(speed / 8, 1) * 0.8)
+        // Larger wake in storms / at speed
+        const wakeScale = (0.4 + Math.min(speed / 6, 1) * 1.2) * stormFactor
+        spawn(spawnPos, 'wake', wakeScale)
+
+        // Extra wake particles in storms (spread wider)
+        if (stormIntensity > 0.3) {
+          const spread = new THREE.Vector3(
+            (-Math.sin(heading)) * (0.5 + stormIntensity),
+            0,
+            (Math.cos(heading)) * (0.5 + stormIntensity)
+          )
+          const extraPos = spawnPos.clone().add(spread)
+          spawn(extraPos, 'wake', wakeScale * 0.6)
+          const extraPos2 = spawnPos.clone().sub(spread)
+          spawn(extraPos2, 'wake', wakeScale * 0.6)
+        }
+
         lastTugboatPos.current.copy(tbPos)
       }
     } else if (!lastTugboatPos.current) {

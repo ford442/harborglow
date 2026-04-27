@@ -18,7 +18,7 @@ import { waveSystem } from '../systems/WaveSystem'
 // =============================================================================
 
 const SHIP_MASS = 60
-const SHIP_LINEAR_DAMPING = 0.6
+const SHIP_LINEAR_DAMPING = 0.3
 const SHIP_ANGULAR_DAMPING = 2.0
 const BUOYANCY_SCALE = 35.0      // larger ship needs more force
 const DAMPING_SCALE = 1.8
