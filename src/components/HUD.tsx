@@ -22,6 +22,8 @@ import {
   CameraMultiviewControls,
   CraneControlIndicators,
   HotkeyHints,
+  ModeToggle,
+  TugboatHUD,
   hudContainerStyle,
 } from './hud'
 
@@ -43,9 +45,13 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
     <div style={hudContainerStyle}>
       <OperatorCabinUI onOpenTraining={onOpenTraining} />
       
+      <ModeToggle />
+      
       <TopBar currentShip={currentShip} ships={ships} />
       
       <TimeDisplay />
+      
+      <TugboatHUD />
       
       {currentShip && <ShipStatusPanel ship={currentShip} />}
       

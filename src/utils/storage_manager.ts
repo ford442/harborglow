@@ -31,6 +31,17 @@ export type GameState = {
     drone?: string;
     underwater?: string;
   };
+  // Tugboat mode state
+  operationMode?: 'crane' | 'tugboat';
+  tugboatState?: {
+    position: [number, number, number];
+    velocity: [number, number, number];
+    throttle: number;
+    steering: number;
+    heading: number;
+  };
+  tugboatDockedCount?: number;
+  tugboatWinTriggered?: boolean;
   // add more as needed
 };
 

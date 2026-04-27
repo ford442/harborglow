@@ -38,6 +38,7 @@ export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-t
                          'spectator' | 'transition' | 'crane' | 'booth'
 export type CabinViewMode = 'multiview' | 'immersive'
 export type GameMode = 'sandbox' | 'training'
+export type OperationMode = 'crane' | 'tugboat'
 export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | 'meteor_shower' | 'bioluminescent_bloom' | 'none'
 
 // HarborGlow Bay Research-Based Events
@@ -114,6 +115,23 @@ export interface HarborEvent {
     affectedShipId?: string
     position: [number, number, number]
     metadata?: Record<string, unknown>
+}
+
+export interface TugboatState {
+    position: [number, number, number]
+    velocity: [number, number, number]
+    throttle: number        // -1..1
+    steering: number        // -1..1
+    heading: number         // radians
+}
+
+export interface TugboatObjective {
+    id: string
+    label: string
+    berthCenter: [number, number, number]
+    berthRadius: number
+    completed: boolean
+    shipType: ShipType
 }
 
 export interface Upgrade {
@@ -196,6 +214,22 @@ interface SerializableState {
     startTrainingModule: (moduleId: TrainingModuleId) => void
     exitTrainingModule: () => void
     updateTrainingProgress: (progress: TrainingProgress) => void
+    // Tugboat mode
+    operationMode: OperationMode
+    tugboatState: TugboatState
+    tugboatObjectives: TugboatObjective[]
+    tugboatDockedCount: number
+    tugboatWinTriggered: boolean
+    stormIntensity: number
+    stormTimeRemaining: number
+    setOperationMode: (mode: OperationMode) => void
+    updateTugboatState: (patch: Partial<TugboatState>) => void
+    setTugboatObjectives: (objectives: TugboatObjective[]) => void
+    completeTugboatObjective: (id: string) => void
+    resetTugboatMode: () => void
+    setStormIntensity: (intensity: number) => void
+    setStormTimeRemaining: (time: number) => void
+    triggerTugboatWin: () => void
 }
 
 interface GameState extends SerializableState {
@@ -270,6 +304,15 @@ interface GameState extends SerializableState {
     dailyShipsCompleted: number
     dailyShipsMissed: number
     addReputation: (amount: number) => void
+    // Tugboat mode
+    setOperationMode: (mode: OperationMode) => void
+    updateTugboatState: (patch: Partial<TugboatState>) => void
+    setTugboatObjectives: (objectives: TugboatObjective[]) => void
+    completeTugboatObjective: (id: string) => void
+    resetTugboatMode: () => void
+    setStormIntensity: (intensity: number) => void
+    setStormTimeRemaining: (time: number) => void
+    triggerTugboatWin: () => void
 }
 
 // Default initial state
@@ -290,6 +333,9 @@ const defaultState: Omit<GameState, keyof {
     setAttachmentSystemConfig: unknown; clearLastInstallation: unknown;
     setGameMode: unknown; startTrainingModule: unknown; exitTrainingModule: unknown;
     updateTrainingProgress: unknown; addReputation: unknown;
+    setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown;
+    completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
+    setStormTimeRemaining: unknown; triggerTugboatWin: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -367,6 +413,20 @@ const defaultState: Omit<GameState, keyof {
     reputation: 0,
     dailyShipsCompleted: 0,
     dailyShipsMissed: 0,
+    // Tugboat mode
+    operationMode: 'crane' as OperationMode,
+    tugboatState: {
+        position: [20, 0.5, 10],
+        velocity: [0, 0, 0],
+        throttle: 0,
+        steering: 0,
+        heading: -Math.PI / 2,
+    },
+    tugboatObjectives: [],
+    tugboatDockedCount: 0,
+    tugboatWinTriggered: false,
+    stormIntensity: 0,
+    stormTimeRemaining: 0,
 }
 
 // =============================================================================
@@ -391,6 +451,10 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     weather: state.weather,
     weatherIntensity: state.weatherIntensity,
     dashboardPresets: state.dashboardPresets,
+    operationMode: state.operationMode,
+    tugboatState: state.tugboatState,
+    tugboatDockedCount: state.tugboatDockedCount,
+    tugboatWinTriggered: state.tugboatWinTriggered,
 })
 
 const scheduleSave = (state: GameState) => {
@@ -553,6 +617,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             weatherIntensity: 0.5,
             qualityPreset: 'high',
             dashboardPresets: DEFAULT_STORE_DASHBOARD_PRESETS,
+            operationMode: 'crane',
+            tugboatState: {
+                position: [20, 0.5, 10],
+                velocity: [0, 0, 0],
+                throttle: 0,
+                steering: 0,
+                heading: -Math.PI / 2,
+            },
+            tugboatObjectives: [],
+            tugboatDockedCount: 0,
+            tugboatWinTriggered: false,
+            stormIntensity: 0,
+            stormTimeRemaining: 0,
         })
         console.log('🗑️ Game reset')
     },
@@ -590,6 +667,16 @@ export const useGameStore = create<GameState>((set, get) => ({
                     drone: isCameraPresetId(saved.dashboardPresets?.drone) ? saved.dashboardPresets.drone : DEFAULT_STORE_DASHBOARD_PRESETS.drone,
                     underwater: isCameraPresetId(saved.dashboardPresets?.underwater) ? saved.dashboardPresets.underwater : DEFAULT_STORE_DASHBOARD_PRESETS.underwater,
                 },
+                operationMode: saved.operationMode ?? 'crane',
+                tugboatState: saved.tugboatState ?? {
+                    position: [20, 0.5, 10],
+                    velocity: [0, 0, 0],
+                    throttle: 0,
+                    steering: 0,
+                    heading: -Math.PI / 2,
+                },
+                tugboatDockedCount: saved.tugboatDockedCount ?? 0,
+                tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
             })
             console.log('📂 Loaded from storage_manager')
         }
@@ -848,6 +935,63 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
         return { reputation: newReputation }
     }),
+    
+    // Tugboat mode actions
+    setOperationMode: (mode: OperationMode) => {
+        set({ operationMode: mode })
+        scheduleSave({ ...get(), operationMode: mode })
+        console.log(`🚤 Operation mode: ${mode}`)
+    },
+    
+    updateTugboatState: (patch: Partial<TugboatState>) => set((state) => ({
+        tugboatState: { ...state.tugboatState, ...patch }
+    })),
+    
+    setTugboatObjectives: (objectives: TugboatObjective[]) => {
+        set({ tugboatObjectives: objectives })
+    },
+    
+    completeTugboatObjective: (id: string) => set((state) => {
+        const objectives = state.tugboatObjectives.map(o =>
+            o.id === id ? { ...o, completed: true } : o
+        )
+        const dockedCount = objectives.filter(o => o.completed).length
+        return {
+            tugboatObjectives: objectives,
+            tugboatDockedCount: dockedCount
+        }
+    }),
+    
+    resetTugboatMode: () => {
+        set({
+            tugboatObjectives: [],
+            tugboatDockedCount: 0,
+            tugboatWinTriggered: false,
+            stormIntensity: 0,
+            stormTimeRemaining: 0,
+            tugboatState: {
+                position: [20, 0.5, 10],
+                velocity: [0, 0, 0],
+                throttle: 0,
+                steering: 0,
+                heading: -Math.PI / 2,
+            },
+        })
+        console.log('🚤 Tugboat mode reset')
+    },
+    
+    setStormIntensity: (intensity: number) => {
+        set({ stormIntensity: Math.max(0, Math.min(1, intensity)) })
+    },
+    
+    setStormTimeRemaining: (time: number) => {
+        set({ stormTimeRemaining: Math.max(0, time) })
+    },
+    
+    triggerTugboatWin: () => {
+        set({ tugboatWinTriggered: true })
+        console.log('🏆 Tugboat mission complete!')
+    },
 }))
 
 // Subscribe to save on all state changes

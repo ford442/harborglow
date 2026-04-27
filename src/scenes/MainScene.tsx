@@ -23,8 +23,12 @@ import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTw
 
 import ShipComponent from './Ship'
 import Crane from './Crane'
+import Tugboat from './Tugboat'
+import TugboatTargetShip from './TugboatTargetShip'
 import Dock from './Dock'
 import Water from './Water'
+import { stormSystem } from '../systems/StormSystem'
+import { useCameraTransition } from '../hooks/useCameraTransition'
 import GlobalIllumination from './GlobalIllumination'
 import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
@@ -96,6 +100,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
     const cabinViewMode = useGameStore(s => s.cabinViewMode)
+    const operationMode = useGameStore(s => s.operationMode)
+    const tugboatObjectives = useGameStore(s => s.tugboatObjectives)
+    const tugboatDockedCount = useGameStore(s => s.tugboatDockedCount)
+    const tugboatWinTriggered = useGameStore(s => s.tugboatWinTriggered)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -109,6 +117,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const returnToDock = useGameStore(s => s.returnToDock)
     const setMultiviewMode = useGameStore(s => s.setMultiviewMode)
     const setUnderwaterIntensity = useGameStore(s => s.setUnderwaterIntensity)
+    const setTugboatObjectives = useGameStore(s => s.setTugboatObjectives)
+    const completeTugboatObjective = useGameStore(s => s.completeTugboatObjective)
+    const triggerTugboatWin = useGameStore(s => s.triggerTugboatWin)
+    const resetTugboatMode = useGameStore(s => s.resetTugboatMode)
 
     // Local state
     const [departingShips, setDepartingShips] = useState<Set<string>>(new Set())
@@ -129,7 +141,46 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 
     // Initialize systems
     useCinematicCamera()
+    useCameraTransition()
     const { audioData } = useAudioVisualSync()
+
+    // Tugboat mode: spawn objectives when entering tugboat mode
+    useEffect(() => {
+        if (operationMode === 'tugboat' && tugboatObjectives.length === 0 && !tugboatWinTriggered) {
+            const objectives = [
+                {
+                    id: 'tug-obj-1',
+                    label: 'Berth Alpha',
+                    berthCenter: [-15, 0, -20] as [number, number, number],
+                    berthRadius: 8,
+                    completed: false,
+                    shipType: 'container' as ShipType,
+                },
+                {
+                    id: 'tug-obj-2',
+                    label: 'Berth Beta',
+                    berthCenter: [0, 0, -25] as [number, number, number],
+                    berthRadius: 8,
+                    completed: false,
+                    shipType: 'tanker' as ShipType,
+                },
+                {
+                    id: 'tug-obj-3',
+                    label: 'Berth Gamma',
+                    berthCenter: [15, 0, -20] as [number, number, number],
+                    berthRadius: 8,
+                    completed: false,
+                    shipType: 'bulk' as ShipType,
+                },
+            ]
+            setTugboatObjectives(objectives)
+            stormSystem.start(180)
+        }
+        if (operationMode === 'crane') {
+            resetTugboatMode()
+            stormSystem.stop()
+        }
+    }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, setTugboatObjectives, resetTugboatMode])
 
     // Leva controls
     useLevaControls({
@@ -230,6 +281,23 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         )
         swaySystem.update(delta, swayTrolleyVecRef.current)
         
+        // Tugboat camera follow
+        if (operationMode === 'tugboat') {
+            const tbState = useGameStore.getState().tugboatState
+            const targetPos = new THREE.Vector3(
+                tbState.position[0] - Math.cos(tbState.heading) * 3,
+                tbState.position[1] + 3,
+                tbState.position[2] - Math.sin(tbState.heading) * 3
+            )
+            const lookAtPos = new THREE.Vector3(
+                tbState.position[0] + Math.cos(tbState.heading) * 10,
+                tbState.position[1] + 1,
+                tbState.position[2] + Math.sin(tbState.heading) * 10
+            )
+            state.camera.position.lerp(targetPos, delta * 3)
+            state.camera.lookAt(lookAtPos)
+        }
+        
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
         seaEventsSystem.update(delta)
@@ -242,6 +310,23 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         
         // Update experimental tech
         experimentalTechSystem.update(delta)
+        
+        // Update storm system in tugboat mode
+        if (operationMode === 'tugboat') {
+            stormSystem.update(delta)
+            
+            // Win condition check
+            if (tugboatDockedCount >= 3 && !tugboatWinTriggered) {
+                triggerTugboatWin()
+                // Trigger celebration on first completed ship's type
+                const firstCompleted = tugboatObjectives.find(o => o.completed)
+                if (firstCompleted) {
+                    musicSystem.startMusic(firstCompleted.shipType)
+                    lightingSystem.startHarborShow('tugboat-win', firstCompleted.shipType)
+                    lightingSystem.triggerClimax(firstCompleted.shipType)
+                }
+            }
+        }
         
         // Spectator drone camera
         updateSpectatorCamera({
@@ -307,7 +392,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             {/* Scene Objects */}
             <Water isNight={isNight} />
             <Dock isNight={isNight} />
-            <Crane />
+            
+            {/* Crane or Tugboat depending on mode */}
+            {operationMode === 'crane' && <Crane />}
+            {operationMode === 'tugboat' && <Tugboat />}
             
             {/* On-Dock Rail System */}
             <OnDockRail isNight={isNight} />
@@ -332,14 +420,32 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <EnhancedWeather enabled={true} />
             <PostProcessing enabled={true} audioData={audioData} />
 
-            {/* Ships */}
-            {ships.map(ship => (
+            {/* Ships — hidden in tugboat mode */}
+            {operationMode === 'crane' && ships.map(ship => (
                 <ShipWrapper
                     key={ship.id}
                     ship={ship}
                     departingShips={departingShips}
                     shipPositionsRef={shipPositionsRef}
                     atSeaShipsRef={atSeaShipsRef}
+                />
+            ))}
+            
+            {/* Tugboat target ships */}
+            {operationMode === 'tugboat' && tugboatObjectives.map((obj, i) => (
+                <TugboatTargetShip
+                    key={obj.id}
+                    id={obj.id}
+                    shipType={obj.shipType}
+                    startPosition={[
+                        obj.berthCenter[0] + (Math.random() - 0.5) * 20,
+                        0,
+                        obj.berthCenter[2] + 25 + Math.random() * 15
+                    ]}
+                    startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
+                    berthCenter={obj.berthCenter}
+                    berthRadius={obj.berthRadius}
+                    onDocked={(id) => completeTugboatObjective(id)}
                 />
             ))}
         </>
@@ -363,7 +469,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     // DEFAULT: MULTIVIEW MODE - 4 camera panels (rendered in HTML overlay via OperatorCabinUI)
     return (
         <>
-            {/* Main Camera - Crane Cab POV */}
+            {/* Main Camera - Crane Cab POV or Tugboat helm */}
             <PerspectiveCamera
                 makeDefault
                 position={[18, 24, 8]}
@@ -372,16 +478,17 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 far={1000}
             />
             
-            {/* Orbit controls for main view */}
-            <OrbitControls 
-                ref={orbitControlsRef}
-                target={currentShip?.position || [0, 0, 0]}
-                enableDamping
-                dampingFactor={0.05}
-                maxPolarAngle={Math.PI / 2 - 0.1}
-                minDistance={10}
-                maxDistance={100}
-            />
+            {operationMode === 'crane' && (
+                <OrbitControls 
+                    ref={orbitControlsRef}
+                    target={currentShip?.position || [0, 0, 0]}
+                    enableDamping
+                    dampingFactor={0.05}
+                    maxPolarAngle={Math.PI / 2 - 0.1}
+                    minDistance={10}
+                    maxDistance={100}
+                />
+            )}
 
             {sceneContent}
         </>
@@ -894,6 +1001,34 @@ function useLevaControls(config: LevaControlsConfig) {
             onChange: () => {
                 weatherSystem.clearOverride()
             }
+        },
+        // Tugboat Mode Controls
+        'Force Operation Mode': {
+            value: 'crane',
+            options: ['crane', 'tugboat'],
+            folder: 'Tugboat Mode',
+            onChange: (value: string) => {
+                useGameStore.getState().setOperationMode(value as 'crane' | 'tugboat')
+            }
+        },
+        'Storm Duration': {
+            value: 180,
+            min: 60,
+            max: 300,
+            step: 10,
+            folder: 'Tugboat Mode',
+            onChange: (value: number) => {
+                if (stormSystem.isActive()) {
+                    stormSystem.start(value)
+                }
+            }
+        },
+        'Wind Force Multiplier': {
+            value: 1.0,
+            min: 0,
+            max: 3,
+            step: 0.1,
+            folder: 'Tugboat Mode',
         },
         // Training System Controls
         'Quick Start Module': {
