@@ -1,7 +1,7 @@
 # harborglow — Weekly Plan
 
 ## Today's focus
-**2026-04-19 — New Idea mode.** Tune crane-to-ship physics attachment: eliminate snap-to jitter when a payload binds to an attachment point, tame rope/cable oscillation after release, and make joint stiffness/damping framerate-independent. Top Active focus area per PROJECT CONTEXT and has received zero direct work in the last 3 PRs.
+**2026-04-26 — User Idea mode.** Expand the procedural ship blueprint set with three new vessels: a passenger ferry, a fishing trawler, and a research vessel. The blueprint pipeline (ships.json + ShipBlueprint.ts + ProceduralShip.tsx) is clean and well-understood; only 3 ships exist against a system designed for variety. More blueprints stress-test upgrade-point generation, per-ship music mapping, and the living-fleet departure/return cycle simultaneously.
 
 ## Ideas
 <!--
@@ -10,7 +10,7 @@ Routine prioritizes these over generated ideas.
 Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
-- [ ] Expand procedural ship blueprint set: ferry, fishing trawler, research vessel (half-to-full day). Blueprints pipeline exists but only 3 ships; more variety stresses upgrade-point generation and music-per-ship mapping.
+- [in progress — 2026-04-26] Expand procedural ship blueprint set: ferry, fishing trawler, research vessel (half-to-full day). Blueprints pipeline exists but only 3 ships; more variety stresses upgrade-point generation and music-per-ship mapping.
 - [ ] Music/event sync timeline: explicit sequencer wiring Tone.js Transport to cinematic triggers (spotlight hits, lyric reveals, camera cuts). Would replace ad-hoc setTimeouts in `audioVisualSync.ts` and friends. Multi-day.
 
 ## Backlog
@@ -18,11 +18,11 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 Unfinished items, known bugs, deferred ideas.
 Routine maintains this automatically — you can add items too.
 -->
-- [ ] HEARTBEAT.md is stale (dated Mar 8, 2026) — rewrite after today's build-run.
 - [ ] Dead-code prune: `src/scenes/ControlBooth{,Example,Integration,Optimized,Swappable,WithMonitorSystem}.tsx` — only one is active; others are historical forks.
 - [ ] Root-level codemod scripts (`fix_components.cjs`, `fix_deps.cjs`, `fix_hologram.cjs`, `fix_let_const.cjs`, `fix_lightshow.cjs`, `fix_lint.cjs`) appear to be one-shot post-refactor tools — either move to `scripts/` or delete.
-- [ ] Only 1 TODO/FIXME left per HEARTBEAT ("crane interactivity") — confirm and close out.
-- [ ] No test runner wired in package.json (confirmed by K2/Jules analysis) — vitest setup is a future hygiene task.
+- [ ] 4 circular-dep warnings: `harborEventSystem` reexport through `eventSystem/index.ts` affects OnDockRail, DistantShipQueue, techSystem, MainScene — resolve the barrel-export cycle.
+- [ ] No test runner wired in package.json — vitest setup is a future hygiene task.
+- [ ] deploy.py: password hardcoded in plaintext (line 45); recursive call uses outer `sftp` var — fix before any real deploy.
 
 ## Research notes — multiview camera dashboard (2026-04-19)
 Architecture decision locked after running C-prompts:
@@ -43,13 +43,17 @@ Architecture decision locked after running C-prompts:
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- 2026-04-26 — HEARTBEAT.md refreshed (PR #10 pipeline hygiene pass; HEARTBEAT now shows Apr 19 2026, 0 TODOs).
+- 2026-04-26 — TODO/FIXME count confirmed at 0 (crane interactivity stub resolved in physics tuning work).
+- 2026-04-19 — Crane-to-ship attachment tuning: 150ms bind-interpolation, delta-corrected sway decay, framerate-independent damping, twistlock cable lockout (PR #8 area).
+- 2026-04-19 — Multiview camera dashboard: preset state + monitor quick-swap UI (PR #9, Copilot).
 - 2026-04-13 — PR #5 merged: hook dependency cleanup, let→const pass.
 - 2026-04-06 — PR #4 merged: R3F hooks-outside-Canvas fix, crane jib constants extracted.
 - 2026-03 — PR #3 merged: large-component split. PR #2 merged: fullscreen canvas + booth immersion.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
-Date: 2026-04-19
-Mode: New Idea (weekly_plan.md did not exist; Ideas empty)
-Focus: Crane-to-ship physics attachment tuning (jitter, oscillation, framerate-independent joints)
-Outcome: All 4 symptoms addressed — 150ms bind-interpolation (AttachmentSystemManager), delta-corrected cable sway decay (CraneCable), framerate-independent damping (swaySystem), twistlock cable lockout (CraneCable + Crane). Build/heartbeat clean.
+Date: 2026-04-26
+Mode: User Idea
+Focus: Expand procedural ship blueprint set — passenger ferry, fishing trawler, research vessel added to ships.json
+Outcome: (fill in at end of day)
