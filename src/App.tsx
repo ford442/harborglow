@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense, lazy, useRef } from 'react'
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { Leva } from 'leva'
@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import HUD from './components/HUD'
 import TrainingMode from './components/TrainingMode'
 import TrainingHUD from './components/TrainingHUD'
+import { introMusicSystem } from './systems/introMusicSystem'
 import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
@@ -136,21 +137,39 @@ function App() {
     const handleOpenTraining = useCallback(() => {
         setScreen('training')
     }, [])
-    
+
     const handleExitTraining = useCallback(() => {
         setScreen('menu')
     }, [])
-    
+
     const handleStartTrainingModule = useCallback((moduleId: TrainingModuleId) => {
         setActiveTrainingModule(moduleId)
         setScreen('game')
     }, [])
-    
+
     const handleCompleteTrainingModule = useCallback(() => {
         exitTrainingModule()
         setActiveTrainingModule(null)
         setScreen('training')
     }, [exitTrainingModule])
+
+    // -------------------------------------------------------------------------
+    // INTRO MUSIC LIFECYCLE
+    // Orchestrate fade-outs and restarts across screen transitions.
+    // -------------------------------------------------------------------------
+    useEffect(() => {
+        if (screen === 'game') {
+            // Fade out intro music before the 3D scene boots.
+            // If already fading, this is a no-op.
+            introMusicSystem.fadeOut(1.5)
+        } else if (screen === 'menu') {
+            // Restart title music when returning to menu
+            introMusicSystem.playTitle().catch(() => {})
+        } else if (screen === 'training') {
+            // Quiet fade for training hub
+            introMusicSystem.fadeOut(1.0)
+        }
+    }, [screen])
 
     // Menu screen
     if (screen === 'menu') {

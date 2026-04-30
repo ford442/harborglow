@@ -1,10 +1,12 @@
 // =============================================================================
-// ENHANCED LOADING SCREEN - HarborGlow Phase 7-8 Polish
-// Real progress tracking with glassmorphism design
+// ENHANCED LOADING SCREEN — HarborGlow Phase 8 Audio-Reactive Edition
+// Real progress tracking with glassmorphism design + intro music crossfade.
 // =============================================================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { GLASSMORPHISM } from './DesignSystem'
+import { introMusicSystem } from '../systems/introMusicSystem'
+import { audioVisualSync } from '../systems/audioVisualSync'
 
 interface LoadingScreenProps {
     progress: number
@@ -14,7 +16,9 @@ interface LoadingScreenProps {
 export default function LoadingScreen({ progress, status }: LoadingScreenProps) {
     const [dots, setDots] = useState('')
     const [currentStage, setCurrentStage] = useState(0)
-    
+    const [audioEnergy, setAudioEnergy] = useState(0)
+    const fadeInitiated = useRef(false)
+
     const stages = [
         { threshold: 0, label: 'Initializing', icon: '⚡' },
         { threshold: 20, label: 'Loading Assets', icon: '📦' },
@@ -23,7 +27,7 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
         { threshold: 90, label: 'Finalizing', icon: '✨' },
         { threshold: 100, label: 'Ready', icon: '🚀' },
     ]
-    
+
     // Animated dots
     useEffect(() => {
         const interval = setInterval(() => {
@@ -31,7 +35,7 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
         }, 500)
         return () => clearInterval(interval)
     }, [stages])
-    
+
     // Update current stage based on progress
     useEffect(() => {
         const stage = stages.findIndex((s, i) => {
@@ -40,9 +44,48 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
         })
         if (stage !== -1) setCurrentStage(stage)
     }, [progress])
-    
+
+    // Crossfade to loading loop on mount
+    useEffect(() => {
+        introMusicSystem.playLoadingLoop().catch(() => {
+            // Audio may still be blocked — gesture handler in App.tsx will unlock
+        })
+    }, [])
+
+    // Fade out near completion
+    useEffect(() => {
+        if (progress >= 90 && !fadeInitiated.current) {
+            fadeInitiated.current = true
+            introMusicSystem.fadeOut(2.0)
+        }
+    }, [progress])
+
+    // Initialize audio-visual sync and drive analysis for menu/loading screens
+    useEffect(() => {
+        audioVisualSync.initialize().catch(() => {})
+    }, [])
+
+    // Light audio-reactive update for progress bar shimmer
+    useEffect(() => {
+        let rafId: number
+        let running = true
+
+        const loop = () => {
+            if (!running) return
+            const data = audioVisualSync.analyze(performance.now() / 1000)
+            setAudioEnergy(data.energy)
+            rafId = requestAnimationFrame(loop)
+        }
+
+        rafId = requestAnimationFrame(loop)
+        return () => {
+            running = false
+            cancelAnimationFrame(rafId)
+        }
+    }, [])
+
     const currentStageInfo = stages[currentStage]
-    
+
     return (
         <div style={containerStyle}>
             {/* Animated background particles */}
@@ -60,7 +103,7 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
                     />
                 ))}
             </div>
-            
+
             {/* Main content */}
             <div style={contentStyle}>
                 {/* Logo */}
@@ -71,7 +114,7 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
                     </h1>
                     <p style={subtitleStyle}>Light up the night, one ship at a time</p>
                 </div>
-                
+
                 {/* Loading indicator */}
                 <div style={loadingContainerStyle}>
                     {/* Stage indicator */}
@@ -82,18 +125,20 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
                             {progress < 100 && <span style={dotsStyle}>{dots}</span>}
                         </span>
                     </div>
-                    
+
                     {/* Progress bar */}
                     <div style={progressBarContainerStyle}>
                         <div style={progressBarBgStyle}>
-                            <div 
+                            <div
                                 style={{
                                     ...progressBarFillStyle,
                                     width: `${Math.min(100, Math.max(0, progress))}%`,
+                                    // Audio-reactive glow intensity
+                                    boxShadow: `0 0 ${12 + audioEnergy * 24}px rgba(0,212,170,${0.4 + audioEnergy * 0.5})`,
                                 }}
                             />
                         </div>
-                        
+
                         {/* Progress markers */}
                         <div style={markersStyle}>
                             {stages.slice(0, -1).map((stage, i) => (
@@ -102,24 +147,29 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
                                     style={{
                                         ...markerStyle,
                                         left: `${stage.threshold}%`,
-                                        background: progress >= stage.threshold 
-                                            ? '#00d4aa' 
+                                        background: progress >= stage.threshold
+                                            ? '#00d4aa'
                                             : 'rgba(255,255,255,0.2)',
-                                        boxShadow: progress >= stage.threshold 
-                                            ? '0 0 8px #00d4aa' 
+                                        boxShadow: progress >= stage.threshold
+                                            ? `0 0 ${8 + audioEnergy * 12}px #00d4aa`
                                             : 'none',
+                                        transition: 'box-shadow 0.1s ease-out',
                                     }}
                                 />
                             ))}
                         </div>
                     </div>
-                    
+
                     {/* Progress percentage */}
-                    <div style={percentageStyle}>
+                    <div style={{
+                        ...percentageStyle,
+                        textShadow: `0 0 ${16 + audioEnergy * 24}px rgba(0,212,170,${0.5 + audioEnergy * 0.5})`,
+                        transition: 'text-shadow 0.1s ease-out',
+                    }}>
                         {Math.round(progress)}%
                     </div>
                 </div>
-                
+
                 {/* Tips */}
                 <div style={tipsContainerStyle}>
                     <p style={tipStyle}>
@@ -127,10 +177,10 @@ export default function LoadingScreen({ progress, status }: LoadingScreenProps) 
                     </p>
                 </div>
             </div>
-            
+
             {/* Version */}
             <div style={versionStyle}>v2.0.0</div>
-            
+
             <style>{`
                 @keyframes float {
                     0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
@@ -268,7 +318,6 @@ const progressBarFillStyle: React.CSSProperties = {
     borderRadius: '4px',
     transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     animation: 'shimmer 2s linear infinite, pulse-glow 2s ease-in-out infinite',
-    boxShadow: '0 0 20px rgba(0,212,170,0.4)',
 }
 
 const markersStyle: React.CSSProperties = {

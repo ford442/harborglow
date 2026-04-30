@@ -59,6 +59,27 @@ export const harborGlowStyle: React.CSSProperties = {
     background: 'radial-gradient(ellipse at 50% 100%, rgba(0,212,170,0.15) 0%, transparent 60%)',
 }
 
+// Beat-reactive dynamic styles — updated via CSS custom properties
+export const beatReactiveContainerStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    pointerEvents: 'none',
+    zIndex: 1001,
+}
+
+export const beatOrbStyle = (energy: number): React.CSSProperties => ({
+    position: 'absolute',
+    width: `${300 + energy * 200}px`,
+    height: `${300 + energy * 200}px`,
+    borderRadius: '50%',
+    background: `radial-gradient(circle, rgba(0,212,170,${0.05 + energy * 0.15}) 0%, transparent 70%)`,
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    transition: 'all 0.08s ease-out',
+    filter: 'blur(40px)',
+})
+
 export const contentStyle: React.CSSProperties = {
     position: 'relative',
     zIndex: 1,
