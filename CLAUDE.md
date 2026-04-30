@@ -69,33 +69,36 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - Stores attachment system config and multiview/dashboard presets
 
 3. **3D Scene** (`src/scenes/MainScene.tsx`)
-   - Composes all 3D elements: Dock, Water, Ships, Crane, Tugboat
+   - Composes all 3D elements: Dock, Water, Ships, Crane, Tugboat, DistressedShip
    - Integrates multiple game systems via hooks
    - Manages camera transitions and spectator drone sequences
    - Renders ambient environment (weather, lighting, UI)
+   - Spawns missions and controls operation mode transitions
 
 4. **Systems** (`src/systems/`)
    - Modular gameplay systems with no direct mutual dependencies
    - **Music/Audio**: `musicSystem.ts`, `craneSoundSystem.ts`, `ambientSoundSystem.ts`, `soundEffects.ts`
    - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`
-   - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`
-   - **Events**: `eventSystem/`, `dynamicEventSystem.ts`, `wildlifeSystem.ts`, `seaEventsSystem.ts`
-   - **Time & Environment**: `timeSystem.ts`, `StormSystem.ts`, `WaveSystem.ts`
+   - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`, `trafficSystem.ts`
+   - **Operations**: `StormSystem.ts` (timed storm escalation with intensity), Tugboat mode (first-person vessel control with Rapier physics)
+   - **Events**: `eventSystem/`, `dynamicEventSystem.ts`, `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
+   - **Time & Environment**: `timeSystem.ts`, `WaveSystem.ts` (FFT-based ocean), `weatherSystem.ts`
    - **Camera/UI**: `cameraSystem.ts`, `audioVisualSync.ts`, `trainingSystem.ts`
 
 5. **UI Components** (`src/components/`)
    - **HUD** (`HUD.tsx`, `hud/` subdirectory): Main overlay with ship status, camera controls, time display
-   - **Menus**: MainMenu with sub-modals (Settings, HowToPlay, Credits)
-   - **Game UI**: ShipSpawner, UpgradeMenu, LyricsDisplay, TrainingMode
+   - **Menus**: MainMenu with sub-modals (Settings, HowToPlay, Credits, Tutorial selection)
+   - **Game UI**: ShipSpawner, UpgradeMenu, LyricsDisplay, TrainingMode, MissionHUD (mission objectives & timer)
    - **Feedback**: InstallationFeedback, VisualFeedback, DynamicEventNotifier, ReputationPanel
-   - **Dashboard**: Crane dashboard with monitors, telemetry, multiple camera feeds
-   - **Specialized**: OperatorCabin (immersive first-person cab), ErrorBoundary, LoadingScreen
+   - **Dashboard**: Crane dashboard with monitors, telemetry, multiple camera feeds (4-view multiview mode)
+   - **Specialized**: OperatorCabin (immersive first-person cab), ErrorBoundary, LoadingScreen, TugboatHelmUI
 
 6. **3D Components** (`src/scenes/`)
-   - **Core**: Ship (with LOD impostors), Crane, Dock, Water, FoamSystem
+   - **Core**: Ship (with LOD impostors), Crane, Dock, Water, FoamSystem, Tugboat (vessel with buoyancy physics)
+   - **Vessels**: Tugboat, TugboatTargetShip, DistressedShip (storm rescue mission)
    - **Visual Effects**: ParticleSystem, VolumetricLighting, PostProcessing, AudioReactiveLightShow
    - **Advanced**: MultiviewSystem, ControlBooth (multiple camera presets), WildlifeRenderer, SeaEvents
-   - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip
+   - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip, RadarDisplay (tugboat HUD)
 
 ### Key Concepts
 
@@ -112,6 +115,22 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - Crane can snap to attachment points when close enough
 - Installation triggers music/lyrics playback when all upgrades complete
 - Installed upgrades render as glowing light rigs synchronized to music beat
+- Economically incentivized: upgrades grant credits toward harbor progression
+
+#### Tugboat Mode (Operation Mode)
+- Alternative to crane operation: first-person helm control of a vessel
+- **Physics**: Rapier-based buoyancy simulation with realistic wave response (uses `WaveSystem`)
+- **Input**: Mouse look (camera), WASD for throttle/steering, with smooth acceleration
+- **Objectives**: Navigate to marked berths (floating target zones) and dock ships
+- **Progression**: Tugboat objectives count toward booth tier advancement
+- **Integration**: Shares store with crane mode (`operationMode: 'crane' | 'tugboat'`)
+
+#### Mission System & Storm Rescue
+- **Storm Rescue**: Time-limited mission where player must rescue a distressed ship during escalating storms
+- **Storm Intensity**: `StormSystem.ts` simulates 0..1 intensity with wind forces, lightning, rain, visibility reduction
+- **Failure Conditions**: Timeout, excessive ship damage, or entering unsafe zone
+- **Reward**: Credits and reputation bonus on successful rescue
+- **UI**: `MissionHUD.tsx` displays objective, time remaining, damage level
 
 #### Music & Synchronization
 - `musicSystem.ts` defines 8 unique Tone.js tracks (one per ship type)
@@ -119,26 +138,40 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - `audioVisualSync.ts` syncs light pulses, camera movement to Tone.js Transport position
 - Band names revealed during upgrade cinematic
 
-#### Camera & Perspective
-- Multiple camera modes: orbit, crane-cockpit (first-person in cab), crane-shoulder/top, ship views, spectator drone
-- Multiview dashboard: 4-panel view with crane top-down, cable-tip follow, drone chase, underwater dock cameras
-- Immersive Cab Mode toggles between default multiview and first-person inside control booth
-- `useCinematicCamera` handles smooth transitions between modes
+#### Operation Modes
+- **Crane Mode** (default): Operate dock crane to install light rigs on ships
+  - Camera: Orbit, crane-cockpit (first-person in cab), crane-shoulder/top, ship views, spectator drone
+  - Multiview dashboard: 4-panel view with crane top-down, cable-tip follow, drone chase, underwater dock
+- **Tugboat Mode**: First-person helm control of vessel with buoyancy physics
+  - Camera: First-person from helm; mouse look + WASD throttle/steering
+  - Radar display with sweep line and target visualization
+  - Objectives: Navigate and dock at marked berths
+- **Mission Mode**: Temporary mode overlay during storm rescue missions
+  - Switches to tugboat control to rescue distressed ships
+  - Storm intensity increases over time with escalating hazards
+  - Success = return ship safely to berth before time runs out
 
 #### Time & Weather
 - `timeSystem.ts`: 24-hour cycle with defined phases (dawn, day, dusk, night)
 - `moonSystem.ts`: 29-day lunar cycle affecting ambient light and "energy" for tasks
 - `weatherSystem.ts`: Probabilistic weather (clear, rain, fog, storm) with visual/audio effects
-- `StormSystem.ts`: Advanced storm visualization with lightning, rain particles
-- `WaveSystem.ts`: FFT-based ocean simulation with procedural wave heights
+- `StormSystem.ts`: Mission-driven storm system with:
+  - Timed escalation (intensity 0 → 1 over mission duration)
+  - Wind forces affecting tugboat steering and ship dynamics
+  - Lightning strikes with thunder audio effects
+  - Rain density and visibility reduction
+- `WaveSystem.ts`: FFT-based ocean simulation with procedural wave heights, used by Rapier buoyancy
 
 #### Economy & Progression
-- `economySystem.ts`: Credit rewards for ship upgrades, challenges, events
-- `trainingSystem.ts`: Tutorial progression with modules teaching core mechanics
-- `reputationSystem.ts`: Standing affects economic multipliers, event triggers
+- `economySystem.ts`: Credit rewards for upgrades, missions, challenges
+  - **Hooks**: Triggered on upgrade completion, mission success, special events
+  - **Scaling**: Multipliers based on reputation and booth tier
+  - **Booth Tiers**: 1 (industrial) → 2 (tropical) → 3 (arctic), unlocks new features
+- `trainingSystem.ts`: Tutorial progression with modules teaching core mechanics (crane, tugboat, missions)
+- `reputationSystem.ts`: Standing affects economic multipliers, event trigger rates
 - `trafficSystem.ts`: NPC cargo ships in harbor background (visual ambiance)
 - `wildlifeSystem.ts`: Whales, dolphins, sharks with behavior patterns
-- `harborEventSystem.ts`: Story events (whale migrations, ship fires, navy visits)
+- `harborEventSystem.ts`: Story events (whale migrations, ship fires, navy visits, distress calls)
 
 #### Tech System (Phase 9+)
 - `techSystem.ts`: Experimental upgrades unlocked via booth tier progression
@@ -193,27 +226,37 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 ## Development Workflow
 
 1. **Add a Feature**:
-   - Create system in `src/systems/` if it's cross-component logic
-   - Create component in `src/components/` if it's UI
-   - If 3D, add to `src/scenes/`
-   - Update Zustand store if new state needed
+   - Create system in `src/systems/` if it's cross-component logic (music, weather, physics)
+   - Create component in `src/components/` if it's UI (HUD, menus, panels)
+   - If 3D, add to `src/scenes/` (ships, effects, objects)
+   - Update Zustand store in `useGameStore.ts` if new state needed
    - Import and integrate in relevant parent components
+   - Use Leva controls for tuning (wrapped in `useControls`)
 
-2. **Modify Ship Types**:
+2. **Add a Mission Type**:
+   - Define mission interface in `useGameStore.ts`
+   - Create scene component (e.g., `DistressedShip.tsx`)
+   - Spawn from `MainScene.tsx` with mission creation logic
+   - Add mission state management (objective tracking, timers, failure conditions)
+   - Update `MissionHUD.tsx` to display mission-specific UI
+
+3. **Modify Operation Modes**:
+   - Define new `OperationMode` in store type
+   - Implement mode-specific logic in `MainScene.tsx` (conditional rendering)
+   - Add UI/camera transitions in `cameraSystem.ts` if needed
+   - Create scene component for new operation (e.g., `Tugboat.tsx`)
+
+4. **Modify Ship Types**:
    - Update blueprint in `src/types/ShipBlueprint.ts` or `src/blueprints/`
    - Adjust attachment points (position, rotation relative to ship)
    - Update `musicSystem.ts` if new track needed
    - Register new ship type in `ShipType` enum in store
 
-3. **Add Camera Mode**:
-   - Define in `CameraMode` type in store
-   - Implement camera logic in `cameraSystem.ts`
-   - Add button/hotkey in `HUD.tsx`
-
-4. **Debugging**:
-   - Leva panel (bottom-right, press collapse to expand): real-time control over audio BPM, light intensity, weather, time
-   - DevTools in MainScene: toggle between camera modes, debug attachment points
-   - Console logs in systems will output during development
+5. **Debugging**:
+   - Leva panel (bottom-right, press collapse to expand): real-time control over audio BPM, light intensity, weather, time, storm intensity
+   - `console.log` in systems: tagged with emoji for easy scanning (⛈️ storm, 🎵 music, 📊 economy)
+   - Use `npm run build:analyze` to visualize bundle composition
+   - Monitor performance with browser DevTools (check FPS, memory)
 
 ## Testing & Linting
 
@@ -235,11 +278,38 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Known Limitations & TODOs
 
-- Ship models are procedural primitives (TODO: Replace with GLB models)
+- Ship models are procedural primitives (TODO: Replace with GLB models from Sketchfab)
+- Tugboat physics: buoyancy tuning ongoing, may need refinement for different wave heights
+- Mission system: storm rescue is first mission type; additional mission types can be added
+- Training system: core modules in place, expansion planned
+- Tech system: booth tier progression connected, additional tier 2/3 features planned
 - No multiplayer (planned feature)
 - No mobile touch controls (planned)
-- Training system incomplete (Phase 9 work)
-- Experimental tech system still evolving
+
+## Quick Reference: Common Tasks
+
+### Testing a New Feature
+```bash
+npm run dev                    # Start dev server with hot reload
+# In browser: adjust Leva controls in real-time to test parameters
+npm run build:analyze          # Check bundle impact before shipping
+```
+
+### Debugging Physics (Tugboat Mode)
+- Leva → "Tugboat Physics" → adjust mass, damping, buoyancy, restoringTorque
+- Check `StormSystem` state in Leva → "Storm" for wind/wave values
+- Use console logs tagged with emoji (⚓ tugboat, 🌊 wave, ⛈️ storm)
+
+### Adding a New Event Type
+1. Add event type to `HarborEventType` in store
+2. Implement logic in `HarborEventSystem.ts` or `eventSystem/` subdirectory
+3. Trigger via store method (e.g., `spawnEvent()`)
+4. Add UI notification in `components/hud/DynamicEventNotifier.tsx`
+
+### Tweaking Storm Intensity Curve
+- Edit `StormSystem.ts` → `update()` method
+- Adjust intensity interpolation, wind speed scaling, rain density progression
+- Test with Leva panel → "Storm" controls
 
 ## Useful References
 
@@ -248,4 +318,5 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - Three.js Docs: https://threejs.org/docs/
 - Rapier Physics Docs: https://rapier.rs/
 - Zustand Docs: https://github.com/pmndrs/zustand
+- Leva UI: https://github.com/pmndrs/leva
 
