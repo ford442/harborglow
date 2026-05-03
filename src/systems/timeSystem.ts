@@ -5,7 +5,6 @@
 // =============================================================================
 
 import { useGameStore } from '../store/useGameStore'
-import { harborEventSystem } from './eventSystem'
 import { moonSystem, MoonState } from './moonSystem'
 
 // =============================================================================
@@ -327,6 +326,7 @@ class TimeSystem {
     private lastUpdate: number = 0
     private phaseEventsTriggered: Set<string> = new Set()
     private listeners: Set<(state: TimeState) => void> = new Set()
+    private phaseEventHandlers: Set<(eventType: string) => void> = new Set()
     
     constructor() {
         // Start at sunrise for dramatic intro
@@ -365,6 +365,14 @@ class TimeSystem {
         // Return unsubscribe function
         return () => {
             this.listeners.delete(listener)
+        }
+    }
+
+    // Register a handler for phase-driven harbor events (avoids circular import)
+    addPhaseEventHandler(handler: (eventType: string) => void): () => void {
+        this.phaseEventHandlers.add(handler)
+        return () => {
+            this.phaseEventHandlers.delete(handler)
         }
     }
     
@@ -484,26 +492,13 @@ class TimeSystem {
             
             // Trigger events based on phase
             config.events.forEach(eventType => {
-                switch (eventType) {
-                    case 'whale_migration_peak':
-                        if (Math.random() > 0.5) {
-                            harborEventSystem.triggerWhaleMigration('humpback')
-                        }
-                        break
-                    case 'sea_lion_haulout':
-                        if (Math.random() > 0.6) {
-                            harborEventSystem.triggerSeaLionHaulout()
-                        }
-                        break
-                    case 'navy_arrival':
-                        if (Math.random() > 0.7) {
-                            harborEventSystem.triggerNavyResupply()
-                        }
-                        break
-                    case 'bioluminescence_peak':
-                        // Boosts existing plankton bloom
-                        break
-                }
+                this.phaseEventHandlers.forEach(handler => {
+                    try {
+                        handler(eventType)
+                    } catch (e) {
+                        console.error('Error in phase event handler:', e)
+                    }
+                })
             })
         }
     }
