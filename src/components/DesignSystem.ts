@@ -172,6 +172,24 @@ export const SHIP_COLORS = {
     secondary: '#5d6d7e',
     glow: '#34495e80',
     gradient: 'linear-gradient(135deg, #34495e, #5d6d7e)'
+  },
+  ferry: {
+    primary: '#00cc88',
+    secondary: '#33ddaa',
+    glow: '#00cc8880',
+    gradient: 'linear-gradient(135deg, #00cc88, #33ddaa)'
+  },
+  trawler: {
+    primary: '#cc8833',
+    secondary: '#ddaa55',
+    glow: '#cc883380',
+    gradient: 'linear-gradient(135deg, #cc8833, #ddaa55)'
+  },
+  horizon: {
+    primary: '#3388cc',
+    secondary: '#55aaee',
+    glow: '#3388cc80',
+    gradient: 'linear-gradient(135deg, #3388cc, #55aaee)'
   }
 }
 

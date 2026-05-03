@@ -113,7 +113,10 @@ export default function ShipSpawner() {
     lng: ships.filter(s => s.type === 'lng').length,
     roro: ships.filter(s => s.type === 'roro').length,
     research: ships.filter(s => s.type === 'research').length,
-    droneship: ships.filter(s => s.type === 'droneship').length
+    droneship: ships.filter(s => s.type === 'droneship').length,
+    ferry: ships.filter(s => s.type === 'ferry').length,
+    trawler: ships.filter(s => s.type === 'trawler').length,
+    horizon: ships.filter(s => s.type === 'horizon').length
   }
 
   return (

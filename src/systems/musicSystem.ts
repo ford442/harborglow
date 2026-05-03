@@ -63,9 +63,21 @@ class MusicSystem {
             name: 'Sonar Collective', 
             genre: 'Ambient / Scientific' 
         })
-        this.bandNames.set('droneship', { 
-            name: 'Orbital Mechanics', 
-            genre: 'Space Ambient / Electronic' 
+        this.bandNames.set('droneship', {
+            name: 'Orbital Mechanics',
+            genre: 'Space Ambient / Electronic'
+        })
+        this.bandNames.set('ferry', {
+            name: 'Island Crossings',
+            genre: 'Reggae / Calypso Fusion'
+        })
+        this.bandNames.set('trawler', {
+            name: 'The Saltwater Crew',
+            genre: 'Sea Shanty / Folk'
+        })
+        this.bandNames.set('horizon', {
+            name: 'Deep Meridian',
+            genre: 'Oceanic Ambient / Post-Rock'
         })
     }
 
@@ -118,6 +130,32 @@ class MusicSystem {
             { time: '4:2', text: 'Know our name!' },
         ])
 
+        // Island Hopper Ferry - "Harbour Light" - Reggae / Calypso
+        this.lyrics.set('ferry', [
+            { time: '0:0', text: 'Island to island we ride…' },
+            { time: '0:2', text: 'lights on the tide…' },
+            { time: '1:0', text: 'HarborGlow!' },
+            { time: '2:0', text: 'Every crossing glows bright!' },
+            { time: '3:0', text: 'Home on the water tonight!' },
+        ])
+
+        // North Star Trawler - "Saltwater" - Sea Shanty
+        this.lyrics.set('trawler', [
+            { time: '0:0', text: 'Haul the nets, light the way…' },
+            { time: '0:2', text: 'North Star guides our day…' },
+            { time: '1:0', text: 'HarborGlow!' },
+            { time: '2:0', text: 'Salt and steel and light!' },
+            { time: '3:0', text: 'We sail through the night!' },
+        ])
+
+        // Horizon Deep - "Meridian" - Oceanic Ambient
+        this.lyrics.set('horizon', [
+            { time: '0:0', text: 'Beneath the deep we find…' },
+            { time: '1:0', text: 'the light we left behind…' },
+            { time: '2:0', text: 'HarborGlow…' },
+            { time: '4:0', text: 'Horizon calling…' },
+        ])
+
         // Initialize lyric index tracking
         this.currentLyricIndex.set('cruise', 0)
         this.currentLyricIndex.set('container', 0)
@@ -127,6 +165,9 @@ class MusicSystem {
         this.currentLyricIndex.set('roro', 0)
         this.currentLyricIndex.set('research', 0)
         this.currentLyricIndex.set('droneship', 0)
+        this.currentLyricIndex.set('ferry', 0)
+        this.currentLyricIndex.set('trawler', 0)
+        this.currentLyricIndex.set('horizon', 0)
     }
 
     // =========================================================================
@@ -145,6 +186,9 @@ class MusicSystem {
         this.initializeRoroSynths()
         this.initializeResearchSynths()
         this.initializeDroneshipSynths()
+        this.initializeFerrySynths()
+        this.initializeTrawlerSynths()
+        this.initializeHorizonSynths()
         this.initializeTransports()
         
         this.isInitialized = true
@@ -549,6 +593,99 @@ class MusicSystem {
         this.effects.set('droneship', effects)
     }
 
+    // -------------------------------------------------------------------------
+    // FERRY - "Island Crossings" - 115 BPM Reggae / Calypso
+    // -------------------------------------------------------------------------
+    private initializeFerrySynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        const reverb = new Tone.Reverb({ decay: 2, preDelay: 0.05, wet: 0.25 }).toDestination()
+        effects.push(reverb)
+
+        // Bright calypso-feel pad
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.05, decay: 0.3, sustain: 0.6, release: 1.5 }
+        }).connect(reverb)
+        padSynth.volume.value = -12
+        synths.push(padSynth)
+
+        // Walking bass
+        const bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8 }
+        }).connect(reverb)
+        bassSynth.volume.value = -10
+        synths.push(bassSynth)
+
+        this.synths.set('ferry', synths)
+        this.effects.set('ferry', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // TRAWLER - "The Saltwater Crew" - 95 BPM Sea Shanty / Folk
+    // -------------------------------------------------------------------------
+    private initializeTrawlerSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        const reverb = new Tone.Reverb({ decay: 3, preDelay: 0.1, wet: 0.35 }).toDestination()
+        effects.push(reverb)
+
+        // Accordion-like polySynth
+        const accordionSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.1, decay: 0.1, sustain: 0.8, release: 0.5 }
+        }).connect(reverb)
+        accordionSynth.volume.value = -10
+        synths.push(accordionSynth)
+
+        // Deep bass thump
+        const bassSynth = new Tone.MonoSynth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.001, decay: 0.3, sustain: 0.4, release: 0.5 }
+        }).connect(reverb)
+        bassSynth.volume.value = -12
+        synths.push(bassSynth)
+
+        this.synths.set('trawler', synths)
+        this.effects.set('trawler', effects)
+    }
+
+    // -------------------------------------------------------------------------
+    // HORIZON DEEP - "Deep Meridian" - 100 BPM Oceanic Ambient
+    // -------------------------------------------------------------------------
+    private initializeHorizonSynths() {
+        const effects: any[] = []
+        const synths: any[] = []
+
+        const reverb = new Tone.Reverb({ decay: 8, preDelay: 0.4, wet: 0.55 }).toDestination()
+        effects.push(reverb)
+
+        const pingPong = new Tone.PingPongDelay('4n', 0.15).connect(reverb)
+        effects.push(pingPong)
+
+        // Slow evolving pad
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 6 }
+        }).connect(pingPong)
+        padSynth.volume.value = -14
+        synths.push(padSynth)
+
+        // Subtle sonar blip
+        const blipSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.001, decay: 0.6, sustain: 0, release: 1.5 }
+        }).connect(reverb)
+        blipSynth.volume.value = -20
+        synths.push(blipSynth)
+
+        this.synths.set('horizon', synths)
+        this.effects.set('horizon', effects)
+    }
+
     // =========================================================================
     // TRANSPORTS - Music sequences for each ship type
     // =========================================================================
@@ -759,6 +896,73 @@ class MusicSystem {
         dronePart.loop = true
 
         this.transports.set('droneship', droneshipTransport)
+
+        // FERRY TRANSPORT - 115 BPM calypso
+        const ferryTransport = Tone.getTransport()
+        ferryTransport.bpm.value = 115
+
+        const ferrySynths = this.synths.get('ferry') || []
+        const [ferryPad, ferryBass] = ferrySynths
+
+        const ferryChordPart = new Tone.Part((time, value) => {
+            ferryPad?.triggerAttackRelease(value.notes, value.duration, time, 0.7)
+        }, [
+            { time: '0:0', notes: ['C4', 'E4', 'G4'], duration: '2n' },
+            { time: '0:2', notes: ['F3', 'A3', 'C4'], duration: '2n' },
+            { time: '1:0', notes: ['G3', 'B3', 'D4'], duration: '2n' },
+            { time: '1:2', notes: ['C4', 'E4', 'G4'], duration: '2n' },
+        ])
+        ferryChordPart.loop = true
+        ferryChordPart.loopEnd = '2:0'
+
+        const ferryBassPart = new Tone.Sequence((time, note) => {
+            if (note) ferryBass?.triggerAttackRelease(note, '4n', time)
+        }, ['C2', null, 'F2', null, 'G2', null, 'C2', null])
+        ferryBassPart.loop = true
+
+        this.transports.set('ferry', ferryTransport)
+
+        // TRAWLER TRANSPORT - 95 BPM sea shanty
+        const trawlerTransport = Tone.getTransport()
+        trawlerTransport.bpm.value = 95
+
+        const trawlerSynths = this.synths.get('trawler') || []
+        const [accordion, trawlerBass] = trawlerSynths
+
+        const trawlerMelodyPart = new Tone.Sequence((time, note) => {
+            if (note) accordion?.triggerAttackRelease(note, '4n', time)
+        }, ['C4', 'E4', 'G4', 'E4', 'C4', 'D4', 'E4', null])
+        trawlerMelodyPart.loop = true
+
+        const trawlerBassPart = new Tone.Sequence((time, note) => {
+            if (note) trawlerBass?.triggerAttackRelease(note, '8n', time)
+        }, ['C2', null, 'C2', 'G1', null, 'C2', null, 'C2'])
+        trawlerBassPart.loop = true
+
+        this.transports.set('trawler', trawlerTransport)
+
+        // HORIZON TRANSPORT - 100 BPM oceanic ambient
+        const horizonTransport = Tone.getTransport()
+        horizonTransport.bpm.value = 100
+
+        const horizonSynths = this.synths.get('horizon') || []
+        const [horizonPad, horizonBlip] = horizonSynths
+
+        const horizonPadPart = new Tone.Part((time, value) => {
+            horizonPad?.triggerAttackRelease(value.notes, value.duration, time, 0.4)
+        }, [
+            { time: '0:0', notes: ['C3', 'G3', 'C4'], duration: '4m' },
+            { time: '4:0', notes: ['A2', 'E3', 'A3'], duration: '4m' },
+        ])
+        horizonPadPart.loop = true
+        horizonPadPart.loopEnd = '8:0'
+
+        const horizonBlipPart = new Tone.Sequence((time, note) => {
+            if (note) horizonBlip?.triggerAttackRelease(note, '8n', time)
+        }, [null, null, null, null, 'C5', null, null, null, null, null, null, null, 'E5', null, null, null])
+        horizonBlipPart.loop = true
+
+        this.transports.set('horizon', horizonTransport)
     }
 
     // =========================================================================

@@ -67,7 +67,10 @@ const TRAFFIC_CONFIG = {
         lng: 300,
         roro: 90,
         research: 60,
-        droneship: 45
+        droneship: 45,
+        ferry: 30,       // Quick turnaround - passengers + vehicles
+        trawler: 60,     // Offload catch + resupply
+        horizon: 90      // Research ops and equipment checks
     } as Record<ShipType, number>,
     
     // Time pressure thresholds
@@ -112,7 +115,10 @@ function generateShipName(type: ShipType): string {
         lng: ['Gas', 'LNG', 'Cryo', 'Arctic', 'Energy'],
         roro: ['Auto', 'Wheel', 'Drive', 'Ferry', 'Carrier'],
         research: ['Research', 'Survey', 'Ocean', 'Marine', 'Polar'],
-        droneship: ['SpaceX', 'Blue', 'Rocket', 'Launch', 'Orbit']
+        droneship: ['SpaceX', 'Blue', 'Rocket', 'Launch', 'Orbit'],
+        ferry: ['Island', 'Harbour', 'Bay', 'Channel', 'Coastal'],
+        trawler: ['North', 'Silver', 'Iron', 'Cold', 'Deep'],
+        horizon: ['Horizon', 'Abyss', 'Deep', 'Ocean', 'Trench']
     }
     const suffixes = ['Star', 'Queen', 'Leader', 'Express', 'Glory', 'Venture', 'Pioneer']
     
@@ -134,7 +140,10 @@ function generateOriginDestination(type: ShipType): { origin: string; destinatio
         lng: ['Qatar', 'Australia', 'Malaysia', 'Nigeria', 'Norway'],
         roro: ['Japan', 'Korea', 'Germany', 'Belgium', 'California'],
         research: ['Scripps', 'Woods Hole', 'Monterey', 'Hawaii', 'Antarctica'],
-        droneship: ['Cape Canaveral', 'Vandenberg', 'Kennedy', 'Canaveral', 'Kwajalein']
+        droneship: ['Cape Canaveral', 'Vandenberg', 'Kennedy', 'Canaveral', 'Kwajalein'],
+        ferry: ['Victoria', 'Vancouver Island', 'Nanaimo', 'Horseshoe Bay', 'Swartz Bay'],
+        trawler: ['Juneau', 'Kodiak', 'Dutch Harbor', 'Sitka', 'Ketchikan'],
+        horizon: ['Woods Hole', 'Scripps', 'Monterey Bay', 'Hawaii', 'South Pacific']
     }
     
     const possiblePorts = ports[type]
@@ -156,7 +165,10 @@ function generateCargoType(type: ShipType): string {
         lng: ['Liquefied Natural Gas', 'LNG'],
         roro: ['Vehicles', 'Heavy Equipment', 'Trailers'],
         research: ['Scientific Equipment', 'Research Team', 'Samples'],
-        droneship: ['Rocket Booster', 'Fairing Recovery', 'Satellite']
+        droneship: ['Rocket Booster', 'Fairing Recovery', 'Satellite'],
+        ferry: ['Passengers', 'Vehicles', 'Day Tourists'],
+        trawler: ['Salmon', 'Halibut', 'Crab', 'Pollock'],
+        horizon: ['Scientific Equipment', 'Research Team', 'Core Samples', 'ROV Systems']
     }
     const options = cargos[type]
     return options[Math.floor(Math.random() * options.length)]
@@ -294,7 +306,8 @@ class TrafficSystem {
     private calculateReputationValue(type: ShipType, priority: ShipPriority): number {
         const baseValue: Record<ShipType, number> = {
             cruise: 15, container: 10, tanker: 12, bulk: 8,
-            lng: 14, roro: 8, research: 20, droneship: 25
+            lng: 14, roro: 8, research: 20, droneship: 25,
+            ferry: 8, trawler: 6, horizon: 18
         }
         const priorityMult: Record<ShipPriority, number> = {
             normal: 1, priority: 1.5, vip: 2, emergency: 3

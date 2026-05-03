@@ -39,6 +39,9 @@ export default function TopBar({ currentShip, ships }: TopBarProps) {
     roro: '#9b59b6',
     research: '#2ecc71',
     droneship: '#34495e',
+    ferry: '#00cc88',
+    trawler: '#cc8833',
+    horizon: '#3388cc',
   }
   
   return (

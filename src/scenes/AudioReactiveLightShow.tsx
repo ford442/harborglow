@@ -73,7 +73,10 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: Aud
       lng: { h: 195, s: 0.9, l: 0.6 }, // Light Blue
       roro: { h: 280, s: 0.7, l: 0.5 }, // Purple
       research: { h: 145, s: 0.8, l: 0.5 }, // Green
-      droneship: { h: 0, s: 0, l: 0.8 } // White/Gray
+      droneship: { h: 0, s: 0, l: 0.8 }, // White/Gray
+      ferry: { h: 155, s: 0.8, l: 0.5 }, // Teal/Green
+      trawler: { h: 35, s: 0.7, l: 0.5 }, // Amber
+      horizon: { h: 210, s: 0.8, l: 0.5 }  // Ocean Blue
     }
     
     const palette = palettes[shipType]

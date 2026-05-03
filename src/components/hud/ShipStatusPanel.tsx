@@ -63,6 +63,18 @@ const UPGRADE_CATEGORIES: Record<ShipType, { name: string; icon: string; parts: 
     { name: 'Deck', icon: '🚀', parts: ['landing_platform'] },
     { name: 'Sys', icon: '⚡', parts: ['thruster_bays'] },
   ],
+  ferry: [
+    { name: 'Passenger', icon: '🚢', parts: ['passengerDeck', 'bridge'] },
+    { name: 'Vehicle', icon: '🚗', parts: ['bowRamp', 'funnel'] },
+  ],
+  trawler: [
+    { name: 'Deck', icon: '⚓', parts: ['deck', 'masthead'] },
+    { name: 'Gear', icon: '🎣', parts: ['netGantry', 'fishHold'] },
+  ],
+  horizon: [
+    { name: 'Science', icon: '🔬', parts: ['labModule', 'sonarDome'] },
+    { name: 'Ops', icon: '🚁', parts: ['aFrame', 'mastArray'] },
+  ],
 }
 
 export default function ShipStatusPanel({ ship }: ShipStatusPanelProps) {
