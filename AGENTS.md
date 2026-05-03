@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-HarborGlow is a 3D browser-based crane-operator simulation built with React, Three.js, and TypeScript. Players spawn ships into a living harbor, operate a physics-based gantry crane to install light upgrades at attachment points, and trigger synchronized procedural music with lyrics when a vessel is fully upgraded. The project has evolved from a simple three-ship prototype into a feature-rich harbor simulation with eight vessel types, training modules, economy and reputation systems, dynamic weather and wildlife, sea events, multiview camera dashboards, tiered control booth themes, and a day/night cycle.
+HarborGlow is a 3D browser-based crane-operator simulation built with React, Three.js, and TypeScript. Players spawn ships into a living harbor, operate a physics-based gantry crane to install light upgrades at attachment points, and trigger synchronized procedural music with lyrics when a vessel is fully upgraded. The project has evolved from a simple three-ship prototype into a feature-rich harbor simulation with eight vessel types, training modules, economy and reputation systems, dynamic weather and wildlife, sea events, multiview camera dashboards, tiered control booth themes, a day/night cycle, tugboat operations, and moon phases.
 
 ### Core Gameplay Loop
 1. Spawn a ship from the harbor menu.
@@ -12,6 +12,9 @@ HarborGlow is a 3D browser-based crane-operator simulation built with React, Thr
 
 ### Living Fleet
 Ships automatically depart after 45–90 seconds, sail away (hidden), and return to dock after ~10 seconds. The fleet cycles continuously in sandbox mode.
+
+### Tugboat Operations
+The game includes an alternate operation mode where players control a tugboat to assist distressed ships, adding a secondary gameplay layer beyond crane operation.
 
 ## Technology Stack
 
@@ -91,7 +94,7 @@ npm run preview
 
 ```
 src/
-├── components/              # React UI components
+├── components/              # React UI components (~42 files)
 │   ├── MainMenu/            # Menu modals, buttons, styles, types
 │   │   ├── CreditsModal.tsx
 │   │   ├── HowToPlayModal.tsx
@@ -100,9 +103,11 @@ src/
 │   │   ├── SettingsModal.tsx
 │   │   ├── index.ts
 │   │   ├── modalStyles.ts
-│   │   └── styles.ts
+│   │   ├── styles.ts
 │   │   └── types.ts
-│   ├── controls/            # JoystickControl, useCranePhysics
+│   ├── controls/            # Crane input handling
+│   │   ├── JoystickControl.tsx
+│   │   └── useCranePhysics.ts
 │   ├── dashboard/           # Monitor feeds and telemetry
 │   │   ├── Arctic360Cam.tsx
 │   │   ├── DownwardSpreaderCam.tsx
@@ -114,13 +119,18 @@ src/
 │   │   ├── TwistlockCam.tsx
 │   │   ├── WeatherMonitor.tsx
 │   │   └── WinchCam.tsx
-│   ├── hud/                 # TopBar, TimeDisplay, ShipStatusPanel, CameraMultiviewControls
+│   ├── hud/                 # Heads-up display elements
 │   │   ├── CameraMultiviewControls.tsx
 │   │   ├── CraneControlIndicators.tsx
 │   │   ├── HotkeyHints.tsx
+│   │   ├── MissionHUD.tsx
+│   │   ├── ModeToggle.tsx
+│   │   ├── RewardAnimation.tsx
 │   │   ├── ShipStatusPanel.tsx
 │   │   ├── TimeDisplay.tsx
 │   │   ├── TopBar.tsx
+│   │   ├── TugboatHUD.tsx
+│   │   ├── WaveHeightDebug.tsx
 │   │   ├── index.ts
 │   │   └── styles.ts
 │   ├── upgrade/             # Upgrade configuration
@@ -149,7 +159,7 @@ src/
 │   ├── UpgradeMenu.tsx
 │   ├── VisualFeedback.tsx
 │   └── WebGPUWarning.tsx
-├── scenes/                  # R3F 3D scene components
+├── scenes/                  # R3F 3D scene components (~37 files)
 │   ├── AttachmentPoint.tsx
 │   ├── AudioReactiveLightShow.tsx
 │   ├── ControlBooth.tsx
@@ -160,16 +170,18 @@ src/
 │   ├── ControlBoothWithMonitorSystem.tsx
 │   ├── Crane.tsx
 │   ├── CraneCable.tsx
+│   ├── DistressedShip.tsx
 │   ├── DistantShipQueue.tsx
 │   ├── Dock.tsx
 │   ├── EnhancedWeather.tsx
 │   ├── ExperimentalTech.tsx
 │   ├── FFTOcean.tsx
+│   ├── FoamSystem.tsx
 │   ├── GlobalIllumination.tsx
 │   ├── HolographicUI.tsx
 │   ├── InteractiveWater.tsx
 │   ├── LightShow.tsx
-│   ├── MainScene.tsx        # Scene composition, lazy-loaded
+│   ├── MainScene.tsx        # Scene composition, lazy-loaded (~1602 lines)
 │   ├── MonitorMinimalExample.tsx
 │   ├── MonitorSystem.tsx
 │   ├── MultiviewSystem.tsx
@@ -182,19 +194,24 @@ src/
 │   ├── SeaEvents.tsx
 │   ├── Ship.tsx             # Ship rendering (procedural + fallback)
 │   ├── ShipMaterials.tsx
+│   ├── Tugboat.tsx
+│   ├── TugboatTargetShip.tsx
 │   ├── UnderwaterCamera.tsx
 │   ├── UpgradeCelebration.tsx
 │   ├── VolumetricLighting.tsx
 │   ├── Water.tsx
 │   └── Wildlife.tsx
 ├── store/                   # State management
-│   ├── useGameStore.ts      # Monolithic Zustand store (~891 lines)
+│   ├── useGameStore.ts      # Monolithic Zustand store (~1184 lines)
 │   └── harborThemes.ts      # Theme definitions
-├── systems/                 # Game logic singletons
+├── systems/                 # Game logic singletons (~34 files)
+│   ├── StormSystem.ts
+│   ├── WaveSystem.ts
 │   ├── ambientSoundSystem.ts
 │   ├── attachmentSystem.ts  # Crane-to-ship attachment logic
 │   ├── audioVisualSync.ts
 │   ├── cameraSystem.ts
+│   ├── cinematicSystem.ts
 │   ├── craneSoundSystem.ts
 │   ├── dynamicEventSystem.ts
 │   ├── economySystem.ts     # Harbor Credits / shop logic
@@ -204,9 +221,11 @@ src/
 │   │   ├── index.ts
 │   │   ├── speciesData.ts
 │   │   └── types.ts
+│   ├── introLyrics.ts
+│   ├── introMusicSystem.ts
 │   ├── lightingSystem.ts    # Beat-synced lighting
 │   ├── moonSystem.ts
-│   ├── musicSystem.ts       # Tone.js music + lyrics sync
+│   ├── musicSystem.ts       # Tone.js music + lyrics sync (~872 lines)
 │   ├── performanceSystem.tsx
 │   ├── physicsSystem.ts
 │   ├── reputationSystem.ts
@@ -218,7 +237,7 @@ src/
 │   ├── techSystem.ts
 │   ├── timeSystem.ts
 │   ├── trafficSystem.ts
-│   ├── trainingSystem.ts    # Training module definitions
+│   ├── trainingSystem.ts    # Training module definitions (~772 lines)
 │   ├── weatherSystem.ts     # Weather state machine
 │   └── wildlifeSystem.ts
 ├── shaders/                 # Custom shaders
@@ -229,9 +248,10 @@ src/
 ├── utils/                   # Utilities
 │   └── storage_manager.ts   # localStorage persistence wrapper
 ├── hooks/                   # Custom React hooks
+│   ├── useCameraTransition.ts
 │   └── useScreenShake.ts
 ├── blueprints/              # Procedural definitions
-│   └── ships.json           # Ship geometry blueprints
+│   └── ships.json           # Ship geometry blueprints (8 vessels)
 ├── App.tsx                  # Root app component
 ├── App.css
 ├── main.tsx                 # Entry point
@@ -240,9 +260,12 @@ src/
 public/
 ├── models/                  # GLB model files (currently empty)
 │   └── .gitkeep
+├── audio/                   # Audio assets
+├── models/                  # 3D model assets
 └── vite.svg
 
 docs/
+├── plans/                   # Implementation plans
 ├── research/
 │   ├── DAY_NIGHT_CYCLE.md
 │   ├── EXPERIMENTAL_PORT_TECH.md
@@ -263,6 +286,11 @@ research/                    # External research notes for agent swarm
 └── specialized_vessels.md
 
 Root files:
+├── .github/
+│   ├── workflows/
+│   │   └── copilot-setup-steps.yml  # Playwright MCP setup workflow
+│   ├── copilot-instructions.md
+│   └── playwright-mcp.json
 ├── deploy.py                # Python SFTP deployment script
 ├── fix_components.cjs       # Cleanup: component fixes
 ├── fix_deps.cjs             # Cleanup: dependency array fixes
@@ -283,12 +311,11 @@ Root files:
 ## Code Organization Patterns
 
 ### State Management (Zustand)
-- All game state lives in `useGameStore.ts` (~891 lines).
-- Store includes: ships, upgrades, crane kinematics, camera modes, weather, wildlife, harbor events, training progress, reputation, economy, booth tier, time of day, sea events, and attachment system config.
+- All game state lives in `useGameStore.ts` (~1184 lines).
+- Store includes: ships, upgrades, crane kinematics, camera modes, weather, wildlife, harbor events, training progress, reputation, economy, booth tier, time of day, sea events, operation mode (crane/tugboat), tugboat state, wave params, wind state, and attachment system config.
 - Actions are defined inline inside the store.
-- Auto-persistence to `localStorage` via `storage_manager.ts` with a 500ms debounced `scheduleSave`.
-- A `.subscribe()` hook triggers saves on every state change.
-- Save data includes a version string for basic compatibility checks.
+- Auto-persistence to `localStorage` via `storage_manager.ts` with a debounced save triggered by `.subscribe()`.
+- Save data includes a version string (`harborglow-save-v3`) for basic compatibility checks.
 - Derived-state selectors (`selectCurrentShip`, `selectShipUpgrades`, `selectUpgradeProgress`, `selectIsShipFullyUpgraded`) are exported as plain functions.
 
 ### 3D Component Patterns
@@ -300,15 +327,16 @@ Root files:
 - Ships are procedurally generated from `ships.json` blueprints; a colored box impostor is used as a LOD fallback at distance.
 
 ### System Singletons
-- `MusicSystem`, `LightingSystem`, `WeatherSystem`, `SwaySystem`, `TrainingSystem`, etc. are ES6 classes instantiated as module-level singletons.
-- Some systems expose React hooks (e.g., `useTrainingSystem`, `useAttachmentSystem`) that subscribe to internal listeners.
+- `MusicSystem`, `LightingSystem`, `WeatherSystem`, `SwaySystem`, `TrainingSystem`, `EconomySystem`, `ReputationSystem`, `TrafficSystem`, `WildlifeSystem`, `SeaEventsSystem`, `HarborEventSystem`, `TimeSystem`, `MoonSystem`, etc. are ES6 classes or objects instantiated as module-level singletons.
+- Some systems expose React hooks (e.g., `useCameraTransition`, `useAudioVisualSync`) that subscribe to internal listeners.
 
 ### Audio Architecture
 - `MusicSystem` in `musicSystem.ts` is a singleton using Tone.js.
 - Each of the 8 ship types has its own synth/effect chain and `Tone.Transport` sequence.
 - Lyrics are arrays of `{ time, text }` synced against `transport.position`.
 - BPM is globally adjustable; climax mode temporarily boosts BPM and volume.
-- Additional audio layers: `ambientSoundSystem.ts`, `craneSoundSystem.ts`, `audioVisualSync.ts`.
+- Additional audio layers: `ambientSoundSystem.ts`, `craneSoundSystem.ts`, `audioVisualSync.ts`, `introMusicSystem.ts`.
+- Audio requires user interaction to start (browser autoplay policy). A click/keydown listener in `App.tsx` initializes `Tone.start()`.
 
 ### Ship Upgrades & Attachment Points
 - Ships have `attachmentPoints` derived from blueprint `parts`.
@@ -376,6 +404,8 @@ Root files:
 6. Verify WebGPU warning appears on unsupported browsers.
 7. Test training module flow (open hub, start module, complete, return).
 8. Verify save/load persistence across page reloads.
+9. Test tugboat mode toggle and tugboat HUD.
+10. Verify moon phase display in time system.
 
 ## Deployment
 
@@ -394,6 +424,10 @@ python deploy.py
 - Local source: `dist/`
 
 **Security Note**: The deploy script contains a hardcoded password on line 45. In production, use environment variables.
+
+## GitHub Actions
+
+- `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 20, installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
 
 ## Security Considerations
 
@@ -442,6 +476,7 @@ type CameraPresetId = 'orbit-overview' | 'gantry-top-down' | 'cable-tip-follow' 
 
 // Game & weather
 type GameMode = 'sandbox' | 'training'
+type OperationMode = 'crane' | 'tugboat'
 type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 type QualityPreset = 'low' | 'medium' | 'high'
 
@@ -511,4 +546,4 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 
 ---
 
-*Last updated: April 2026 — based on direct codebase analysis.*
+*Last updated: May 2026 — based on direct codebase analysis of 145 source files.*
