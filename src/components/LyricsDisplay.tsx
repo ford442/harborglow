@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
+import { sequencerSystem } from '../systems/sequencerSystem'
 import { SHIP_COLORS } from './DesignSystem'
 
 // =============================================================================
@@ -74,6 +75,7 @@ export default function LyricsDisplay() {
   }, [])
 
   // Show band name when music starts
+  const bandNameCueRef = useRef<number | null>(null)
   useEffect(() => {
     if (!currentShip) {
       setShowBandName(false)
@@ -82,7 +84,17 @@ export default function LyricsDisplay() {
 
     if (isMusicPlaying && !showBandName) {
       setShowBandName(true)
-      setTimeout(() => setShowBandName(false), 4000)
+      // Schedule hide via sequencer (~8 beats at 105-128 BPM ≈ 4-5s)
+      bandNameCueRef.current = sequencerSystem.schedule(8, () => {
+        setShowBandName(false)
+      })
+    }
+
+    return () => {
+      if (bandNameCueRef.current !== null) {
+        sequencerSystem.cancel(bandNameCueRef.current)
+        bandNameCueRef.current = null
+      }
     }
   }, [currentShip, isMusicPlaying, showBandName])
 
@@ -115,7 +127,8 @@ export default function LyricsDisplay() {
             y: 40 + Math.random() * 20
           }))
           setParticles(newParticles)
-          setTimeout(() => setParticles([]), 1000)
+          // Schedule cleanup via sequencer (~2 beats at 105-128 BPM ≈ 1-1.1s)
+          sequencerSystem.schedule(2, () => setParticles([]))
         }
       }
       

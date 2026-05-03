@@ -10,6 +10,7 @@ import { reputationSystem } from '../systems/reputationSystem'
 import { economySystem } from '../systems/economySystem'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
+import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { weatherSystem, WeatherType } from '../systems/weatherSystem'
 import { swaySystem } from '../systems/swaySystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
@@ -330,12 +331,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             // Win condition check
             if (tugboatDockedCount >= 3 && !tugboatWinTriggered) {
                 triggerTugboatWin()
-                // Trigger celebration on first completed ship's type
                 const firstCompleted = tugboatObjectives.find(o => o.completed)
                 if (firstCompleted) {
-                    musicSystem.startMusic(firstCompleted.shipType)
-                    lightingSystem.startHarborShow('tugboat-win', firstCompleted.shipType)
-                    lightingSystem.triggerClimax(firstCompleted.shipType)
+                    triggerUpgradeCinematic(firstCompleted.shipType, 'tugboat-win')
                 }
             }
         }

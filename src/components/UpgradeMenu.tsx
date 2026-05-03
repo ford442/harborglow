@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useGameStore, Ship, selectUpgradeProgress, ShipType } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
+import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { UPGRADE_CONFIGS, shipTypeLabels, shipTypeColors } from './upgrade/upgradeConfigs'
 import { ParticleBurst, ShipFullyUpgradedCelebration, useUpgradeSounds } from './VisualFeedback'
 
@@ -61,18 +62,16 @@ export default function UpgradeMenu() {
             setBandName(bandInfo.name)
             setShowBandReveal(true)
 
-            musicSystem.startMusic(currentShip.type)
-            setMusicPlaying(currentShip.id, true)
-
-            setTimeout(() => {
-                setSpectatorTarget(currentShip.id)
-            }, 3000)
-
-            setTimeout(() => {
-                setShowBandReveal(false)
-            }, 8000)
+            triggerUpgradeCinematic(currentShip.type, currentShip.id)
         }
-    }, [installedUpgrades, currentShip, showBandReveal, setMusicPlaying, setSpectatorTarget, playCelebrationSound, showCelebration])
+    }, [installedUpgrades, currentShip, showBandReveal, playCelebrationSound, showCelebration])
+
+    // Listen for sequencer-driven band-name hide cue
+    useEffect(() => {
+        const onHide = () => setShowBandReveal(false)
+        window.addEventListener('cinematicHideBandName', onHide)
+        return () => window.removeEventListener('cinematicHideBandName', onHide)
+    }, [])
 
     if (!currentShip) {
         return (
