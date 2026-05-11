@@ -64,6 +64,28 @@ export type QualityPreset = 'low' | 'medium' | 'high'
 export type MultiviewMode = 'single' | 'quad'
 export type HarborType = 'norway' | 'singapore' | 'dubai' | 'rotterdam' | 'yokohama' | 'longbeach' | 'santos'
 
+// -------------------------------------------------------------------------
+// NEW: CameraTransform — distinct from CameraMode, used for viewport-local
+// history stack in the multiview dashboard (Alt A architecture)
+// -------------------------------------------------------------------------
+export interface CameraTransform {
+    position: [number, number, number]
+    target: [number, number, number]
+    label?: string
+}
+
+export interface ViewportCameraState {
+    history: CameraTransform[]
+    historyIndex: number
+    pinned: CameraTransform[]
+}
+
+export const DEFAULT_VIEWPORT_CAMERA_STATE: ViewportCameraState = {
+    history: [],
+    historyIndex: -1,
+    pinned: []
+}
+
 export interface AttachmentPoint {
     position: [number, number, number]
     rotation: [number, number, number]
@@ -202,6 +224,8 @@ interface SerializableState {
     multiviewMode: MultiviewMode
     underwaterIntensity: number
     dashboardPresets: DashboardPresets
+    viewportCameras: Record<DashboardViewportId, ViewportCameraState>
+    focusedViewport: DashboardViewportId | null
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
@@ -317,6 +341,12 @@ interface GameState extends SerializableState {
     setMultiviewMode: (mode: MultiviewMode) => void
     setUnderwaterIntensity: (intensity: number) => void
     setDashboardPreset: (viewportId: DashboardViewportId, presetId: CameraPresetId) => void
+    // Viewport-local camera history stack (Alt A)
+    pushViewportHistory: (viewportId: DashboardViewportId, transform: CameraTransform) => void
+    navigateViewportHistory: (viewportId: DashboardViewportId, direction: -1 | 1) => void
+    pinViewportCamera: (viewportId: DashboardViewportId, transform: CameraTransform) => void
+    recallPinnedViewportCamera: (viewportId: DashboardViewportId, pinIndex: number) => void
+    setFocusedViewport: (viewportId: DashboardViewportId | null) => void
     // Crane control actions
     setSpreaderPos: (pos: { x: number; y: number; z: number }) => void
     setSpreaderRotation: (rotation: number) => void
@@ -374,6 +404,8 @@ const defaultState: Omit<GameState, keyof {
     setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
+    pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
+    recallPinnedViewportCamera: unknown; setFocusedViewport: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
     addHarborEvent: unknown; removeHarborEvent: unknown; setEventEnabled: unknown;
     setCurrentHarbor: unknown; setCabinViewMode: unknown; setGameTime: unknown;
@@ -431,6 +463,13 @@ const defaultState: Omit<GameState, keyof {
     multiviewMode: 'single' as MultiviewMode,
     underwaterIntensity: 1,
     dashboardPresets: DEFAULT_STORE_DASHBOARD_PRESETS,
+    viewportCameras: {
+        crane: { history: [], historyIndex: -1, pinned: [] },
+        hook: { history: [], historyIndex: -1, pinned: [] },
+        drone: { history: [], historyIndex: -1, pinned: [] },
+        underwater: { history: [], historyIndex: -1, pinned: [] }
+    },
+    focusedViewport: null,
     wildlife: [],
     activeSeaEvent: null,
     activeHarborEvents: [],
@@ -678,6 +717,13 @@ export const useGameStore = create<GameState>((set, get) => ({
             weatherIntensity: 0.5,
             qualityPreset: 'high',
             dashboardPresets: DEFAULT_STORE_DASHBOARD_PRESETS,
+            viewportCameras: {
+                crane: { history: [], historyIndex: -1, pinned: [] },
+                hook: { history: [], historyIndex: -1, pinned: [] },
+                drone: { history: [], historyIndex: -1, pinned: [] },
+                underwater: { history: [], historyIndex: -1, pinned: [] }
+            },
+            focusedViewport: null,
             operationMode: 'crane',
             tugboatState: {
                 position: [20, 0.5, 10],
@@ -894,6 +940,74 @@ export const useGameStore = create<GameState>((set, get) => ({
             return newState
         })
     },
+    
+    // Viewport-local camera history stack (Alt A)
+    pushViewportHistory: (viewportId, transform) => {
+        set((state) => {
+            const vp = state.viewportCameras[viewportId]
+            const newHistory = vp.history.slice(0, vp.historyIndex + 1)
+            newHistory.push(transform)
+            if (newHistory.length > 20) newHistory.shift()
+            const newIndex = newHistory.length - 1
+            return {
+                viewportCameras: {
+                    ...state.viewportCameras,
+                    [viewportId]: {
+                        ...vp,
+                        history: newHistory,
+                        historyIndex: newIndex
+                    }
+                }
+            }
+        })
+    },
+    navigateViewportHistory: (viewportId, direction) => {
+        set((state) => {
+            const vp = state.viewportCameras[viewportId]
+            const newIndex = Math.max(0, Math.min(vp.history.length - 1, vp.historyIndex + direction))
+            if (newIndex === vp.historyIndex) return state
+            return {
+                viewportCameras: {
+                    ...state.viewportCameras,
+                    [viewportId]: { ...vp, historyIndex: newIndex }
+                }
+            }
+        })
+    },
+    pinViewportCamera: (viewportId, transform) => {
+        set((state) => {
+            const vp = state.viewportCameras[viewportId]
+            const newPinned = [...vp.pinned, transform]
+            if (newPinned.length > 6) newPinned.shift()
+            return {
+                viewportCameras: {
+                    ...state.viewportCameras,
+                    [viewportId]: { ...vp, pinned: newPinned }
+                }
+            }
+        })
+    },
+    recallPinnedViewportCamera: (viewportId, pinIndex) => {
+        set((state) => {
+            const vp = state.viewportCameras[viewportId]
+            const snapshot = vp.pinned[pinIndex]
+            if (!snapshot) return state
+            const newHistory = vp.history.slice(0, vp.historyIndex + 1)
+            newHistory.push(snapshot)
+            if (newHistory.length > 20) newHistory.shift()
+            return {
+                viewportCameras: {
+                    ...state.viewportCameras,
+                    [viewportId]: {
+                        ...vp,
+                        history: newHistory,
+                        historyIndex: newHistory.length - 1
+                    }
+                }
+            }
+        })
+    },
+    setFocusedViewport: (viewportId) => set({ focusedViewport: viewportId }),
     
     // Wildlife and sea event actions
     addWildlife: (wildlife) => set((state) => ({
