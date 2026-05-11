@@ -1,4 +1,5 @@
 {
+  "_DEPRECATED": "DEPRECATED — superseded by eslint.config.js (ESLint v9 flat config). This file is kept for reference only.",
   "root": true,
   "env": { "browser": true, "es2020": true },
   "extends": [
