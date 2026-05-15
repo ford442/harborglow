@@ -49,96 +49,35 @@ function padColor(arr: THREE.Color[], size: number): THREE.Color[] {
 //   sampleCount: 4
 // }
 
-// SSGI shader functions
+// Hash helper used by irradiance sampling
 const ssgiFunctions = `
-  // Hash function for random sampling
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
   }
-  
-  // Screen-space ray marching for bounce lighting
-  vec3 ssgiTrace(vec3 worldPos, vec3 worldNormal, vec3 viewDir, sampler2D depthTexture, sampler2D colorTexture, mat4 projectionMatrix, mat4 viewMatrix, vec2 resolution) {
-    vec3 accumulatedLight = vec3(0.0);
-    float totalWeight = 0.0;
-    
-    // Sample directions in hemisphere
-    for (int i = 0; i < 4; i++) {
-      // Generate random direction in hemisphere
-      float angle = hash(worldPos.xy + vec2(float(i), uTime)) * 6.28318;
-      float radius = hash(worldPos.yz + vec2(float(i), uTime * 0.5));
-      
-      vec3 sampleDir = normalize(vec3(
-        cos(angle) * radius,
-        sin(angle) * radius,
-        sqrt(1.0 - radius * radius)
-      ));
-      
-      // Transform to world space
-      vec3 tangent = normalize(cross(worldNormal, vec3(0.0, 1.0, 0.0)));
-      if (length(tangent) < 0.001) tangent = normalize(cross(worldNormal, vec3(1.0, 0.0, 0.0)));
-      vec3 bitangent = cross(worldNormal, tangent);
-      
-      sampleDir = tangent * sampleDir.x + bitangent * sampleDir.y + worldNormal * sampleDir.z;
-      
-      // Ray march in screen space
-      vec3 rayPos = worldPos + sampleDir * 0.1;
-      float stepSize = 0.5;
-      
-      for (int step = 0; step < 32; step++) {
-        rayPos += sampleDir * stepSize;
-        
-        // Project to screen space
-        vec4 clipPos = projectionMatrix * viewMatrix * vec4(rayPos, 1.0);
-        vec2 screenPos = clipPos.xy / clipPos.w * 0.5 + 0.5;
-        
-        // Check bounds
-        if (screenPos.x < 0.0 || screenPos.x > 1.0 || screenPos.y < 0.0 || screenPos.y > 1.0) break;
-        
-        // Sample depth
-        float sceneDepth = texture2D(depthTexture, screenPos).r;
-        float rayDepth = clipPos.w;
-        
-        // Hit detection
-        if (rayDepth > sceneDepth * 1.1) {
-          // We hit something, accumulate color
-          vec3 hitColor = texture2D(colorTexture, screenPos).rgb;
-          float weight = max(0.0, dot(sampleDir, worldNormal));
-          accumulatedLight += hitColor * weight;
-          totalWeight += weight;
-          break;
-        }
-        
-        stepSize *= 1.1; // Exponential step size
-      }
-    }
-    
-    return totalWeight > 0.0 ? accumulatedLight / totalWeight * 0.3 : vec3(0.0);
-  }
 `
 
-// Irradiance sampling function
+// Irradiance sampling function — loop uses compile-time constant bound (GLSL ES 1.0 safe)
 const irradianceFunctions = `
-  // Sample irradiance from probe grid
   vec3 sampleIrradiance(vec3 worldPos, vec3 normal) {
     vec3 irradiance = vec3(0.0);
     float totalWeight = 0.0;
-    
-    // Sample nearby probes (simplified - would use actual probe grid)
-    for (int i = 0; i < uNumProbes; i++) {
+
+    for (int i = 0; i < ${MAX_PROBES}; i++) {
+      if (i >= uNumProbes) break;
       vec3 probePos = uProbePositions[i];
       vec3 probeIrradiance = uProbeIrradiance[i];
       float probeRadius = uProbeRadii[i];
-      
+
       float dist = length(worldPos - probePos);
       if (dist > probeRadius) continue;
-      
+
       float weight = 1.0 - dist / probeRadius;
       weight *= max(0.0, dot(normal, normalize(probePos - worldPos)));
-      
+
       irradiance += probeIrradiance * weight;
       totalWeight += weight;
     }
-    
+
     return totalWeight > 0.0 ? irradiance / totalWeight : vec3(0.0);
   }
 `

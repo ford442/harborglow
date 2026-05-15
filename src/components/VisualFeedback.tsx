@@ -306,8 +306,8 @@ export function useUpgradeSounds() {
       const synth = new Tone.PolySynth(Tone.Synth).toDestination()
       synth.volume.value = -10
       
-      // Play a pleasant chord
-      synth.triggerAttackRelease(['C5', 'E5', 'G5'], '8n')
+      // Play a pleasant chord — schedule slightly ahead to avoid past-time errors
+      synth.triggerAttackRelease(['C5', 'E5', 'G5'], '8n', Tone.now() + 0.05)
       
       // Add a sparkle effect
       const sparkle = new Tone.MetalSynth({
@@ -329,8 +329,8 @@ export function useUpgradeSounds() {
       const synth = new Tone.PolySynth(Tone.Synth).toDestination()
       synth.volume.value = -5
       
-      // Fanfare
-      const now = Tone.now()
+      // Fanfare — lookahead buffer so bass (created below) isn't scheduled in the past
+      const now = Tone.now() + 0.05
       synth.triggerAttackRelease('C4', '8n', now)
       synth.triggerAttackRelease('E4', '8n', now + 0.1)
       synth.triggerAttackRelease('G4', '8n', now + 0.2)

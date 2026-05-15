@@ -29,8 +29,8 @@ const playInstallSound = async (rigType: RigType) => {
     octaves: 1.5
   }).toDestination()
   
-  // Play satisfying mechanical lock sound
-  const now = Tone.now()
+  // Small lookahead buffer — avoids scheduling at an already-past AudioContext time
+  const now = Tone.now() + 0.05
   
   // Chord based on rig type
   const chords: Record<RigType, string[]> = {

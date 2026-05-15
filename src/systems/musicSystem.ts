@@ -726,8 +726,8 @@ class MusicSystem {
         const [containerFm, membrane, metal] = containerSynths
 
         // Techno beat
-        const kickPart = new Tone.Sequence(() => {
-            membrane?.triggerAttackRelease('C1', '8n')
+        const kickPart = new Tone.Sequence((time) => {
+            membrane?.triggerAttackRelease('C1', '8n', time)
         }, ['C1', null, 'C1', null, 'C1', null, 'C1', null])
         kickPart.loop = true
 
@@ -834,8 +834,8 @@ class MusicSystem {
         roroBassPart.loop = true
 
         // Driving beat
-        const roroBeatPart = new Tone.Sequence(() => {
-            roroDrum?.triggerAttackRelease('C1', '8n')
+        const roroBeatPart = new Tone.Sequence((time) => {
+            roroDrum?.triggerAttackRelease('C1', '8n', time)
         }, ['C1', 'C1', null, 'C1', null, 'C1', 'C1', null])
         roroBeatPart.loop = true
 
