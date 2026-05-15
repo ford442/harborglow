@@ -604,7 +604,10 @@ function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remainingTime:
         lng: 'Cryo Titan',
         roro: 'Vehicle Voyager',
         research: 'Deep Discoverer',
-        droneship: 'Of Course I Still Love You'
+        droneship: 'Of Course I Still Love You',
+        ferry: 'Harbour Light',
+        trawler: 'Saltwater',
+        horizon: 'Meridian'
     }
 
     const colors: Record<ShipType, string> = {
@@ -615,7 +618,10 @@ function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remainingTime:
         lng: '#00ffff',
         roro: '#ff6b35',
         research: '#4169e1',
-        droneship: '#ffffff'
+        droneship: '#ffffff',
+        ferry: '#00cc88',
+        trawler: '#cc8833',
+        horizon: '#3388cc'
     }
 
     return (

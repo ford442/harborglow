@@ -51,6 +51,24 @@ const DRONESHIP_NAMES = [
     'Landing Platform', 'Rocket Recovery', 'Booster Base', 'Falcon Finder'
 ]
 
+const FERRY_NAMES = [
+    'Island Hopper', 'Harbour Spirit', 'Bay Crosser', 'Channel Runner',
+    'Island Breeze', 'Coastal Star', 'Ferry Queen', 'Sea Bridge',
+    'Island Express', 'Harbour Light', 'Bay Star', 'Passage Queen'
+]
+
+const TRAWLER_NAMES = [
+    'North Star', 'Silver Catch', 'Ocean Harvest', 'Deep Net',
+    'Saltwater King', 'Tide Runner', 'Iron Hook', 'Net Master',
+    'Cold Water', 'Herring Dawn', 'Fisher King', 'Gale Force'
+]
+
+const HORIZON_NAMES = [
+    'Horizon Deep', 'Abyss Pioneer', 'Meridian Quest', 'Deep Meridian',
+    'Ocean Frontier', 'Depth Seeker', 'Blue Horizon', 'Silent Deep',
+    'Trench Walker', 'Pressure Wave', 'Deepsea Atlas', 'Dark Water'
+]
+
 export class ShipSpawner {
     private static nameCounters: Record<ShipType, number> = {
         cruise: 0,
@@ -60,7 +78,10 @@ export class ShipSpawner {
         lng: 0,
         roro: 0,
         research: 0,
-        droneship: 0
+        droneship: 0,
+        ferry: 0,
+        trawler: 0,
+        horizon: 0
     }
 
     static spawnShip(type: ShipType): Ship {
@@ -116,7 +137,10 @@ export class ShipSpawner {
             lng: 35,        // Q-Max ~345m
             roro: 19,       // Typical Ro-Ro ~190m
             research: 15,   // Research vessel ~75m
-            droneship: 9    // ASDS ~90m
+            droneship: 9,   // ASDS ~90m
+            ferry: 11,      // Island ferry ~55m
+            trawler: 8,     // Fishing trawler ~40m
+            horizon: 14     // Deep-ocean research vessel ~70m
         }
         return lengths[type]
     }
@@ -163,7 +187,10 @@ export class ShipSpawner {
             lng: LNG_NAMES,
             roro: RORO_NAMES,
             research: RESEARCH_NAMES,
-            droneship: DRONESHIP_NAMES
+            droneship: DRONESHIP_NAMES,
+            ferry: FERRY_NAMES,
+            trawler: TRAWLER_NAMES,
+            horizon: HORIZON_NAMES
         }
         
         const typeNames = names[type]
@@ -176,7 +203,7 @@ export class ShipSpawner {
     }
 
     static resetCounters() {
-        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0 }
+        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0 }
     }
 
     static getShipTypeInfo(type: ShipType) {
@@ -189,7 +216,10 @@ export class ShipSpawner {
             lng: { name: 'Cryo Titan', genre: 'Ambient / Cryogenic Techno', bpm: 118, description: 'Q-Max LNG carrier (266,000 m³) with membrane tanks at -163°C' },
             roro: { name: 'Vehicle Voyager', genre: 'Synthwave / Driving Rock', bpm: 125, description: 'Roll-on/Roll-off ferry with vehicle decks and stern ramps' },
             research: { name: 'Deep Discoverer', genre: 'Ambient / Scientific', bpm: 110, description: 'Ice-strengthened research vessel with A-frame and sonar array' },
-            droneship: { name: 'Of Course I Still Love You', genre: 'Space Ambient / Electronic', bpm: 105, description: 'SpaceX ASDS - autonomous spaceport drone ship for booster recovery' }
+            droneship: { name: 'Of Course I Still Love You', genre: 'Space Ambient / Electronic', bpm: 105, description: 'SpaceX ASDS - autonomous spaceport drone ship for booster recovery' },
+            ferry: { name: 'Harbour Light', genre: 'Reggae / Calypso Fusion', bpm: 115, description: 'Island Hopper ferry with passenger and car decks' },
+            trawler: { name: 'Saltwater', genre: 'Sea Shanty / Folk', bpm: 95, description: 'North Star fishing trawler with net gantry and fish hold' },
+            horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' }
         }
         return { ...info[type], modelName: blueprint?.name || type }
     }

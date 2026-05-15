@@ -32,7 +32,7 @@ const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
 // TYPES - HarborGlow Game State
 // =============================================================================
 
-export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship'
+export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship' | 'ferry' | 'trawler' | 'horizon'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
@@ -1284,7 +1284,10 @@ export const selectUpgradeProgress = (state: GameState, shipId: string): number 
         lng: 10,        // LNG carrier - 5 membrane tank enclosures + 5 superstructure
         roro: 8,        // Ro-Ro ferry - vehicle deck lighting + ramp illumination
         research: 7,    // Research vessel - lab lighting + sonar array + equipment bays
-        droneship: 6    // Space recovery drone ship - landing platform + thruster bays
+        droneship: 6,   // Space recovery drone ship - landing platform + thruster bays
+        ferry: 4,       // Island Hopper ferry - passenger deck + car deck + nav lights
+        trawler: 4,     // North Star trawler - wheelhouse + gantry + fish hold + mast
+        horizon: 4      // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
     }
     
     const installed = state.installedUpgrades.filter(u => u.shipId === shipId).length

@@ -234,7 +234,8 @@ class ExperimentalTechSystem {
         
         const upgradeCounts: Record<ShipType, number> = {
             cruise: 8, container: 10, tanker: 8, bulk: 9,
-            lng: 10, roro: 8, research: 7, droneship: 6
+            lng: 10, roro: 8, research: 7, droneship: 6,
+            ferry: 4, trawler: 4, horizon: 4
         }
         
         const installed = state.installedUpgrades.filter(u => u.shipId === shipId).length

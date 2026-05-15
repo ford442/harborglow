@@ -49,6 +49,9 @@ export const SHIP_TYPE_LIGHT_COLORS: Record<ShipType, string> = {
   roro: '#ff88ff',
   research: '#88ffff',
   droneship: '#ffff88',
+  ferry: '#00ffcc',
+  trawler: '#ffcc44',
+  horizon: '#44aaff',
 }
 
 // Attachment system configuration

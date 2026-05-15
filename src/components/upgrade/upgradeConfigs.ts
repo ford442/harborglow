@@ -96,6 +96,24 @@ export const UPGRADE_CONFIGS: Record<ShipType, UpgradeOption[]> = {
         { partName: 'cameras', label: 'Camera System', description: 'Landing camera floodlights' },
         { partName: 'octagrabber', label: 'Octagrabber', description: 'Robot securing system lights' },
     ],
+    ferry: [
+        { partName: 'bowRamp', label: 'Bow Ramp Lights', description: 'Vehicle ramp approach lighting' },
+        { partName: 'passengerDeck', label: 'Passenger Deck Strip', description: 'Cabin window accent lighting' },
+        { partName: 'bridge', label: 'Bridge Nav Lights', description: 'Navigation and signal lights' },
+        { partName: 'funnel', label: 'Funnel Array', description: 'Stack top illumination' },
+    ],
+    trawler: [
+        { partName: 'masthead', label: 'Masthead Light', description: 'Navigation masthead beacon' },
+        { partName: 'deck', label: 'Work Deck Floods', description: 'Deck floodlighting for night ops' },
+        { partName: 'netGantry', label: 'Net Gantry Array', description: 'Trawl gantry work lights' },
+        { partName: 'fishHold', label: 'Fish Hold Lights', description: 'Cold-storage hold illumination' },
+    ],
+    horizon: [
+        { partName: 'sonarDome', label: 'Sonar Array', description: 'Multibeam sonar dome lighting' },
+        { partName: 'aFrame', label: 'A-Frame Crane', description: 'Deployment crane floodlights' },
+        { partName: 'labModule', label: 'Lab Module', description: 'Research lab accent lighting' },
+        { partName: 'mastArray', label: 'Mast Array', description: 'Science mast navigation lights' },
+    ],
 }
 
 export const shipTypeLabels: Record<ShipType, string> = {
@@ -107,6 +125,9 @@ export const shipTypeLabels: Record<ShipType, string> = {
     roro: 'Roll-on/Roll-off Ferry',
     research: 'Research Vessel',
     droneship: 'Space Recovery Drone Ship',
+    ferry: 'Island Hopper Ferry',
+    trawler: 'North Star Trawler',
+    horizon: 'Horizon Deep Research Vessel',
 }
 
 export const shipTypeColors: Record<ShipType, string> = {
@@ -118,4 +139,7 @@ export const shipTypeColors: Record<ShipType, string> = {
     roro: '#9b59b6',
     research: '#2ecc71',
     droneship: '#34495e',
+    ferry: '#00cc88',
+    trawler: '#cc8833',
+    horizon: '#3388cc',
 }
