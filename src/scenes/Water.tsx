@@ -243,7 +243,6 @@ export default function Water({ isNight = true }: WaterProps) {
       vec3 halfDir = normalize(uSunDir + viewDir);
       float NdotH = max(dot(normal, halfDir), 0.0);
       // GGX-like distribution simplified
-      float alpha = uRoughness * uRoughness;
       float specular = pow(NdotH, 128.0 * (1.0 - uRoughness));
       specular *= (1.0 + uStormIntensity * 0.3); // storm boosts sparkle
 
