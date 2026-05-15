@@ -3,10 +3,9 @@
 // Real-time readout of wave physics at the tugboat position.
 // =============================================================================
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { waveSystem } from '../../systems/WaveSystem'
-import { useFrame } from '@react-three/fiber'
 import { GLASSMORPHISM, TYPOGRAPHY } from '../DesignSystem'
 
 interface WaveDebugState {
@@ -36,37 +35,46 @@ export default function WaveHeightDebug() {
     currentSpeed: 0,
   })
 
-  useFrame(() => {
+  useEffect(() => {
     if (operationMode !== 'tugboat') return
 
-    const time = waveSystem.getTime()
-    const x = tugboatState.position[0]
-    const z = tugboatState.position[2]
+    let rafId: number
 
-    const h = waveSystem.getWaterHeight(x, z, time)
-    const foam = waveSystem.getFoamAmount(x, z, time)
-    const storm = waveSystem.getStormIntensity()
-    const current = waveSystem.getSurfaceCurrent(x, z)
-    const speed = Math.sqrt(
-      tugboatState.velocity[0] ** 2 + tugboatState.velocity[2] ** 2
-    )
+    const update = () => {
+      const time = waveSystem.getTime()
+      const x = tugboatState.position[0]
+      const z = tugboatState.position[2]
 
-    // Estimate buoyancy force from submerged depth approximation
-    const hullBottom = tugboatState.position[1] - 0.5
-    const waterSurface = h - 2.5
-    const submerged = Math.max(0, waterSurface - hullBottom)
-    const buoyancy = submerged * 18 // matches BUOYANCY_SCALE in Tugboat.tsx
+      const h = waveSystem.getWaterHeight(x, z, time)
+      const foam = waveSystem.getFoamAmount(x, z, time)
+      const storm = waveSystem.getStormIntensity()
+      const current = waveSystem.getSurfaceCurrent(x, z)
+      const speed = Math.sqrt(
+        tugboatState.velocity[0] ** 2 + tugboatState.velocity[2] ** 2
+      )
 
-    debugRef.current = {
-      waveHeight: h,
-      foamAmount: foam,
-      stormIntensity: storm,
-      windSpeed: windStrength || storm * 25,
-      windDir: windDirection || waveSystem.getState().layers[0].direction[0],
-      buoyancyForce: buoyancy,
-      currentSpeed: speed,
+      // Estimate buoyancy force from submerged depth approximation
+      const hullBottom = tugboatState.position[1] - 0.5
+      const waterSurface = h - 2.5
+      const submerged = Math.max(0, waterSurface - hullBottom)
+      const buoyancy = submerged * 18 // matches BUOYANCY_SCALE in Tugboat.tsx
+
+      debugRef.current = {
+        waveHeight: h,
+        foamAmount: foam,
+        stormIntensity: storm,
+        windSpeed: windStrength || storm * 25,
+        windDir: windDirection || waveSystem.getState().layers[0].direction[0],
+        buoyancyForce: buoyancy,
+        currentSpeed: speed,
+      }
+
+      rafId = requestAnimationFrame(update)
     }
-  })
+
+    rafId = requestAnimationFrame(update)
+    return () => cancelAnimationFrame(rafId)
+  }, [operationMode, tugboatState.position, tugboatState.velocity, tugboatState.heading, windStrength, windDirection])
 
   if (operationMode !== 'tugboat') return null
 

@@ -5,7 +5,8 @@
 // =============================================================================
 
 import { useGameStore, HarborEvent, WeatherState, ShipType } from '../store/useGameStore'
-import { harborEventSystem, HarborEventType } from './eventSystem'
+import { harborEventSystem } from './eventSystem/HarborEventSystem'
+import type { HarborEventType } from './eventSystem/types'
 import { weatherSystem } from './weatherSystem'
 import { swaySystem } from './swaySystem'
 import { wildlifeSystem } from './wildlifeSystem'
@@ -651,6 +652,30 @@ export class DynamicEventSystem {
 
 // Export singleton
 export const dynamicEventSystem = new DynamicEventSystem()
+
+// Register harbor event triggers for time-phase transitions.
+// This wires the time system's phase events to harbor event system actions
+// without creating a circular import in timeSystem.ts.
+// Each registered handler receives every event type string and is responsible
+// for filtering the types it cares about (switch-based dispatch).
+const WHALE_MIGRATION_PROBABILITY = 0.5
+const SEA_LION_HAULOUT_PROBABILITY = 0.6
+const NAVY_ARRIVAL_PROBABILITY = 0.7
+
+timeSystem.addPhaseEventHandler((eventType: string) => {
+    switch (eventType) {
+        case 'whale_migration_peak':
+            if (Math.random() > WHALE_MIGRATION_PROBABILITY) harborEventSystem.triggerWhaleMigration('humpback')
+            break
+        case 'sea_lion_haulout':
+            if (Math.random() > SEA_LION_HAULOUT_PROBABILITY) harborEventSystem.triggerSeaLionHaulout()
+            break
+        case 'navy_arrival':
+            if (Math.random() > NAVY_ARRIVAL_PROBABILITY) harborEventSystem.triggerNavyResupply()
+            break
+        // 'bioluminescence_peak' intentionally left as no-op (boosts existing plankton bloom)
+    }
+})
 
 // =============================================================================
 // REACT HOOK

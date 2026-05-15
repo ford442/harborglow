@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGameStore, type CameraMode } from '../store/useGameStore'
+import { useGameStore, type CameraMode, type CameraTransform } from '../store/useGameStore'
 import type { CameraPreset, CameraPresetId, DashboardPresets } from '../types/CameraPreset'
 
 // =============================================================================
@@ -474,4 +474,28 @@ export function focusOnShip(shipPosition: [number, number, number], duration = 1
   const targetLook = new THREE.Vector3(...shipPosition)
   
   return { endPos, targetLook, duration }
+}
+
+// =============================================================================
+// ALT A: Viewport-local camera history helpers
+// =============================================================================
+
+export function getCameraTransform(camera: THREE.Camera, label?: string): CameraTransform {
+  return {
+    position: [camera.position.x, camera.position.y, camera.position.z],
+    target: [
+      camera.position.x + camera.getWorldDirection(new THREE.Vector3()).x,
+      camera.position.y + camera.getWorldDirection(new THREE.Vector3()).y,
+      camera.position.z + camera.getWorldDirection(new THREE.Vector3()).z
+    ],
+    label
+  }
+}
+
+export function applyCameraTransform(camera: THREE.Camera, transform: CameraTransform): void {
+  camera.position.set(...transform.position)
+  camera.lookAt(...transform.target)
+  if ((camera as THREE.PerspectiveCamera).updateProjectionMatrix) {
+    (camera as THREE.PerspectiveCamera).updateProjectionMatrix()
+  }
 }

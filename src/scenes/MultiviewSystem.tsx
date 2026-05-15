@@ -1,275 +1,408 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useRef, useMemo, useCallback, useEffect, forwardRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
+import { View, Html, PerspectiveCamera } from '@react-three/drei'
+import { useGameStore, type CameraTransform } from '../store/useGameStore'
+import type { DashboardViewportId } from '../types/CameraPreset'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
 
 // =============================================================================
-// MULTIVIEW CAMERA SYSTEM
-// 4 simultaneous live feeds in glassmorphism UI panels
+// MULTIVIEW CAMERA SYSTEM — Alt A Architecture
+// 4 simultaneous live feeds with viewport-local history & pinned snapshots
 // =============================================================================
 
-export type MultiviewPanel = 'crane' | 'hook' | 'drone' | 'underwater' | 'none'
+const VIEWPORT_ORDER: DashboardViewportId[] = ['crane', 'hook', 'drone', 'underwater']
+
+const VIEWPORT_CONFIG: Record<DashboardViewportId, { title: string; subtitle: string; icon: string; accentColor: string; fov: number }> = {
+  crane: { title: 'CRANE CAB', subtitle: 'POV', icon: '🎮', accentColor: '#ffcc00', fov: 60 },
+  hook: { title: 'HOOK', subtitle: 'CAM', icon: '🏗️', accentColor: '#ff9500', fov: 75 },
+  drone: { title: 'DRONE', subtitle: 'OVERVIEW', icon: '🚁', accentColor: '#00d4aa', fov: 50 },
+  underwater: { title: 'UNDERWATER', subtitle: 'DEEP', icon: '🌊', accentColor: '#00aaff', fov: 70 }
+}
 
 interface MultiviewSystemProps {
   enabled: boolean
   underwaterIntensity?: number
+  children?: React.ReactNode
 }
 
-export default function MultiviewSystem({ enabled, underwaterIntensity = 1 }: MultiviewSystemProps) {
+export default function MultiviewSystem({ enabled, underwaterIntensity = 1, children }: MultiviewSystemProps) {
+  const { audioData } = useAudioVisualSync()
+
+  // ---------------------------------------------------------------------------
+  // Panel DOM refs for <View track={...}>
+  // ---------------------------------------------------------------------------
+  const panelRefs = {
+    crane: useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    hook: useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    drone: useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    underwater: useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>
+  }
+
+  // ---------------------------------------------------------------------------
+  // Camera refs for animation
+  // ---------------------------------------------------------------------------
+  const cameraRefs = {
+    crane: useRef<THREE.PerspectiveCamera>(null),
+    hook: useRef<THREE.PerspectiveCamera>(null),
+    drone: useRef<THREE.PerspectiveCamera>(null),
+    underwater: useRef<THREE.PerspectiveCamera>(null)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Animation refs
+  // ---------------------------------------------------------------------------
+  const droneProgressRef = useRef(0)
+  const craneShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
+  const hookShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
+  const initializedRef = useRef(false)
+
+  // ---------------------------------------------------------------------------
+  // Derive current ship & crane state (reactive for render)
+  // ---------------------------------------------------------------------------
   const ships = useGameStore(state => state.ships)
   const currentShipId = useGameStore(state => state.currentShipId)
+  const currentShip = ships.find(s => s.id === currentShipId)
+  const spectatorState = useGameStore(state => state.spectatorState)
+  const bpm = useGameStore(state => state.bpm)
   const craneState = useGameStore(state => ({
     rotation: state.craneRotation ?? 0.2,
     height: state.craneHeight ?? 15.5,
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 }
   }))
-  const bpm = useGameStore(state => state.bpm)
-  const spectatorState = useGameStore(state => state.spectatorState)
-  
-  const { audioData } = useAudioVisualSync()
-  
-  const currentShip = ships.find(s => s.id === currentShipId)
-  
-  // Virtual cameras
-  const virtualCameras = useMemo(() => ({
-    crane: new THREE.PerspectiveCamera(60, 1, 0.1, 1000),
-    hook: new THREE.PerspectiveCamera(75, 1, 0.1, 1000),
-    drone: new THREE.PerspectiveCamera(50, 1, 0.1, 1000),
-    underwater: new THREE.PerspectiveCamera(70, 1, 0.1, 500)
-  }), [])
-  
-  // Drone path
+
+  // ---------------------------------------------------------------------------
+  // Drone orbit path
+  // ---------------------------------------------------------------------------
   const dronePath = useMemo(() => {
     if (!currentShip) return null
-    
     const shipPos = new THREE.Vector3(...currentShip.position)
     const points: THREE.Vector3[] = []
     const segments = 12
     const radius = currentShip.type === 'tanker' ? 50 : currentShip.type === 'container' ? 40 : 35
     const height = 20
-    
+
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2
       const variation = Math.sin(i * 0.5) * 5
-      
       points.push(new THREE.Vector3(
         shipPos.x + Math.cos(angle) * (radius + variation),
         shipPos.y + height + Math.cos(i * 0.3) * 8,
         shipPos.z + Math.sin(angle) * (radius + variation)
       ))
     }
-    
     points.push(points[0].clone())
     return new THREE.CatmullRomCurve3(points, true)
   }, [currentShip])
-  
-  // Camera update refs
-  const droneProgressRef = useRef(0)
-  const craneShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
-  const hookShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
-  
-  // Update camera positions
-  const updateCameras = useCallback((time: number, beatPhase: number) => {
-    if (!currentShip) return
-    
+
+  // ---------------------------------------------------------------------------
+  // Compute live camera transform for each viewport
+  // ---------------------------------------------------------------------------
+  const getLiveTransform = useCallback((viewportId: DashboardViewportId, time: number, beatPhase: number): CameraTransform => {
+    if (!currentShip) {
+      return { position: [30, 20, 30], target: [0, 0, 0], label: 'Default' }
+    }
+
     const shipPos = new THREE.Vector3(...currentShip.position)
-    
-    // Crane camera
-    const craneBaseX = Math.sin(craneState.rotation) * 18
-    const craneBaseZ = Math.cos(craneState.rotation) * 8
-    
-    if (beatPhase < 0.15) {
-      craneShakeRef.current.intensity = 0.2
-    } else {
-      craneShakeRef.current.intensity *= 0.9
+
+    switch (viewportId) {
+      case 'crane': {
+        const craneBaseX = Math.sin(craneState.rotation) * 18
+        const craneBaseZ = Math.cos(craneState.rotation) * 8
+        if (beatPhase < 0.15) {
+          craneShakeRef.current.intensity = 0.2
+        } else {
+          craneShakeRef.current.intensity *= 0.9
+        }
+        craneShakeRef.current.x = (Math.random() - 0.5) * craneShakeRef.current.intensity
+        craneShakeRef.current.y = (Math.random() - 0.5) * craneShakeRef.current.intensity
+
+        const position: [number, number, number] = [
+          craneBaseX + craneShakeRef.current.x,
+          24 + craneShakeRef.current.y,
+          craneBaseZ
+        ]
+        return { position, target: [shipPos.x, shipPos.y + 5, shipPos.z] }
+      }
+
+      case 'hook': {
+        const hookPos = new THREE.Vector3(
+          craneState.spreaderPos.x,
+          craneState.spreaderPos.y - 5,
+          craneState.spreaderPos.z
+        )
+        if (beatPhase < 0.15) {
+          hookShakeRef.current.intensity = 0.15
+        } else {
+          hookShakeRef.current.intensity *= 0.9
+        }
+        hookShakeRef.current.x = (Math.random() - 0.5) * hookShakeRef.current.intensity
+        hookShakeRef.current.y = (Math.random() - 0.5) * hookShakeRef.current.intensity
+
+        const position: [number, number, number] = [
+          hookPos.x + hookShakeRef.current.x,
+          hookPos.y + hookShakeRef.current.y,
+          hookPos.z
+        ]
+        return { position, target: [hookPos.x, hookPos.y - 10, hookPos.z] }
+      }
+
+      case 'drone': {
+        if (dronePath) {
+          droneProgressRef.current += 0.001 + audioData.treble * 0.005
+          if (droneProgressRef.current > 1) droneProgressRef.current = 0
+          const dronePos = dronePath.getPoint(droneProgressRef.current)
+          const droneTarget = dronePath.getPoint((droneProgressRef.current + 0.1) % 1)
+          return {
+            position: [dronePos.x, dronePos.y, dronePos.z],
+            target: [droneTarget.x, droneTarget.y, droneTarget.z]
+          }
+        }
+        return { position: [0, 16, 0], target: [shipPos.x, shipPos.y + 5, shipPos.z] }
+      }
+
+      case 'underwater': {
+        return {
+          position: [
+            shipPos.x + Math.sin(time * 0.1) * 10,
+            -8 * underwaterIntensity,
+            shipPos.z + 20 + Math.cos(time * 0.08) * 5
+          ],
+          target: [shipPos.x, -2, shipPos.z]
+        }
+      }
+
+      default:
+        return { position: [30, 20, 30], target: [shipPos.x, shipPos.y, shipPos.z] }
     }
-    craneShakeRef.current.x = (Math.random() - 0.5) * craneShakeRef.current.intensity
-    craneShakeRef.current.y = (Math.random() - 0.5) * craneShakeRef.current.intensity
-    
-    virtualCameras.crane.position.set(
-      craneBaseX + craneShakeRef.current.x,
-      24 + craneShakeRef.current.y,
-      craneBaseZ
-    )
-    virtualCameras.crane.lookAt(shipPos.x, shipPos.y + 5, shipPos.z)
-    virtualCameras.crane.fov = 60 + audioData.bass * 3 // FOV zoom on bass
-    virtualCameras.crane.updateProjectionMatrix()
-    
-    // Hook camera
-    const hookPos = new THREE.Vector3(
-      craneState.spreaderPos.x,
-      craneState.spreaderPos.y - 5,
-      craneState.spreaderPos.z
-    )
-    
-    if (beatPhase < 0.15) {
-      hookShakeRef.current.intensity = 0.15
-    } else {
-      hookShakeRef.current.intensity *= 0.9
+  }, [currentShip, craneState, dronePath, audioData.treble, underwaterIntensity])
+
+  // ---------------------------------------------------------------------------
+  // Apply a CameraTransform to a Three.js camera
+  // ---------------------------------------------------------------------------
+  const applyTransform = useCallback((camera: THREE.PerspectiveCamera | null, transform: CameraTransform, fov: number, beatPhase: number, viewportId: DashboardViewportId) => {
+    if (!camera) return
+    camera.position.set(...transform.position)
+    camera.lookAt(...transform.target)
+    // Music-reactive FOV zoom on bass
+    let targetFov = fov
+    if (beatPhase < 0.1) {
+      targetFov *= 0.98
     }
-    hookShakeRef.current.x = (Math.random() - 0.5) * hookShakeRef.current.intensity
-    hookShakeRef.current.y = (Math.random() - 0.5) * hookShakeRef.current.intensity
-    
-    virtualCameras.hook.position.set(
-      hookPos.x + hookShakeRef.current.x,
-      hookPos.y + hookShakeRef.current.y,
-      hookPos.z
-    )
-    virtualCameras.hook.lookAt(hookPos.x, hookPos.y - 10, hookPos.z)
-    virtualCameras.hook.fov = 75 + audioData.bass * 5
-    virtualCameras.hook.updateProjectionMatrix()
-    
-    // Drone camera
-    if (dronePath) {
-      droneProgressRef.current += 0.001 + audioData.treble * 0.005
-      if (droneProgressRef.current > 1) droneProgressRef.current = 0
-      
-      const dronePos = dronePath.getPoint(droneProgressRef.current)
-      const droneTarget = dronePath.getPoint((droneProgressRef.current + 0.1) % 1)
-      
-      virtualCameras.drone.position.copy(dronePos)
-      virtualCameras.drone.lookAt(droneTarget)
-      virtualCameras.drone.updateProjectionMatrix()
+    if (viewportId === 'crane') {
+      targetFov += audioData.bass * 3
+    } else if (viewportId === 'hook') {
+      targetFov += audioData.bass * 5
     }
-    
-    // Underwater camera
-    virtualCameras.underwater.position.set(
-      shipPos.x + Math.sin(time * 0.1) * 10,
-      -8,
-      shipPos.z + 20 + Math.cos(time * 0.08) * 5
-    )
-    virtualCameras.underwater.lookAt(shipPos.x, -2, shipPos.z)
-    virtualCameras.underwater.updateProjectionMatrix()
-  }, [currentShip, craneState, dronePath, virtualCameras, audioData])
-  
-  // Render loop - just update cameras
+    camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.05)
+    camera.updateProjectionMatrix()
+  }, [audioData.bass])
+
+  // ---------------------------------------------------------------------------
+  // Main camera update loop
+  // ---------------------------------------------------------------------------
   useFrame((state) => {
     if (!enabled || spectatorState.isActive) return
-    
+
+    const store = useGameStore.getState()
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
     const beatPhase = (time % beatDuration) / beatDuration
-    
-    updateCameras(time, beatPhase)
+
+    try {
+      VIEWPORT_ORDER.forEach((viewportId) => {
+        const vp = store.viewportCameras[viewportId]
+        const camera = cameraRefs[viewportId].current
+        const liveTransform = getLiveTransform(viewportId, time, beatPhase)
+
+        // Initialize history on first frame
+        if (vp.history.length === 0) {
+          store.pushViewportHistory(viewportId, liveTransform)
+          return
+        }
+
+        // Apply either history entry or live position
+        if (vp.historyIndex === vp.history.length - 1) {
+          // At tip: show live position
+          applyTransform(camera, liveTransform, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+        } else {
+          // Browsing history
+          const historyEntry = vp.history[vp.historyIndex]
+          if (historyEntry) {
+            applyTransform(camera, historyEntry, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+          }
+        }
+      })
+    } finally {
+      state.gl.setScissorTest(false)
+    }
   })
-  
+
+  // ---------------------------------------------------------------------------
+  // Keyboard: Shift+1..6 recalls pinned[0..5] for focused viewport
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.shiftKey) return
+      const keyNum = parseInt(event.key, 10)
+      if (isNaN(keyNum) || keyNum < 1 || keyNum > 6) return
+
+      // Do not steal keys when user is typing
+      const activeTag = document.activeElement?.tagName
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
+
+      const store = useGameStore.getState()
+      const focused = store.focusedViewport
+      if (!focused) return
+
+      event.preventDefault()
+      store.recallPinnedViewportCamera(focused, keyNum - 1)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   if (!enabled || spectatorState.isActive) return null
-  
+
   return (
-    <MultiviewUI 
-      enabled={enabled}
-      currentShip={currentShip}
-    />
+    <>
+      {/* DOM overlay with panel chrome */}
+      <Html fullscreen style={{ pointerEvents: 'none', zIndex: 100 }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr',
+              gridTemplateRows: '1fr 1fr',
+              gap: '12px',
+              width: 'min(90vw, 1200px)',
+              height: 'min(80vh, 700px)',
+              aspectRatio: '16/9'
+            }}
+          >
+            <ViewPanelChrome
+              ref={panelRefs.crane}
+              viewportId="crane"
+              cameraRef={cameraRefs.crane}
+              style={{ gridRow: 'span 2' }}
+            />
+            <ViewPanelChrome
+              ref={panelRefs.hook}
+              viewportId="hook"
+              cameraRef={cameraRefs.hook}
+            />
+            <ViewPanelChrome
+              ref={panelRefs.drone}
+              viewportId="drone"
+              cameraRef={cameraRefs.drone}
+            />
+            <ViewPanelChrome
+              ref={panelRefs.underwater}
+              viewportId="underwater"
+              cameraRef={cameraRefs.underwater}
+            />
+          </div>
+        </div>
+      </Html>
+
+      {/* 3D Views — one per panel */}
+      {VIEWPORT_ORDER.map((viewportId) => (
+        <View
+          key={viewportId}
+          track={panelRefs[viewportId]}
+        >
+          <PerspectiveCamera
+            ref={cameraRefs[viewportId]}
+            makeDefault
+            fov={VIEWPORT_CONFIG[viewportId].fov}
+            near={0.1}
+            far={1000}
+          />
+          {children}
+        </View>
+      ))}
+    </>
   )
 }
 
 // =============================================================================
-// UI COMPONENT - Just shows placeholder panels
+// VIEW PANEL CHROME (DOM overlay per viewport)
 // =============================================================================
 
-interface MultiviewUIProps {
-  enabled: boolean
-  currentShip: ReturnType<typeof useGameStore.getState>['ships'][0] | undefined
-}
-
-function MultiviewUI({ enabled, currentShip }: MultiviewUIProps) {
-  if (!enabled) return null
-  
-  const shipColors: Record<string, string> = {
-    cruise: '#ff6b9d',
-    container: '#00d4aa',
-    tanker: '#ff9500',
-    bulk: '#8b4513',
-    lng: '#00bfff',
-    roro: '#9b59b6',
-    research: '#2ecc71',
-    droneship: '#34495e'
-  }
-  const accentColor = currentShip ? shipColors[currentShip.type] || '#00d4aa' : '#00d4aa'
-  
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: 'none',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px'
-      }}
-    >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr',
-          gridTemplateRows: '1fr 1fr',
-          gap: '12px',
-          width: 'min(90vw, 1200px)',
-          height: 'min(80vh, 700px)',
-          aspectRatio: '16/9'
-        }}
-      >
-        <ViewPanel
-          title="CRANE CAB"
-          subtitle="POV"
-          accentColor={accentColor}
-          style={{ gridRow: 'span 2' }}
-          icon="🎮"
-        />
-        <ViewPanel
-          title="HOOK"
-          subtitle="CAM"
-          accentColor={accentColor}
-          icon="🏗️"
-        />
-        <ViewPanel
-          title="DRONE"
-          subtitle="OVERVIEW"
-          accentColor={accentColor}
-          icon="🚁"
-        />
-        <ViewPanel
-          title="UNDERWATER"
-          subtitle="DEEP"
-          accentColor="#00aaff"
-          icon="🌊"
-        />
-      </div>
-    </div>
-  )
-}
-
-// =============================================================================
-// VIEW PANEL COMPONENT
-// =============================================================================
-
-interface ViewPanelProps {
-  title: string
-  subtitle: string
-  accentColor: string
+interface ViewPanelChromeProps {
+  viewportId: DashboardViewportId
   style?: React.CSSProperties
-  icon?: string
+  cameraRef: React.RefObject<THREE.PerspectiveCamera>
 }
 
-function ViewPanel({ title, subtitle, accentColor, style, icon }: ViewPanelProps) {
+const ViewPanelChrome = forwardRef<HTMLDivElement, ViewPanelChromeProps>(({ viewportId, style, cameraRef }, ref) => {
+  const config = VIEWPORT_CONFIG[viewportId]
+
+  // Read reactive state for render
+  const viewportCameras = useGameStore(state => state.viewportCameras)
+  const focusedViewport = useGameStore(state => state.focusedViewport)
+  const vp = viewportCameras[viewportId]
+  const isFocused = focusedViewport === viewportId
+
+  const handleBack = useCallback(() => {
+    useGameStore.getState().navigateViewportHistory(viewportId, -1)
+  }, [viewportId])
+
+  const handleForward = useCallback(() => {
+    useGameStore.getState().navigateViewportHistory(viewportId, 1)
+  }, [viewportId])
+
+  const handlePin = useCallback(() => {
+    const camera = cameraRef.current
+    if (!camera) return
+    const dir = new THREE.Vector3()
+    camera.getWorldDirection(dir)
+    const transform: CameraTransform = {
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      target: [
+        camera.position.x + dir.x,
+        camera.position.y + dir.y,
+        camera.position.z + dir.z
+      ],
+      label: `${config.title} pinned`
+    }
+    const store = useGameStore.getState()
+    store.pushViewportHistory(viewportId, transform)
+    store.pinViewportCamera(viewportId, transform)
+  }, [viewportId, cameraRef, config.title])
+
+  const canGoBack = vp.historyIndex > 0
+  const canGoForward = vp.historyIndex < vp.history.length - 1
+  const isLive = vp.historyIndex === vp.history.length - 1
+
   return (
     <div
+      ref={ref}
+      onClick={() => useGameStore.getState().setFocusedViewport(viewportId)}
       style={{
         position: 'relative',
         borderRadius: '12px',
         overflow: 'hidden',
         background: 'rgba(0, 0, 0, 0.4)',
         backdropFilter: 'blur(10px)',
-        border: `1px solid ${accentColor}40`,
-        boxShadow: `inset 0 0 20px ${accentColor}20, 0 4px 20px rgba(0,0,0,0.5)`,
+        border: `2px solid ${isFocused ? config.accentColor : config.accentColor + '40'}`,
+        boxShadow: `inset 0 0 20px ${config.accentColor}20, 0 4px 20px rgba(0,0,0,0.5)`,
         display: 'flex',
         flexDirection: 'column',
+        pointerEvents: 'auto',
         ...style
       }}
     >
@@ -280,88 +413,107 @@ function ViewPanel({ title, subtitle, accentColor, style, icon }: ViewPanelProps
           alignItems: 'center',
           gap: '8px',
           padding: '8px 12px',
-          background: `linear-gradient(90deg, ${accentColor}30, transparent)`,
-          borderBottom: `1px solid ${accentColor}30`
+          background: `linear-gradient(90deg, ${config.accentColor}30, transparent)`,
+          borderBottom: `1px solid ${config.accentColor}30`
         }}
       >
-        <span style={{ fontSize: '14px' }}>{icon}</span>
-        <div style={{ flex: 1 }}>
+        <span style={{ fontSize: '14px' }}>{config.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#fff', letterSpacing: '1px' }}>
-            {title}
+            {config.title}
           </div>
-          <div style={{ fontSize: '9px', color: accentColor, letterSpacing: '0.5px' }}>
-            {subtitle}
+          <div style={{ fontSize: '9px', color: config.accentColor, letterSpacing: '0.5px' }}>
+            {isLive ? config.subtitle : `HISTORY ${vp.historyIndex + 1}/${vp.history.length}`}
           </div>
         </div>
+
+        {/* Navigation buttons */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleBack() }}
+          disabled={!canGoBack}
+          style={chromeButtonStyle(!canGoBack)}
+          title="Back"
+        >
+          ←
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleForward() }}
+          disabled={!canGoForward}
+          style={chromeButtonStyle(!canGoForward)}
+          title="Forward"
+        >
+          →
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handlePin() }}
+          style={chromeButtonStyle(false)}
+          title="Pin current view (Shift+1..6 to recall)"
+        >
+          📌
+        </button>
+
+        {/* Live indicator */}
         <div
           style={{
             width: '6px',
             height: '6px',
             borderRadius: '50%',
-            background: '#ff4444',
-            boxShadow: '0 0 4px #ff4444',
-            animation: 'pulse 1s ease-in-out infinite'
+            background: isLive ? '#ff4444' : '#888',
+            boxShadow: isLive ? '0 0 4px #ff4444' : 'none',
+            animation: isLive ? 'pulse 1s ease-in-out infinite' : 'none'
           }}
         />
       </div>
 
-      {/* Placeholder content */}
+      {/* Viewport surface — this is what <View> tracks */}
       <div
         style={{
           flex: 1,
+          position: 'relative',
+          background: `linear-gradient(135deg, ${config.accentColor}10, transparent)`,
+          color: config.accentColor,
+          fontSize: '48px',
+          opacity: 0.3,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          background: `linear-gradient(135deg, ${accentColor}10, transparent)`,
-          color: accentColor,
-          fontSize: '48px',
-          opacity: 0.3
+          justifyContent: 'center'
         }}
       >
-        {icon}
+        {config.icon}
+      </div>
+
+      {/* Pinned slot indicators */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '4px',
+          padding: '4px 12px',
+          justifyContent: 'flex-end'
+        }}
+      >
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: vp.pinned[i] ? config.accentColor : 'rgba(255,255,255,0.15)',
+              boxShadow: vp.pinned[i] ? `0 0 4px ${config.accentColor}` : 'none'
+            }}
+            title={vp.pinned[i] ? vp.pinned[i].label || `Pinned ${i + 1}` : `Empty slot ${i + 1}`}
+          />
+        ))}
       </div>
 
       {/* Corner accents */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '20px',
-          height: '2px',
-          background: accentColor
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '2px',
-          height: '20px',
-          background: accentColor
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: '20px',
-          height: '2px',
-          background: accentColor
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: '2px',
-          height: '20px',
-          background: accentColor
-        }}
-      />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '20px', height: '2px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '2px', height: '20px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '20px', height: '2px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '2px', height: '20px', background: config.accentColor }} />
 
       <style>{`
         @keyframes pulse {
@@ -371,4 +523,19 @@ function ViewPanel({ title, subtitle, accentColor, style, icon }: ViewPanelProps
       `}</style>
     </div>
   )
+})
+ViewPanelChrome.displayName = 'ViewPanelChrome'
+
+function chromeButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    background: disabled ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
+    color: disabled ? '#666' : '#fff',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '4px',
+    padding: '2px 6px',
+    fontSize: '12px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    pointerEvents: disabled ? 'none' : 'auto',
+    lineHeight: 1
+  }
 }
