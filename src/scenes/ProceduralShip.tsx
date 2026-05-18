@@ -404,6 +404,138 @@ const OilTankerDetails = ({ shipLength, shipWidth }: { shipLength: number; shipW
   );
 };
 
+const BulkCarrierDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    {[-0.25, -0.08, 0.08, 0.25].map((z, i) => (
+      <mesh key={i} position={[0, 4.2, z * shipWidth]}>
+        <boxGeometry args={[shipLength * 0.7, 0.15, shipWidth * 0.12]} />
+        <meshStandardMaterial color='#4a4a4a' roughness={0.9} />
+      </mesh>
+    ))}
+    <mesh position={[-shipLength * 0.3, 6, -shipWidth * 0.35]} rotation={[0, 0, 0.3]}>
+      <boxGeometry args={[shipLength * 0.35, 0.2, 0.2]} />
+      <meshStandardMaterial color='#ffaa00' metalness={0.6} roughness={0.4} />
+    </mesh>
+  </group>
+);
+
+const LNGDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    {[-0.18, 0, 0.18].map((z, i) => (
+      <mesh key={i} position={[0, 5, z * shipWidth]}>
+        <sphereGeometry args={[shipWidth * 0.08, 16, 16]} />
+        <meshStandardMaterial color='#e8e8e8' metalness={0.7} roughness={0.2} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const RoRoDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    <mesh position={[0, 3.2, shipWidth * 0.4]} rotation={[0.4, 0, 0]}>
+      <boxGeometry args={[shipLength * 0.5, 0.15, shipWidth * 0.08]} />
+      <meshStandardMaterial color='#f1c40f' emissive='#f1c40f' emissiveIntensity={0.3} />
+    </mesh>
+    <mesh position={[0, 3.2, shipWidth * 0.4]} rotation={[-0.4, 0, 0]}>
+      <boxGeometry args={[shipLength * 0.5, 0.15, shipWidth * 0.08]} />
+      <meshStandardMaterial color='#f1c40f' emissive='#f1c40f' emissiveIntensity={0.3} />
+    </mesh>
+    {[-1, 1].map((side) => (
+      <mesh key={side} position={[side * shipLength * 0.48, 3, 0]}>
+        <boxGeometry args={[0.2, 2, shipWidth * 0.15]} />
+        <meshStandardMaterial color='#e67e22' emissive='#e67e22' emissiveIntensity={0.2} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const ResearchDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    <mesh position={[0, 7, 0]}>
+      <cylinderGeometry args={[0.2, 0.3, shipWidth * 0.12, 12]} />
+      <meshStandardMaterial color='#ffffff' metalness={0.5} roughness={0.4} />
+    </mesh>
+    {[-1, 1].map((side) => (
+      <mesh key={side} position={[side * shipLength * 0.25, 5, -shipWidth * 0.1]}>
+        <cylinderGeometry args={[1.2, 1.2, 0.1, 16]} />
+        <meshStandardMaterial color='#cccccc' metalness={0.8} roughness={0.2} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const DroneshipDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    <mesh position={[0, 1.2, 0]}>
+      <boxGeometry args={[shipLength * 0.5, 0.1, shipWidth * 0.5]} />
+      <meshStandardMaterial color='#2c3e50' roughness={0.8} />
+    </mesh>
+    <mesh position={[0, 1.3, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[shipLength * 0.1, shipLength * 0.12, 32]} />
+      <meshStandardMaterial color='#fff176' emissive='#fff176' emissiveIntensity={0.8} />
+    </mesh>
+    {[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([x, z], i) => (
+      <mesh key={i} position={[x * shipLength * 0.22, 1.4, z * shipWidth * 0.22]}>
+        <boxGeometry args={[0.3, 0.1, 0.3]} />
+        <meshStandardMaterial color='#fff176' emissive='#fff176' emissiveIntensity={1.5} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const FerryDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    {[-1, 1].map((side) => (
+      <mesh key={side} position={[side * shipLength * 0.46, 3.5, -shipWidth * 0.1]}>
+        <boxGeometry args={[0.1, 1, shipWidth * 0.4]} />
+        <meshStandardMaterial color='#ffffff' emissive='#ffffff' emissiveIntensity={0.6} />
+      </mesh>
+    ))}
+  </group>
+);
+
+const TrawlerDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    <mesh position={[-shipLength * 0.15, 3.5, -shipWidth * 0.2]} rotation={[-0.6, 0, 0.3]}>
+      <cylinderGeometry args={[0.1, 0.1, shipWidth * 0.18, 8]} />
+      <meshStandardMaterial color='#ff8800' metalness={0.6} />
+    </mesh>
+    <mesh position={[shipLength * 0.15, 3.5, -shipWidth * 0.2]} rotation={[-0.6, 0, -0.3]}>
+      <cylinderGeometry args={[0.1, 0.1, shipWidth * 0.18, 8]} />
+      <meshStandardMaterial color='#ff8800' metalness={0.6} />
+    </mesh>
+    <mesh position={[0, 2.5, shipWidth * 0.25]} rotation={[0, 0, Math.PI / 2]}>
+      <cylinderGeometry args={[0.6, 0.6, shipLength * 0.2, 16]} />
+      <meshStandardMaterial color='#444444' roughness={0.7} />
+    </mesh>
+  </group>
+);
+
+const HorizonDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    <mesh position={[0, 4, -shipWidth * 0.25]} rotation={[0, 0, 0.4]}>
+      <boxGeometry args={[0.3, shipWidth * 0.12, 0.3]} />
+      <meshStandardMaterial color='#f1c40f' metalness={0.5} />
+    </mesh>
+    <mesh position={[0, 4.5, -shipWidth * 0.25]}>
+      <boxGeometry args={[shipLength * 0.3, 0.15, 0.15]} />
+      <meshStandardMaterial color='#f1c40f' metalness={0.5} />
+    </mesh>
+    {[-1, 1].map((side) => (
+      <group key={side} position={[side * shipLength * 0.35, 3, 0]}>
+        <mesh>
+          <boxGeometry args={[0.8, 0.8, 0.8]} />
+          <meshStandardMaterial color='#9b59b6' emissive='#9b59b6' emissiveIntensity={0.3} />
+        </mesh>
+        <mesh position={[0, 0.8, 0]}>
+          <boxGeometry args={[0.4, 0.6, 0.4]} />
+          <meshStandardMaterial color='#3498db' emissive='#3498db' emissiveIntensity={0.3} />
+        </mesh>
+      </group>
+    ))}
+  </group>
+);
+
 // Main Procedural Ship Component
 export const ProceduralShip = ({ 
   blueprintId, 
@@ -450,6 +582,14 @@ export const ProceduralShip = ({
       {blueprint.id === 'cruise' && <CruiseLinerDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {blueprint.id === 'container' && <ContainerVesselDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {blueprint.id === 'tanker' && <OilTankerDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'bulk' && <BulkCarrierDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'lng' && <LNGDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'roro' && <RoRoDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'research' && <ResearchDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'droneship' && <DroneshipDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'ferry' && <FerryDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'trawler' && <TrawlerDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'horizon' && <HorizonDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {children}
     </group>
   );

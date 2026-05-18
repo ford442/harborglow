@@ -1,7 +1,7 @@
 import { useRef, useMemo, useEffect, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
+import { useGameStore, type ShipType } from '../store/useGameStore'
 
 // =============================================================================
 // PHASE 10.1: LOD SYSTEM (Level of Detail)
@@ -52,7 +52,7 @@ export function useLOD(position: THREE.Vector3 | [number, number, number], confi
 // LOD Ship component - switches detail based on distance
 interface LODShipProps {
   position: [number, number, number]
-  type: 'cruise' | 'container' | 'tanker'
+  type: ShipType
   children?: React.ReactNode
 }
 
@@ -94,23 +94,62 @@ export function LODShip({ position, type, children }: LODShipProps) {
 }
 
 // Impostor representation for distant ships
-function ImpostorMesh({ type }: { type: 'cruise' | 'container' | 'tanker' }) {
-  const color = type === 'cruise' ? '#ff6b9d' : type === 'container' ? '#00d4aa' : '#ff9500'
+function ImpostorMesh({ type }: { type: ShipType }) {
+  const color = useMemo(() => {
+    switch (type) {
+      case 'cruise': return '#ff6b9d'
+      case 'container': return '#00d4aa'
+      case 'tanker': return '#ff9500'
+      case 'bulk': return '#c8a96e'
+      case 'lng': return '#64b5f6'
+      case 'roro': return '#81c784'
+      case 'research': return '#ce93d8'
+      case 'droneship': return '#fff176'
+      case 'ferry': return '#ef9a9a'
+      case 'trawler': return '#80cbc4'
+      case 'horizon': return '#b0bec5'
+    }
+  }, [type])
   
-  // Different simple shapes for each ship type
   const size = useMemo(() => {
     switch (type) {
       case 'cruise': return [6, 2, 1.5]
       case 'container': return [10, 1.5, 2]
       case 'tanker': return [8, 2, 2.5]
+      case 'bulk': return [12, 1.16, 3.81]
+      case 'lng': return [12, 0.84, 3.84]
+      case 'roro': return [12, 1.01, 4.04]
+      case 'research': return [12, 0.96, 2.88]
+      case 'droneship': return [12, 0.8, 6.13]
+      case 'ferry': return [12, 0.92, 4.8]
+      case 'trawler': return [12, 1.2, 4.2]
+      case 'horizon': return [12, 1.09, 3.49]
     }
   }, [type])
   
+  const hasBridge = type === 'cruise' || type === 'ferry' || type === 'trawler' || type === 'roro'
+  const hasMast = type === 'research' || type === 'horizon' || type === 'droneship'
+  const [sx, sy, sz] = size as [number, number, number]
+  
   return (
-    <mesh>
-      <boxGeometry args={size as [number, number, number]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
+    <group>
+      <mesh>
+        <boxGeometry args={[sx, sy, sz]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
+      </mesh>
+      {hasBridge && (
+        <mesh position={[0, sy * 0.75, sz * 0.15]}>
+          <boxGeometry args={[sx * 0.4, sy * 0.5, sz * 0.3]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+        </mesh>
+      )}
+      {hasMast && (
+        <mesh position={[0, sy * 1.1, 0]}>
+          <cylinderGeometry args={[sx * 0.06, sx * 0.06, sy * 1.2, 8]} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+        </mesh>
+      )}
+    </group>
   )
 }
 
