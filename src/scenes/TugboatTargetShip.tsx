@@ -70,6 +70,7 @@ export default function TugboatTargetShip({
   const hasDockedRef = useRef(false)
 
   const operationMode = useGameStore((s) => s.operationMode)
+  const towingUnlocked = useGameStore((s) => s.towingUnlocked)
 
   const berthVec = useMemo(
     () => new THREE.Vector3(berthCenter[0], berthCenter[1], berthCenter[2]),
@@ -182,7 +183,7 @@ export default function TugboatTargetShip({
       (pos.z - berthCenter[2]) ** 2
     )
 
-    if (dist < berthRadius && speed < 1.0) {
+    if (towingUnlocked && dist < berthRadius && speed < 1.0) {
       dockTimerRef.current += delta
       if (dockTimerRef.current > 3.0) {
         hasDockedRef.current = true

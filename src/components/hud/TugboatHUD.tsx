@@ -5,6 +5,7 @@
 import { useGameStore } from '../../store/useGameStore'
 import { useStormSystem } from '../../systems/StormSystem'
 import { createGlassPanelStyles, createButtonStyles, GLASSMORPHISM, TYPOGRAPHY } from '../DesignSystem'
+import AcousticArray from '../AcousticArray'
 
 // =============================================================================
 // BEAUFORT SCALE
@@ -243,6 +244,8 @@ export default function TugboatHUD() {
         />
 
         <ObjectivesPanel />
+
+        <AcousticArray />
       </div>
 
       {/* Return button */}

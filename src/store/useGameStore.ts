@@ -20,6 +20,7 @@ import { reputationSystem } from '../systems/reputationSystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
 import type { WaveParams } from '../systems/WaveSystem'
 import { isCameraPresetId } from '../types/CameraPreset'
+import { ACOUSTIC_NOTE_LAYOUT, AcousticNote } from '../systems/commsSystem'
 
 const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
     crane: 'gantry-top-down',
@@ -183,6 +184,21 @@ export interface MissionObjective {
     progress: number
 }
 
+const DEFAULT_HANDSHAKE_SEQUENCE: AcousticNote[] = ['C1', 'G1', 'D#1', 'A#1']
+
+function buildHandshakeSequence(objectiveSeed: string): AcousticNote[] {
+    if (!objectiveSeed) return DEFAULT_HANDSHAKE_SEQUENCE
+
+    let hash = 0
+    for (let i = 0; i < objectiveSeed.length; i++) {
+        hash = (hash + objectiveSeed.charCodeAt(i) * (i + 1)) % 100000
+    }
+
+    return [0, 3, 7, 10].map(offset =>
+        ACOUSTIC_NOTE_LAYOUT[(hash + offset) % ACOUSTIC_NOTE_LAYOUT.length]
+    )
+}
+
 
 export interface Upgrade {
     shipId: string
@@ -274,6 +290,10 @@ interface SerializableState {
     tugboatObjectives: TugboatObjective[]
     tugboatDockedCount: number
     tugboatWinTriggered: boolean
+    handshakeTargetSequence: AcousticNote[]
+    handshakeInputSequence: AcousticNote[]
+    handshakeComplete: boolean
+    towingUnlocked: boolean
     stormIntensity: number
     stormTimeRemaining: number
     isStormActive: boolean
@@ -284,6 +304,8 @@ interface SerializableState {
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
+    submitAcousticNote: (note: AcousticNote) => void
+    resetAcousticHandshake: () => void
     completeTugboatObjective: (id: string) => void
     resetTugboatMode: () => void
     setStormIntensity: (intensity: number) => void
@@ -387,6 +409,8 @@ interface GameState extends SerializableState {
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
+    submitAcousticNote: (note: AcousticNote) => void
+    resetAcousticHandshake: () => void
     completeTugboatObjective: (id: string) => void
     resetTugboatMode: () => void
     setStormIntensity: (intensity: number) => void
@@ -415,6 +439,7 @@ const defaultState: Omit<GameState, keyof {
     setGameMode: unknown; startTrainingModule: unknown; exitTrainingModule: unknown;
     updateTrainingProgress: unknown; addReputation: unknown;
     setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown;
+    submitAcousticNote: unknown; resetAcousticHandshake: unknown;
     completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
     setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
     setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
@@ -520,6 +545,10 @@ const defaultState: Omit<GameState, keyof {
     tugboatObjectives: [],
     tugboatDockedCount: 0,
     tugboatWinTriggered: false,
+    handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
+    handshakeInputSequence: [],
+    handshakeComplete: false,
+    towingUnlocked: false,
     stormIntensity: 0,
     stormTimeRemaining: 0,
     isStormActive: false,
@@ -741,6 +770,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             tugboatObjectives: [],
             tugboatDockedCount: 0,
             tugboatWinTriggered: false,
+            handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
+            handshakeInputSequence: [],
+            handshakeComplete: false,
+            towingUnlocked: false,
             stormIntensity: 0,
             stormTimeRemaining: 0,
             isStormActive: false,
@@ -803,6 +836,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
+                handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
+                handshakeInputSequence: [],
+                handshakeComplete: false,
+                towingUnlocked: false,
                 isStormActive: saved.isStormActive ?? false,
                 windDirection: saved.windDirection ?? 0,
                 windStrength: saved.windStrength ?? 0,
@@ -1148,8 +1185,41 @@ export const useGameStore = create<GameState>((set, get) => ({
     })),
     
     setTugboatObjectives: (objectives: TugboatObjective[]) => {
-        set({ tugboatObjectives: objectives })
+        const seed = objectives.map(o => o.id).join('|')
+        const targetSequence = buildHandshakeSequence(seed)
+        set({
+            tugboatObjectives: objectives,
+            handshakeTargetSequence: targetSequence,
+            handshakeInputSequence: [],
+            handshakeComplete: false,
+            towingUnlocked: false,
+        })
     },
+
+    submitAcousticNote: (note: AcousticNote) => set((state) => {
+        const target = state.handshakeTargetSequence
+        const maxLength = target.length
+        if (maxLength === 0) return {}
+
+        const nextSequence = [...state.handshakeInputSequence, note].slice(-maxLength)
+        const complete = nextSequence.length === target.length && nextSequence.every((value, index) => value === target[index])
+        if (complete) {
+            console.log('📡 Acoustic handshake complete. Towing unlocked.')
+        }
+
+        return {
+            handshakeInputSequence: nextSequence,
+            handshakeComplete: state.handshakeComplete || complete,
+            towingUnlocked: state.towingUnlocked || complete,
+        }
+    }),
+
+    resetAcousticHandshake: () => set((state) => ({
+        handshakeTargetSequence: buildHandshakeSequence(state.tugboatObjectives.map(o => o.id).join('|')),
+        handshakeInputSequence: [],
+        handshakeComplete: false,
+        towingUnlocked: false,
+    })),
     
     completeTugboatObjective: (id: string) => set((state) => {
         const objectives = state.tugboatObjectives.map(o =>
@@ -1167,6 +1237,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             tugboatObjectives: [],
             tugboatDockedCount: 0,
             tugboatWinTriggered: false,
+            handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
+            handshakeInputSequence: [],
+            handshakeComplete: false,
+            towingUnlocked: false,
             stormIntensity: 0,
             stormTimeRemaining: 0,
             isStormActive: false,
