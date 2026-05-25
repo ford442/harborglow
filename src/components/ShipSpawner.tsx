@@ -166,9 +166,18 @@ export default function ShipSpawner() {
                 }}
               >
                 <div style={buttonContentStyle}>
-                  <span style={{ fontSize: '24px', filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.2))' }}>
+                  <div style={{ 
+                    width: '32px', 
+                    height: '32px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.2))',
+                    flexShrink: 0
+                  }}>
                     {shipType.icon}
-                  </span>
+                  </div>
                   
                   <div style={buttonTextStyle}>
                     <span style={{ 
