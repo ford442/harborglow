@@ -13,6 +13,7 @@ import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore } from '../store/useGameStore'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
+import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
@@ -218,6 +219,9 @@ export default function Tugboat() {
     }
   }, [])
 
+  // Reset wake state when the tugboat unmounts (prevents stale uniforms on the water shader)
+  useEffect(() => () => { resetTugboatWakeState() }, [])
+
   // ---------------------------------------------------------------------------
   // PHYSICS LOOP
   // ---------------------------------------------------------------------------
@@ -417,6 +421,19 @@ export default function Tugboat() {
     // --- Update refs for collision handler ---
     speedRef.current = speed
     headingRef.current = heading
+
+    // --- Update wake system (consumed by Water.tsx each frame, zero React cost) ---
+    tugboatWakeState.active = true
+    tugboatWakeState.position.set(pos.x, pos.y, pos.z)
+    tugboatWakeState.direction.set(Math.cos(heading), 0, Math.sin(heading))
+    tugboatWakeState.speed = speed
+    // propWashPower: blend throttle + speed fraction + average absolute engine RPM
+    const avgRpmFrac = (Math.abs(portRpmRef.current) + Math.abs(starboardRpmRef.current)) / (2 * RPM_MAX)
+    tugboatWakeState.propWashPower = Math.min(
+      1,
+      Math.abs(currentThrottle) * 0.5 + (speed / (tuning.maxSpeed * boostMult)) * 0.35 + avgRpmFrac * 0.15
+    )
+    tugboatWakeState.washAsymmetry = (portRpmRef.current - starboardRpmRef.current) / RPM_MAX
 
     // --- Update store ---
     updateTugboatState({
