@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 
 // =============================================================================
@@ -11,12 +11,19 @@ interface DockProps {
     isNight?: boolean
 }
 
+// Fender X positions spread evenly across the 80-unit dock face
+const FENDER_X_POSITIONS = [-35, -25, -15, -5, 5, 15, 25, 35]
+// World-space Z of the ship-facing dock edge (dock body at y=-2, platform at z=7.5)
+const FENDER_Z = 7.5
+const FENDER_Y = -1.0   // approximately at waterline
+
 export default function Dock({ isNight = true }: DockProps) {
     // Wood texture-like colors
     const woodColor = isNight ? '#3d2817' : '#8B4513'
     const pierColor = isNight ? '#2a1b0f' : '#654321'
 
     return (
+        <>
         <RigidBody type="fixed" position={[0, -2, 0]}>
             <group>
                 {/* Main dock platform */}
@@ -80,6 +87,49 @@ export default function Dock({ isNight = true }: DockProps) {
                 </mesh>
             </group>
         </RigidBody>
+
+        {/* Rubber fenders — separate fixed RigidBodies so they can carry their
+            own restitution / friction independent of the main dock body.        */}
+        <DockFenders />
+        </>
+    )
+}
+
+// =============================================================================
+// DOCK FENDERS
+// Fixed cylindrical Rapier colliders with high restitution + low friction.
+// Positioned along the ship-facing water edge so hulls bounce and slide
+// rather than stopping dead — the "Pachinko" docking effect.
+// Restitution 0.65 → returns ~65% of kinetic energy elastically.
+// Friction   0.05 → near-zero, lets the hull glide along the dock face.
+// =============================================================================
+
+function DockFenders() {
+    return (
+        <>
+            {FENDER_X_POSITIONS.map((x, i) => (
+                <RigidBody
+                    key={`fender-${i}`}
+                    type="fixed"
+                    position={[x, FENDER_Y, FENDER_Z]}
+                    restitution={0.65}
+                    friction={0.05}
+                >
+                    {/* Physics collider */}
+                    <CylinderCollider args={[0.5, 0.5]} />
+                    {/* Visual rubber fender (dark cylinder lying on its side) */}
+                    <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+                        <cylinderGeometry args={[0.5, 0.5, 1.0, 12]} />
+                        <meshStandardMaterial color="#1a1a1a" roughness={0.95} metalness={0.0} />
+                    </mesh>
+                    {/* Yellow stripe detail */}
+                    <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0]}>
+                        <cylinderGeometry args={[0.52, 0.52, 0.15, 12]} />
+                        <meshStandardMaterial color="#ccaa00" roughness={0.8} metalness={0.1} />
+                    </mesh>
+                </RigidBody>
+            ))}
+        </>
     )
 }
 
