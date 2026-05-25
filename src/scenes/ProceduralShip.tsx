@@ -2,7 +2,7 @@ import { useRef, useMemo, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { Environment } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { getBlueprint, BlueprintPart } from '../types/ShipBlueprint';
+import { getBlueprint, BlueprintPart, Lod2Data } from '../types/ShipBlueprint';
 import { useGameStore } from '../store/useGameStore';
 
 interface ProceduralShipProps {
@@ -11,6 +11,7 @@ interface ProceduralShipProps {
   position?: [number, number, number];
   rotation?: [number, number, number];
   children?: React.ReactNode;
+  lod?: number;
 }
 
 // Enhanced PBR Material component with weathering and wetness
@@ -536,13 +537,36 @@ const HorizonDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWid
   </group>
 );
 
+const Lod2Impostor = ({ lod2, color }: { lod2: Lod2Data; color: string }) => (
+  <group>
+    <mesh>
+      <boxGeometry args={[lod2.hull.width, lod2.hull.height, lod2.hull.length]} />
+      <meshBasicMaterial color={color} />
+    </mesh>
+    {lod2.features.map((feature, i) => (
+      <mesh
+        key={i}
+        position={[
+          feature.xOffset,
+          lod2.hull.height / 2 + feature.yOffset + feature.height / 2,
+          feature.zOffset,
+        ]}
+      >
+        <boxGeometry args={[feature.width, feature.height, feature.depth]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+    ))}
+  </group>
+);
+
 // Main Procedural Ship Component
 export const ProceduralShip = ({ 
   blueprintId, 
   version, 
   position = [0, 0, 0], 
   rotation = [0, 0, 0], 
-  children 
+  children,
+  lod,
 }: ProceduralShipProps) => {
   const groupRef = useRef<THREE.Group>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
@@ -550,6 +574,20 @@ export const ProceduralShip = ({
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
     return null;
+  }
+
+  if (lod === 2 && blueprint.lod2) {
+    const color = blueprint.parts[0]?.material?.color || blueprint.baseColor || '#4a6fa5';
+    return (
+      <group
+        position={position}
+        rotation={rotation}
+        scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
+      >
+        <Lod2Impostor lod2={blueprint.lod2} color={color} />
+        {children}
+      </group>
+    );
   }
 
   const shipDefaults = {

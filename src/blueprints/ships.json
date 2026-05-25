@@ -8,6 +8,14 @@
       "name": "Cruise Liner \"Aurora Glow\" v1.0",
       "scale": 1.8,
       "baseColor": "#0a2540",
+      "lod2": {
+        "hull": { "width": 18, "height": 6, "length": 80 },
+        "profile": "stepped",
+        "features": [
+          { "type": "superstructure", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 12, "height": 8, "depth": 40 },
+          { "type": "funnel", "xOffset": 0, "yOffset": 8, "zOffset": -10, "width": 4, "height": 4, "depth": 4 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [18, 6, 80], "material": { "emissive": "#112244" } },
         { "id": "deck1", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [16, 3, 70] },
@@ -29,6 +37,14 @@
       "name": "Container Vessel \"StackMaster 4000\" v1.0",
       "scale": 1.6,
       "baseColor": "#1a1a2e",
+      "lod2": {
+        "hull": { "width": 24, "height": 5, "length": 110 },
+        "profile": "flat",
+        "features": [
+          { "type": "cellguides", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 22, "height": 10, "depth": 90 },
+          { "type": "bridge", "xOffset": -8, "yOffset": 0, "zOffset": 30, "width": 8, "height": 6, "depth": 10 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [24, 5, 110], "material": { "emissive": "#0a0a1a" } },
         { "id": "deck", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [23, 0.5, 108] },
@@ -58,6 +74,14 @@
       "name": "Oil Tanker \"Black Pearl\" v1.0",
       "scale": 1.4,
       "baseColor": "#0f0f1a",
+      "lod2": {
+        "hull": { "width": 22, "height": 10, "length": 130 },
+        "profile": "flat",
+        "features": [
+          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": 40, "width": 12, "height": 8, "depth": 16 },
+          { "type": "pipeline", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 2, "height": 1.5, "depth": 100 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [22, 10, 130], "material": { "emissive": "#0a0a12" } },
         { "id": "bulbousBow", "type": "cone", "position": [0, -2, 65], "rotation": [1.57, 0, 0], "size": [12, 20, 12] },
@@ -87,6 +111,14 @@
       "name": "Capesize Bulk Carrier \"Iron Mountain\" v1.0",
       "scale": 1.9,
       "baseColor": "#2d3436",
+      "lod2": {
+        "hull": { "width": 46, "height": 14, "length": 145 },
+        "profile": "flat",
+        "features": [
+          { "type": "hatches", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 36, "height": 3, "depth": 120 },
+          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": -55, "width": 30, "height": 8, "depth": 12 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -4, 0], "rotation": [0, 0, 0], "size": [46, 14, 145], "material": { "emissive": "#1a1f21", "roughness": 0.8 } },
         { "id": "bulbousBow", "type": "cone", "position": [0, -2, 72], "rotation": [1.57, 0, 0], "size": [16, 25, 16], "material": { "roughness": 0.7 } },
@@ -115,6 +147,15 @@
       "name": "Q-Max LNG Carrier \"Cryo Titan\" v1.0",
       "scale": 2.0,
       "baseColor": "#1e3a5f",
+      "lod2": {
+        "hull": { "width": 55, "height": 12, "length": 172 },
+        "profile": "tall",
+        "features": [
+          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": -55, "width": 48, "height": 14, "depth": 40 },
+          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 48, "height": 14, "depth": 40 },
+          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": 45, "width": 48, "height": 14, "depth": 40 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [55, 12, 172], "material": { "emissive": "#0f1d2f", "metalness": 0.6 } },
         { "id": "membraneTank1", "type": "box", "position": [0, 6, -55], "rotation": [0, 0, 0], "size": [48, 14, 45], "material": { "emissive": "#00aaff", "roughness": 0.3 } },
@@ -142,6 +183,14 @@
       "name": "Ro-Ro Ferry \"Vehicle Voyager\" v1.0",
       "scale": 1.5,
       "baseColor": "#2980b9",
+      "lod2": {
+        "hull": { "width": 32, "height": 8, "length": 95 },
+        "profile": "flat",
+        "features": [
+          { "type": "superstructure", "xOffset": 0, "yOffset": 0, "zOffset": -25, "width": 28, "height": 14, "depth": 18 },
+          { "type": "ramp", "xOffset": 0, "yOffset": -2, "zOffset": 47, "width": 20, "height": 2, "depth": 10 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [32, 8, 95], "material": { "emissive": "#1a5276" } },
         { "id": "vehicleDeck1", "type": "box", "position": [0, 3, 5], "rotation": [0, 0, 0], "size": [30, 0.5, 80], "material": { "emissive": "#2874a6" } },
@@ -168,6 +217,14 @@
       "name": "Research Vessel \"Deep Discoverer\" v1.0",
       "scale": 1.3,
       "baseColor": "#8e44ad",
+      "lod2": {
+        "hull": { "width": 18, "height": 6, "length": 75 },
+        "profile": "stepped",
+        "features": [
+          { "type": "aframe", "xOffset": 0, "yOffset": 0, "zOffset": 25, "width": 14, "height": 6, "depth": 8 },
+          { "type": "helideck", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 12, "height": 1, "depth": 12 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [18, 6, 75], "material": { "emissive": "#6c3483", "metalness": 0.4 } },
         { "id": "iceBelt", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [19, 3, 76], "material": { "emissive": "#5d6d7e", "roughness": 0.5 } },
@@ -196,6 +253,14 @@
       "name": "Autonomous Spaceport Drone Ship \"Of Course I Still Love You\" v1.0",
       "scale": 1.0,
       "baseColor": "#2c3e50",
+      "lod2": {
+        "hull": { "width": 46, "height": 6, "length": 90 },
+        "profile": "barge",
+        "features": [
+          { "type": "pad", "xOffset": -15, "yOffset": 0, "zOffset": -15, "width": 8, "height": 0.5, "depth": 8 },
+          { "type": "pad", "xOffset": 15, "yOffset": 0, "zOffset": 15, "width": 8, "height": 0.5, "depth": 8 }
+        ]
+      },
       "parts": [
         { "id": "bargeHull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [46, 6, 90], "material": { "emissive": "#1c2833", "roughness": 0.9 } },
         { "id": "landingDeck", "type": "box", "position": [0, 0.3, 0], "rotation": [0, 0, 0], "size": [46, 0.5, 90], "material": { "emissive": "#34495e", "roughness": 0.8 } },
@@ -224,6 +289,15 @@
       "scale": 1.4,
       "baseColor": "#d0e4f0",
       "musicTheme": "harbor_commute",
+      "lod2": {
+        "hull": { "width": 26, "height": 5, "length": 65 },
+        "profile": "stepped",
+        "features": [
+          { "type": "passenger_deck", "xOffset": 0, "yOffset": 0, "zOffset": -6, "width": 22, "height": 5, "depth": 30 },
+          { "type": "car_deck", "xOffset": 0, "yOffset": 0, "zOffset": 20, "width": 22, "height": 1, "depth": 20 },
+          { "type": "funnel", "xOffset": -9, "yOffset": 5, "zOffset": -5, "width": 4, "height": 6, "depth": 4 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [26, 5, 65], "material": { "emissive": "#a0c4d0" } },
         { "id": "bowRamp", "type": "box", "position": [0, 0, -32], "rotation": [0.2, 0, 0], "size": [20, 1, 10], "material": { "emissive": "#b0d4e0" } },
@@ -246,6 +320,14 @@
       "scale": 0.9,
       "baseColor": "#4a5568",
       "musicTheme": "open_sea_folk",
+      "lod2": {
+        "hull": { "width": 14, "height": 4, "length": 40 },
+        "profile": "tall",
+        "features": [
+          { "type": "mast", "xOffset": 0, "yOffset": 0, "zOffset": -12, "width": 1, "height": 10, "depth": 1 },
+          { "type": "gantry", "xOffset": 0, "yOffset": 0, "zOffset": 12, "width": 10, "height": 3, "depth": 2 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [14, 4, 40], "material": { "emissive": "#3a4558" } },
         { "id": "wheelhouse", "type": "box", "position": [0, 4, -12], "rotation": [0, 0, 0], "size": [10, 6, 10], "material": { "emissive": "#5a6578" } },
@@ -269,6 +351,15 @@
       "scale": 1.2,
       "baseColor": "#f97316",
       "musicTheme": "deep_ocean_ambient",
+      "lod2": {
+        "hull": { "width": 16, "height": 5, "length": 55 },
+        "profile": "stepped",
+        "features": [
+          { "type": "moonpool", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 8, "height": 3, "depth": 6 },
+          { "type": "aframe", "xOffset": 0, "yOffset": 0, "zOffset": -18, "width": 12, "height": 5, "depth": 8 },
+          { "type": "helideck", "xOffset": 0, "yOffset": 0, "zOffset": 18, "width": 10, "height": 1, "depth": 10 }
+        ]
+      },
       "parts": [
         { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [16, 5, 55], "material": { "emissive": "#d65a0f" } },
         { "id": "sonarDome", "type": "box", "position": [0, -3, 24], "rotation": [0, 0, 0], "size": [6, 2, 5], "material": { "emissive": "#00ff88" } },
