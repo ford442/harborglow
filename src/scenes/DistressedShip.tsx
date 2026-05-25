@@ -152,6 +152,7 @@ export default function DistressedShip({
   const timeRemainingRef = useRef(timeLimit)
 
   const operationMode = useGameStore((s) => s.operationMode)
+  const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const activeMission = useGameStore((s) => s.activeMission)
   const updateMission = useGameStore((s) => s.updateMission)
 
@@ -284,7 +285,7 @@ export default function DistressedShip({
       (pos.z - berthCenter[2]) ** 2
     )
 
-    if (dist < berthRadius && speed < 1.0) {
+    if (towingUnlocked && dist < berthRadius && speed < 1.0) {
       dockTimerRef.current += delta
       if (dockTimerRef.current > 3.0) {
         hasDockedRef.current = true

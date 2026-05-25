@@ -134,6 +134,7 @@ export default function Tugboat() {
   const targetPitchRef = useRef(0)
 
   const operationMode = useGameStore((s) => s.operationMode)
+  const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
 
   // Twin-prop RPM refs — synced from the store without creating per-frame subscriptions
@@ -472,6 +473,7 @@ export default function Tugboat() {
         enabledRotations={[true, true, true]}
         colliders="cuboid"
         onCollisionEnter={(e) => {
+          if (!towingUnlocked) return
           const other = e.other.rigidBody
           if (!other || other === rbRef.current) return
           const otherMass = other.mass()
