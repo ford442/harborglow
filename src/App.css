@@ -388,3 +388,71 @@ kbd {
     0%, 100% { box-shadow: 0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2); }
     50% { box-shadow: 0 0 80px rgba(255,0,255,0.8), inset 0 0 40px rgba(255,255,255,0.3); }
 }
+
+/* =============================================================================
+   RESPONSIVE BREAKPOINTS FOR APP
+   ============================================================================= */
+
+/* Tablet and below (1024px) */
+@media (max-width: 1024px) {
+  .crane-dashboard-container {
+    transform: scale(0.9);
+    transform-origin: center center;
+  }
+  
+  .dashboard-frame {
+    max-width: 90vw;
+    max-height: 90vh;
+  }
+}
+
+/* Small screens (768px) - iPad/small laptop */
+@media (max-width: 768px) {
+  .crane-dashboard-container {
+    transform: scale(0.75);
+    transform-origin: center center;
+  }
+  
+  .dashboard-frame {
+    max-width: 100vw;
+    max-height: 100vh;
+  }
+  
+  .monitor-grid {
+    gap: 4px;
+  }
+  
+  /* Collapse 4-camera view into 2x2 grid with smaller monitors */
+  .monitor-row {
+    gap: 4px;
+  }
+  
+  .crane-monitor {
+    min-width: auto;
+  }
+  
+  .monitor-screen {
+    width: 120px !important;
+    height: 90px !important;
+  }
+}
+
+/* Very small screens (480px) - Mobile phones */
+@media (max-width: 480px) {
+  body {
+    overflow-y: auto;
+  }
+  
+  .crane-dashboard-container {
+    display: none !important;
+  }
+  
+  .menu-container {
+    padding: 20px;
+  }
+  
+  .menu-nav {
+    width: 100%;
+    max-width: 100%;
+  }
+}

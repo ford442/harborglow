@@ -1917,3 +1917,95 @@ input[type="range"]::-moz-range-track {
   0%, 100% { opacity: 0.6; box-shadow: 0 0 20px rgba(0, 204, 255, 0.3); }
   50% { opacity: 1; box-shadow: 0 0 40px rgba(0, 204, 255, 0.5); }
 }
+
+/* =============================================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================================= */
+
+/* Tablet and below (1024px) */
+@media (max-width: 1024px) {
+  /* Reduce padding and gaps for smaller screens */
+  .ship-spawner-container {
+    max-width: 280px !important;
+    right: 12px !important;
+  }
+  
+  /* Scale down HUD elements */
+  .crane-control-indicators {
+    scale: 0.9;
+    bottom: 24px !important;
+  }
+  
+  /* Make time display smaller */
+  .time-display-value {
+    font-size: 11px !important;
+  }
+}
+
+/* Small screens (768px) - iPad/small laptop */
+@media (max-width: 768px) {
+  /* Hide wave height debug */
+  .wave-height-debug {
+    display: none !important;
+  }
+  
+  /* Collapse ship spawner into compact list */
+  .ship-spawner-container {
+    max-width: 240px !important;
+    right: 8px !important;
+  }
+  
+  /* Scale down crane controls */
+  .crane-control-indicators {
+    scale: 0.75;
+    bottom: 16px !important;
+    right: 8px !important;
+  }
+  
+  /* Scale down ship status panel */
+  .ship-status-panel {
+    scale: 0.85;
+  }
+  
+  /* Reduce time display size */
+  .time-display {
+    top: 8px !important;
+    right: 8px !important;
+  }
+  
+  /* Hide/minimize camera controls on very small screens */
+  .camera-multiview-controls {
+    display: none !important;
+  }
+}
+
+/* Very small screens (480px) - Mobile phones */
+@media (max-width: 480px) {
+  /* Hide complex UI elements */
+  .crane-dashboard-container,
+  .operator-cabin-ui,
+  .ship-spawner-container,
+  .crane-control-indicators,
+  .camera-multiview-controls,
+  .wave-height-debug {
+    display: none !important;
+  }
+  
+  /* Show mobile-friendly overlay */
+  body::before {
+    content: 'HarborGlow is best experienced on desktop (1024x768 or larger). For the best experience, please use a larger screen.';
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    background: rgba(0, 0, 0, 0.9);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    z-index: 10000;
+    line-height: 1.6;
+    font-family: system-ui, sans-serif;
+  }
+}
