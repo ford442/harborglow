@@ -18,6 +18,8 @@ import { waveSystem } from '../systems/WaveSystem'
 // CONFIG (tunable via Leva)
 // =============================================================================
 
+const RPM_MAX = 100  // normalisation constant for console RPM values
+
 const PHYSICS = {
   mass: 15,
   linearDamping: 2.2,
@@ -133,6 +135,22 @@ export default function Tugboat() {
 
   const operationMode = useGameStore((s) => s.operationMode)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
+
+  // Twin-prop RPM refs — synced from the store without creating per-frame subscriptions
+  const portRpmRef = useRef(0)
+  const starboardRpmRef = useRef(0)
+
+  useEffect(() => {
+    // Initialise from current store value
+    const { tugboatState } = useGameStore.getState()
+    portRpmRef.current = tugboatState.portEngineRpm ?? 0
+    starboardRpmRef.current = tugboatState.starboardEngineRpm ?? 0
+
+    return useGameStore.subscribe((s) => {
+      portRpmRef.current = s.tugboatState.portEngineRpm ?? 0
+      starboardRpmRef.current = s.tugboatState.starboardEngineRpm ?? 0
+    })
+  }, [])
 
   // Collision push state (updated in useFrame, read in onCollisionEnter)
   const speedRef = useRef(0)
@@ -251,6 +269,40 @@ export default function Tugboat() {
       const force = currentThrottle * tuning.maxSpeed * 3.5 * boostMult * delta
       rb.applyImpulse(
         { x: Math.cos(heading) * force, y: 0, z: Math.sin(heading) * force },
+        true
+      )
+    }
+
+    // --- Twin-prop console forces ---
+    // Port and starboard engines apply independent thrust at their lateral offsets.
+    // Differential creates tank-style rotation without requiring steering input.
+    const portNorm = portRpmRef.current / RPM_MAX          // -1..1
+    const starboardNorm = starboardRpmRef.current / RPM_MAX // -1..1
+
+    if (Math.abs(portNorm) > 0.01 || Math.abs(starboardNorm) > 0.01) {
+      // Lateral offset of each prop from hull centre (world space, perpendicular to heading)
+      const perpX = Math.cos(heading + Math.PI / 2)
+      const perpZ = Math.sin(heading + Math.PI / 2)
+      const propOffset = 1.2   // metres from centreline
+      const propForceScale = tuning.maxSpeed * 2.5 * boostMult * delta
+
+      // Port prop world position (left of heading)
+      const portX = rb.translation().x - perpX * propOffset
+      const portZ = rb.translation().z - perpZ * propOffset
+      const portForce = portNorm * propForceScale
+      rb.applyImpulseAtPoint(
+        { x: Math.cos(heading) * portForce, y: 0, z: Math.sin(heading) * portForce },
+        { x: portX, y: rb.translation().y, z: portZ },
+        true
+      )
+
+      // Starboard prop world position (right of heading)
+      const starboardX = rb.translation().x + perpX * propOffset
+      const starboardZ = rb.translation().z + perpZ * propOffset
+      const starboardForce = starboardNorm * propForceScale
+      rb.applyImpulseAtPoint(
+        { x: Math.cos(heading) * starboardForce, y: 0, z: Math.sin(heading) * starboardForce },
+        { x: starboardX, y: rb.translation().y, z: starboardZ },
         true
       )
     }
