@@ -146,6 +146,8 @@ export interface TugboatState {
     throttle: number        // -1..1
     steering: number        // -1..1
     heading: number         // radians
+    portEngineRpm: number      // -100..100
+    starboardEngineRpm: number // -100..100
 }
 
 export interface TugboatObjective {
@@ -512,6 +514,8 @@ const defaultState: Omit<GameState, keyof {
         throttle: 0,
         steering: 0,
         heading: -Math.PI / 2,
+        portEngineRpm: 0,
+        starboardEngineRpm: 0,
     },
     tugboatObjectives: [],
     tugboatDockedCount: 0,
@@ -731,6 +735,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 throttle: 0,
                 steering: 0,
                 heading: -Math.PI / 2,
+                portEngineRpm: 0,
+                starboardEngineRpm: 0,
             },
             tugboatObjectives: [],
             tugboatDockedCount: 0,
@@ -782,12 +788,18 @@ export const useGameStore = create<GameState>((set, get) => ({
                     underwater: isCameraPresetId(saved.dashboardPresets?.underwater) ? saved.dashboardPresets.underwater : DEFAULT_STORE_DASHBOARD_PRESETS.underwater,
                 },
                 operationMode: saved.operationMode ?? 'crane',
-                tugboatState: saved.tugboatState ?? {
+                tugboatState: saved.tugboatState ? {
+                    ...saved.tugboatState,
+                    portEngineRpm: (saved.tugboatState as TugboatState).portEngineRpm ?? 0,
+                    starboardEngineRpm: (saved.tugboatState as TugboatState).starboardEngineRpm ?? 0,
+                } : {
                     position: [20, 0.5, 10],
                     velocity: [0, 0, 0],
                     throttle: 0,
                     steering: 0,
                     heading: -Math.PI / 2,
+                    portEngineRpm: 0,
+                    starboardEngineRpm: 0,
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
@@ -1170,6 +1182,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 throttle: 0,
                 steering: 0,
                 heading: -Math.PI / 2,
+                portEngineRpm: 0,
+                starboardEngineRpm: 0,
             },
         })
         console.log('🚤 Tugboat mode reset')

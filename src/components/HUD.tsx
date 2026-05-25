@@ -15,6 +15,7 @@ import { injectDesignSystem } from './DesignSystem'
 import DynamicEventNotifier from './DynamicEventNotifier'
 import ReputationPanel from './ReputationPanel'
 import CreditFeedback from './CreditFeedback'
+import TugboatConsole from './TugboatConsole'
 import {
   TopBar,
   TimeDisplay,
@@ -55,6 +56,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <TimeDisplay />
       
       <TugboatHUD />
+      
+      <TugboatConsole />
       
       <MissionHUD />
       
