@@ -259,9 +259,9 @@ export const lockedOverlayStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  background: 'rgba(0,0,0,0.5)',
+  background: 'rgba(0,0,0,0.7)',
   borderRadius: '12px',
-  backdropFilter: 'blur(2px)'
+  backdropFilter: 'blur(4px)'
 }
 
 // ================================================================

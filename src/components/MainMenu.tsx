@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { audioVisualSync } from '../systems/audioVisualSync'
 import { introMusicSystem } from '../systems/introMusicSystem'
+import { loadGameState } from '../utils/storage_manager'
 export interface MainMenuProps {
     hasSave: boolean
     onNewGame: () => void
@@ -43,6 +44,7 @@ type ModalType = 'settings' | 'credits' | 'howtoplay' | null
 
 export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }: MainMenuProps) {
     const [activeModal, setActiveModal] = useState<ModalType>(null)
+    const [saveInfo, setSaveInfo] = useState<{ reputation?: number; shipCount?: number } | null>(null)
     const [particles, setParticles] = useState<Array<{
         id: number
         x: number
@@ -70,6 +72,19 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }:
         }))
         setParticles(newParticles)
     }, [])
+
+    // Load save state info
+    useEffect(() => {
+        if (hasSave) {
+            const savedState = loadGameState()
+            if (savedState) {
+                setSaveInfo({
+                    reputation: (savedState as any).reputation || 0,
+                    shipCount: (savedState as any).ships?.length || 0
+                })
+            }
+        }
+    }, [hasSave])
 
     // Start intro music when menu mounts
     useEffect(() => {
@@ -215,12 +230,26 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }:
 
                 <nav style={navStyle}>
                     {hasSave && (
-                        <MenuButton
-                            label="Continue"
-                            icon="▶️"
-                            variant="primary"
-                            onClick={onLoadGame}
-                        />
+                        <div style={{ width: '100%' }}>
+                            <MenuButton
+                                label="Continue"
+                                icon="▶️"
+                                variant="primary"
+                                onClick={onLoadGame}
+                            />
+                            {saveInfo && (
+                                <div style={{
+                                    marginTop: '8px',
+                                    textAlign: 'center',
+                                    fontSize: '11px',
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    fontFamily: '"JetBrains Mono", monospace'
+                                }}>
+                                    <div>Reputation: ⭐{saveInfo.reputation || 0}</div>
+                                    <div>Active Ships: 🚢{saveInfo.shipCount || 0}</div>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     <MenuButton

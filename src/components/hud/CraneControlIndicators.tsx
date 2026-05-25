@@ -87,17 +87,17 @@ export default function CraneControlIndicators() {
         
         <div style={{
           ...twistlockIndicatorStyle,
-          background: twistlockEngaged ? 'rgba(0,255,0,0.2)' : 'rgba(255,0,0,0.1)',
-          borderColor: twistlockEngaged ? '#00ff00' : '#ff4757',
+          background: twistlockEngaged ? 'rgba(0,255,0,0.2)' : 'rgba(0,100,200,0.1)',
+          borderColor: twistlockEngaged ? '#00ff00' : '#0099ff',
         }}>
           <span style={{
             ...twistlockIconStyle,
-            color: twistlockEngaged ? '#00ff00' : '#ff4757',
+            color: twistlockEngaged ? '#00ff00' : '#0099ff',
           }}>
-            {twistlockEngaged ? '🔒' : '🔓'}
+            {twistlockEngaged ? '🔒' : '✅'}
           </span>
           <span style={twistlockTextStyle}>
-            {twistlockEngaged ? 'LOCKED' : 'UNLOCKED'}
+            {twistlockEngaged ? 'LOCKED' : 'ACTIVE'}
           </span>
         </div>
       </div>

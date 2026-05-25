@@ -142,6 +142,7 @@ export const sliderStyle: React.CSSProperties = {
     borderRadius: '3px',
     outline: 'none',
     cursor: 'pointer',
+    accentColor: '#00d4aa',
 }
 
 export const qualityButtonsStyle: React.CSSProperties = {
