@@ -294,6 +294,8 @@ interface SerializableState {
     handshakeInputSequence: AcousticNote[]
     handshakeComplete: boolean
     towingUnlocked: boolean
+    towLineAttached: boolean
+    activeTowedShipId: string | null
     stormIntensity: number
     stormTimeRemaining: number
     isStormActive: boolean
@@ -316,6 +318,8 @@ interface SerializableState {
     setRainDensity: (density: number) => void
     triggerTugboatWin: () => void
     setWaveParams: (patch: Partial<WaveParams>) => void
+    attachTowLine: (shipId: string) => void
+    detachTowLine: () => void
     // Economy
     addMoney: (amount: number) => void
     deductMoney: (amount: number) => void
@@ -416,9 +420,9 @@ interface GameState extends SerializableState {
     setStormIntensity: (intensity: number) => void
     setStormTimeRemaining: (time: number) => void
     triggerTugboatWin: () => void
+    attachTowLine: (shipId: string) => void
+    detachTowLine: () => void
 }
-
-// Default initial state
 const defaultState: Omit<GameState, keyof {
     addShip: unknown; removeShip: unknown; setCurrentShip: unknown;
     installUpgrade: unknown; uninstallUpgrade: unknown; setMusicPlaying: unknown;
@@ -447,6 +451,7 @@ const defaultState: Omit<GameState, keyof {
     addMoney: unknown; deductMoney: unknown;
     setActiveMission: unknown; updateMission: unknown;
     completeMission: unknown; failMission: unknown;
+    attachTowLine: unknown; detachTowLine: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -549,6 +554,8 @@ const defaultState: Omit<GameState, keyof {
     handshakeInputSequence: [],
     handshakeComplete: false,
     towingUnlocked: false,
+    towLineAttached: false,
+    activeTowedShipId: null,
     stormIntensity: 0,
     stormTimeRemaining: 0,
     isStormActive: false,
@@ -1241,6 +1248,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             handshakeInputSequence: [],
             handshakeComplete: false,
             towingUnlocked: false,
+            towLineAttached: false,
+            activeTowedShipId: null,
             stormIntensity: 0,
             stormTimeRemaining: 0,
             isStormActive: false,
@@ -1261,6 +1270,16 @@ export const useGameStore = create<GameState>((set, get) => ({
             },
         })
         console.log('🚤 Tugboat mode reset')
+    },
+
+    attachTowLine: (shipId: string) => {
+        set({ towLineAttached: true, activeTowedShipId: shipId })
+        console.log(`⚓ Tow line attached to ship: ${shipId}`)
+    },
+
+    detachTowLine: () => {
+        set({ towLineAttached: false, activeTowedShipId: null })
+        console.log('⚓ Tow line detached')
     },
 
     setStormIntensity: (intensity: number) => {

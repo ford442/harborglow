@@ -137,6 +137,8 @@ export default function Tugboat() {
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
+  const attachTowLine = useGameStore((s) => s.attachTowLine)
+  const detachTowLine = useGameStore((s) => s.detachTowLine)
 
   // Twin-prop RPM refs — synced from the store without creating per-frame subscriptions
   const portRpmRef = useRef(0)
@@ -169,6 +171,20 @@ export default function Tugboat() {
         if (boostRef.current.cooldown <= 0) {
           boostRef.current.active = true
           boostRef.current.cooldown = 5 // seconds
+        }
+      }
+      // 'T' — toggle tow-line attach/detach (requires handshake completion)
+      if (e.key === 't' || e.key === 'T') {
+        const state = useGameStore.getState()
+        if (!state.towingUnlocked) return
+        if (state.towLineAttached) {
+          detachTowLine()
+        } else {
+          // Find the nearest incomplete objective's ship to attach to
+          const target = state.tugboatObjectives.find(o => !o.completed)
+          if (target) {
+            attachTowLine(target.id)
+          }
         }
       }
     }
@@ -217,7 +233,7 @@ export default function Tugboat() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [])
+  }, [attachTowLine, detachTowLine])
 
   // Reset wake state when the tugboat unmounts (prevents stale uniforms on the water shader)
   useEffect(() => () => { resetTugboatWakeState() }, [])

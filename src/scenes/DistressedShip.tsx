@@ -17,13 +17,14 @@ import { waveSystem } from '../systems/WaveSystem'
 // CONSTANTS
 // =============================================================================
 
-const SHIP_MASS = 60
-const SHIP_LINEAR_DAMPING = 0.3
-const SHIP_ANGULAR_DAMPING = 2.0
-const BUOYANCY_SCALE = 35.0
-const DAMPING_SCALE = 1.8
-const RESTORING_TORQUE = 6.0
-const MAX_SPEED = 4
+// High-mass freighter dynamics — consistent with TugboatTargetShip.
+const SHIP_MASS            = 50000
+const SHIP_LINEAR_DAMPING  = 0.8
+const SHIP_ANGULAR_DAMPING = 1.2
+const BUOYANCY_SCALE       = 30000
+const DAMPING_SCALE        = 1500
+const RESTORING_TORQUE     = 5000
+const MAX_SPEED            = 2
 const DAMAGE_RATE = 3.5 // damage per second
 
 const PROBE_OFFSETS = [
