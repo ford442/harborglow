@@ -14,6 +14,7 @@
 
 set -euo pipefail
 cd "$(dirname "$0")"
+source /content/buil*/emsdk/emsdk_env.sh
 
 # ---------------------------------------------------------------------------
 # Check Emscripten
