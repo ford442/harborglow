@@ -7,6 +7,7 @@
         "dev": "vite",
         "build": "tsc && vite build",
         "build:analyze": "tsc && vite build --mode analyze",
+        "build:wasm": "cd cpp && ./build.sh",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "test": "vitest run",

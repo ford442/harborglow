@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => ({
         }),
     ].filter(Boolean),
     base: './',
+    // Ensure .wasm files in public/ are served with the correct MIME type
+    assetsInclude: ['**/*.wasm'],
     server: {
         host: true,
         port: 5173
