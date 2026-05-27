@@ -35,6 +35,16 @@ const MAX_SPEED            = 2      // m/s — heavy ships are slow
 const MAX_TOW_LENGTH   = 12       // metres of rope before tension builds
 const TOW_SPRING_K     = 200000   // impulse spring constant (N·s/m)
 
+// Hydrodynamic crosscurrent & wind shear constants
+// Hull is ~100 m long; bow/stern sample arms are ±50 m.
+const HULL_LENGTH             = 100  // metres bow to stern
+// Above-water projected lateral area (m²) — drives wind shear torque.
+const FREIGHTER_LATERAL_AREA  = 600
+// Scales the crosscurrent torque impulse applied to the hull.
+const CROSSCURRENT_TORQUE_SCALE = 800
+// Scales the crosscurrent translational impulse (separate from existing simple current).
+const CROSSCURRENT_FORCE_SCALE  = 0.5
+
 // 6 probe points for longer hulls
 const PROBE_OFFSETS = [
   { x: 0, z: 4 },
@@ -103,7 +113,7 @@ export default function TugboatTargetShip({
     const rb = rbRef.current
     const time = waveSystem.getTime()
 
-    // --- Wind force ---
+    // --- Wind force (uniform broadside push, same as before) ---
     const windForce = stormSystem.getWindForce()
     if (windForce.lengthSq() > 0) {
       rb.applyImpulse(
@@ -112,19 +122,70 @@ export default function TugboatTargetShip({
       )
     }
 
-    // --- Surface current ---
-    const pos = rb.translation()
-    const current = waveSystem.getSurfaceCurrent(pos.x, pos.z)
-    if (current.lengthSq() > 0) {
+    // --- Wind shear torque + lateral heel force for large vessel ---
+    // The freighter's tall sides and large sail area make it highly vulnerable
+    // to cross-wind shear — player must use differential thrust to counter yaw.
+    const { yawTorque: shearYaw, heelForce } = stormSystem.getWindShearForFreighter(FREIGHTER_LATERAL_AREA)
+    if (shearYaw !== 0) {
+      rb.applyTorqueImpulse({ x: 0, y: shearYaw * delta, z: 0 }, true)
+    }
+    if (heelForce.lengthSq() > 0) {
       rb.applyImpulse(
-        { x: current.x * delta * 0.3, y: 0, z: current.z * delta * 0.3 },
+        { x: heelForce.x * delta, y: 0, z: heelForce.z * delta },
         true
       )
     }
 
-    // --- Buoyancy probes ---
+    // --- Multi-point hull current profile (crosscurrents + eddies) ---
+    // Sample at bow, mid, and stern to produce net force + differential yaw torque.
     const rot = rb.rotation()
     const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
+    const euler = new THREE.Euler().setFromQuaternion(quat)
+    const pos = rb.translation()
+
+    const crosscurrentScale = stormSystem.crosscurrentStrength
+    const { netForce: hullCurrent, yawTorque: currentYaw } = waveSystem.getHullCurrentProfile(
+      pos.x,
+      pos.z,
+      euler.y,
+      HULL_LENGTH,
+      time
+    )
+
+    if (hullCurrent.lengthSq() > 0) {
+      rb.applyImpulse(
+        {
+          x: hullCurrent.x * delta * CROSSCURRENT_FORCE_SCALE * crosscurrentScale,
+          y: 0,
+          z: hullCurrent.z * delta * CROSSCURRENT_FORCE_SCALE * crosscurrentScale,
+        },
+        true
+      )
+    }
+    if (currentYaw !== 0) {
+      rb.applyTorqueImpulse(
+        { x: 0, y: currentYaw * CROSSCURRENT_TORQUE_SCALE * delta * crosscurrentScale, z: 0 },
+        true
+      )
+    }
+
+    // --- Simple surface current (keep existing shallow-draft contribution) ---
+    const simpleCurrent = waveSystem.getSurfaceCurrent(pos.x, pos.z)
+    if (simpleCurrent.lengthSq() > 0) {
+      rb.applyImpulse(
+        { x: simpleCurrent.x * delta * 0.15, y: 0, z: simpleCurrent.z * delta * 0.15 },
+        true
+      )
+    }
+
+    // --- Update environmental telemetry in store (throttled: only when active) ---
+    const shearIntensity = stormSystem.isActive()
+      ? Math.min(1, Math.abs(shearYaw) / (FREIGHTER_LATERAL_AREA * 0.1) + hullCurrent.length() * 0.1)
+      : 0
+    useGameStore.getState().updateTugboatState({
+      windShear: shearIntensity,
+      currentDrift: [hullCurrent.x + simpleCurrent.x, hullCurrent.z + simpleCurrent.z],
+    })
 
     for (const offset of PROBE_OFFSETS) {
       const localOff = new THREE.Vector3(offset.x, 0, offset.z)
@@ -169,7 +230,6 @@ export default function TugboatTargetShip({
       true
     )
 
-    const euler = new THREE.Euler().setFromQuaternion(quat)
     rb.applyTorqueImpulse(
       {
         x: -euler.x * RESTORING_TORQUE * delta,

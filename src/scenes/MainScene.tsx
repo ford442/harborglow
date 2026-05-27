@@ -1171,6 +1171,27 @@ function useLevaControls(config: LevaControlsConfig) {
             step: 0.1,
             folder: 'Tugboat Mode',
         },
+        // Tugboat Environment — hydrodynamic shear tuning
+        'Crosscurrent Strength': {
+            value: 1.0,
+            min: 0,
+            max: 3,
+            step: 0.1,
+            folder: 'Tugboat Environment',
+            onChange: (value: number) => {
+                stormSystem.crosscurrentStrength = value
+            }
+        },
+        'Wind Shear Scale': {
+            value: 1.0,
+            min: 0,
+            max: 4,
+            step: 0.1,
+            folder: 'Tugboat Environment',
+            onChange: (value: number) => {
+                stormSystem.shearTorqueScale = value
+            }
+        },
         // Training System Controls
         'Quick Start Module': {
             value: 'none',
