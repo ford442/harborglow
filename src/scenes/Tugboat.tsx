@@ -7,14 +7,14 @@ import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { useControls } from 'leva'
+import { useControls, button, folder } from 'leva'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore } from '../store/useGameStore'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
-import { cavitationSystem, cavitationState } from '../systems/CavitationSystem'
+import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
@@ -116,6 +116,61 @@ export default function Tugboat() {
     brakeForce: { value: 60, min: 10, max: 150, step: 5, label: 'Brake Force' },
     boostMult: { value: 2.0, min: 1.2, max: 4.0, step: 0.2, label: 'Boost Multiplier' },
   })
+
+  // Leva debug panel for cavitation tuning (collapsed by default)
+  useControls('Cavitation Debug', () => ({
+    ...folder({
+      slipThreshold: {
+        value: CAVITATION_CONFIG.slipThreshold,
+        min: 0.3,
+        max: 0.95,
+        step: 0.01,
+        label: 'Slip Threshold',
+        onChange: (v: number) => { CAVITATION_CONFIG.slipThreshold = v },
+      },
+      slipHysteresis: {
+        value: CAVITATION_CONFIG.slipHysteresis,
+        min: 0.02,
+        max: 0.3,
+        step: 0.01,
+        label: 'Hysteresis',
+        onChange: (v: number) => { CAVITATION_CONFIG.slipHysteresis = v },
+      },
+      minDurationForAlarm: {
+        value: CAVITATION_CONFIG.minDurationForAlarm,
+        min: 0.1,
+        max: 2.0,
+        step: 0.05,
+        label: 'Alarm Latch (s)',
+        onChange: (v: number) => { CAVITATION_CONFIG.minDurationForAlarm = v },
+      },
+      thrustMultiplier: {
+        value: CAVITATION_CONFIG.thrustMultiplier,
+        min: 0.05,
+        max: 0.8,
+        step: 0.01,
+        label: 'Thrust Penalty',
+        onChange: (v: number) => { CAVITATION_CONFIG.thrustMultiplier = v },
+      },
+      maxPropSpeed: {
+        value: CAVITATION_CONFIG.maxPropSpeed,
+        min: 5.0,
+        max: 30.0,
+        step: 0.5,
+        label: 'Max Prop Speed',
+        onChange: (v: number) => { CAVITATION_CONFIG.maxPropSpeed = v },
+      },
+      masterVolume: {
+        value: CAVITATION_CONFIG.masterVolume,
+        min: -40,
+        max: 0,
+        step: 1,
+        label: 'Audio Volume (dB)',
+        onChange: (v: number) => { CAVITATION_CONFIG.masterVolume = v },
+      },
+      resetCavitation: button(() => cavitationSystem.resetCavitation()),
+    }, { collapsed: true }),
+  }))
 
   // ---------------------------------------------------------------------------
   // INPUT STATE
