@@ -39,7 +39,7 @@ const RESTORING_TORQUE     = 5000   // upright-restoring torque (scaled with I)
 const MAX_SPEED            = 2      // m/s — heavy ships are slow
 
 // Tow-line physics — runtime defaults are in towLineCableConfig (TowLineSystem.ts)
-const MAX_TOW_LENGTH   = 12       // metres of rope before tension builds (rest-length)
+const BASE_MAX_TOW_LENGTH = 12    // metres of rope before tension builds (rest-length)
 
 // Hydrodynamic crosscurrent & wind shear constants
 // Hull is ~100 m long; bow/stern sample arms are ±50 m.
@@ -314,7 +314,8 @@ export default function TugboatTargetShip({
       const distRate = (towDist - _prevTowDist.current) / Math.max(delta, 0.001)
       _prevTowDist.current = towDist
 
-      const excess = towDist - MAX_TOW_LENGTH
+      const maxTowLength = storeState.tugboatUpgrades.heavy_tow_winch ? BASE_MAX_TOW_LENGTH + 4 : BASE_MAX_TOW_LENGTH
+      const excess = towDist - maxTowLength
 
       // Raw tension (N) = spring + damping;  damp only when stretching further
       const tensionRaw = excess > 0
