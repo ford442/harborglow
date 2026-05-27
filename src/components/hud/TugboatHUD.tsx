@@ -9,6 +9,7 @@ import { towLineState } from '../../systems/TowLineSystem'
 import { useScreenShake } from '../../hooks/useScreenShake'
 import { createGlassPanelStyles, createButtonStyles, GLASSMORPHISM, TYPOGRAPHY } from '../DesignSystem'
 import AcousticArray from '../AcousticArray'
+import SalvageDispatchModal from './SalvageDispatchModal'
 
 // =============================================================================
 // BEAUFORT SCALE
@@ -590,6 +591,8 @@ export default function TugboatHUD() {
         <span>↩</span>
         <span>Return to Crane</span>
       </button>
+
+      <SalvageDispatchModal />
     </div>
   )
 }

@@ -73,11 +73,17 @@ function ProgressBar({
 export default function MissionHUD() {
   const activeMission = useGameStore((s) => s.activeMission)
   const money = useGameStore((s) => s.money)
+  const tugboatState = useGameStore((s) => s.tugboatState)
 
   if (!activeMission || activeMission.status !== 'active') return null
 
-  const timeRatio = activeMission.timeRemaining / activeMission.timeLimit
-  const damageRatio = activeMission.damage / activeMission.maxDamage
+  const navTarget = activeMission.type === 'salvage' && activeMission.distressPosition
+    ? activeMission.distressPosition
+    : activeMission.berthCenter
+  const dx = navTarget[0] - tugboatState.position[0]
+  const dz = navTarget[2] - tugboatState.position[2]
+  const distanceNm = (Math.sqrt(dx * dx + dz * dz) / 18.52).toFixed(1)
+  const bearingDeg = (Math.atan2(dx, dz) * 180 / Math.PI + 360) % 360
 
   return (
     <div
@@ -106,10 +112,12 @@ export default function MissionHUD() {
           <span style={{ fontSize: '20px' }}>🆘</span>
           <div>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#ff7755' }}>
-              Storm Rescue
+              {activeMission.type === 'salvage' ? 'Legacy Salvage Contract' : 'Storm Rescue'}
             </div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
-              Guide the {activeMission.targetShipType} to safety
+              {activeMission.type === 'salvage'
+                ? `Recover ${activeMission.vesselLabel} for ${activeMission.factionLabel}`
+                : `Guide the ${activeMission.targetShipType} to safety`}
             </div>
           </div>
           <div
@@ -126,6 +134,27 @@ export default function MissionHUD() {
             </span>
           </div>
         </div>
+
+        {activeMission.type === 'salvage' && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              background: 'rgba(120, 180, 255, 0.08)',
+              border: '1px solid rgba(120, 180, 255, 0.22)',
+            }}
+          >
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.75)' }}>
+              Bearing {Math.round(bearingDeg)}° • {distanceNm}nm
+            </span>
+            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.55)' }}>
+              {activeMission.briefing}
+            </span>
+          </div>
+        )}
 
         {/* Timer */}
         <ProgressBar
