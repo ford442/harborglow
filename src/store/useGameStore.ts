@@ -149,6 +149,10 @@ export interface TugboatState {
     heading: number         // radians
     portEngineRpm: number      // -100..100
     starboardEngineRpm: number // -100..100
+    // Cavitation (Direction A) — set by CavitationSystem
+    portCavitating?: boolean
+    starboardCavitating?: boolean
+    cavitationIntensity?: number   // 0..1
 }
 
 export interface TugboatObjective {
@@ -546,6 +550,9 @@ const defaultState: Omit<GameState, keyof {
         heading: -Math.PI / 2,
         portEngineRpm: 0,
         starboardEngineRpm: 0,
+        portCavitating: false,
+        starboardCavitating: false,
+        cavitationIntensity: 0,
     },
     tugboatObjectives: [],
     tugboatDockedCount: 0,
@@ -773,6 +780,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 heading: -Math.PI / 2,
                 portEngineRpm: 0,
                 starboardEngineRpm: 0,
+                portCavitating: false,
+                starboardCavitating: false,
+                cavitationIntensity: 0,
             },
             tugboatObjectives: [],
             tugboatDockedCount: 0,
@@ -832,6 +842,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     ...saved.tugboatState,
                     portEngineRpm: (saved.tugboatState as TugboatState).portEngineRpm ?? 0,
                     starboardEngineRpm: (saved.tugboatState as TugboatState).starboardEngineRpm ?? 0,
+                    portCavitating: (saved.tugboatState as TugboatState).portCavitating ?? false,
+                    starboardCavitating: (saved.tugboatState as TugboatState).starboardCavitating ?? false,
+                    cavitationIntensity: (saved.tugboatState as TugboatState).cavitationIntensity ?? 0,
                 } : {
                     position: [20, 0.5, 10],
                     velocity: [0, 0, 0],
@@ -840,6 +853,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     heading: -Math.PI / 2,
                     portEngineRpm: 0,
                     starboardEngineRpm: 0,
+                    portCavitating: false,
+                    starboardCavitating: false,
+                    cavitationIntensity: 0,
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
@@ -1267,6 +1283,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 heading: -Math.PI / 2,
                 portEngineRpm: 0,
                 starboardEngineRpm: 0,
+                portCavitating: false,
+                starboardCavitating: false,
+                cavitationIntensity: 0,
             },
         })
         console.log('🚤 Tugboat mode reset')

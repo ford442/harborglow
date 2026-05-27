@@ -292,6 +292,62 @@ function ThrottleLever({ label, side, value, onChange, accentColor }: ThrottleLe
 }
 
 // =============================================================================
+// CAVITATION ALARM — Amber hardware warning (Direction A)
+// Lights when either propeller is ventilating / losing bite.
+// Distinct from the small status dots — this is the primary "listen and react" cue.
+// =============================================================================
+
+function CavitationAlarm({ portCav, starboardCav, intensity }: { portCav: boolean; starboardCav: boolean; intensity: number }) {
+  const active = portCav || starboardCav
+  const severe = intensity > 0.78
+
+  const bg = active ? (severe ? '#2a1600' : '#2a1900') : 'rgba(0,0,0,0.35)'
+  const textColor = active ? '#ffcc33' : '#553300'
+  const label = active
+    ? (portCav && starboardCav ? 'CAVITATION — BOTH PROPS' : portCav ? 'CAVITATION — PORT' : 'CAVITATION — STBD')
+    : 'CAVITATION'
+
+  const barStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '2px 8px 3px',
+    background: bg,
+    border: `1px solid ${active ? '#664400' : '#222'}`,
+    borderRadius: '3px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    minHeight: 18,
+    transition: 'background 80ms linear, border-color 80ms linear',
+    animation: active && severe ? 'cav-blink 180ms steps(2, end) infinite' : 'none',
+  }
+
+  return (
+    <div style={barStyle}>
+      <span
+        style={{
+          fontSize: '9px',
+          fontWeight: 800,
+          letterSpacing: '2.5px',
+          color: textColor,
+          textShadow: active ? '0 0 4px #ff950055' : 'none',
+          opacity: active ? 1 : 0.35,
+        }}
+      >
+        ⚠ {label}
+      </span>
+      {active && (
+        <span style={{ fontSize: '8px', color: '#ff950088', letterSpacing: '1px' }}>
+          {Math.round(intensity * 100)}%
+        </span>
+      )}
+      {/* Inject keyframe once per mount (harmless duplicate ok in dev) */}
+      <style>{`@keyframes cav-blink { 50% { background: #3a2200; border-color: #ff9500; } }`}</style>
+    </div>
+  )
+}
+
+// =============================================================================
 // STATUS INDICATOR ROW
 // Small amber LEDs indicating engine state.
 // =============================================================================
@@ -344,6 +400,9 @@ export default function TugboatConsole() {
 
   const portRpm = tugboatState.portEngineRpm ?? 0
   const starboardRpm = tugboatState.starboardEngineRpm ?? 0
+  const portCav = tugboatState.portCavitating ?? false
+  const starboardCav = tugboatState.starboardCavitating ?? false
+  const cavIntensity = tugboatState.cavitationIntensity ?? 0
 
   if (operationMode !== 'tugboat') return null
 
@@ -423,6 +482,9 @@ export default function TugboatConsole() {
         <span style={titleStyle}>Twin Prop Control</span>
         <span style={{ fontSize: '10px', color: '#ff9500', opacity: 0.6 }}>⬡</span>
       </div>
+
+      {/* Cavitation alarm — the primary sensory cue (Direction A) */}
+      <CavitationAlarm portCav={portCav} starboardCav={starboardCav} intensity={cavIntensity} />
 
       {/* Dual throttle levers */}
       <div style={leverRowStyle}>

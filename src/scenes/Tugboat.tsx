@@ -14,6 +14,7 @@ import { useGameStore } from '../store/useGameStore'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
+import { cavitationSystem, cavitationState } from '../systems/CavitationSystem'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
@@ -235,8 +236,11 @@ export default function Tugboat() {
     }
   }, [attachTowLine, detachTowLine])
 
-  // Reset wake state when the tugboat unmounts (prevents stale uniforms on the water shader)
-  useEffect(() => () => { resetTugboatWakeState() }, [])
+  // Reset wake + cavitation state when the tugboat unmounts
+  useEffect(() => () => {
+    resetTugboatWakeState()
+    cavitationSystem.resetCavitation()
+  }, [])
 
   // ---------------------------------------------------------------------------
   // PHYSICS LOOP
@@ -294,9 +298,22 @@ export default function Tugboat() {
       )
     }
 
+    // --- Cavitation dynamics (Direction A) ---
+    // Must run before twin-prop force application so we can read live thrust multipliers.
+    // Uses commanded RPM + actual hull speed (from previous frame's vel for stability).
+    const prevVel = rb.linvel()
+    const prevSpeed = Math.sqrt(prevVel.x * prevVel.x + prevVel.z * prevVel.z)
+    cavitationSystem.update(
+      portRpmRef.current,
+      starboardRpmRef.current,
+      prevSpeed,
+      delta
+    )
+
     // --- Twin-prop console forces ---
     // Port and starboard engines apply independent thrust at their lateral offsets.
     // Differential creates tank-style rotation without requiring steering input.
+    // Cavitation applies severe thrust penalty when prop slip is high (skillful throttle management required).
     const portNorm = portRpmRef.current / RPM_MAX          // -1..1
     const starboardNorm = starboardRpmRef.current / RPM_MAX // -1..1
 
@@ -310,7 +327,8 @@ export default function Tugboat() {
       // Port prop world position (left of heading)
       const portX = rb.translation().x - perpX * propOffset
       const portZ = rb.translation().z - perpZ * propOffset
-      const portForce = portNorm * propForceScale
+      const portCavMult = cavitationSystem.getThrustMultiplier('port')
+      const portForce = portNorm * propForceScale * portCavMult
       rb.applyImpulseAtPoint(
         { x: Math.cos(heading) * portForce, y: 0, z: Math.sin(heading) * portForce },
         { x: portX, y: rb.translation().y, z: portZ },
@@ -320,7 +338,8 @@ export default function Tugboat() {
       // Starboard prop world position (right of heading)
       const starboardX = rb.translation().x + perpX * propOffset
       const starboardZ = rb.translation().z + perpZ * propOffset
-      const starboardForce = starboardNorm * propForceScale
+      const starboardCavMult = cavitationSystem.getThrustMultiplier('starboard')
+      const starboardForce = starboardNorm * propForceScale * starboardCavMult
       rb.applyImpulseAtPoint(
         { x: Math.cos(heading) * starboardForce, y: 0, z: Math.sin(heading) * starboardForce },
         { x: starboardX, y: rb.translation().y, z: starboardZ },
