@@ -191,6 +191,102 @@ function ObjectivesPanel() {
 }
 
 // =============================================================================
+// SHEAR INDICATOR
+// Arrow + magnitude bar showing the current environmental shear vector.
+// Color shifts yellow → orange → red as shear magnitude grows.
+// =============================================================================
+
+function ShearIndicator({
+  windShear,
+  currentDrift,
+}: {
+  windShear: number
+  currentDrift: [number, number]
+}) {
+  const driftMag = Math.sqrt(currentDrift[0] ** 2 + currentDrift[1] ** 2)
+  const combinedMag = Math.max(windShear, Math.min(1, driftMag * 0.2))
+
+  if (combinedMag < 0.02) return null
+
+  // Arrow direction from current drift vector
+  const driftAngle = Math.atan2(currentDrift[0], currentDrift[1])
+
+  const color = combinedMag < 0.3
+    ? '#ffee44'
+    : combinedMag < 0.65
+      ? '#ff8800'
+      : '#ff3300'
+
+  const label = combinedMag < 0.3
+    ? 'LIGHT SHEAR'
+    : combinedMag < 0.65
+      ? 'MOD SHEAR'
+      : 'HEAVY SHEAR'
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '6px 10px',
+        borderRadius: '8px',
+        background: `rgba(${combinedMag > 0.65 ? '80,20,0' : '40,30,0'},0.7)`,
+        border: `1px solid ${color}44`,
+      }}
+    >
+      {/* Rotating arrow */}
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          border: `2px solid ${color}88`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: `rotate(${driftAngle}rad)`,
+          transition: 'transform 0.4s ease',
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: '14px', color, lineHeight: 1 }}>↑</span>
+      </div>
+
+      <div style={{ minWidth: 80 }}>
+        <div style={{ fontSize: '9px', color, fontWeight: 700, letterSpacing: '1px', marginBottom: 3 }}>
+          {label}
+        </div>
+        {/* Magnitude bar */}
+        <div
+          style={{
+            width: '100%',
+            height: 4,
+            borderRadius: 2,
+            background: 'rgba(255,255,255,0.1)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: `${Math.min(100, combinedMag * 100)}%`,
+              height: '100%',
+              borderRadius: 2,
+              background: color,
+              transition: 'width 0.3s ease, background 0.3s ease',
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ fontSize: '10px', color: `${color}cc`, fontFamily: TYPOGRAPHY.fontFamilyMono, flexShrink: 0 }}>
+        {Math.round(combinedMag * 100)}%
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
 // MAIN TUGBOAT HUD
 // =============================================================================
 
@@ -279,6 +375,8 @@ export default function TugboatHUD() {
   const portCav = tugboatState.portCavitating ?? false
   const starboardCav = tugboatState.starboardCavitating ?? false
   const cavIntensity = tugboatState.cavitationIntensity ?? 0
+  const windShear = tugboatState.windShear ?? 0
+  const currentDrift = tugboatState.currentDrift ?? [0, 0]
 
   return (
     <div
@@ -317,6 +415,9 @@ export default function TugboatHUD() {
             direction={stormState.windDirection}
           />
         </div>
+
+        {/* Environmental shear indicator — only visible when shear is active */}
+        <ShearIndicator windShear={windShear} currentDrift={currentDrift} />
 
         <StormTimer
           timeRemaining={stormState.duration - stormState.elapsed}

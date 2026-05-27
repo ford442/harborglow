@@ -153,6 +153,9 @@ export interface TugboatState {
     portCavitating?: boolean
     starboardCavitating?: boolean
     cavitationIntensity?: number   // 0..1
+    // Environmental telemetry (Direction B) — set by TugboatTargetShip
+    windShear?: number             // 0..1 normalised shear magnitude
+    currentDrift?: [number, number] // net lateral current vector [x, z]
 }
 
 export interface TugboatObjective {
@@ -553,6 +556,8 @@ const defaultState: Omit<GameState, keyof {
         portCavitating: false,
         starboardCavitating: false,
         cavitationIntensity: 0,
+        windShear: 0,
+        currentDrift: [0, 0],
     },
     tugboatObjectives: [],
     tugboatDockedCount: 0,
@@ -783,6 +788,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 portCavitating: false,
                 starboardCavitating: false,
                 cavitationIntensity: 0,
+                windShear: 0,
+                currentDrift: [0, 0],
             },
             tugboatObjectives: [],
             tugboatDockedCount: 0,
@@ -845,6 +852,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     portCavitating: (saved.tugboatState as TugboatState).portCavitating ?? false,
                     starboardCavitating: (saved.tugboatState as TugboatState).starboardCavitating ?? false,
                     cavitationIntensity: (saved.tugboatState as TugboatState).cavitationIntensity ?? 0,
+                    windShear: (saved.tugboatState as TugboatState).windShear ?? 0,
+                    currentDrift: (saved.tugboatState as TugboatState).currentDrift ?? [0, 0],
                 } : {
                     position: [20, 0.5, 10],
                     velocity: [0, 0, 0],
@@ -856,6 +865,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     portCavitating: false,
                     starboardCavitating: false,
                     cavitationIntensity: 0,
+                    windShear: 0,
+                    currentDrift: [0, 0],
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
@@ -1286,6 +1297,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 portCavitating: false,
                 starboardCavitating: false,
                 cavitationIntensity: 0,
+                windShear: 0,
+                currentDrift: [0, 0],
             },
         })
         console.log('🚤 Tugboat mode reset')

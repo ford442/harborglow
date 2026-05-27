@@ -38,6 +38,11 @@ class StormSystem {
   private thunderSynth: Tone.NoiseSynth | null = null
   private thunderDelay: number = 0
 
+  /** Multiplier for wind shear torque on large vessels (tunable via Leva). */
+  shearTorqueScale: number = 1.0
+  /** Multiplier for crosscurrent strength in WaveSystem (tunable via Leva). */
+  crosscurrentStrength: number = 1.0
+
   constructor() {
     this.state = {
       active: false,
@@ -211,6 +216,47 @@ class StormSystem {
       0,
       Math.sin(this.state.windDirection) * force
     )
+  }
+
+  /**
+   * Returns the wind shear yaw torque (around world Y) and a lateral heel
+   * force vector for a large vessel with the given above-water projected
+   * lateral area (m²).
+   *
+   * The freighter's tall sides and large sail area experience much more shear
+   * than the low-profile tugboat.  Intensity from StormSystem directly scales
+   * both shearTorqueScale and crosscurrentStrength.
+   *
+   * @param lateralArea  Projected above-water lateral area of the hull (m²)
+   */
+  getWindShearForFreighter(lateralArea: number): { yawTorque: number; heelForce: THREE.Vector3 } {
+    if (!this.state.active || this.state.intensity <= 0 || this.shearTorqueScale <= 0) {
+      return { yawTorque: 0, heelForce: new THREE.Vector3() }
+    }
+
+    const windX = Math.cos(this.state.windDirection) * this.state.windSpeed
+    const windZ = Math.sin(this.state.windDirection) * this.state.windSpeed
+    const windMag = this.state.windSpeed
+
+    // Wind pressure scales with v² (aerodynamic drag)
+    const dynamicPressure = windMag * windMag * 0.0006  // ½ρC_D (simplified)
+
+    // Gust variation: slow sinusoidal shear layers at different frequencies
+    const t = performance.now() * 0.001
+    const gustFactor = 1.0 + Math.sin(t * 0.31) * 0.35 + Math.sin(t * 0.73) * 0.15
+
+    const shearBase = dynamicPressure * lateralArea * this.state.intensity * this.shearTorqueScale
+
+    // Yaw torque: wind perpendicular component creates bow-sweeping moment.
+    // Use a slow oscillation to simulate wind shear layers rotating the heading.
+    const yawTorque = shearBase * gustFactor * Math.sin(this.state.windDirection + t * 0.1) * 0.4
+
+    // Lateral heel force: broadside wind push (translational)
+    const heelMag = shearBase * gustFactor * 0.8
+    const heelForce = new THREE.Vector3(windX / (windMag + 0.01), 0, windZ / (windMag + 0.01))
+      .multiplyScalar(heelMag)
+
+    return { yawTorque, heelForce }
   }
 
   getWindVector(): THREE.Vector3 {
