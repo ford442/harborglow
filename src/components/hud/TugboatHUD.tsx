@@ -194,6 +194,75 @@ function ObjectivesPanel() {
 // MAIN TUGBOAT HUD
 // =============================================================================
 
+// =============================================================================
+// CAVITATION WARNING BANNER (secondary HUD indicator)
+// Appears top-centre when either prop is cavitating, giving the player a
+// clear heads-up overlay even when the hardware console is off-screen.
+// =============================================================================
+
+function CavitationWarningBanner({
+  portCav,
+  starboardCav,
+  intensity,
+}: {
+  portCav: boolean
+  starboardCav: boolean
+  intensity: number
+}) {
+  if (!portCav && !starboardCav) return null
+
+  const both = portCav && starboardCav
+  const severe = intensity > 0.78
+  const label = both ? 'BOTH PROPS' : portCav ? 'PORT PROP' : 'STBD PROP'
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: severe ? 'rgba(60, 20, 0, 0.92)' : 'rgba(40, 25, 0, 0.88)',
+        border: `1px solid ${severe ? '#ff9500' : '#cc6600'}`,
+        borderRadius: '6px',
+        padding: '6px 18px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        animation: severe ? 'cav-hud-blink 180ms steps(2, end) infinite' : 'none',
+        pointerEvents: 'none',
+        zIndex: 106,
+      }}
+    >
+      <span style={{ fontSize: '14px' }}>⚠</span>
+      <span
+        style={{
+          fontFamily: TYPOGRAPHY.fontFamilyMono,
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '2.5px',
+          color: '#ffcc33',
+          textShadow: '0 0 6px #ff950066',
+          textTransform: 'uppercase',
+        }}
+      >
+        CAVITATION — {label}
+      </span>
+      <span
+        style={{
+          fontFamily: TYPOGRAPHY.fontFamilyMono,
+          fontSize: '10px',
+          color: '#ff9500aa',
+          letterSpacing: '1px',
+        }}
+      >
+        {Math.round(intensity * 100)}%
+      </span>
+      <style>{`@keyframes cav-hud-blink { 50% { border-color: #ffcc33; background: rgba(80,30,0,0.95); } }`}</style>
+    </div>
+  )
+}
+
 export default function TugboatHUD() {
   const operationMode = useGameStore((s) => s.operationMode)
   const tugboatState = useGameStore((s) => s.tugboatState)
@@ -207,6 +276,10 @@ export default function TugboatHUD() {
     tugboatState.velocity[2] ** 2
   ) * 1.944 // m/s to knots
 
+  const portCav = tugboatState.portCavitating ?? false
+  const starboardCav = tugboatState.starboardCavitating ?? false
+  const cavIntensity = tugboatState.cavitationIntensity ?? 0
+
   return (
     <div
       style={{
@@ -217,6 +290,13 @@ export default function TugboatHUD() {
         fontFamily: TYPOGRAPHY.fontFamily,
       }}
     >
+      {/* Top-centre cavitation warning banner */}
+      <CavitationWarningBanner
+        portCav={portCav}
+        starboardCav={starboardCav}
+        intensity={cavIntensity}
+      />
+
       {/* Bottom-left panel */}
       <div
         style={{
