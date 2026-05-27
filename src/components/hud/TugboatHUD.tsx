@@ -2,8 +2,11 @@
 // TUGBOAT HUD - Speed, wind, objectives, and storm timer
 // =============================================================================
 
+import { useEffect, useRef } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { useStormSystem } from '../../systems/StormSystem'
+import { towLineState } from '../../systems/TowLineSystem'
+import { useScreenShake } from '../../hooks/useScreenShake'
 import { createGlassPanelStyles, createButtonStyles, GLASSMORPHISM, TYPOGRAPHY } from '../DesignSystem'
 import AcousticArray from '../AcousticArray'
 
@@ -287,6 +290,146 @@ function ShearIndicator({
 }
 
 // =============================================================================
+// TOW CABLE HUD
+// Shows a tension gauge (0–100 %) when a tow line is active.
+// The gauge DOM element is updated via requestAnimationFrame — no React state,
+// no 60 fps re-renders.  Screen shake triggers once on cable snap.
+// =============================================================================
+
+function TowCableHUD() {
+  const towLineAttached = useGameStore((s) => s.towLineAttached)
+  const towLineSnapped  = useGameStore((s) => s.towLineSnapped)
+  const { triggerCableSnapShake, shake } = useScreenShake()
+
+  const gaugeRef    = useRef<HTMLDivElement>(null)
+  const labelRef    = useRef<HTMLSpanElement>(null)
+  const rafRef      = useRef<number | null>(null)
+  const snappedPrev = useRef(false)
+
+  // RAF loop — updates gauge + detects snap for screen shake
+  useEffect(() => {
+    if (!towLineAttached) return
+
+    const update = () => {
+      if (gaugeRef.current && labelRef.current) {
+        const t   = Math.min(1, Math.max(0, towLineState.tension))
+        const pct = (t * 100).toFixed(0)
+        gaugeRef.current.style.width = `${t * 100}%`
+        const color = t < 0.5 ? '#00d4aa' : t < 0.75 ? '#ff8800' : '#ff3300'
+        gaugeRef.current.style.background = color
+        gaugeRef.current.style.boxShadow  = t > 0.75
+          ? `0 0 8px ${color}88`
+          : 'none'
+        labelRef.current.textContent = `${pct}%`
+        labelRef.current.style.color = color
+      }
+
+      if (towLineState.snapFlag && !snappedPrev.current) {
+        triggerCableSnapShake()
+        snappedPrev.current = true
+      }
+      if (!towLineState.snapFlag) {
+        snappedPrev.current = false
+      }
+
+      rafRef.current = requestAnimationFrame(update)
+    }
+
+    rafRef.current = requestAnimationFrame(update)
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [towLineAttached, triggerCableSnapShake])
+
+  // Snap shake also fires when the store flag is set (covers cases where the
+  // RAF loop may not have caught the one-frame towLineState.snapFlag window)
+  useEffect(() => {
+    if (towLineSnapped) triggerCableSnapShake()
+  }, [towLineSnapped, triggerCableSnapShake])
+
+  if (!towLineAttached) return null
+
+  return (
+    <div
+      style={{
+        transform: `translate(${shake.x * 10}px, ${shake.y * 10}px)`,
+        transition: 'none',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        {/* Header row */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span style={{
+            fontSize: '10px',
+            color: 'rgba(255,255,255,0.5)',
+            textTransform: 'uppercase' as const,
+            letterSpacing: '1px',
+          }}>
+            ⛓ Tow Tension
+          </span>
+          <span
+            ref={labelRef}
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#00d4aa',
+              fontFamily: TYPOGRAPHY.fontFamilyMono,
+              letterSpacing: '0.5px',
+            }}
+          >
+            0%
+          </span>
+        </div>
+
+        {/* Gauge track */}
+        <div
+          style={{
+            width: '100%',
+            height: 6,
+            borderRadius: 3,
+            background: 'rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            ref={gaugeRef}
+            style={{
+              width: '0%',
+              height: '100%',
+              borderRadius: 3,
+              background: '#00d4aa',
+              transition: 'none',
+            }}
+          />
+        </div>
+
+        {/* Red-zone label */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '4px',
+          marginTop: '-2px',
+        }}>
+          <span style={{ fontSize: '8px', color: 'rgba(255,100,0,0.5)', letterSpacing: '0.5px' }}>
+            ▲ SNAP ZONE
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
 // MAIN TUGBOAT HUD
 // =============================================================================
 
@@ -425,6 +568,9 @@ export default function TugboatHUD() {
         />
 
         <ObjectivesPanel />
+
+        {/* Tow cable tension gauge — visible only when tow line is attached */}
+        <TowCableHUD />
 
         <AcousticArray />
       </div>

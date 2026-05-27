@@ -6,15 +6,22 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import type { RefObject } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import * as Tone from 'tone'
+import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
+import { useControls, button } from 'leva'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState } from '../systems/TugboatWakeSystem'
-import { towLineState } from '../systems/TowLineSystem'
+import {
+  towLineState,
+  towLineCableConfig,
+  N_SEGMENTS,
+  N_POINTS,
+} from '../systems/TowLineSystem'
 
 // =============================================================================
 // CONSTANTS
@@ -31,9 +38,8 @@ const DAMPING_SCALE        = 1500   // vertical-velocity damping
 const RESTORING_TORQUE     = 5000   // upright-restoring torque (scaled with I)
 const MAX_SPEED            = 2      // m/s — heavy ships are slow
 
-// Tow-line physics
-const MAX_TOW_LENGTH   = 12       // metres of rope before tension builds
-const TOW_SPRING_K     = 200000   // impulse spring constant (N·s/m)
+// Tow-line physics — runtime defaults are in towLineCableConfig (TowLineSystem.ts)
+const MAX_TOW_LENGTH   = 12       // metres of rope before tension builds (rest-length)
 
 // Hydrodynamic crosscurrent & wind shear constants
 // Hull is ~100 m long; bow/stern sample arms are ±50 m.
@@ -89,6 +95,9 @@ export default function TugboatTargetShip({
   const dockTimerRef = useRef(0)
   const hasDockedRef = useRef(false)
 
+  // Previous tow distance — needed for velocity-based damping term
+  const _prevTowDist = useRef(0)
+
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
 
@@ -99,6 +108,49 @@ export default function TugboatTargetShip({
 
   // Reusable vectors — allocated once, mutated in useFrame
   const _toTug = useMemo(() => new THREE.Vector3(), [])
+
+  // ---------------------------------------------------------------------------
+  // LEVA — Tow Line tuning
+  // ---------------------------------------------------------------------------
+  useControls('Tow Line', {
+    springK: {
+      value: towLineCableConfig.springK,
+      min: 50000, max: 500000, step: 10000,
+      label: 'Spring k (N/m)',
+      onChange: (v: number) => { towLineCableConfig.springK = v },
+    },
+    damping: {
+      value: towLineCableConfig.damping,
+      min: 0, max: 20000, step: 500,
+      label: 'Damping',
+      onChange: (v: number) => { towLineCableConfig.damping = v },
+    },
+    maxTension: {
+      value: towLineCableConfig.maxTension,
+      min: 500000, max: 3000000, step: 100000,
+      label: 'Max Tension (N)',
+      onChange: (v: number) => { towLineCableConfig.maxTension = v },
+    },
+    snapDelay: {
+      value: towLineCableConfig.snapDelay,
+      min: 0.1, max: 2.0, step: 0.05,
+      label: 'Snap Delay (s)',
+      onChange: (v: number) => { towLineCableConfig.snapDelay = v },
+    },
+    sagAmount: {
+      value: towLineCableConfig.sagAmount,
+      min: 0, max: 3.0, step: 0.1,
+      label: 'Sag Amount',
+      onChange: (v: number) => { towLineCableConfig.sagAmount = v },
+    },
+    resetConfig: button(() => {
+      towLineCableConfig.springK    = 200000
+      towLineCableConfig.damping    = 5000
+      towLineCableConfig.maxTension = 1_400_000
+      towLineCableConfig.snapDelay  = 0.4
+      towLineCableConfig.sagAmount  = 1.0
+    }),
+  })
 
   useFrame((state, delta) => {
     if (!rbRef.current || !groupRef.current) return
@@ -250,24 +302,78 @@ export default function TugboatTargetShip({
     groupRef.current.position.set(pos.x, pos.y, pos.z)
     groupRef.current.quaternion.set(rot.x, rot.y, rot.z, rot.w)
 
-    // --- Tow-line spring constraint ---
+    // --- Tow-line spring constraint + tension model ---
     // Read store state directly (no subscription) to avoid 60 fps React renders.
     const storeState = useGameStore.getState()
     if (storeState.towLineAttached && storeState.activeTowedShipId === id) {
       const tugPos = storeState.tugboatState.position
       _toTug.set(tugPos[0] - pos.x, 0, tugPos[2] - pos.z)
       const towDist = _toTug.length()
+
+      // Velocity-based damping: rate of change of cable length this frame
+      const distRate = (towDist - _prevTowDist.current) / Math.max(delta, 0.001)
+      _prevTowDist.current = towDist
+
       const excess = towDist - MAX_TOW_LENGTH
+
+      // Raw tension (N) = spring + damping;  damp only when stretching further
+      const tensionRaw = excess > 0
+        ? Math.max(0, excess * towLineCableConfig.springK + distRate * towLineCableConfig.damping)
+        : 0
+      const tension = Math.min(1, tensionRaw / towLineCableConfig.maxTension)
+
+      // Apply spring impulse only when taut
       if (excess > 0) {
         _toTug.normalize()
-        const impulse = excess * TOW_SPRING_K * delta
+        const impulse = excess * towLineCableConfig.springK * delta
         rb.applyImpulse({ x: _toTug.x * impulse, y: 0, z: _toTug.z * impulse }, true)
       }
-      // Update singleton state for visual rope
-      towLineState.active = true
-      towLineState.shipPosition.set(pos.x, pos.y + 1, pos.z)
+
+      // Overload timer — accumulate while above max tension, decay when below
+      if (tension >= 1) {
+        towLineState.overloadTimer += delta
+      } else {
+        towLineState.overloadTimer = Math.max(0, towLineState.overloadTimer - delta * 2)
+      }
+
+      // Snap condition: sustained overload OR instantaneous extreme spike (2.5× max)
+      const sustainedSnap = towLineState.overloadTimer >= towLineCableConfig.snapDelay
+      const spikeSnap     = tensionRaw > towLineCableConfig.maxTension * 2.5
+
+      if (sustainedSnap || spikeSnap) {
+        // Whip-back impulse on the ship: push it away from the tug
+        const whipImpulse = towLineCableConfig.maxTension * 0.0002
+        const away = _toTug.clone().negate().normalize()
+        rb.applyImpulse({ x: away.x * whipImpulse, y: 0, z: away.z * whipImpulse }, true)
+
+        // Signal snap: plays audio + camera shake in TowCableHUD
+        towLineState.snapFlag = true
+        setTimeout(() => { towLineState.snapFlag = false }, 1200)
+
+        // Detach in store (mission logic handled upstream)
+        storeState.signalTowLineSnap()
+
+        // Play snap audio via Tone.js (fire and forget)
+        playSnapAudio()
+
+        towLineState.active        = false
+        towLineState.tension       = 0
+        towLineState.tensionRaw    = 0
+        towLineState.overloadTimer = 0
+      } else {
+        // Update singleton state for visual cable
+        towLineState.active     = true
+        towLineState.tension    = tension
+        towLineState.tensionRaw = tensionRaw
+        towLineState.shipPosition.set(pos.x, pos.y + 1, pos.z)
+        towLineState.tugPosition.set(tugPos[0], tugPos[1] + 0.5, tugPos[2])
+      }
     } else {
-      towLineState.active = false
+      towLineState.active        = false
+      towLineState.tension       = 0
+      towLineState.tensionRaw    = 0
+      towLineState.overloadTimer = 0
+      _prevTowDist.current       = 0
     }
 
     // --- Docking detection ---
@@ -331,10 +437,54 @@ export default function TugboatTargetShip({
 }
 
 // =============================================================================
-// TOW LINE VISUAL
-// Renders a rope between the towed ship's stern and the tugboat bow.
-// Updates BufferGeometry vertices directly inside useFrame — zero React cost.
+// SNAP AUDIO
+// Fire-and-forget Tone.js burst when the cable parts.  Noise → distortion →
+// lowpass filter gives a convincing metallic "twang + recoil".
 // =============================================================================
+
+async function playSnapAudio(): Promise<void> {
+  try {
+    await Tone.start()
+    const now = Tone.now() + 0.02
+    const filter = new Tone.Filter(700, 'lowpass').toDestination()
+    const dist   = new Tone.Distortion(0.65).connect(filter)
+    const env    = new Tone.AmplitudeEnvelope({
+      attack:  0.001,
+      decay:   0.28,
+      sustain: 0,
+      release: 0.18,
+    }).connect(dist)
+    const noise = new Tone.Noise('pink').connect(env).start(now)
+    env.triggerAttack(now)
+    env.triggerRelease(now + 0.12)
+    // Sub-bass thud for "whip recoil" feel
+    const thud = new Tone.MembraneSynth({
+      pitchDecay: 0.06,
+      octaves:    4,
+      envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
+    }).toDestination()
+    thud.triggerAttackRelease('C1', '8n', now)
+    setTimeout(() => {
+      noise.stop(); noise.dispose()
+      env.dispose(); dist.dispose(); filter.dispose(); thud.dispose()
+    }, 900)
+  } catch {
+    // Audio context may not be available in test/SSR environments — ignore
+  }
+}
+
+// =============================================================================
+// TOW LINE VISUAL
+// Renders a catenary cable between the towed ship's bow bitt and the tugboat
+// stern attachment.  Uses a pre-allocated Float32Array of N_POINTS×3 floats —
+// no garbage per frame.  Material color is mutated in place to shift
+// silver → orange → red-hot as tension rises.
+// =============================================================================
+
+// Reusable temporary vectors — module-scope to avoid per-render allocation
+const _vS   = new THREE.Vector3()
+const _vT   = new THREE.Vector3()
+const _vMid = new THREE.Vector3()
 
 function TowLineVisual({
   shipRbRef,
@@ -343,34 +493,142 @@ function TowLineVisual({
   shipRbRef: RefObject<RapierRigidBody>
   shipId: string
 }) {
-  const posArray = useMemo(() => new Float32Array(6), [])
-  const attrRef = useRef<THREE.BufferAttribute>(null)
+  // Pre-allocated position buffer shared by main + glow line
+  const posArray   = useMemo(() => new Float32Array(N_POINTS * 3), [])
+  const attrRef    = useRef<THREE.BufferAttribute>(null)
+  const glowAttr   = useRef<THREE.BufferAttribute>(null)
+  const matRef     = useRef<THREE.LineBasicMaterial>(null)
+  const glowMatRef = useRef<THREE.LineBasicMaterial>(null)
 
-  useFrame(() => {
-    if (!attrRef.current || !shipRbRef.current) return
+  // Per-frame camera shake state (no React state → no re-renders)
+  const { camera } = useThree()
+  const shakeRef = useRef({ active: false, intensity: 0, timeLeft: 0 })
+
+  useFrame((_state, delta) => {
     const { towLineAttached, activeTowedShipId } = useGameStore.getState()
+
+    // Snap camera shake (independent of towLineAttached — persists after snap)
+    if (towLineState.snapFlag && !shakeRef.current.active) {
+      shakeRef.current = { active: true, intensity: 0.9, timeLeft: 0.65 }
+    }
+    if (shakeRef.current.active) {
+      shakeRef.current.intensity *= Math.pow(0.82, delta * 60)
+      shakeRef.current.timeLeft  -= delta
+      if (shakeRef.current.timeLeft <= 0 || shakeRef.current.intensity < 0.008) {
+        shakeRef.current.active = false
+      } else {
+        const s = shakeRef.current.intensity * 0.25
+        camera.position.x += (Math.random() - 0.5) * s
+        camera.position.y += (Math.random() - 0.5) * s
+      }
+    }
+
+    if (!attrRef.current || !shipRbRef.current) return
     if (!towLineAttached || activeTowedShipId !== shipId) return
 
-    const s = shipRbRef.current.translation()
-    const t = tugboatWakeState.position
+    // --- Build catenary curve points ---
+    const sPos = shipRbRef.current.translation()
+    _vS.set(sPos.x, sPos.y + 1.0, sPos.z)
+    _vT.set(
+      towLineState.tugPosition.x,
+      towLineState.tugPosition.y,
+      towLineState.tugPosition.z,
+    )
+    // Fallback to wake state if tugPosition hasn't been written yet
+    if (_vT.lengthSq() < 0.001) {
+      _vT.set(
+        tugboatWakeState.position.x,
+        tugboatWakeState.position.y + 0.5,
+        tugboatWakeState.position.z,
+      )
+    }
 
-    posArray[0] = s.x;  posArray[1] = s.y + 0.5;  posArray[2] = s.z
-    posArray[3] = t.x;  posArray[4] = t.y + 0.5;  posArray[5] = t.z
+    _vMid.lerpVectors(_vS, _vT, 0.5)
+    const dist    = _vS.distanceTo(_vT)
+    const tension = towLineState.tension
+    const slack   = Math.max(0, 1 - tension * 1.2) * towLineCableConfig.sagAmount
+    _vMid.y -= dist * slack * 0.25
+
+    // Quadratic Bézier: ship → midpoint → tug  (writes to pre-allocated points)
+    for (let i = 0; i < N_POINTS; i++) {
+      const t  = i / N_SEGMENTS
+      const mt = 1 - t
+      const p  = towLineState.segmentPoints[i]
+      p.x = mt * mt * _vS.x + 2 * mt * t * _vMid.x + t * t * _vT.x
+      p.y = mt * mt * _vS.y + 2 * mt * t * _vMid.y + t * t * _vT.y
+      p.z = mt * mt * _vS.z + 2 * mt * t * _vMid.z + t * t * _vT.z
+      posArray[i * 3]     = p.x
+      posArray[i * 3 + 1] = p.y
+      posArray[i * 3 + 2] = p.z
+    }
+
     attrRef.current.needsUpdate = true
+    if (glowAttr.current) glowAttr.current.needsUpdate = true
+
+    // --- Tension-reactive colour (mutate in place — zero allocation) ---
+    if (matRef.current) {
+      if (tension < 0.35) {
+        // Silver (slack)
+        const f = tension / 0.35
+        matRef.current.color.setRGB(0.75 + f * 0.05, 0.75 + f * 0.05, 0.80 + f * 0.05)
+      } else if (tension < 0.65) {
+        // Silver → orange
+        const f = (tension - 0.35) / 0.30
+        matRef.current.color.setRGB(0.80 + f * 0.20, 0.80 - f * 0.32, 0.85 - f * 0.55)
+      } else if (tension < 0.88) {
+        // Orange → red-hot
+        const f = (tension - 0.65) / 0.23
+        matRef.current.color.setRGB(1.0, 0.48 - f * 0.28, 0.30 - f * 0.25)
+      } else {
+        // Red-hot (max)
+        matRef.current.color.setRGB(1.0, 0.20, 0.05)
+      }
+    }
+
+    // --- Additive glow at high tension ---
+    if (glowMatRef.current) {
+      glowMatRef.current.opacity = tension > 0.70
+        ? Math.min(0.55, (tension - 0.70) * 1.8)
+        : 0
+    }
   })
 
   return (
-    <line>
-      <bufferGeometry>
-        <bufferAttribute
-          ref={attrRef}
-          attach="attributes-position"
-          array={posArray}
-          count={2}
-          itemSize={3}
+    <>
+      {/* Main cable — N_POINTS-vertex polyline */}
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            ref={attrRef}
+            attach="attributes-position"
+            array={posArray}
+            count={N_POINTS}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial ref={matRef} color="#c8c8d0" linewidth={2} />
+      </line>
+
+      {/* Additive glow line — same positions, renders with additive blending */}
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            ref={glowAttr}
+            attach="attributes-position"
+            array={posArray}
+            count={N_POINTS}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial
+          ref={glowMatRef}
+          color="#ff6600"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
         />
-      </bufferGeometry>
-      <lineBasicMaterial color="#cc8800" />
-    </line>
+      </line>
+    </>
   )
 }

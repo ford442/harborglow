@@ -303,6 +303,8 @@ interface SerializableState {
     towingUnlocked: boolean
     towLineAttached: boolean
     activeTowedShipId: string | null
+    /** Briefly true (auto-resets after ~1 s) when the tow cable snaps. */
+    towLineSnapped: boolean
     stormIntensity: number
     stormTimeRemaining: number
     isStormActive: boolean
@@ -429,6 +431,8 @@ interface GameState extends SerializableState {
     triggerTugboatWin: () => void
     attachTowLine: (shipId: string) => void
     detachTowLine: () => void
+    /** Signal a cable snap — sets towLineSnapped true, auto-clears after 1.2 s */
+    signalTowLineSnap: () => void
 }
 const defaultState: Omit<GameState, keyof {
     addShip: unknown; removeShip: unknown; setCurrentShip: unknown;
@@ -458,7 +462,7 @@ const defaultState: Omit<GameState, keyof {
     addMoney: unknown; deductMoney: unknown;
     setActiveMission: unknown; updateMission: unknown;
     completeMission: unknown; failMission: unknown;
-    attachTowLine: unknown; detachTowLine: unknown;
+    attachTowLine: unknown; detachTowLine: unknown; signalTowLineSnap: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -568,6 +572,7 @@ const defaultState: Omit<GameState, keyof {
     towingUnlocked: false,
     towLineAttached: false,
     activeTowedShipId: null,
+    towLineSnapped: false,
     stormIntensity: 0,
     stormTimeRemaining: 0,
     isStormActive: false,
@@ -1277,6 +1282,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             towingUnlocked: false,
             towLineAttached: false,
             activeTowedShipId: null,
+            towLineSnapped: false,
             stormIntensity: 0,
             stormTimeRemaining: 0,
             isStormActive: false,
@@ -1312,6 +1318,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     detachTowLine: () => {
         set({ towLineAttached: false, activeTowedShipId: null })
         console.log('⚓ Tow line detached')
+    },
+
+    signalTowLineSnap: () => {
+        set({ towLineAttached: false, activeTowedShipId: null, towLineSnapped: true })
+        console.log('💥 Tow line snapped!')
+        setTimeout(() => set({ towLineSnapped: false }), 1200)
     },
 
     setStormIntensity: (intensity: number) => {
