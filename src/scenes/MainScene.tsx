@@ -444,18 +444,23 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             
             {/* Tugboat target ships */}
             {operationMode === 'tugboat' && tugboatObjectives.map((obj, i) => {
-                const isDistressed = activeMission?.status === 'active' && i === 0
+                const fallbackStart: [number, number, number] = [
+                    obj.berthCenter[0] + (Math.random() - 0.5) * 20,
+                    0,
+                    obj.berthCenter[2] + 25 + Math.random() * 15,
+                ]
+                const missionStart = activeMission?.type === 'salvage' && activeMission.distressPosition
+                    ? activeMission.distressPosition
+                    : fallbackStart
+                const isDistressed = activeMission?.status === 'active' &&
+                    (activeMission.targetShipId === obj.id || (activeMission.type !== 'salvage' && i === 0))
                 if (isDistressed) {
                     return (
                         <DistressedShip
                             key={obj.id}
                             id={obj.id}
                             shipType={obj.shipType}
-                            startPosition={[
-                                obj.berthCenter[0] + (Math.random() - 0.5) * 20,
-                                0,
-                                obj.berthCenter[2] + 25 + Math.random() * 15
-                            ]}
+                            startPosition={missionStart}
                             startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
                             berthCenter={obj.berthCenter}
                             berthRadius={obj.berthRadius}
@@ -477,11 +482,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                         key={obj.id}
                         id={obj.id}
                         shipType={obj.shipType}
-                        startPosition={[
-                            obj.berthCenter[0] + (Math.random() - 0.5) * 20,
-                            0,
-                            obj.berthCenter[2] + 25 + Math.random() * 15
-                        ]}
+                        startPosition={fallbackStart}
                         startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
                         berthCenter={obj.berthCenter}
                         berthRadius={obj.berthRadius}
@@ -1170,6 +1171,27 @@ function useLevaControls(config: LevaControlsConfig) {
             max: 3,
             step: 0.1,
             folder: 'Tugboat Mode',
+        },
+        // Tugboat Environment — hydrodynamic shear tuning
+        'Crosscurrent Strength': {
+            value: 1.0,
+            min: 0,
+            max: 3,
+            step: 0.1,
+            folder: 'Tugboat Environment',
+            onChange: (value: number) => {
+                stormSystem.crosscurrentStrength = value
+            }
+        },
+        'Wind Shear Scale': {
+            value: 1.0,
+            min: 0,
+            max: 4,
+            step: 0.1,
+            folder: 'Tugboat Environment',
+            onChange: (value: number) => {
+                stormSystem.shearTorqueScale = value
+            }
         },
         // Training System Controls
         'Quick Start Module': {

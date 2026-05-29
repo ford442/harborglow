@@ -148,6 +148,15 @@ export function useScreenShake() {
     })
   }, [triggerShake])
   
+  // Trigger cable-snap shake — violent recoil when tow line parts
+  const triggerCableSnapShake = useCallback(() => {
+    triggerShake({
+      intensity: 0.9,
+      duration: 0.7,
+      decay: 0.82,
+    })
+  }, [triggerShake])
+  
   // Stop shake immediately
   const stopShake = useCallback(() => {
     if (animationRef.current) {
@@ -172,6 +181,7 @@ export function useScreenShake() {
     triggerInstallationShake,
     triggerSnapShake,
     triggerTensionShake,
+    triggerCableSnapShake,
     stopShake,
   }
 }

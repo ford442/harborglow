@@ -404,6 +404,7 @@ export const cranePanelHeaderStyle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.7)',
   textTransform: 'uppercase',
   letterSpacing: '1px',
+  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
 }
 
 export const craneMovingIndicatorStyle: React.CSSProperties = {
@@ -486,6 +487,7 @@ export const joystickLabelStyle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.5)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
+  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
 }
 
 export const telemetryContainerStyle: React.CSSProperties = {
@@ -512,12 +514,14 @@ export const telemetryBarLabelStyle: React.CSSProperties = {
   color: 'rgba(255,255,255,0.5)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
+  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
 }
 
 export const telemetryBarValueStyle: React.CSSProperties = {
   fontSize: '10px',
   fontWeight: 600,
   fontFamily: '"JetBrains Mono", monospace',
+  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
 }
 
 export const telemetryBarTrackStyle: React.CSSProperties = {
@@ -552,6 +556,7 @@ export const twistlockTextStyle: React.CSSProperties = {
   fontSize: '11px',
   fontWeight: 700,
   letterSpacing: '1px',
+  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
 }
 
 // Hotkey Hints styles

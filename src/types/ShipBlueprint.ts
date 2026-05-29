@@ -74,6 +74,26 @@ export interface ShipBlueprint {
   roughness?: number
   /** Per-ship music theme identifier for Tone.js mapping */
   musicTheme?: string
+  /** LOD2 impostor geometry */
+  lod2?: Lod2Data
+}
+
+/** LOD2 feature definition */
+export interface Lod2Feature {
+  type: string
+  xOffset: number
+  yOffset: number
+  zOffset: number
+  width: number
+  height: number
+  depth: number
+}
+
+/** LOD2 impostor data */
+export interface Lod2Data {
+  hull: { width: number; height: number; length: number }
+  profile: 'flat' | 'stepped' | 'tall' | 'barge'
+  features: Lod2Feature[]
 }
 
 /** Vessel Blueprint Protocol root structure */

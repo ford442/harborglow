@@ -17,13 +17,14 @@ import { waveSystem } from '../systems/WaveSystem'
 // CONSTANTS
 // =============================================================================
 
-const SHIP_MASS = 60
-const SHIP_LINEAR_DAMPING = 0.3
-const SHIP_ANGULAR_DAMPING = 2.0
-const BUOYANCY_SCALE = 35.0
-const DAMPING_SCALE = 1.8
-const RESTORING_TORQUE = 6.0
-const MAX_SPEED = 4
+// High-mass freighter dynamics — consistent with TugboatTargetShip.
+const SHIP_MASS            = 50000
+const SHIP_LINEAR_DAMPING  = 0.8
+const SHIP_ANGULAR_DAMPING = 1.2
+const BUOYANCY_SCALE       = 30000
+const DAMPING_SCALE        = 1500
+const RESTORING_TORQUE     = 5000
+const MAX_SPEED            = 2
 const DAMAGE_RATE = 3.5 // damage per second
 
 const PROBE_OFFSETS = [
@@ -152,6 +153,7 @@ export default function DistressedShip({
   const timeRemainingRef = useRef(timeLimit)
 
   const operationMode = useGameStore((s) => s.operationMode)
+  const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const activeMission = useGameStore((s) => s.activeMission)
   const updateMission = useGameStore((s) => s.updateMission)
 
@@ -284,7 +286,7 @@ export default function DistressedShip({
       (pos.z - berthCenter[2]) ** 2
     )
 
-    if (dist < berthRadius && speed < 1.0) {
+    if (towingUnlocked && dist < berthRadius && speed < 1.0) {
       dockTimerRef.current += delta
       if (dockTimerRef.current > 3.0) {
         hasDockedRef.current = true

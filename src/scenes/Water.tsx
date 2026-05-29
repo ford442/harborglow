@@ -9,6 +9,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { waveSystem } from '../systems/WaveSystem'
+import { tugboatWakeState, TUGBOAT_WAKE_GLSL } from '../systems/TugboatWakeSystem'
 
 // -------------------------------------------------------------------------
 // MAX WAVE LAYERS (must match WaveSystem.ts)
@@ -175,12 +176,19 @@ export default function Water({ isNight = true }: WaterProps) {
       uWaveSteepness: { value: uWaveSteepness },
       uActiveLayers: { value: activeLayers },
       uIsNight: { value: isNight },
+      // --- Tugboat wake uniforms (updated per-frame from TugboatWakeSystem) ---
+      uTugActive: { value: false },
+      uTugPos: { value: new THREE.Vector3() },
+      uTugDir: { value: new THREE.Vector3(0, 0, 1) },
+      uPropWashPower: { value: 0 },
+      uWashAsymmetry: { value: 0 },
     }
   }, [isNight, weather, activeLayers, waveParams.amplitude, waveParams.speed, stormIntensity])
 
   // Vertex shader
   const vertexShader = `
     ${waveMath}
+    ${TUGBOAT_WAKE_GLSL}
 
     varying vec2 vUv;
     varying vec3 vWorldPos;
@@ -194,11 +202,14 @@ export default function Water({ isNight = true }: WaterProps) {
 
       float elevation = getWaveHeight(worldPos, uTime);
       elevation += getRippleDetail(worldPos, uTime);
+      // --- Tugboat Kelvin wake + stern wash displacement ---
+      elevation += getTugWakeDisp(worldPos, uTime);
       vElevation = elevation;
 
       vec3 normal = getWaveNormal(worldPos, uTime);
       vNormal = normalize(mat3(modelMatrix) * normal);
-      vFoam = getFoam(worldPos, uTime, elevation);
+      // Blend ocean foam with tugboat wake foam
+      vFoam = getFoam(worldPos, uTime, elevation) + getTugWakeFoam(worldPos, uTime);
 
       vec3 newPos = position + vec3(0.0, elevation, 0.0);
       vWorldPos = (modelMatrix * vec4(newPos, 1.0)).xyz;
@@ -310,6 +321,17 @@ export default function Water({ isNight = true }: WaterProps) {
         mat.uniforms.uWaveDirections.value[i * 2] = layers[i].direction[0]
         mat.uniforms.uWaveDirections.value[i * 2 + 1] = layers[i].direction[1]
       }
+    }
+
+    // --- Sync tugboat wake uniforms (zero-copy from module-level state) ---
+    mat.uniforms.uTugActive.value = tugboatWakeState.active
+    if (tugboatWakeState.active) {
+      mat.uniforms.uTugPos.value.copy(tugboatWakeState.position)
+      mat.uniforms.uTugDir.value.copy(tugboatWakeState.direction)
+      mat.uniforms.uPropWashPower.value = tugboatWakeState.propWashPower
+      mat.uniforms.uWashAsymmetry.value = tugboatWakeState.washAsymmetry
+    } else {
+      mat.uniforms.uPropWashPower.value = 0
     }
   })
 

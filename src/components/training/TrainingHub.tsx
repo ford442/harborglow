@@ -137,7 +137,7 @@ function ModuleCard({ module, state, index, isAvailable, isCompleted, bestResult
       {state === 'locked' && (
         <div style={lockedOverlayStyle}>
           <span style={{ fontSize: '24px' }}>🔒</span>
-          <span style={{ fontSize: '11px', color: '#666' }}>Complete prerequisites</span>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>Complete prerequisites</span>
         </div>
       )}
     </div>

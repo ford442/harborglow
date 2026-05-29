@@ -210,6 +210,60 @@ class WaveSystem {
   }
 
   /**
+   * Multi-point hull current profile for large vessels.
+   * Samples subsurface currents at the bow, mid-ship, and stern of a hull to
+   * produce a net translational force vector and a yaw torque that represents
+   * eddies, tidal jets, and harbour-mouth crosscurrents.
+   *
+   * @param centerX   ship centre world X
+   * @param centerZ   ship centre world Z
+   * @param heading   ship heading in radians (Y rotation)
+   * @param shipLength bow-to-stern distance in metres
+   * @returns { netForce, yawTorque } — yawTorque is around the world Y axis
+   */
+  getHullCurrentProfile(
+    centerX: number,
+    centerZ: number,
+    heading: number,
+    shipLength: number,
+    time = this.state.time
+  ): { netForce: THREE.Vector3; yawTorque: number } {
+    const halfLen = shipLength * 0.5
+    // Unit vector pointing along hull bow direction
+    const fwdX = Math.sin(heading)
+    const fwdZ = Math.cos(heading)
+
+    // Sample current at three longitudinal stations
+    const bowX = centerX + fwdX * halfLen
+    const bowZ = centerZ + fwdZ * halfLen
+    const sternX = centerX - fwdX * halfLen
+    const sternZ = centerZ - fwdZ * halfLen
+
+    const cBow   = this.getSurfaceCurrent(bowX,    bowZ,    time).clone()
+    const cMid   = this.getSurfaceCurrent(centerX, centerZ, time).clone()
+    const cStern = this.getSurfaceCurrent(sternX,  sternZ,  time).clone()
+
+    // Weighted average translational force (bow & stern weighted equally at 35%)
+    const netForce = new THREE.Vector3()
+    netForce.addScaledVector(cBow,   0.35)
+    netForce.addScaledVector(cMid,   0.30)
+    netForce.addScaledVector(cStern, 0.35)
+
+    // Lateral axis (port → starboard, perpendicular to fwd in XZ plane)
+    const latX = -fwdZ
+    const latZ =  fwdX
+
+    // Project each station's current onto the lateral axis
+    const bowLat   = cBow.x   * latX + cBow.z   * latZ
+    const sternLat = cStern.x * latX + cStern.z * latZ
+
+    // Differential lateral current creates a yaw moment: τ = ΔF_lat × arm
+    const yawTorque = (bowLat - sternLat) * halfLen
+
+    return { netForce, yawTorque }
+  }
+
+  /**
    * Get raw wave layer data for shader uniform upload.
    */
   getLayersForShader(): WaveLayer[] {

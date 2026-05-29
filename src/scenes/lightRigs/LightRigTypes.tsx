@@ -1,9 +1,11 @@
-import { useRef, useMemo, useEffect, useState } from 'react'
+import { useRef, useMemo, useEffect, useState, Dispatch, SetStateAction } from 'react'
 import * as THREE from 'three'
+import * as Tone from 'tone'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../../store/useGameStore'
 import { useShaderTime } from './LightRigAnimations'
 import { SparkEffect } from './SparkEffect'
+import { sequencerSystem } from '../../systems/sequencerSystem'
 
 interface LightRigProps {
   position: [number, number, number]
@@ -11,6 +13,41 @@ interface LightRigProps {
   shipId: string
   installed?: boolean
   onInstallComplete?: () => void
+}
+
+// =============================================================================
+// SHARED HOOK — BEAT-ALIGNED POWER-ON KICKOFF
+// Replaces the old per-component setTimeout with a Tone.js Transport cue so
+// that the rig lights snap on exactly on the beat.
+//
+// Beat offsets are staggered across rig types (0.25 → 1.25) to give a
+// cascade-on-the-beat effect that preserves the original sequential feel.
+//
+// Fallback: if the Transport is not yet started (e.g. music hasn't begun),
+// a plain setTimeout fires after 500 ms so the rig still lights up.
+// =============================================================================
+
+function usePowerOnSequence(
+  installProgress: number,
+  powerOnProgress: number,
+  setPowerOnProgress: Dispatch<SetStateAction<number>>,
+  beatOffset: number
+): void {
+  useEffect(() => {
+    // Guard: only schedule when install just completed and power-on hasn't begun.
+    if (installProgress < 1 || powerOnProgress > 0) return
+
+    const transport = Tone.getTransport()
+
+    if (transport.state !== 'started') {
+      // Transport not running — fall back to wall-clock so the rig still lights up.
+      const fb = setTimeout(() => setPowerOnProgress(0.1), 500)
+      return () => clearTimeout(fb)
+    }
+
+    const id = sequencerSystem.schedule(beatOffset, () => setPowerOnProgress(0.1))
+    return () => sequencerSystem.cancel(id)
+  }, [installProgress, powerOnProgress, setPowerOnProgress, beatOffset])
 }
 
 // =============================================================================
@@ -54,11 +91,6 @@ export function LEDStripArray({
             }))
             setSparks(newSparks)
 
-            // Start power on sequence
-            setTimeout(() => {
-              setPowerOnProgress(0.1)
-            }, 500)
-
             onInstallComplete?.()
             return 1
           }
@@ -68,6 +100,9 @@ export function LEDStripArray({
       return () => clearInterval(interval)
     }
   }, [installed, installProgress, onInstallComplete, position])
+
+  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
+  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.25)
 
   // Power on sequence
   useEffect(() => {
@@ -209,7 +244,6 @@ export function MovingHeadSpotlight({
                 pos: new THREE.Vector3(position[0], position[1] + 2, position[2])
               }
             ])
-            setTimeout(() => setPowerOnProgress(0.1), 600)
             onInstallComplete?.()
             return 1
           }
@@ -219,6 +253,9 @@ export function MovingHeadSpotlight({
       return () => clearInterval(interval)
     }
   }, [installed, installProgress, onInstallComplete, position])
+
+  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
+  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.5)
 
   useEffect(() => {
     if (powerOnProgress > 0 && powerOnProgress < 1) {
@@ -403,7 +440,6 @@ export function LaserProjector({
       const interval = setInterval(() => {
         setInstallProgress(prev => {
           if (prev + 0.02 >= 1) {
-            setTimeout(() => setPowerOnProgress(0.1), 400)
             onInstallComplete?.()
             return 1
           }
@@ -413,6 +449,9 @@ export function LaserProjector({
       return () => clearInterval(interval)
     }
   }, [installed, installProgress, onInstallComplete])
+
+  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
+  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.75)
 
   useEffect(() => {
     if (powerOnProgress > 0 && powerOnProgress < 1) {
@@ -614,7 +653,6 @@ export function StrobeBank({
       const interval = setInterval(() => {
         setInstallProgress(prev => {
           if (prev + 0.025 >= 1) {
-            setTimeout(() => setPowerOnProgress(0.1), 300)
             onInstallComplete?.()
             return 1
           }
@@ -624,6 +662,9 @@ export function StrobeBank({
       return () => clearInterval(interval)
     }
   }, [installed, installProgress, onInstallComplete])
+
+  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
+  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 1.0)
 
   useEffect(() => {
     if (powerOnProgress > 0 && powerOnProgress < 1) {
@@ -716,7 +757,6 @@ export function NeonTubeArrangement({
       const interval = setInterval(() => {
         setInstallProgress(prev => {
           if (prev + 0.02 >= 1) {
-            setTimeout(() => setPowerOnProgress(0.1), 500)
             onInstallComplete?.()
             return 1
           }
@@ -726,6 +766,9 @@ export function NeonTubeArrangement({
       return () => clearInterval(interval)
     }
   }, [installed, installProgress, onInstallComplete])
+
+  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
+  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 1.25)
 
   useEffect(() => {
     if (powerOnProgress > 0 && powerOnProgress < 1) {

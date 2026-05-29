@@ -7,16 +7,20 @@ import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
-import { useControls } from 'leva'
+import { useControls, button } from 'leva'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore } from '../store/useGameStore'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
+import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
+import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
 // =============================================================================
+
+const RPM_MAX = 100  // normalisation constant for console RPM values
 
 const PHYSICS = {
   mass: 15,
@@ -113,6 +117,59 @@ export default function Tugboat() {
     boostMult: { value: 2.0, min: 1.2, max: 4.0, step: 0.2, label: 'Boost Multiplier' },
   })
 
+  // Leva debug panel for cavitation tuning
+  useControls('Cavitation Debug', {
+    slipThreshold: {
+      value: CAVITATION_CONFIG.slipThreshold,
+      min: 0.3,
+      max: 0.95,
+      step: 0.01,
+      label: 'Slip Threshold',
+      onChange: (v: number) => { CAVITATION_CONFIG.slipThreshold = v },
+    },
+    slipHysteresis: {
+      value: CAVITATION_CONFIG.slipHysteresis,
+      min: 0.02,
+      max: 0.3,
+      step: 0.01,
+      label: 'Hysteresis',
+      onChange: (v: number) => { CAVITATION_CONFIG.slipHysteresis = v },
+    },
+    minDurationForAlarm: {
+      value: CAVITATION_CONFIG.minDurationForAlarm,
+      min: 0.1,
+      max: 2.0,
+      step: 0.05,
+      label: 'Alarm Latch (s)',
+      onChange: (v: number) => { CAVITATION_CONFIG.minDurationForAlarm = v },
+    },
+    thrustMultiplier: {
+      value: CAVITATION_CONFIG.thrustMultiplier,
+      min: 0.05,
+      max: 0.8,
+      step: 0.01,
+      label: 'Thrust Penalty',
+      onChange: (v: number) => { CAVITATION_CONFIG.thrustMultiplier = v },
+    },
+    maxPropSpeed: {
+      value: CAVITATION_CONFIG.maxPropSpeed,
+      min: 5.0,
+      max: 30.0,
+      step: 0.5,
+      label: 'Max Prop Speed',
+      onChange: (v: number) => { CAVITATION_CONFIG.maxPropSpeed = v },
+    },
+    masterVolume: {
+      value: CAVITATION_CONFIG.masterVolume,
+      min: -40,
+      max: 0,
+      step: 1,
+      label: 'Audio Volume (dB)',
+      onChange: (v: number) => { CAVITATION_CONFIG.masterVolume = v },
+    },
+    resetCavitation: button(() => cavitationSystem.resetCavitation()),
+  })
+
   // ---------------------------------------------------------------------------
   // INPUT STATE
   // ---------------------------------------------------------------------------
@@ -132,7 +189,26 @@ export default function Tugboat() {
   const targetPitchRef = useRef(0)
 
   const operationMode = useGameStore((s) => s.operationMode)
+  const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
+  const attachTowLine = useGameStore((s) => s.attachTowLine)
+  const detachTowLine = useGameStore((s) => s.detachTowLine)
+
+  // Twin-prop RPM refs — synced from the store without creating per-frame subscriptions
+  const portRpmRef = useRef(0)
+  const starboardRpmRef = useRef(0)
+
+  useEffect(() => {
+    // Initialise from current store value
+    const { tugboatState } = useGameStore.getState()
+    portRpmRef.current = tugboatState.portEngineRpm ?? 0
+    starboardRpmRef.current = tugboatState.starboardEngineRpm ?? 0
+
+    return useGameStore.subscribe((s) => {
+      portRpmRef.current = s.tugboatState.portEngineRpm ?? 0
+      starboardRpmRef.current = s.tugboatState.starboardEngineRpm ?? 0
+    })
+  }, [])
 
   // Collision push state (updated in useFrame, read in onCollisionEnter)
   const speedRef = useRef(0)
@@ -149,6 +225,20 @@ export default function Tugboat() {
         if (boostRef.current.cooldown <= 0) {
           boostRef.current.active = true
           boostRef.current.cooldown = 5 // seconds
+        }
+      }
+      // 'T' — toggle tow-line attach/detach (requires handshake completion)
+      if (e.key === 't' || e.key === 'T') {
+        const state = useGameStore.getState()
+        if (!state.towingUnlocked) return
+        if (state.towLineAttached) {
+          detachTowLine()
+        } else {
+          // Find the nearest incomplete objective's ship to attach to
+          const target = state.tugboatObjectives.find(o => !o.completed)
+          if (target) {
+            attachTowLine(target.id)
+          }
         }
       }
     }
@@ -197,6 +287,12 @@ export default function Tugboat() {
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('contextmenu', onContextMenu)
     }
+  }, [attachTowLine, detachTowLine])
+
+  // Reset wake + cavitation state when the tugboat unmounts
+  useEffect(() => () => {
+    resetTugboatWakeState()
+    cavitationSystem.resetCavitation()
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -251,6 +347,55 @@ export default function Tugboat() {
       const force = currentThrottle * tuning.maxSpeed * 3.5 * boostMult * delta
       rb.applyImpulse(
         { x: Math.cos(heading) * force, y: 0, z: Math.sin(heading) * force },
+        true
+      )
+    }
+
+    // --- Cavitation dynamics (Direction A) ---
+    // Must run before twin-prop force application so we can read live thrust multipliers.
+    // Uses commanded RPM + actual hull speed (from previous frame's vel for stability).
+    const prevVel = rb.linvel()
+    const prevSpeed = Math.sqrt(prevVel.x * prevVel.x + prevVel.z * prevVel.z)
+    cavitationSystem.update(
+      portRpmRef.current,
+      starboardRpmRef.current,
+      prevSpeed,
+      delta
+    )
+
+    // --- Twin-prop console forces ---
+    // Port and starboard engines apply independent thrust at their lateral offsets.
+    // Differential creates tank-style rotation without requiring steering input.
+    // Cavitation applies severe thrust penalty when prop slip is high (skillful throttle management required).
+    const portNorm = portRpmRef.current / RPM_MAX          // -1..1
+    const starboardNorm = starboardRpmRef.current / RPM_MAX // -1..1
+
+    if (Math.abs(portNorm) > 0.01 || Math.abs(starboardNorm) > 0.01) {
+      // Lateral offset of each prop from hull centre (world space, perpendicular to heading)
+      const perpX = Math.cos(heading + Math.PI / 2)
+      const perpZ = Math.sin(heading + Math.PI / 2)
+      const propOffset = 1.2   // metres from centreline
+      const propForceScale = tuning.maxSpeed * 2.5 * boostMult * delta
+
+      // Port prop world position (left of heading)
+      const portX = rb.translation().x - perpX * propOffset
+      const portZ = rb.translation().z - perpZ * propOffset
+      const portCavMult = cavitationSystem.getThrustMultiplier('port')
+      const portForce = portNorm * propForceScale * portCavMult
+      rb.applyImpulseAtPoint(
+        { x: Math.cos(heading) * portForce, y: 0, z: Math.sin(heading) * portForce },
+        { x: portX, y: rb.translation().y, z: portZ },
+        true
+      )
+
+      // Starboard prop world position (right of heading)
+      const starboardX = rb.translation().x + perpX * propOffset
+      const starboardZ = rb.translation().z + perpZ * propOffset
+      const starboardCavMult = cavitationSystem.getThrustMultiplier('starboard')
+      const starboardForce = starboardNorm * propForceScale * starboardCavMult
+      rb.applyImpulseAtPoint(
+        { x: Math.cos(heading) * starboardForce, y: 0, z: Math.sin(heading) * starboardForce },
+        { x: starboardX, y: rb.translation().y, z: starboardZ },
         true
       )
     }
@@ -365,6 +510,19 @@ export default function Tugboat() {
     speedRef.current = speed
     headingRef.current = heading
 
+    // --- Update wake system (consumed by Water.tsx each frame, zero React cost) ---
+    tugboatWakeState.active = true
+    tugboatWakeState.position.set(pos.x, pos.y, pos.z)
+    tugboatWakeState.direction.set(Math.cos(heading), 0, Math.sin(heading))
+    tugboatWakeState.speed = speed
+    // propWashPower: blend throttle + speed fraction + average absolute engine RPM
+    const avgRpmFrac = (Math.abs(portRpmRef.current) + Math.abs(starboardRpmRef.current)) / (2 * RPM_MAX)
+    tugboatWakeState.propWashPower = Math.min(
+      1,
+      Math.abs(currentThrottle) * 0.5 + (speed / (tuning.maxSpeed * boostMult)) * 0.35 + avgRpmFrac * 0.15
+    )
+    tugboatWakeState.washAsymmetry = (portRpmRef.current - starboardRpmRef.current) / RPM_MAX
+
     // --- Update store ---
     updateTugboatState({
       position: [pos.x, pos.y, pos.z],
@@ -420,6 +578,7 @@ export default function Tugboat() {
         enabledRotations={[true, true, true]}
         colliders="cuboid"
         onCollisionEnter={(e) => {
+          if (!towingUnlocked) return
           const other = e.other.rigidBody
           if (!other || other === rbRef.current) return
           const otherMass = other.mass()
