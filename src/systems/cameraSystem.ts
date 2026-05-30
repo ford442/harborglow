@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore, type CameraMode, type CameraTransform } from '../store/useGameStore'
 import type { CameraPreset, CameraPresetId, DashboardPresets } from '../types/CameraPreset'
+import type { TugboatDashboardPresets, TugboatViewportId } from '../types/CameraPreset'
 
 // =============================================================================
 // PHASE 7: CINEMATIC CAMERA SYSTEM
@@ -59,6 +60,46 @@ export const CAMERA_PRESETS: CameraPreset[] = [
     target: [18, 8, 0],
     fov: 72,
     mode: 'ship-relative'
+  },
+  {
+    id: 'tug-helm',
+    label: 'Tug Helm',
+    position: [0, 2.15, 0.25],
+    target: [0, 1.5, 5],
+    fov: 75,
+    mode: 'tug-relative'
+  },
+  {
+    id: 'tug-deck',
+    label: 'Tug Deck',
+    position: [0, 3.5, -3],
+    target: [0, 2, 5],
+    fov: 80,
+    mode: 'tug-relative'
+  },
+  {
+    id: 'tug-chase',
+    label: 'Tug Chase',
+    position: [0, 6, -12],
+    target: [0, 2, 0],
+    fov: 55,
+    mode: 'tug-relative'
+  },
+  {
+    id: 'tug-prop',
+    label: 'Tug Prop Wash',
+    position: [0, 1.5, -5],
+    target: [0, 0, -8],
+    fov: 90,
+    mode: 'tug-relative'
+  },
+  {
+    id: 'tug-towline',
+    label: 'Tug Towline',
+    position: [0, 4, -8],
+    target: [0, 2, -20],
+    fov: 60,
+    mode: 'tug-relative'
   }
 ]
 
@@ -72,6 +113,15 @@ export const DEFAULT_DASHBOARD_PRESETS: DashboardPresets = {
   drone: 'drone-chase',
   underwater: 'dock-level'
 }
+
+export const TUGBOAT_DASHBOARD_PRESETS: TugboatDashboardPresets = {
+  'tug-helm': 'tug-helm',
+  'tug-deck': 'tug-deck',
+  'tug-chase': 'tug-chase',
+  'tug-prop': 'tug-prop'
+}
+
+export const TUGBOAT_VIEWPORT_ORDER: TugboatViewportId[] = ['tug-helm', 'tug-deck', 'tug-chase', 'tug-prop']
 
 export function getCameraPresetById(id: CameraPresetId): CameraPreset {
   const preset = CAMERA_PRESET_MAP[id]

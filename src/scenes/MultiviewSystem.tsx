@@ -4,11 +4,14 @@ import { useFrame } from '@react-three/fiber'
 import { View, Html, PerspectiveCamera } from '@react-three/drei'
 import { useGameStore, type CameraTransform } from '../store/useGameStore'
 import type { DashboardViewportId } from '../types/CameraPreset'
+import type { TugboatViewportId } from '../types/CameraPreset'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { TUGBOAT_VIEWPORT_ORDER } from '../systems/cameraSystem'
 
 // =============================================================================
 // MULTIVIEW CAMERA SYSTEM — Alt A Architecture
 // 4 simultaneous live feeds with viewport-local history & pinned snapshots
+// Supports both crane mode and tugboat mode viewports
 // =============================================================================
 
 const VIEWPORT_ORDER: DashboardViewportId[] = ['crane', 'hook', 'drone', 'underwater']
@@ -20,6 +23,13 @@ const VIEWPORT_CONFIG: Record<DashboardViewportId, { title: string; subtitle: st
   underwater: { title: 'UNDERWATER', subtitle: 'DEEP', icon: '🌊', accentColor: '#00aaff', fov: 70 }
 }
 
+export const TUGBOAT_VIEWPORT_CONFIG: Record<TugboatViewportId, { title: string; subtitle: string; icon: string; accentColor: string; fov: number }> = {
+  'tug-helm': { title: 'HELM', subtitle: 'FPV', icon: '🚢', accentColor: '#ff6600', fov: 75 },
+  'tug-deck': { title: 'DECK', subtitle: 'AFT', icon: '⚓', accentColor: '#ffaa00', fov: 80 },
+  'tug-chase': { title: 'CHASE', subtitle: 'FOLLOW', icon: '🎬', accentColor: '#00d4aa', fov: 55 },
+  'tug-prop': { title: 'PROP WASH', subtitle: 'STERN', icon: '💨', accentColor: '#00aaff', fov: 90 }
+}
+
 interface MultiviewSystemProps {
   enabled: boolean
   underwaterIntensity?: number
@@ -28,6 +38,7 @@ interface MultiviewSystemProps {
 
 export default function MultiviewSystem({ enabled, underwaterIntensity = 1, children }: MultiviewSystemProps) {
   const { audioData } = useAudioVisualSync()
+  const operationMode = useGameStore(state => state.operationMode)
 
   // ---------------------------------------------------------------------------
   // Panel DOM refs for <View track={...}>
@@ -39,6 +50,13 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
     underwater: useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>
   }
 
+  const tugPanelRefs = {
+    'tug-helm': useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    'tug-deck': useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    'tug-chase': useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>,
+    'tug-prop': useRef<HTMLDivElement>(null!) as React.MutableRefObject<HTMLDivElement>
+  }
+
   // ---------------------------------------------------------------------------
   // Camera refs for animation
   // ---------------------------------------------------------------------------
@@ -47,6 +65,13 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
     hook: useRef<THREE.PerspectiveCamera>(null),
     drone: useRef<THREE.PerspectiveCamera>(null),
     underwater: useRef<THREE.PerspectiveCamera>(null)
+  }
+
+  const tugCameraRefs = {
+    'tug-helm': useRef<THREE.PerspectiveCamera>(null),
+    'tug-deck': useRef<THREE.PerspectiveCamera>(null),
+    'tug-chase': useRef<THREE.PerspectiveCamera>(null),
+    'tug-prop': useRef<THREE.PerspectiveCamera>(null)
   }
 
   // ---------------------------------------------------------------------------
@@ -70,6 +95,7 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
     height: state.craneHeight ?? 15.5,
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 }
   }))
+  const tugboatState = useGameStore(state => state.tugboatState)
 
   // ---------------------------------------------------------------------------
   // Drone orbit path
@@ -178,9 +204,90 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   }, [currentShip, craneState, dronePath, audioData.treble, underwaterIntensity])
 
   // ---------------------------------------------------------------------------
+  // Compute live camera transform for tugboat viewports
+  // ---------------------------------------------------------------------------
+  const getTugLiveTransform = useCallback((viewportId: TugboatViewportId, time: number): CameraTransform => {
+    const pos = tugboatState.position
+    const heading = tugboatState.heading
+
+    // Direction vectors relative to tug heading
+    const fwd = [Math.cos(heading), 0, Math.sin(heading)] as const
+    const right = [-Math.sin(heading), 0, Math.cos(heading)] as const
+
+    switch (viewportId) {
+      case 'tug-helm': {
+        // First-person helm view looking forward
+        return {
+          position: [
+            pos[0] + fwd[0] * 0.25,
+            pos[1] + 2.15,
+            pos[2] + fwd[2] * 0.25
+          ],
+          target: [
+            pos[0] + fwd[0] * 10,
+            pos[1] + 1.5,
+            pos[2] + fwd[2] * 10
+          ],
+          label: 'Helm FPV'
+        }
+      }
+      case 'tug-deck': {
+        // Aft deck camera looking back towards stern
+        return {
+          position: [
+            pos[0] - fwd[0] * 3,
+            pos[1] + 3.5,
+            pos[2] - fwd[2] * 3
+          ],
+          target: [
+            pos[0] + fwd[0] * 5,
+            pos[1] + 2,
+            pos[2] + fwd[2] * 5
+          ],
+          label: 'Deck Aft'
+        }
+      }
+      case 'tug-chase': {
+        // Chase camera behind and above the tug
+        return {
+          position: [
+            pos[0] - fwd[0] * 12,
+            pos[1] + 6,
+            pos[2] - fwd[2] * 12
+          ],
+          target: [
+            pos[0],
+            pos[1] + 2,
+            pos[2]
+          ],
+          label: 'Chase'
+        }
+      }
+      case 'tug-prop': {
+        // Prop wash view - low stern camera looking at water behind
+        return {
+          position: [
+            pos[0] - fwd[0] * 5,
+            pos[1] + 1.5,
+            pos[2] - fwd[2] * 5
+          ],
+          target: [
+            pos[0] - fwd[0] * 8,
+            pos[1],
+            pos[2] - fwd[2] * 8
+          ],
+          label: 'Prop Wash'
+        }
+      }
+      default:
+        return { position: [pos[0], pos[1] + 5, pos[2] - 10], target: pos as unknown as [number, number, number] }
+    }
+  }, [tugboatState])
+
+  // ---------------------------------------------------------------------------
   // Apply a CameraTransform to a Three.js camera
   // ---------------------------------------------------------------------------
-  const applyTransform = useCallback((camera: THREE.PerspectiveCamera | null, transform: CameraTransform, fov: number, beatPhase: number, viewportId: DashboardViewportId) => {
+  const applyTransform = useCallback((camera: THREE.PerspectiveCamera | null, transform: CameraTransform, fov: number, beatPhase: number, viewportId: DashboardViewportId | TugboatViewportId) => {
     if (!camera) return
     camera.position.set(...transform.position)
     camera.lookAt(...transform.target)
@@ -193,6 +300,8 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
       targetFov += audioData.bass * 3
     } else if (viewportId === 'hook') {
       targetFov += audioData.bass * 5
+    } else if (viewportId === 'tug-helm' || viewportId === 'tug-chase') {
+      targetFov += audioData.bass * 2
     }
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 0.05)
     camera.updateProjectionMatrix()
@@ -210,29 +319,39 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
     const beatPhase = (time % beatDuration) / beatDuration
 
     try {
-      VIEWPORT_ORDER.forEach((viewportId) => {
-        const vp = store.viewportCameras[viewportId]
-        const camera = cameraRefs[viewportId].current
-        const liveTransform = getLiveTransform(viewportId, time, beatPhase)
+      if (operationMode === 'tugboat') {
+        // Animate tugboat viewports
+        TUGBOAT_VIEWPORT_ORDER.forEach((viewportId) => {
+          const camera = tugCameraRefs[viewportId].current
+          const liveTransform = getTugLiveTransform(viewportId, time)
+          applyTransform(camera, liveTransform, TUGBOAT_VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+        })
+      } else {
+        // Animate crane viewports
+        VIEWPORT_ORDER.forEach((viewportId) => {
+          const vp = store.viewportCameras[viewportId]
+          const camera = cameraRefs[viewportId].current
+          const liveTransform = getLiveTransform(viewportId, time, beatPhase)
 
-        // Initialize history on first frame
-        if (vp.history.length === 0) {
-          store.pushViewportHistory(viewportId, liveTransform)
-          return
-        }
-
-        // Apply either history entry or live position
-        if (vp.historyIndex === vp.history.length - 1) {
-          // At tip: show live position
-          applyTransform(camera, liveTransform, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
-        } else {
-          // Browsing history
-          const historyEntry = vp.history[vp.historyIndex]
-          if (historyEntry) {
-            applyTransform(camera, historyEntry, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+          // Initialize history on first frame
+          if (vp.history.length === 0) {
+            store.pushViewportHistory(viewportId, liveTransform)
+            return
           }
-        }
-      })
+
+          // Apply either history entry or live position
+          if (vp.historyIndex === vp.history.length - 1) {
+            // At tip: show live position
+            applyTransform(camera, liveTransform, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+          } else {
+            // Browsing history
+            const historyEntry = vp.history[vp.historyIndex]
+            if (historyEntry) {
+              applyTransform(camera, historyEntry, VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
+            }
+          }
+        })
+      }
     } finally {
       state.gl.setScissorTest(false)
     }
@@ -264,6 +383,77 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   }, [])
 
   if (!enabled || spectatorState.isActive) return null
+
+  // Tugboat mode: render tugboat-specific viewports
+  if (operationMode === 'tugboat') {
+    return (
+      <>
+        {/* DOM overlay with tugboat panel chrome */}
+        <Html fullscreen style={{ pointerEvents: 'none', zIndex: 100 }}>
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr',
+                gridTemplateRows: '1fr 1fr',
+                gap: '12px',
+                width: 'min(90vw, 1200px)',
+                height: 'min(80vh, 700px)',
+                aspectRatio: '16/9'
+              }}
+            >
+              <TugboatViewPanelChrome
+                ref={tugPanelRefs['tug-helm']}
+                viewportId="tug-helm"
+                style={{ gridRow: 'span 2' }}
+              />
+              <TugboatViewPanelChrome
+                ref={tugPanelRefs['tug-deck']}
+                viewportId="tug-deck"
+              />
+              <TugboatViewPanelChrome
+                ref={tugPanelRefs['tug-chase']}
+                viewportId="tug-chase"
+              />
+              <TugboatViewPanelChrome
+                ref={tugPanelRefs['tug-prop']}
+                viewportId="tug-prop"
+              />
+            </div>
+          </div>
+        </Html>
+
+        {/* 3D Views — one per tugboat panel */}
+        {TUGBOAT_VIEWPORT_ORDER.map((viewportId) => (
+          <View
+            key={viewportId}
+            track={tugPanelRefs[viewportId]}
+          >
+            <PerspectiveCamera
+              ref={tugCameraRefs[viewportId]}
+              makeDefault
+              fov={TUGBOAT_VIEWPORT_CONFIG[viewportId].fov}
+              near={0.1}
+              far={1000}
+            />
+            {children}
+          </View>
+        ))}
+      </>
+    )
+  }
 
   return (
     <>
@@ -525,6 +715,103 @@ const ViewPanelChrome = forwardRef<HTMLDivElement, ViewPanelChromeProps>(({ view
   )
 })
 ViewPanelChrome.displayName = 'ViewPanelChrome'
+
+// =============================================================================
+// TUGBOAT VIEW PANEL CHROME (simplified — no history stack, just live feed)
+// =============================================================================
+
+interface TugboatViewPanelChromeProps {
+  viewportId: TugboatViewportId
+  style?: React.CSSProperties
+}
+
+const TugboatViewPanelChrome = forwardRef<HTMLDivElement, TugboatViewPanelChromeProps>(({ viewportId, style }, ref) => {
+  const config = TUGBOAT_VIEWPORT_CONFIG[viewportId]
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'relative',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        background: 'rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(10px)',
+        border: `2px solid ${config.accentColor}40`,
+        boxShadow: `inset 0 0 20px ${config.accentColor}20, 0 4px 20px rgba(0,0,0,0.5)`,
+        display: 'flex',
+        flexDirection: 'column',
+        pointerEvents: 'auto',
+        ...style
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 12px',
+          background: `linear-gradient(90deg, ${config.accentColor}30, transparent)`,
+          borderBottom: `1px solid ${config.accentColor}30`
+        }}
+      >
+        <span style={{ fontSize: '14px' }}>{config.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fff', letterSpacing: '1px' }}>
+            {config.title}
+          </div>
+          <div style={{ fontSize: '9px', color: config.accentColor, letterSpacing: '0.5px' }}>
+            {config.subtitle}
+          </div>
+        </div>
+
+        {/* Live indicator */}
+        <div
+          style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: '#ff4444',
+            boxShadow: '0 0 4px #ff4444',
+            animation: 'pulse 1s ease-in-out infinite'
+          }}
+        />
+      </div>
+
+      {/* Viewport surface — this is what <View> tracks */}
+      <div
+        style={{
+          flex: 1,
+          position: 'relative',
+          background: `linear-gradient(135deg, ${config.accentColor}10, transparent)`,
+          color: config.accentColor,
+          fontSize: '48px',
+          opacity: 0.3,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {config.icon}
+      </div>
+
+      {/* Corner accents */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '20px', height: '2px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '2px', height: '20px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '20px', height: '2px', background: config.accentColor }} />
+      <div style={{ position: 'absolute', bottom: 0, right: 0, width: '2px', height: '20px', background: config.accentColor }} />
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
+    </div>
+  )
+})
+TugboatViewPanelChrome.displayName = 'TugboatViewPanelChrome'
 
 function chromeButtonStyle(disabled: boolean): React.CSSProperties {
   return {
