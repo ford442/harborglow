@@ -431,8 +431,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <EnhancedWeather enabled={true} />
             <PostProcessing enabled={true} audioData={audioData} />
 
-            {/* Ships — hidden in tugboat mode */}
-            {operationMode === 'crane' && ships.map(ship => (
+            {/* Ships — visible in all modes so the glowing fleet coexists with the tug */}
+            {ships.map(ship => (
                 <ShipWrapper
                     key={ship.id}
                     ship={ship}
