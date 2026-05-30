@@ -10,6 +10,7 @@ import { useScreenShake } from '../../hooks/useScreenShake'
 import { createGlassPanelStyles, createButtonStyles, GLASSMORPHISM, TYPOGRAPHY } from '../DesignSystem'
 import AcousticArray from '../AcousticArray'
 import SalvageDispatchModal from './SalvageDispatchModal'
+import CaptainsCommendation from './CaptainsCommendation'
 
 const RPM_MAX = 100
 
@@ -730,6 +731,9 @@ export default function TugboatHUD() {
       </button>
 
       <SalvageDispatchModal />
+
+      {/* Captain's Commendation overlay — shown during tug cinematic sequences */}
+      <CaptainsCommendation />
     </div>
   )
 }

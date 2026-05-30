@@ -11,6 +11,7 @@ import { economySystem } from '../systems/economySystem'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
+import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
 import { weatherSystem, WeatherType } from '../systems/weatherSystem'
 import { swaySystem } from '../systems/swaySystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
@@ -109,6 +110,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const tugboatObjectives = useGameStore(s => s.tugboatObjectives)
     const tugboatDockedCount = useGameStore(s => s.tugboatDockedCount)
     const tugboatWinTriggered = useGameStore(s => s.tugboatWinTriggered)
+    const tugboatCareerStats = useGameStore(s => s.tugboatCareerStats)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -331,6 +333,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             // Win condition check
             if (tugboatDockedCount >= 3 && !tugboatWinTriggered) {
                 triggerTugboatWin()
+                triggerTugWinCinematic(tugboatCareerStats)
                 const firstCompleted = tugboatObjectives.find(o => o.completed)
                 if (firstCompleted) {
                     triggerUpgradeCinematic(firstCompleted.shipType, 'tugboat-win')
@@ -470,6 +473,13 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                             onDocked={(id) => {
                                 completeTugboatObjective(id)
                                 completeMission()
+                                if (activeMission?.vesselLabel) {
+                                    triggerSalvageCinematic(
+                                        activeMission.vesselLabel,
+                                        obj.shipType,
+                                        tugboatCareerStats,
+                                    )
+                                }
                             }}
                             onDestroyed={(id) => {
                                 failMission()
@@ -486,7 +496,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                         startRotation={Math.PI + (Math.random() - 0.5) * 0.5}
                         berthCenter={obj.berthCenter}
                         berthRadius={obj.berthRadius}
-                        onDocked={(id) => completeTugboatObjective(id)}
+                        onDocked={(id) => {
+                            completeTugboatObjective(id)
+                            triggerTugObjectiveCinematic(obj.shipType, obj.label, tugboatCareerStats)
+                        }}
                     />
                 )
             })}
