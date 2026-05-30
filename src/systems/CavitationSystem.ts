@@ -124,7 +124,13 @@ class CavitationSystem {
    * Mutates the exported singleton `cavitationState` (zero React cost for readers).
    * Also patches Zustand when alarm state changes (for console LED).
    */
-  update(portRpm: number, starboardRpm: number, forwardSpeed: number, delta: number): void {
+  update(
+    portRpm: number,
+    starboardRpm: number,
+    forwardSpeed: number,
+    delta: number,
+    slipThresholdBonus = 0,
+  ): void {
     if (!this.enabled) return
 
     const cfg = CAVITATION_CONFIG
@@ -140,8 +146,9 @@ class CavitationSystem {
     this.starboardSlip = this.starboardSlip * 0.7 + starboardSlipRaw * 0.3
 
     // Hysteresis: once cavitating, require lower slip to exit
-    const portThresh = this.portCavitating ? (cfg.slipThreshold - cfg.slipHysteresis) : cfg.slipThreshold
-    const starboardThresh = this.starboardCavitating ? (cfg.slipThreshold - cfg.slipHysteresis) : cfg.slipThreshold
+    const effectiveSlipThreshold = Math.min(0.95, Math.max(0.3, cfg.slipThreshold + slipThresholdBonus))
+    const portThresh = this.portCavitating ? (effectiveSlipThreshold - cfg.slipHysteresis) : effectiveSlipThreshold
+    const starboardThresh = this.starboardCavitating ? (effectiveSlipThreshold - cfg.slipHysteresis) : effectiveSlipThreshold
 
     const nextPortCav = this.portSlip > portThresh
     const nextStarboardCav = this.starboardSlip > starboardThresh

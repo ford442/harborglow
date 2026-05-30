@@ -202,6 +202,7 @@ export default function Tugboat() {
 
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
+  const tugboatUpgrades = useGameStore((s) => s.tugboatUpgrades)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
   const attachTowLine = useGameStore((s) => s.attachTowLine)
   const detachTowLine = useGameStore((s) => s.detachTowLine)
@@ -420,7 +421,8 @@ export default function Tugboat() {
       portRpmRef.current,
       starboardRpmRef.current,
       prevSpeed,
-      delta
+      delta,
+      tugboatUpgrades.cavitation_suppression_jets ? 0.08 : 0
     )
 
     // --- Tug radio / ambient audio layer ---

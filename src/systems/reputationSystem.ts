@@ -313,7 +313,12 @@ export class ReputationSystem {
   // REPUTATION GAIN
   // ========================================================================
 
-  addReputation(amount: number, source: string, metadata?: Record<string, number>): void {
+  addReputation(
+    amount: number,
+    source: string,
+    metadata?: Record<string, number>,
+    options?: { syncGameStore?: boolean }
+  ): void {
     if (amount <= 0) return
 
     // Calculate multipliers
@@ -351,7 +356,9 @@ export class ReputationSystem {
     this.notifyListeners()
 
     // Sync with game store
-    useGameStore.getState().addReputation(finalAmount)
+    if (options?.syncGameStore !== false) {
+      useGameStore.getState().addReputation(finalAmount)
+    }
 
     console.log(`⭐ Reputation +${finalAmount} (${source}) - Total: ${this.state.totalReputation}`)
   }

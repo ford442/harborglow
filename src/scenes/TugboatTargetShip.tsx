@@ -314,12 +314,16 @@ export default function TugboatTargetShip({
       const distRate = (towDist - _prevTowDist.current) / Math.max(delta, 0.001)
       _prevTowDist.current = towDist
 
-      const maxTowLength = storeState.tugboatUpgrades.heavy_tow_winch ? BASE_MAX_TOW_LENGTH + 4 : BASE_MAX_TOW_LENGTH
+      const hasHeavyWinch = storeState.tugboatUpgrades.heavy_tow_winch
+      const hasDynamicAssist = storeState.tugboatUpgrades.dynamic_positioning_assist
+      const maxTowLength = hasHeavyWinch
+        ? BASE_MAX_TOW_LENGTH + (hasDynamicAssist ? 6 : 4)
+        : BASE_MAX_TOW_LENGTH
       const excess = towDist - maxTowLength
 
       // Raw tension (N) = spring + damping;  damp only when stretching further
       const tensionRaw = excess > 0
-        ? Math.max(0, excess * towLineCableConfig.springK + distRate * towLineCableConfig.damping)
+        ? Math.max(0, excess * towLineCableConfig.springK + distRate * towLineCableConfig.damping * (hasDynamicAssist ? 0.75 : 1))
         : 0
       const tension = Math.min(1, tensionRaw / towLineCableConfig.maxTension)
 
@@ -338,7 +342,7 @@ export default function TugboatTargetShip({
       }
 
       // Snap condition: sustained overload OR instantaneous extreme spike (2.5× max)
-      const sustainedSnap = towLineState.overloadTimer >= towLineCableConfig.snapDelay
+      const sustainedSnap = towLineState.overloadTimer >= (hasDynamicAssist ? towLineCableConfig.snapDelay * 1.25 : towLineCableConfig.snapDelay)
       const spikeSnap     = tensionRaw > towLineCableConfig.maxTension * 2.5
 
       if (sustainedSnap || spikeSnap) {

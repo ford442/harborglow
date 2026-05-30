@@ -51,6 +51,7 @@ describe('salvage dispatch contracts', () => {
     expect(updated.salvageSuccessfulTows).toBeGreaterThanOrEqual(2)
     expect(updated.tugboatUpgrades.heavy_tow_winch).toBe(true)
     expect(updated.money).toBeGreaterThan(0)
+    expect(reputationSystem.getState().totalReputation).toBeGreaterThan(0)
   })
 
   it('applies salvage penalties when tow line snaps', () => {
@@ -66,5 +67,42 @@ describe('salvage dispatch contracts', () => {
     expect(before.activeMission?.status).toBe('active')
     expect(after.activeMission?.status).toBe('failed')
     expect(after.reputation).toBeLessThanOrEqual(before.reputation)
+  })
+
+  it('awards objective dock rewards and records tug career stats', () => {
+    const store = useGameStore.getState()
+    store.setTugboatObjectives([
+      {
+        id: 'obj-1',
+        label: 'Berth One',
+        berthCenter: [0, 0, 0],
+        berthRadius: 5,
+        completed: false,
+        shipType: 'container',
+      },
+    ])
+    const before = useGameStore.getState()
+    useGameStore.getState().completeTugboatObjective('obj-1')
+    const after = useGameStore.getState()
+
+    expect(after.tugboatDockedCount).toBe(1)
+    expect(after.money).toBeGreaterThan(before.money)
+    expect(after.reputation).toBeGreaterThan(before.reputation)
+    expect(after.tugboatCareerStats.totalTonsAssisted).toBeGreaterThan(0)
+  })
+
+  it('allows purchasing new tugboat upgrades when requirements are met', () => {
+    const store = useGameStore.getState()
+    store.addMoney(2000)
+    store.addReputation(1200)
+
+    const boughtSearchlight = useGameStore.getState().purchaseTugboatUpgrade('searchlight_rig')
+    const boughtDynamic = useGameStore.getState().purchaseTugboatUpgrade('dynamic_positioning_assist')
+    const updated = useGameStore.getState()
+
+    expect(boughtSearchlight).toBe(true)
+    expect(boughtDynamic).toBe(true)
+    expect(updated.tugboatUpgrades.searchlight_rig).toBe(true)
+    expect(updated.tugboatUpgrades.dynamic_positioning_assist).toBe(true)
   })
 })

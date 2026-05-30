@@ -14,6 +14,10 @@ export default function SalvageDispatchModal() {
   const acceptSalvageContract = useGameStore((s) => s.acceptSalvageContract)
   const refreshSalvageContracts = useGameStore((s) => s.refreshSalvageContracts)
   const tugboatUpgrades = useGameStore((s) => s.tugboatUpgrades)
+  const money = useGameStore((s) => s.money)
+  const reputation = useGameStore((s) => s.reputation)
+  const boothTier = useGameStore((s) => s.boothTier)
+  const purchaseTugboatUpgrade = useGameStore((s) => s.purchaseTugboatUpgrade)
 
   const showDispatch = operationMode === 'tugboat' && (!activeMission || activeMission.status !== 'active')
   const sortedContracts = useMemo(
@@ -83,9 +87,34 @@ export default function SalvageDispatchModal() {
         <button onClick={refreshSalvageContracts} style={createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: false })}>
           Refresh Calls
         </button>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)' }}>Bank ${money.toLocaleString()}</span>
+      </div>
+      <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          Tug Upgrades
+        </div>
         <span style={{ fontSize: '10px', color: tugboatUpgrades.heavy_tow_winch ? '#00d4aa' : 'rgba(255,255,255,0.45)' }}>
           Heavy Tow Winch: {tugboatUpgrades.heavy_tow_winch ? 'Unlocked' : 'Locked'}
         </span>
+        <span style={{ fontSize: '10px', color: tugboatUpgrades.cavitation_suppression_jets ? '#00d4aa' : 'rgba(255,255,255,0.45)' }}>
+          Cavitation Jets: {tugboatUpgrades.cavitation_suppression_jets ? 'Unlocked' : 'Locked'}
+        </span>
+        <button
+          onClick={() => purchaseTugboatUpgrade('searchlight_rig')}
+          disabled={tugboatUpgrades.searchlight_rig || money < 600 || reputation < 550}
+          style={{ ...createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: true }), opacity: tugboatUpgrades.searchlight_rig ? 0.7 : 1 }}
+        >
+          {tugboatUpgrades.searchlight_rig ? '✓ Searchlight Rig' : 'Buy Searchlight Rig ($600 / 550 rep)'}
+        </button>
+        <button
+          onClick={() => purchaseTugboatUpgrade('dynamic_positioning_assist')}
+          disabled={tugboatUpgrades.dynamic_positioning_assist || money < 900 || reputation < 1100 || boothTier < 2}
+          style={{ ...createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: true }), opacity: tugboatUpgrades.dynamic_positioning_assist ? 0.7 : 1 }}
+        >
+          {tugboatUpgrades.dynamic_positioning_assist
+            ? '✓ Dynamic Positioning Assist'
+            : 'Buy Dynamic Positioning Assist ($900 / 1100 rep)'}
+        </button>
       </div>
     </div>
   )
