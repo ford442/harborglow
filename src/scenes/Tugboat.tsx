@@ -15,6 +15,7 @@ import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
 import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
+import { tugboatSoundSystem } from '../systems/tugboatSoundSystem'
 import { getNearestAssistShip } from '../systems/harborAssistSystem'
 
 // =============================================================================
@@ -221,6 +222,20 @@ export default function Tugboat() {
     })
   }, [])
 
+  // Start tug radio layer when entering tugboat mode
+  useEffect(() => {
+    void tugboatSoundSystem.start()
+  }, [])
+
+  // Fire handshake-complete stinger the first time towing is unlocked
+  const prevTowingUnlockedRef = useRef(false)
+  useEffect(() => {
+    if (towingUnlocked && !prevTowingUnlockedRef.current) {
+      void tugboatSoundSystem.triggerHandshakeComplete()
+    }
+    prevTowingUnlockedRef.current = towingUnlocked
+  }, [towingUnlocked])
+
   // Collision push state (updated in useFrame, read in onCollisionEnter)
   const speedRef = useRef(0)
   const headingRef = useRef(0)
@@ -249,17 +264,20 @@ export default function Tugboat() {
         if (!state.towingUnlocked) return
         if (state.towLineAttached) {
           detachTowLine()
+          void tugboatSoundSystem.triggerTowLineDetach()
         } else {
           // 1. Prefer mission objective ships (existing behaviour)
           const target = state.tugboatObjectives.find(o => !o.completed)
           if (target) {
             attachTowLine(target.id)
+            void tugboatSoundSystem.triggerTowLineAttach()
           } else {
             // 2. Fall back to nearest fleet ship in the harbor assist registry
             const tugPos = state.tugboatState.position
             const nearest = getNearestAssistShip(tugPos[0], tugPos[2])
             if (nearest) {
               attachTowLine(nearest.id)
+              void tugboatSoundSystem.triggerTowLineAttach()
             }
           }
         }
@@ -316,6 +334,7 @@ export default function Tugboat() {
   useEffect(() => () => {
     resetTugboatWakeState()
     cavitationSystem.resetCavitation()
+    tugboatSoundSystem.stop()
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -401,6 +420,14 @@ export default function Tugboat() {
       portRpmRef.current,
       starboardRpmRef.current,
       prevSpeed,
+      delta
+    )
+
+    // --- Tug radio / ambient audio layer ---
+    tugboatSoundSystem.update(
+      portRpmRef.current,
+      starboardRpmRef.current,
+      cavitationState.intensity,
       delta
     )
 
