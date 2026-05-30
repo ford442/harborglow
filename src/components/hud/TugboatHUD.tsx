@@ -2,7 +2,7 @@
 // TUGBOAT HUD - Speed, wind, objectives, and storm timer
 // =============================================================================
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { useStormSystem } from '../../systems/StormSystem'
 import { towLineState } from '../../systems/TowLineSystem'
@@ -638,11 +638,57 @@ function CavitationWarningBanner({
   )
 }
 
+function TugboatHelpOverlay({ onClose }: { onClose: () => void }) {
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '16px',
+    fontSize: '12px',
+    color: '#eaf8ff',
+  }
+
+  return (
+    <div
+      style={{
+        ...createGlassPanelStyles({ padding: '14px', maxWidth: '320px' }),
+        position: 'absolute',
+        top: '24px',
+        right: '24px',
+        pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: '12px', fontWeight: 700, color: '#00d4aa', letterSpacing: '1px' }}>TWIN-SCREW 101</span>
+        <button onClick={onClose} style={{ ...createButtonStyles({ variant: 'ghost', size: 'sm', fullWidth: false }), padding: '2px 8px' }}>✕</button>
+      </div>
+      <div style={rowStyle}><kbd>W/S</kbd><span>Both engines fwd/rev</span></div>
+      <div style={rowStyle}><kbd>A/D</kbd><span>Differential turn bias</span></div>
+      <div style={rowStyle}><kbd>T</kbd><span>Attach / detach tow line</span></div>
+      <div style={rowStyle}><kbd>SHIFT</kbd><span>Boost (watch cavitation)</span></div>
+      <div style={rowStyle}><kbd>SPACE</kbd><span>Emergency stop</span></div>
+      <div style={{
+        marginTop: '6px',
+        borderTop: '1px solid rgba(255,255,255,0.12)',
+        paddingTop: '8px',
+        fontSize: '11px',
+        color: '#ffd27a',
+        lineHeight: 1.4,
+      }}>
+        💡 Cavitation tip: if ⚠ lights up, ease throttle and level your turn. Sustained cavitation weakens tow efficiency.
+      </div>
+    </div>
+  )
+}
+
 export default function TugboatHUD() {
   const operationMode = useGameStore((s) => s.operationMode)
   const tugboatState = useGameStore((s) => s.tugboatState)
   const setOperationMode = useGameStore((s) => s.setOperationMode)
   const stormState = useStormSystem()
+  const [showHelp, setShowHelp] = useState(false)
 
   if (operationMode !== 'tugboat') return null
 
@@ -715,6 +761,28 @@ export default function TugboatHUD() {
       </div>
 
       {/* Return button */}
+      <button
+        onClick={() => setShowHelp((prev) => !prev)}
+        style={{
+          ...createButtonStyles({ variant: 'ghost', size: 'sm', fullWidth: false }),
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          width: '34px',
+          height: '34px',
+          borderRadius: '50%',
+          pointerEvents: 'auto',
+          padding: 0,
+          fontWeight: 800,
+        }}
+        title="Tugboat controls help"
+        aria-label="Toggle tugboat controls help"
+      >
+        ?
+      </button>
+
+      {showHelp && <TugboatHelpOverlay onClose={() => setShowHelp(false)} />}
+
       <button
         onClick={() => setOperationMode('crane')}
         style={{

@@ -107,6 +107,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
     const cabinViewMode = useGameStore(s => s.cabinViewMode)
     const operationMode = useGameStore(s => s.operationMode)
+    const gameMode = useGameStore(s => s.gameMode)
+    const currentTrainingModule = useGameStore(s => s.currentTrainingModule)
     const tugboatObjectives = useGameStore(s => s.tugboatObjectives)
     const tugboatDockedCount = useGameStore(s => s.tugboatDockedCount)
     const tugboatWinTriggered = useGameStore(s => s.tugboatWinTriggered)
@@ -159,40 +161,107 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     // Tugboat mode: spawn objectives when entering tugboat mode
     useEffect(() => {
         if (operationMode === 'tugboat' && tugboatObjectives.length === 0 && !tugboatWinTriggered) {
-            const objectives = [
-                {
-                    id: 'tug-obj-1',
-                    label: 'Berth Alpha',
-                    berthCenter: [-15, 0, -20] as [number, number, number],
-                    berthRadius: 8,
-                    completed: false,
-                    shipType: 'container' as ShipType,
-                },
-                {
-                    id: 'tug-obj-2',
-                    label: 'Berth Beta',
-                    berthCenter: [0, 0, -25] as [number, number, number],
-                    berthRadius: 8,
-                    completed: false,
-                    shipType: 'tanker' as ShipType,
-                },
-                {
-                    id: 'tug-obj-3',
-                    label: 'Berth Gamma',
-                    berthCenter: [15, 0, -20] as [number, number, number],
-                    berthRadius: 8,
-                    completed: false,
-                    shipType: 'bulk' as ShipType,
-                },
-            ]
+            const trainingObjectivesByModule: Partial<Record<TrainingModuleId, ReturnType<typeof useGameStore.getState>['tugboatObjectives']>> = {
+                'tugboat-basics': [
+                    {
+                        id: 'tug-training-basics-1',
+                        label: 'Training Berth Alpha',
+                        berthCenter: [-10, 0, -18],
+                        berthRadius: 10,
+                        completed: false,
+                        shipType: 'container',
+                    },
+                ],
+                'twin-screw-differential': [
+                    {
+                        id: 'tug-training-diff-1',
+                        label: 'Training Berth Beta',
+                        berthCenter: [0, 0, -24],
+                        berthRadius: 7,
+                        completed: false,
+                        shipType: 'tanker',
+                    },
+                    {
+                        id: 'tug-training-diff-2',
+                        label: 'Training Berth Alpha',
+                        berthCenter: [-14, 0, -16],
+                        berthRadius: 7,
+                        completed: false,
+                        shipType: 'container',
+                    },
+                ],
+                'acoustic-handshake': [
+                    {
+                        id: 'tug-training-acoustic-1',
+                        label: 'Signal Berth Echo',
+                        berthCenter: [12, 0, -20],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'bulk',
+                    },
+                ],
+                'storm-rescue': [
+                    {
+                        id: 'tug-training-storm-1',
+                        label: 'Rescue Berth Gamma',
+                        berthCenter: [15, 0, -20],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'container',
+                    },
+                    {
+                        id: 'tug-training-storm-2',
+                        label: 'Rescue Berth Beta',
+                        berthCenter: [0, 0, -25],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'tanker',
+                    },
+                ],
+            }
+
+            const objectives = gameMode === 'training' && currentTrainingModule
+                ? (trainingObjectivesByModule[currentTrainingModule] ?? [])
+                : [
+                    {
+                        id: 'tug-obj-1',
+                        label: 'Berth Alpha',
+                        berthCenter: [-15, 0, -20] as [number, number, number],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'container' as ShipType,
+                    },
+                    {
+                        id: 'tug-obj-2',
+                        label: 'Berth Beta',
+                        berthCenter: [0, 0, -25] as [number, number, number],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'tanker' as ShipType,
+                    },
+                    {
+                        id: 'tug-obj-3',
+                        label: 'Berth Gamma',
+                        berthCenter: [15, 0, -20] as [number, number, number],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'bulk' as ShipType,
+                    },
+                ]
             setTugboatObjectives(objectives)
-            stormSystem.start(180)
+            if (gameMode === 'training' && currentTrainingModule === 'storm-rescue') {
+                stormSystem.start(300)
+            } else if (gameMode === 'training') {
+                stormSystem.stop()
+            } else {
+                stormSystem.start(180)
+            }
         }
         if (operationMode === 'crane') {
             resetTugboatMode()
             stormSystem.stop()
         }
-    }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, setTugboatObjectives, resetTugboatMode])
+    }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, gameMode, currentTrainingModule, setTugboatObjectives, resetTugboatMode])
 
     // Leva controls
     useLevaControls({
@@ -331,7 +400,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             stormSystem.update(delta)
             
             // Win condition check
-            if (tugboatDockedCount >= 3 && !tugboatWinTriggered) {
+            if (tugboatObjectives.length > 0 && tugboatDockedCount >= tugboatObjectives.length && !tugboatWinTriggered) {
                 triggerTugboatWin()
                 triggerTugWinCinematic(tugboatCareerStats)
                 const firstCompleted = tugboatObjectives.find(o => o.completed)

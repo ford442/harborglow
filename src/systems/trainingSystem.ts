@@ -15,9 +15,24 @@ export type TrainingModuleId =
   | 'precision'        // Module 2: Precision Placement
   | 'wind-sway'        // Module 3: Wind & Sway Management
   | 'night-ops'        // Module 4: Night Operations
+  | 'tugboat-basics'   // Tugboat Module 1: Basic tug handling
+  | 'twin-screw-differential' // Tugboat Module 2: Differential thrust
+  | 'acoustic-handshake' // Tugboat Module 3: Acoustic handshake protocol
+  | 'storm-rescue'     // Tugboat Module 4: Controlled storm tow
   | 'multi-crane'      // Module 5: Multi-Crane Coordination (planned)
   | 'emergency'        // Module 6: Emergency Response (planned)
   | 'light-show'       // Module 7: Advanced Light Show Install (planned)
+
+export const TUGBOAT_TRAINING_MODULE_IDS: TrainingModuleId[] = [
+  'tugboat-basics',
+  'twin-screw-differential',
+  'acoustic-handshake',
+  'storm-rescue',
+]
+
+export function isTugboatTrainingModule(moduleId: TrainingModuleId): boolean {
+  return TUGBOAT_TRAINING_MODULE_IDS.includes(moduleId)
+}
 
 export type TrainingRank = 'S' | 'A' | 'B' | 'C' | 'F'
 export type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
@@ -218,6 +233,129 @@ export const TRAINING_MODULES: TrainingModule[] = [
   },
 
   // ============================================================================
+  // TUGBOAT MODULE 1: Tugboat Basics
+  // ============================================================================
+  {
+    id: 'tugboat-basics',
+    title: 'Tugboat Basics',
+    description: 'Learn tug startup, tow-line safety, and controlled berth escorting in calm harbor water.',
+    difficulty: 1,
+    estimatedTime: 6,
+    shipType: 'container',
+    weather: 'clear',
+    timeOfDay: 9,
+    prerequisites: [],
+    objectives: [
+      { id: 'escort-alpha', title: 'Escort to Berth Alpha', description: 'Guide a practice vessel into Alpha berth' },
+      { id: 'tow-line-safe', title: 'Tow-Line Safety', description: 'Keep tow tension below snap zone while towing' },
+      { id: 'clean-dock', title: 'Clean Docking', description: 'Complete without hull contact damage' }
+    ],
+    rewards: {
+      reputation: 60,
+      unlocks: ['twin-screw-differential-module', 'deckhand-cert-i']
+    },
+    tutorial: [
+      { id: 'welcome-tug', title: 'Welcome, Captain', message: 'Tonight we switch from crane cab to harbor tug. You are now the hands on the water.', voiceLine: 'training_welcome' },
+      { id: 'helm-controls', title: 'Helm Controls', message: 'Use WASD for coordinated thrust. Small inputs keep your wake smooth.', position: 'bottom', waitForAction: true, actionType: 'move' },
+      { id: 'towline', title: 'Tow Line', message: 'Press T to connect and disconnect the tow line when in range.', position: 'left' },
+      { id: 'cavitation', title: 'Cavitation Watch', message: 'If cavitation warnings flash, reduce throttle before efficiency drops.', position: 'right' },
+      { id: 'first-escort', title: 'First Escort', message: 'Move the training vessel into Berth Alpha and hold steady.', waitForAction: true, actionType: 'move' },
+      { id: 'finish-basics', title: 'Module Complete', message: 'Solid tug handling. Next up: independent screw control.' }
+    ]
+  },
+
+  // ============================================================================
+  // TUGBOAT MODULE 2: Twin-Screw Differential
+  // ============================================================================
+  {
+    id: 'twin-screw-differential',
+    title: 'Twin-Screw Differential',
+    description: 'Practice split-throttle maneuvers, pivot turns, and low-speed precision using independent prop control.',
+    difficulty: 2,
+    estimatedTime: 8,
+    shipType: 'tanker',
+    weather: 'clear',
+    timeOfDay: 11,
+    prerequisites: ['tugboat-basics'],
+    objectives: [
+      { id: 'pivot-turn', title: 'Pivot Turn', description: 'Rotate 180° in a marked box using differential thrust' },
+      { id: 'thread-channel', title: 'Thread the Channel', description: 'Escort through the narrow training lane' },
+      { id: 'dock-beta', title: 'Dock at Berth Beta', description: 'Complete final approach with <25% cavitation intensity' }
+    ],
+    rewards: {
+      reputation: 90,
+      unlocks: ['acoustic-handshake-module', 'engine-room-trim-badge']
+    },
+    tutorial: [
+      { id: 'diff-intro', title: 'Independent Screws', message: 'Twin screws let you rotate in place. Split thrust, then counter to stabilize.' },
+      { id: 'console-reminder', title: 'Console Fine-Tune', message: 'Use the tug console to compare port and starboard RPM in real time.', position: 'right' },
+      { id: 'pivot-demo', title: 'Pivot Drill', message: 'Practice a controlled pivot turn before entering the channel.', waitForAction: true, actionType: 'move' },
+      { id: 'channel', title: 'Channel Transit', message: 'Keep your stern clear while guiding the target through the markers.', waitForAction: true, actionType: 'move' },
+      { id: 'finish-diff', title: 'Module Complete', message: 'Great control. You are ready for acoustic protocol work.' }
+    ]
+  },
+
+  // ============================================================================
+  // TUGBOAT MODULE 3: Acoustic Handshake
+  // ============================================================================
+  {
+    id: 'acoustic-handshake',
+    title: 'Acoustic Handshake',
+    description: 'Calibrate the acoustic console, transmit the correct handshake sequence, and unlock towing authorization.',
+    difficulty: 3,
+    estimatedTime: 9,
+    shipType: 'bulk',
+    weather: 'fog',
+    timeOfDay: 20,
+    prerequisites: ['twin-screw-differential'],
+    objectives: [
+      { id: 'scan-berth', title: 'Scan Berth Signature', description: 'Use array feedback to locate the assigned berth pattern' },
+      { id: 'handshake-sequence', title: 'Complete Handshake', description: 'Transmit the full note sequence in order' },
+      { id: 'authorized-tow', title: 'Authorized Tow', description: 'Tow one vessel after handshake unlocks' }
+    ],
+    rewards: {
+      reputation: 120,
+      unlocks: ['storm-rescue-module', 'acoustic-clearance']
+    },
+    tutorial: [
+      { id: 'acoustic-intro', title: 'Acoustic Protocol', message: 'No handshake, no tow. The harbor array verifies every assist operation.' },
+      { id: 'read-array', title: 'Read the Array', message: 'Watch pulse feedback and log each note before transmitting.', position: 'left' },
+      { id: 'submit-notes', title: 'Transmit Sequence', message: 'Play the matching sequence to unlock towing authorization.', waitForAction: true, actionType: 'wait' },
+      { id: 'post-unlock', title: 'Tow Authorization', message: 'Authorization granted. Complete a short tow to confirm the lock.', waitForAction: true, actionType: 'move' }
+    ]
+  },
+
+  // ============================================================================
+  // TUGBOAT MODULE 4: Storm Rescue
+  // ============================================================================
+  {
+    id: 'storm-rescue',
+    title: 'Storm Rescue',
+    description: 'Execute a controlled rescue tow in low-storm conditions while managing shear, cavitation, and tow tension.',
+    difficulty: 4,
+    estimatedTime: 12,
+    shipType: 'container',
+    weather: 'storm',
+    timeOfDay: 22,
+    prerequisites: ['acoustic-handshake'],
+    objectives: [
+      { id: 'secure-distressed', title: 'Secure Distressed Vessel', description: 'Attach and stabilize the tow line in rough water' },
+      { id: 'maintain-tension', title: 'Maintain Tow Tension', description: 'Complete tow without entering sustained snap zone' },
+      { id: 'storm-dock', title: 'Storm Docking', description: 'Deliver the vessel to Berth Gamma before storm peak' }
+    ],
+    rewards: {
+      reputation: 170,
+      unlocks: ['tugmaster-storm-stripe', 'salvage-dispatch-priority']
+    },
+    tutorial: [
+      { id: 'storm-brief', title: 'Storm Briefing', message: 'Conditions are rough, but controlled. Keep decisions calm and deliberate.', voiceLine: 'training_storm_warning' },
+      { id: 'shear-warning', title: 'Shear and Drift', message: 'Cross-shear will pull your tow line sideways. Correct early, not late.', position: 'left' },
+      { id: 'cav-limit', title: 'Throttle Discipline', message: 'Avoid prolonged cavitation. A clean prop saves your line and your mission.', position: 'right' },
+      { id: 'rescue-run', title: 'Rescue Run', message: 'Complete the full storm escort to Berth Gamma.', waitForAction: true, actionType: 'move' }
+    ]
+  },
+
+  // ============================================================================
   // MODULE 5: Multi-Crane Coordination (PLANNED)
   // ============================================================================
   {
@@ -316,6 +454,10 @@ export const DEFAULT_TRAINING_PROGRESS: TrainingProgress = {
     'precision': 'locked',
     'wind-sway': 'locked',
     'night-ops': 'locked',
+    'tugboat-basics': 'available',
+    'twin-screw-differential': 'locked',
+    'acoustic-handshake': 'locked',
+    'storm-rescue': 'locked',
     'multi-crane': 'locked',
     'emergency': 'locked',
     'light-show': 'locked'

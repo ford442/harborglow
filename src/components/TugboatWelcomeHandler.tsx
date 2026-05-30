@@ -8,8 +8,10 @@ import TugboatWelcomeModal from './MainMenu/TugboatWelcomeModal'
 
 export default function TugboatWelcomeHandler() {
   const operationMode = useGameStore((s) => s.operationMode)
+  const gameMode = useGameStore((s) => s.gameMode)
   const tugboatFirstTimeViewed = useGameStore((s) => s.tugboatFirstTimeViewed)
   const markTugboatFirstTimeViewed = useGameStore((s) => s.markTugboatFirstTimeViewed)
+  const startTrainingModule = useGameStore((s) => s.startTrainingModule)
   const [showWelcome, setShowWelcome] = useState(false)
 
   useEffect(() => {
@@ -24,7 +26,12 @@ export default function TugboatWelcomeHandler() {
     setShowWelcome(false)
   }
 
+  const handleQuickTutorial = () => {
+    startTrainingModule('tugboat-basics')
+    setShowWelcome(false)
+  }
+
   if (!showWelcome) return null
 
-  return <TugboatWelcomeModal onClose={handleClose} />
+  return <TugboatWelcomeModal onClose={handleClose} onQuickTutorial={gameMode === 'sandbox' ? handleQuickTutorial : undefined} />
 }

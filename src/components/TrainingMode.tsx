@@ -65,10 +65,10 @@ export default function TrainingMode({ onExit, onStartModule }: TrainingModeProp
         {/* HEADER */}
         <header style={headerStyle}>
           <div style={logoContainerStyle}>
-            <span style={iconStyle}>🏗️</span>
+            <span style={iconStyle}>🏗️🚤</span>
             <div>
               <h1 style={titleStyle}>Training Center</h1>
-              <p style={subtitleStyle}>Crane Operator Certification Program</p>
+              <p style={subtitleStyle}>Harbor Operations Certification Program</p>
             </div>
           </div>
           
