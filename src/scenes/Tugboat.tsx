@@ -237,6 +237,11 @@ export default function Tugboat() {
           boostRef.current.cooldown = 5 // seconds
         }
       }
+      // 'Q' — return to crane mode
+      if (e.key === 'q' || e.key === 'Q') {
+        useGameStore.getState().setOperationMode('crane')
+        return
+      }
       // 'T' — toggle tow-line attach/detach (requires handshake completion)
       if (e.key === 't' || e.key === 'T') {
         const state = useGameStore.getState()

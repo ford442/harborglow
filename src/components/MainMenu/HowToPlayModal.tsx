@@ -3,6 +3,7 @@
 // =============================================================================
 
 import React, { useState } from 'react'
+import { useGameStore } from '../../store/useGameStore'
 import { SHIP_COLORS } from '../DesignSystem'
 import Modal from './Modal'
 import {
@@ -81,7 +82,8 @@ const tugboatSteps = [
 ]
 
 export default function HowToPlayModal({ onClose }: HowToPlayModalProps) {
-    const [tab, setTab] = useState<'crane' | 'tugboat'>('crane')
+    const operationMode = useGameStore((s) => s.operationMode)
+    const [tab, setTab] = useState<'crane' | 'tugboat'>(operationMode === 'tugboat' ? 'tugboat' : 'crane')
     
     const activeSteps = tab === 'crane' ? steps : tugboatSteps
     const craneControls = [
@@ -89,14 +91,17 @@ export default function HowToPlayModal({ onClose }: HowToPlayModalProps) {
         { keys: ['↑','↓'], desc: 'Raise/Lower cable' },
         { keys: ['E'], desc: 'Toggle twistlock' },
         { keys: ['TAB'], desc: 'Toggle monitor' },
+        { keys: ['M'], desc: 'Switch to Tugboat' },
     ]
     const tugboatControls = [
         { keys: ['W','S'], desc: 'Port/Starboard throttle' },
         { keys: ['A','D'], desc: 'Steering' },
         { keys: ['Mouse'], desc: 'First-person look' },
         { keys: ['SHIFT'], desc: 'Boost (if unlocked)' },
+        { keys: ['T'], desc: 'Toggle tow line' },
         { keys: ['TAB'], desc: 'Toggle HUD' },
         { keys: ['Q'], desc: 'Return to Crane' },
+        { keys: ['M'], desc: 'Toggle mode' },
     ]
     const activeControls = tab === 'crane' ? craneControls : tugboatControls
 
