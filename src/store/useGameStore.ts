@@ -737,6 +737,7 @@ const defaultState: Omit<GameState, keyof {
     windDirection: 0,
     windStrength: 0,
     rainDensity: 0.5,
+    money: 0,
     activeMission: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
 }
@@ -1615,7 +1616,6 @@ export const useGameStore = create<GameState>((set, get) => ({
             windDirection: 0,
             windStrength: 0,
             rainDensity: 0.5,
-            money: 0,
             activeMission: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
             tugboatState: {
