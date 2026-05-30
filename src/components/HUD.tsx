@@ -16,6 +16,7 @@ import DynamicEventNotifier from './DynamicEventNotifier'
 import ReputationPanel from './ReputationPanel'
 import CreditFeedback from './CreditFeedback'
 import TugboatConsole from './TugboatConsole'
+import TugboatWelcomeHandler from './TugboatWelcomeHandler'
 import {
   TopBar,
   TimeDisplay,
@@ -82,6 +83,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <ReputationPanel />
       
       <CreditFeedback />
+      
+      <TugboatWelcomeHandler />
       
       <HotkeyHints />
     </div>

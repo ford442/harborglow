@@ -1,0 +1,30 @@
+// =============================================================================
+// TUGBOAT WELCOME HANDLER - Shows welcome modal on first tugboat mode
+// =============================================================================
+
+import { useState, useEffect } from 'react'
+import { useGameStore } from '../store/useGameStore'
+import TugboatWelcomeModal from './MainMenu/TugboatWelcomeModal'
+
+export default function TugboatWelcomeHandler() {
+  const operationMode = useGameStore((s) => s.operationMode)
+  const tugboatFirstTimeViewed = useGameStore((s) => s.tugboatFirstTimeViewed)
+  const markTugboatFirstTimeViewed = useGameStore((s) => s.markTugboatFirstTimeViewed)
+  const [showWelcome, setShowWelcome] = useState(false)
+
+  useEffect(() => {
+    // Show welcome modal if switching to tugboat mode for the first time
+    if (operationMode === 'tugboat' && !tugboatFirstTimeViewed) {
+      setShowWelcome(true)
+      markTugboatFirstTimeViewed()
+    }
+  }, [operationMode, tugboatFirstTimeViewed, markTugboatFirstTimeViewed])
+
+  const handleClose = () => {
+    setShowWelcome(false)
+  }
+
+  if (!showWelcome) return null
+
+  return <TugboatWelcomeModal onClose={handleClose} />
+}
