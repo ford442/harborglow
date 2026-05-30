@@ -449,6 +449,8 @@ interface SerializableState {
     windStrength: number
     rainDensity: number
     waveParams: WaveParams
+    /** True while the tug spectator drone cinematic camera is active */
+    tugSpectatorActive: boolean
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
@@ -469,6 +471,7 @@ interface SerializableState {
     setWaveParams: (patch: Partial<WaveParams>) => void
     attachTowLine: (shipId: string) => void
     detachTowLine: () => void
+    setTugSpectatorActive: (active: boolean) => void
     // Economy
     addMoney: (amount: number) => void
     deductMoney: (amount: number) => void
@@ -607,6 +610,7 @@ const defaultState: Omit<GameState, keyof {
     setActiveMission: unknown; updateMission: unknown;
     completeMission: unknown; failMission: unknown;
     attachTowLine: unknown; detachTowLine: unknown; signalTowLineSnap: unknown;
+    setTugSpectatorActive: unknown;
 }> = {
     ships: [],
     craneUpgrades: [],
@@ -740,6 +744,7 @@ const defaultState: Omit<GameState, keyof {
     money: 0,
     activeMission: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
+    tugSpectatorActive: false,
 }
 
 // =============================================================================
@@ -1618,6 +1623,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             rainDensity: 0.5,
             activeMission: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
+            tugSpectatorActive: false,
             tugboatState: {
                 position: [20, 0.5, 10],
                 velocity: [0, 0, 0],
@@ -1801,6 +1807,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ tugboatWinTriggered: true })
         console.log('🏆 Tugboat mission complete!')
     },
+
+    setTugSpectatorActive: (active: boolean) => set({ tugSpectatorActive: active }),
 
     setWaveParams: (patch: Partial<WaveParams>) => set((state) => {
         const newParams = { ...state.waveParams, ...patch }

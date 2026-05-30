@@ -174,6 +174,8 @@ export function useCinematicCamera() {
   const spectatorState = useGameStore(state => state.spectatorState)
   const cameraMode = useGameStore(state => state.cameraMode)
   const bpm = useGameStore(state => state.bpm)
+  const tugSpectatorActive = useGameStore(state => state.tugSpectatorActive)
+  const tugboatState = useGameStore(state => state.tugboatState)
   
   const currentShip = ships.find(s => s.id === currentShipId)
   
@@ -327,6 +329,23 @@ export function useCinematicCamera() {
       }
     }
   }, [spectatorState.isActive, spectatorState.targetShipId, ships])
+
+  // 7.2b Tug Spectator Drone — orbit the tug + towed vessel at cinematic height
+  useEffect(() => {
+    if (tugSpectatorActive) {
+      const tugPos = new THREE.Vector3(...tugboatState.position)
+      // Tighter radius than cargo ships — tug is a small vessel
+      pathCurveRef.current = createOrbitPath(tugPos, 28, 12, 1.5)
+      pathProgressRef.current = 0
+    } else {
+      // Clear path when deactivated so the standard spectator check takes over
+      if (pathCurveRef.current && !spectatorState.isActive) {
+        pathCurveRef.current = null
+      }
+    }
+  // tugboatState.position changes every frame — only re-create path on activation toggle
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tugSpectatorActive])
   
   // Handle camera mode transitions
   useEffect(() => {
@@ -338,7 +357,8 @@ export function useCinematicCamera() {
   
   // Main camera update loop
   useFrame((state, delta) => {
-    if (!currentShip) return
+    // Allow tug spectator to run even without a current ship
+    if (!currentShip && !tugSpectatorActive) return
     
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
@@ -357,20 +377,23 @@ export function useCinematicCamera() {
     // Calculate target based on mode
     let target: CameraTarget
     
-    if (spectatorState.isActive && pathCurveRef.current) {
-      // 7.2 Spectator Drone - Move along Bézier path
+    if ((spectatorState.isActive || tugSpectatorActive) && pathCurveRef.current) {
+      // 7.2 / 7.2b Spectator Drone - Move along Bézier path
       pathProgressRef.current += delta * 0.08
       if (pathProgressRef.current > 1) pathProgressRef.current = 0
       
       const point = pathCurveRef.current.getPoint(pathProgressRef.current)
       const tangent = pathCurveRef.current.getTangent(pathProgressRef.current)
+
+      // Look-at target: use tug position during tug spectator, ship position otherwise
+      const lookAtCenter = tugSpectatorActive
+        ? new THREE.Vector3(...tugboatState.position).add(new THREE.Vector3(0, 3, 0))
+        : new THREE.Vector3(...(currentShip?.position ?? [0, 0, 0])).add(new THREE.Vector3(0, 5, 0))
       
       target = {
         position: point,
-        lookAt: new THREE.Vector3(...currentShip.position).add(
-          new THREE.Vector3(0, 5, 0).add(tangent.multiplyScalar(-10))
-        ),
-        fov: 45
+        lookAt: lookAtCenter.add(tangent.multiplyScalar(-10)),
+        fov: tugSpectatorActive ? 52 : 45
       }
       
       // Variable speed - slow down at interesting angles
@@ -414,7 +437,7 @@ export function useCinematicCamera() {
     const shakeY = shakeRef.current.y
     
     // Smooth camera movement with lerp
-    const lerpFactor = spectatorState.isActive ? 0.03 : 0.08
+    const lerpFactor = (spectatorState.isActive || tugSpectatorActive) ? 0.03 : 0.08
     camera.position.lerp(
       new THREE.Vector3(
         targetPosRef.current.x + shakeX,
