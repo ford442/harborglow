@@ -198,6 +198,12 @@ export interface MissionObjective {
     progress: number
 }
 
+export interface TugboatCareerStats {
+    totalTonsAssisted: number
+    cleanTows: number
+    nightRescues: number
+}
+
 export interface SalvageContract {
     id: string
     vesselLabel: string
@@ -215,8 +221,38 @@ export interface SalvageContract {
     expiresAt: number
 }
 
-export type TugboatUpgradeId = 'heavy_tow_winch' | 'cavitation_suppression_jets'
+export type TugboatUpgradeId =
+    | 'heavy_tow_winch'
+    | 'cavitation_suppression_jets'
+    | 'searchlight_rig'
+    | 'dynamic_positioning_assist'
 export type TugboatUpgradeState = Record<TugboatUpgradeId, boolean>
+
+const TUG_TONS_BY_SHIP: Record<ShipType, number> = {
+    cruise: 160,
+    container: 125,
+    tanker: 145,
+    bulk: 135,
+    lng: 140,
+    roro: 95,
+    research: 80,
+    droneship: 70,
+    ferry: 65,
+    trawler: 45,
+    horizon: 90,
+}
+
+function getReputationTierMultiplier(): number {
+    switch (reputationSystem.getTier()) {
+        case 'novice': return 1
+        case 'apprentice': return 1.03
+        case 'operator': return 1.06
+        case 'veteran': return 1.1
+        case 'expert': return 1.14
+        case 'master': return 1.18
+        default: return 1.22
+    }
+}
 
 const DEFAULT_HANDSHAKE_SEQUENCE: AcousticNote[] = ['C1', 'G1', 'D#1', 'A#1']
 
@@ -396,6 +432,7 @@ interface SerializableState {
     tugboatFirstTimeViewed: boolean
     salvageContracts: SalvageContract[]
     salvageSuccessfulTows: number
+    tugboatCareerStats: TugboatCareerStats
     tugboatUpgrades: TugboatUpgradeState
     handshakeTargetSequence: AcousticNote[]
     handshakeInputSequence: AcousticNote[]
@@ -420,6 +457,7 @@ interface SerializableState {
     submitAcousticNote: (note: AcousticNote) => void
     resetAcousticHandshake: () => void
     completeTugboatObjective: (id: string) => void
+    purchaseTugboatUpgrade: (id: TugboatUpgradeId) => boolean
     resetTugboatMode: () => void
     setStormIntensity: (intensity: number) => void
     setStormTimeRemaining: (time: number) => void
@@ -561,7 +599,7 @@ const defaultState: Omit<GameState, keyof {
     setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown; markTugboatFirstTimeViewed: unknown;
     refreshSalvageContracts: unknown; acceptSalvageContract: unknown;
     submitAcousticNote: unknown; resetAcousticHandshake: unknown;
-    completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
+    completeTugboatObjective: unknown; purchaseTugboatUpgrade: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
     setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
     setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
     setRainDensity: unknown;
@@ -675,9 +713,16 @@ const defaultState: Omit<GameState, keyof {
     tugboatFirstTimeViewed: false,
     salvageContracts: createSalvageContracts(),
     salvageSuccessfulTows: 0,
+    tugboatCareerStats: {
+        totalTonsAssisted: 0,
+        cleanTows: 0,
+        nightRescues: 0,
+    },
     tugboatUpgrades: {
         heavy_tow_winch: false,
         cavitation_suppression_jets: false,
+        searchlight_rig: false,
+        dynamic_positioning_assist: false,
     },
     handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
     handshakeInputSequence: [],
@@ -692,7 +737,6 @@ const defaultState: Omit<GameState, keyof {
     windDirection: 0,
     windStrength: 0,
     rainDensity: 0.5,
-    money: 0,
     activeMission: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
 }
@@ -726,6 +770,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatFirstTimeViewed: state.tugboatFirstTimeViewed,
     salvageContracts: state.salvageContracts,
     salvageSuccessfulTows: state.salvageSuccessfulTows,
+    tugboatCareerStats: state.tugboatCareerStats,
     tugboatUpgrades: state.tugboatUpgrades,
     waveParams: state.waveParams,
     money: state.money,
@@ -918,9 +963,16 @@ export const useGameStore = create<GameState>((set, get) => ({
             tugboatWinTriggered: false,
             salvageContracts: createSalvageContracts(),
             salvageSuccessfulTows: 0,
+            tugboatCareerStats: {
+                totalTonsAssisted: 0,
+                cleanTows: 0,
+                nightRescues: 0,
+            },
             tugboatUpgrades: {
                 heavy_tow_winch: false,
                 cavitation_suppression_jets: false,
+                searchlight_rig: false,
+                dynamic_positioning_assist: false,
             },
             handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
             handshakeInputSequence: [],
@@ -932,7 +984,6 @@ export const useGameStore = create<GameState>((set, get) => ({
             windDirection: 0,
             windStrength: 0,
             rainDensity: 0.5,
-            money: 0,
             activeMission: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
         })
@@ -1003,9 +1054,16 @@ export const useGameStore = create<GameState>((set, get) => ({
                     ? (saved as StorageGameState & { salvageContracts?: SalvageContract[] }).salvageContracts!
                     : createSalvageContracts(),
                 salvageSuccessfulTows: (saved as StorageGameState & { salvageSuccessfulTows?: number }).salvageSuccessfulTows ?? 0,
+                tugboatCareerStats: {
+                    totalTonsAssisted: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.totalTonsAssisted ?? 0,
+                    cleanTows: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.cleanTows ?? 0,
+                    nightRescues: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.nightRescues ?? 0,
+                },
                 tugboatUpgrades: {
                     heavy_tow_winch: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.heavy_tow_winch ?? false,
                     cavitation_suppression_jets: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.cavitation_suppression_jets ?? false,
+                    searchlight_rig: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.searchlight_rig ?? false,
+                    dynamic_positioning_assist: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.dynamic_positioning_assist ?? false,
                 },
                 handshakeTargetSequence: DEFAULT_HANDSHAKE_SEQUENCE,
                 handshakeInputSequence: [],
@@ -1474,11 +1532,70 @@ export const useGameStore = create<GameState>((set, get) => ({
             o.id === id ? { ...o, completed: true } : o
         )
         const dockedCount = objectives.filter(o => o.completed).length
+        const completedObjective = objectives.find((o) => o.id === id)
+        const isNewlyCompleted = !!completedObjective && !state.tugboatObjectives.find((o) => o.id === id)?.completed
+        if (!isNewlyCompleted || !completedObjective) {
+            return {
+                tugboatObjectives: objectives,
+                tugboatDockedCount: dockedCount,
+            }
+        }
+
+        const tierMultiplier = getReputationTierMultiplier()
+        const objectiveCreditReward = Math.round(140 * tierMultiplier)
+        const objectiveRepReward = Math.round(24 * tierMultiplier)
+        const objectiveTons = TUG_TONS_BY_SHIP[completedObjective.shipType] ?? 80
+        const isNightRescue = state.timeOfDay < 6 || state.timeOfDay >= 19
+        const tugboatCareerStats: TugboatCareerStats = {
+            totalTonsAssisted: state.tugboatCareerStats.totalTonsAssisted + objectiveTons,
+            cleanTows: state.tugboatCareerStats.cleanTows + (state.towLineSnapped ? 0 : 1),
+            nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
+        }
+        const newMoney = state.money + objectiveCreditReward
+        const newReputation = state.reputation + objectiveRepReward
+        reputationSystem.addReputation(
+            objectiveRepReward,
+            'tugboat_objective_complete',
+            { tons: objectiveTons, night: isNightRescue ? 1 : 0 },
+            { syncGameStore: false },
+        )
+        scheduleSave({ ...state, money: newMoney, reputation: newReputation, tugboatCareerStats })
         return {
             tugboatObjectives: objectives,
-            tugboatDockedCount: dockedCount
+            tugboatDockedCount: dockedCount,
+            money: newMoney,
+            reputation: newReputation,
+            tugboatCareerStats,
         }
     }),
+
+    purchaseTugboatUpgrade: (id: TugboatUpgradeId) => {
+        const state = get()
+        if (state.tugboatUpgrades[id]) return false
+
+        const upgradeConfig: Record<TugboatUpgradeId, { cost: number; minReputation: number; minBoothTier?: 1 | 2 | 3 }> = {
+            heavy_tow_winch: { cost: 0, minReputation: 0 },
+            cavitation_suppression_jets: { cost: 0, minReputation: 0 },
+            searchlight_rig: { cost: 600, minReputation: 550 },
+            dynamic_positioning_assist: { cost: 900, minReputation: 1100, minBoothTier: 2 },
+        }
+        const config = upgradeConfig[id]
+        if (!config) return false
+        if (state.reputation < config.minReputation) return false
+        if (config.minBoothTier && state.boothTier < config.minBoothTier) return false
+        if (config.cost > 0 && state.money < config.cost) return false
+
+        const patch = {
+            money: config.cost > 0 ? state.money - config.cost : state.money,
+            tugboatUpgrades: {
+                ...state.tugboatUpgrades,
+                [id]: true,
+            },
+        }
+        set(patch)
+        scheduleSave({ ...state, ...patch })
+        return true
+    },
     
     resetTugboatMode: () => {
         set({
@@ -1607,41 +1724,57 @@ export const useGameStore = create<GameState>((set, get) => ({
         const conditionMultiplier = mission.type === 'salvage'
             ? Math.max(0.6, 1 - mission.damage / Math.max(1, mission.maxDamage))
             : 1
-        const tierBonus = reputationSystem.getTier() === 'novice'
-            ? 1
-            : reputationSystem.getTier() === 'apprentice'
-                ? 1.03
-                : reputationSystem.getTier() === 'operator'
-                    ? 1.06
-                    : reputationSystem.getTier() === 'veteran'
-                        ? 1.1
-                        : reputationSystem.getTier() === 'expert'
-                            ? 1.14
-                            : reputationSystem.getTier() === 'master'
-                                ? 1.18
-                                : 1.22
+        const tierBonus = getReputationTierMultiplier()
         const reward = Math.round((mission.reward + bonus) * conditionMultiplier * tierBonus)
-        const newMoney = state.money + reward
+        const isNightRescue = state.timeOfDay < 6 || state.timeOfDay >= 19
+        const searchlightBonus = mission.type === 'salvage' && isNightRescue && state.tugboatUpgrades.searchlight_rig
+            ? Math.round(120 * tierBonus)
+            : 0
+        const totalReward = reward + searchlightBonus
+        const newMoney = state.money + totalReward
         const salvageSuccessfulTows = mission.type === 'salvage'
             ? state.salvageSuccessfulTows + 1
             : state.salvageSuccessfulTows
-        const tugboatUpgrades: TugboatUpgradeState = {
-            ...state.tugboatUpgrades,
-            heavy_tow_winch: state.tugboatUpgrades.heavy_tow_winch || salvageSuccessfulTows >= 2,
-            cavitation_suppression_jets: state.tugboatUpgrades.cavitation_suppression_jets || salvageSuccessfulTows >= 4,
-        }
+        const tugboatCareerStats: TugboatCareerStats = mission.type === 'salvage'
+            ? {
+                totalTonsAssisted: state.tugboatCareerStats.totalTonsAssisted + (TUG_TONS_BY_SHIP[mission.targetShipType] ?? 90),
+                cleanTows: state.tugboatCareerStats.cleanTows + (mission.damage <= 10 && !state.towLineSnapped ? 1 : 0),
+                nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
+            }
+            : state.tugboatCareerStats
         const reputationGain = mission.type === 'salvage' && mission.reputationReward
             ? Math.round(mission.reputationReward * tierBonus)
             : 0
         const newReputation = state.reputation + reputationGain
-        scheduleSave({ ...state, money: newMoney, salvageSuccessfulTows, tugboatUpgrades, reputation: newReputation })
-        console.log(`💰 Mission complete! Earned $${reward}`)
+        const tugboatUpgrades: TugboatUpgradeState = {
+            ...state.tugboatUpgrades,
+            heavy_tow_winch: state.tugboatUpgrades.heavy_tow_winch || salvageSuccessfulTows >= 2,
+            cavitation_suppression_jets: state.tugboatUpgrades.cavitation_suppression_jets || salvageSuccessfulTows >= 4,
+            searchlight_rig: state.tugboatUpgrades.searchlight_rig || newReputation >= 750,
+            dynamic_positioning_assist: state.tugboatUpgrades.dynamic_positioning_assist || newReputation >= 1400,
+        }
+        reputationSystem.addReputation(
+            reputationGain,
+            mission.type === 'salvage' ? 'tugboat_contract_complete' : 'tugboat_mission_complete',
+            { reward: totalReward, cleanTow: mission.damage <= 10 ? 1 : 0, night: isNightRescue ? 1 : 0 },
+            { syncGameStore: false },
+        )
+        scheduleSave({
+            ...state,
+            money: newMoney,
+            salvageSuccessfulTows,
+            tugboatUpgrades,
+            reputation: newReputation,
+            tugboatCareerStats,
+        })
+        console.log(`💰 Mission complete! Earned $${totalReward}`)
         return {
             money: newMoney,
             reputation: newReputation,
             salvageSuccessfulTows,
+            tugboatCareerStats,
             tugboatUpgrades,
-            activeMission: { ...mission, status: 'completed' as const, reward },
+            activeMission: { ...mission, status: 'completed' as const, reward: totalReward },
         }
     }),
 

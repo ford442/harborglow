@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { useReputationSystem, REPUTATION_TIERS, UNLOCKABLE_SHIPS, UNLOCKABLE_LIGHT_RIGS, UNLOCKABLE_TRAINING, UNLOCKABLE_HARBORS } from '../systems/reputationSystem'
+import { useGameStore } from '../store/useGameStore'
 
 // =============================================================================
 // REPUTATION PANEL COMPONENT
@@ -88,6 +89,14 @@ function TabButton({ label, active, onClick, count }: { label: string; active: b
 
 function OverviewTab() {
   const { state, tierConfig, progress } = useReputationSystem()
+  const tugboatCareerStats = useGameStore((s) => s.tugboatCareerStats)
+  const tugMasterRank = tugboatCareerStats.totalTonsAssisted >= 1200
+    ? 'Master'
+    : tugboatCareerStats.totalTonsAssisted >= 700
+      ? 'Senior'
+      : tugboatCareerStats.totalTonsAssisted >= 300
+        ? 'Pilot'
+        : 'Cadet'
 
   return (
     <div style={overviewStyle}>
@@ -126,6 +135,13 @@ function OverviewTab() {
         <StatBox label="Events Handled" value={state.stats.eventsHandled} icon="🌊" />
         <StatBox label="Training Completed" value={state.stats.trainingCompleted} icon="🎓" />
         <StatBox label="Lifetime Rep" value={state.lifetimeReputation.toLocaleString()} icon="🏆" />
+      </div>
+
+      <div style={statsGridStyle}>
+        <StatBox label="Tons Assisted" value={Math.round(tugboatCareerStats.totalTonsAssisted)} icon="⚓" />
+        <StatBox label="Clean Tows" value={tugboatCareerStats.cleanTows} icon="🧭" />
+        <StatBox label="Night Rescues" value={tugboatCareerStats.nightRescues} icon="🌙" />
+        <StatBox label="Tug Rank" value={tugMasterRank} icon="🚤" />
       </div>
 
       {/* Tier Roadmap */}

@@ -45,9 +45,16 @@ export type GameState = {
   tugboatFirstTimeViewed?: boolean;
   salvageContracts?: any[];
   salvageSuccessfulTows?: number;
+  tugboatCareerStats?: {
+    totalTonsAssisted?: number;
+    cleanTows?: number;
+    nightRescues?: number;
+  };
   tugboatUpgrades?: {
     heavy_tow_winch?: boolean;
     cavitation_suppression_jets?: boolean;
+    searchlight_rig?: boolean;
+    dynamic_positioning_assist?: boolean;
   };
   waveParams?: { amplitude: number; speed: number; chaos: number };
   isStormActive?: boolean;
