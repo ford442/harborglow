@@ -42,6 +42,7 @@ export type GameState = {
   };
   tugboatDockedCount?: number;
   tugboatWinTriggered?: boolean;
+  tugboatFirstTimeViewed?: boolean;
   salvageContracts?: any[];
   salvageSuccessfulTows?: number;
   tugboatUpgrades?: {

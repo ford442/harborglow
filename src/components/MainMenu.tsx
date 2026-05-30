@@ -12,6 +12,7 @@ export interface MainMenuProps {
     onNewGame: () => void
     onLoadGame: () => void
     onTraining?: () => void
+    onTugboatMode?: () => void
 }
 import HowToPlayModal from './MainMenu/HowToPlayModal'
 import SettingsModal from './MainMenu/SettingsModal'
@@ -42,7 +43,7 @@ import {
 
 type ModalType = 'settings' | 'credits' | 'howtoplay' | null
 
-export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }: MainMenuProps) {
+export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, onTugboatMode }: MainMenuProps) {
     const [activeModal, setActiveModal] = useState<ModalType>(null)
     const [saveInfo, setSaveInfo] = useState<{ reputation?: number; shipCount?: number } | null>(null)
     const [particles, setParticles] = useState<Array<{
@@ -225,7 +226,7 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }:
                         boxShadow: `0 0 ${8 + bass * 20}px rgba(0,212,170,${0.4 + bass * 0.6})`,
                         transition: 'box-shadow 0.08s ease-out',
                     }} />
-                    <p style={subtitleStyle}>Crane Operator Experience</p>
+                    <p style={subtitleStyle}>Harbor Operations Experience</p>
                 </div>
 
                 <nav style={navStyle}>
@@ -264,6 +265,13 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining }:
                         icon="🎓"
                         variant="secondary"
                         onClick={onTraining || (() => {})}
+                    />
+
+                    <MenuButton
+                        label="Tugboat Captain"
+                        icon="🚤"
+                        variant="secondary"
+                        onClick={onTugboatMode || (() => {})}
                     />
 
                     <MenuButton

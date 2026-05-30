@@ -393,6 +393,7 @@ interface SerializableState {
     tugboatObjectives: TugboatObjective[]
     tugboatDockedCount: number
     tugboatWinTriggered: boolean
+    tugboatFirstTimeViewed: boolean
     salvageContracts: SalvageContract[]
     salvageSuccessfulTows: number
     tugboatUpgrades: TugboatUpgradeState
@@ -523,6 +524,7 @@ interface GameState extends SerializableState {
     setOperationMode: (mode: OperationMode) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
+    markTugboatFirstTimeViewed: () => void
     refreshSalvageContracts: () => void
     acceptSalvageContract: (contractId: string) => void
     submitAcousticNote: (note: AcousticNote) => void
@@ -556,7 +558,7 @@ const defaultState: Omit<GameState, keyof {
     setAttachmentSystemConfig: unknown; clearLastInstallation: unknown;
     setGameMode: unknown; startTrainingModule: unknown; exitTrainingModule: unknown;
     updateTrainingProgress: unknown; addReputation: unknown;
-    setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown;
+    setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown; markTugboatFirstTimeViewed: unknown;
     refreshSalvageContracts: unknown; acceptSalvageContract: unknown;
     submitAcousticNote: unknown; resetAcousticHandshake: unknown;
     completeTugboatObjective: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
@@ -670,6 +672,7 @@ const defaultState: Omit<GameState, keyof {
     tugboatObjectives: [],
     tugboatDockedCount: 0,
     tugboatWinTriggered: false,
+    tugboatFirstTimeViewed: false,
     salvageContracts: createSalvageContracts(),
     salvageSuccessfulTows: 0,
     tugboatUpgrades: {
@@ -720,6 +723,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatState: state.tugboatState,
     tugboatDockedCount: state.tugboatDockedCount,
     tugboatWinTriggered: state.tugboatWinTriggered,
+    tugboatFirstTimeViewed: state.tugboatFirstTimeViewed,
     salvageContracts: state.salvageContracts,
     salvageSuccessfulTows: state.salvageSuccessfulTows,
     tugboatUpgrades: state.tugboatUpgrades,
@@ -994,6 +998,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 },
                 tugboatDockedCount: saved.tugboatDockedCount ?? 0,
                 tugboatWinTriggered: saved.tugboatWinTriggered ?? false,
+                tugboatFirstTimeViewed: (saved as StorageGameState & { tugboatFirstTimeViewed?: boolean }).tugboatFirstTimeViewed ?? false,
                 salvageContracts: Array.isArray((saved as StorageGameState & { salvageContracts?: SalvageContract[] }).salvageContracts)
                     ? (saved as StorageGameState & { salvageContracts?: SalvageContract[] }).salvageContracts!
                     : createSalvageContracts(),
@@ -1364,6 +1369,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             towingUnlocked: false,
         })
     },
+    
+    markTugboatFirstTimeViewed: () => set((state) => {
+        const patch = { tugboatFirstTimeViewed: true }
+        scheduleSave({ ...state, ...patch })
+        return patch
+    }),
 
     refreshSalvageContracts: () => set(() => ({
         salvageContracts: createSalvageContracts(),

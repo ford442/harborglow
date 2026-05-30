@@ -153,6 +153,15 @@ function App() {
         setScreen('training')
     }, [exitTrainingModule])
 
+    const handleTugboatMode = useCallback(async () => {
+        // Start a new game and immediately switch to tugboat mode
+        await startGame(false)
+        // Set operation mode to tugboat after a brief delay to ensure game is loaded
+        setTimeout(() => {
+            useGameStore.getState().setOperationMode('tugboat')
+        }, 500)
+    }, [startGame])
+
     // -------------------------------------------------------------------------
     // INTRO MUSIC LIFECYCLE
     // Orchestrate fade-outs and restarts across screen transitions.
@@ -173,7 +182,7 @@ function App() {
 
     // Menu screen
     if (screen === 'menu') {
-        return <MainMenu hasSave={hasSave} onNewGame={handleNewGame} onLoadGame={handleLoadGame} onTraining={handleOpenTraining} />
+        return <MainMenu hasSave={hasSave} onNewGame={handleNewGame} onLoadGame={handleLoadGame} onTraining={handleOpenTraining} onTugboatMode={handleTugboatMode} />
     }
     
     // Training Hub screen

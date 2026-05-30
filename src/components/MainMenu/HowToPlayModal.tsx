@@ -2,6 +2,7 @@
 // HOW TO PLAY MODAL
 // =============================================================================
 
+import React, { useState } from 'react'
 import { SHIP_COLORS } from '../DesignSystem'
 import Modal from './Modal'
 import {
@@ -52,11 +53,98 @@ const steps = [
     },
 ]
 
+const tugboatSteps = [
+    {
+        icon: '🚤',
+        title: 'Enter Tugboat Mode',
+        desc: 'Switch to Tugboat Captain mode for night-shift harbor operations. Navigate, tow, and rescue in challenging conditions.',
+        color: '#00d4ff',
+    },
+    {
+        icon: '📡',
+        title: 'Navigate with Radar',
+        desc: 'Use the acoustic array radar to locate targets and berths. Watch for sweep lines and acoustic signatures.',
+        color: '#00ff88',
+    },
+    {
+        icon: '🌊',
+        title: 'Respond to Missions',
+        desc: 'Accept salvage contracts or storm rescue missions. Manage your engines and navigate challenging waters.',
+        color: '#ff6b9d',
+    },
+    {
+        icon: '⚓',
+        title: 'Dock & Complete',
+        desc: 'Guide your vessel to marked berths and establish magnetic lock. Earn reputation and rewards!',
+        color: '#ffa500',
+    },
+]
+
 export default function HowToPlayModal({ onClose }: HowToPlayModalProps) {
+    const [tab, setTab] = useState<'crane' | 'tugboat'>('crane')
+    
+    const activeSteps = tab === 'crane' ? steps : tugboatSteps
+    const craneControls = [
+        { keys: ['W','A','S','D'], desc: 'Move spreader' },
+        { keys: ['↑','↓'], desc: 'Raise/Lower cable' },
+        { keys: ['E'], desc: 'Toggle twistlock' },
+        { keys: ['TAB'], desc: 'Toggle monitor' },
+    ]
+    const tugboatControls = [
+        { keys: ['W','S'], desc: 'Port/Starboard throttle' },
+        { keys: ['A','D'], desc: 'Steering' },
+        { keys: ['Mouse'], desc: 'First-person look' },
+        { keys: ['SHIFT'], desc: 'Boost (if unlocked)' },
+        { keys: ['TAB'], desc: 'Toggle HUD' },
+        { keys: ['Q'], desc: 'Return to Crane' },
+    ]
+    const activeControls = tab === 'crane' ? craneControls : tugboatControls
+
     return (
         <Modal title="How to Play" icon="❓" onClose={onClose}>
+            {/* Tab selector */}
+            <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '16px',
+                justifyContent: 'center',
+            }}>
+                <button
+                    onClick={() => setTab('crane')}
+                    style={{
+                        padding: '8px 16px',
+                        background: tab === 'crane' ? 'rgba(0, 212, 170, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                        border: tab === 'crane' ? '1px solid rgba(0, 212, 170, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        transition: 'all 0.3s ease',
+                    }}
+                >
+                    🏗️ Crane Operations
+                </button>
+                <button
+                    onClick={() => setTab('tugboat')}
+                    style={{
+                        padding: '8px 16px',
+                        background: tab === 'tugboat' ? 'rgba(0, 212, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                        border: tab === 'tugboat' ? '1px solid rgba(0, 212, 255, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        transition: 'all 0.3s ease',
+                    }}
+                >
+                    🚤 Tugboat Operations
+                </button>
+            </div>
+
             <div style={stepsContainerStyle}>
-                {steps.map((step, i) => (
+                {activeSteps.map((step, i) => (
                     <div key={i} style={stepCardStyle}>
                         <div style={{
                             ...stepNumberStyle,
@@ -74,12 +162,13 @@ export default function HowToPlayModal({ onClose }: HowToPlayModalProps) {
             </div>
             
             <div style={controlsSectionStyle}>
-                <h3 style={controlsTitleStyle}>Quick Controls</h3>
+                <h3 style={controlsTitleStyle}>
+                    {tab === 'crane' ? 'Crane Controls' : 'Tugboat Controls'}
+                </h3>
                 <div style={controlsGridStyle}>
-                    <ControlItem keys={['W','A','S','D']} desc="Move spreader" />
-                    <ControlItem keys={['↑','↓']} desc="Raise/Lower cable" />
-                    <ControlItem keys={['E']} desc="Toggle twistlock" />
-                    <ControlItem keys={['TAB']} desc="Toggle monitor" />
+                    {activeControls.map((control, i) => (
+                        <ControlItem key={i} keys={control.keys} desc={control.desc} />
+                    ))}
                 </div>
             </div>
         </Modal>
