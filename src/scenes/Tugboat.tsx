@@ -356,14 +356,32 @@ export default function Tugboat() {
       ? Math.sign(sy) * (Math.PI / 2)
       : Math.asin(sy)
 
-    // --- Throttle force ---
+    // --- Keyboard → Twin-prop RPM (unified input) ---
+    // When any drive key is held, keyboard derives portEngineRpm / starboardEngineRpm
+    // with differential steering and writes them to the store so the console
+    // visualises live keyboard RPMs (bidirectional sync).
+    // Console retains ownership when no drive key is pressed.
     const currentThrottle = throttleRef.current
-    if (Math.abs(currentThrottle) > 0.01) {
-      const force = currentThrottle * tuning.maxSpeed * 3.5 * boostMult * delta
-      rb.applyImpulse(
-        { x: Math.cos(heading) * force, y: 0, z: Math.sin(heading) * force },
-        true
-      )
+    const currentSteering = steeringRef.current
+    const keyboardDriving =
+      keys.has('w') || keys.has('s') || keys.has('a') || keys.has('d') ||
+      keys.has('arrowup') || keys.has('arrowdown') || keys.has('arrowleft') || keys.has('arrowright')
+
+    if (keyboardDriving) {
+      const steerFrac = currentSteering * 0.6
+      const portTarget  = Math.max(-RPM_MAX, Math.min(RPM_MAX, (currentThrottle + steerFrac) * RPM_MAX))
+      const stbdTarget  = Math.max(-RPM_MAX, Math.min(RPM_MAX, (currentThrottle - steerFrac) * RPM_MAX))
+      const rpmRate     = tuning.acceleration * RPM_MAX * delta
+      portRpmRef.current = portRpmRef.current < portTarget
+        ? Math.min(portTarget, portRpmRef.current + rpmRate)
+        : Math.max(portTarget, portRpmRef.current - rpmRate)
+      starboardRpmRef.current = starboardRpmRef.current < stbdTarget
+        ? Math.min(stbdTarget, starboardRpmRef.current + rpmRate)
+        : Math.max(stbdTarget, starboardRpmRef.current - rpmRate)
+      updateTugboatState({
+        portEngineRpm: portRpmRef.current,
+        starboardEngineRpm: starboardRpmRef.current,
+      })
     }
 
     // --- Cavitation dynamics (Direction A) ---
@@ -378,10 +396,10 @@ export default function Tugboat() {
       delta
     )
 
-    // --- Twin-prop console forces ---
+    // --- Twin-prop forces ---
     // Port and starboard engines apply independent thrust at their lateral offsets.
-    // Differential creates tank-style rotation without requiring steering input.
-    // Cavitation applies severe thrust penalty when prop slip is high (skillful throttle management required).
+    // RPMs are driven by keyboard input (above) or directly by the console sliders.
+    // Differential creates tank-style rotation; cavitation applies thrust penalty at high slip.
     const portNorm = portRpmRef.current / RPM_MAX          // -1..1
     const starboardNorm = starboardRpmRef.current / RPM_MAX // -1..1
 
@@ -415,7 +433,7 @@ export default function Tugboat() {
       )
     }
 
-    // --- Brake (Space) ---
+    // --- Brake (Space) — emergency stop: counter-impulse + drives RPMs to zero ---
     if (keys.has(' ')) {
       const vel = rb.linvel()
       const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
@@ -427,13 +445,18 @@ export default function Tugboat() {
           true
         )
       }
-    }
-
-    // --- Steering torque ---
-    const currentSteering = steeringRef.current
-    if (Math.abs(currentSteering) > 0.01 && Math.abs(currentThrottle) > 0.01) {
-      const torque = currentSteering * tuning.turnSpeed * delta * Math.sign(currentThrottle)
-      rb.applyTorqueImpulse({ x: 0, y: torque, z: 0 }, true)
+      // Drive both props to zero so the console reflects the emergency stop
+      const brakeRpmRate = tuning.acceleration * RPM_MAX * delta * 4
+      portRpmRef.current = portRpmRef.current > 0
+        ? Math.max(0, portRpmRef.current - brakeRpmRate)
+        : Math.min(0, portRpmRef.current + brakeRpmRate)
+      starboardRpmRef.current = starboardRpmRef.current > 0
+        ? Math.max(0, starboardRpmRef.current - brakeRpmRate)
+        : Math.min(0, starboardRpmRef.current + brakeRpmRate)
+      updateTugboatState({
+        portEngineRpm: portRpmRef.current,
+        starboardEngineRpm: starboardRpmRef.current,
+      })
     }
 
     // --- Wind ---
