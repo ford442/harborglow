@@ -15,6 +15,7 @@ import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
 import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
+import { getNearestAssistShip } from '../systems/harborAssistSystem'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
@@ -249,10 +250,17 @@ export default function Tugboat() {
         if (state.towLineAttached) {
           detachTowLine()
         } else {
-          // Find the nearest incomplete objective's ship to attach to
+          // 1. Prefer mission objective ships (existing behaviour)
           const target = state.tugboatObjectives.find(o => !o.completed)
           if (target) {
             attachTowLine(target.id)
+          } else {
+            // 2. Fall back to nearest fleet ship in the harbor assist registry
+            const tugPos = state.tugboatState.position
+            const nearest = getNearestAssistShip(tugPos[0], tugPos[2])
+            if (nearest) {
+              attachTowLine(nearest.id)
+            }
           }
         }
       }
