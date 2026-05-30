@@ -21,6 +21,7 @@ import {
 
 interface TugboatWelcomeModalProps {
     onClose: () => void
+    onQuickTutorial?: () => void
 }
 
 const features = [
@@ -50,7 +51,7 @@ const features = [
     },
 ]
 
-export default function TugboatWelcomeModal({ onClose }: TugboatWelcomeModalProps) {
+export default function TugboatWelcomeModal({ onClose, onQuickTutorial }: TugboatWelcomeModalProps) {
     return (
         <Modal title="🚤 Welcome Aboard, Captain!" icon="🚤" onClose={onClose}>
             <div style={{
@@ -113,6 +114,42 @@ export default function TugboatWelcomeModal({ onClose }: TugboatWelcomeModalProp
                 color: 'rgba(255, 165, 0, 0.9)',
             }}>
                 <strong>💡 Twin-Screw Tip:</strong> WASD drives <em>both</em> engines and their RPM differential. Watch the Propulsion bars in the HUD — cavitation warnings mean you're over-revving! Open the console panel to fine-tune each prop independently.
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                {onQuickTutorial && (
+                    <button
+                        onClick={onQuickTutorial}
+                        style={{
+                            flex: 1,
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(0, 212, 170, 0.45)',
+                            background: 'linear-gradient(135deg, rgba(0, 212, 170, 0.25), rgba(0, 160, 130, 0.2))',
+                            color: '#d6fff6',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            letterSpacing: '0.5px',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        ⚓ Start Quick Tug Tutorial
+                    </button>
+                )}
+                <button
+                    onClick={onClose}
+                    style={{
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        background: 'rgba(255,255,255,0.06)',
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Continue
+                </button>
             </div>
         </Modal>
     )

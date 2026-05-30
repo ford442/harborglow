@@ -14,7 +14,8 @@ import {
   TrainingProgress,
   DEFAULT_TRAINING_PROGRESS,
   TrainingModuleId,
-  trainingSystem
+  trainingSystem,
+  isTugboatTrainingModule,
 } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
@@ -1366,9 +1367,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         const started = trainingSystem.startModule(moduleId)
         if (started) {
             const module = trainingSystem.getModule(moduleId)
+            const trainingOperationMode: OperationMode = isTugboatTrainingModule(moduleId) ? 'tugboat' : 'crane'
             set({ 
                 gameMode: 'training',
                 currentTrainingModule: moduleId,
+                operationMode: trainingOperationMode,
                 trainingProgress: trainingSystem.getProgress()
             })
             // Set weather and time from module config
@@ -1388,6 +1391,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ 
             gameMode: 'sandbox',
             currentTrainingModule: null,
+            operationMode: 'crane',
             trainingProgress: trainingSystem.getProgress()
         })
         console.log('🎓 Exited training module')

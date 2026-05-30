@@ -27,12 +27,12 @@ function App() {
     const [screen, setScreen] = useState<'menu' | 'loading' | 'game' | 'training'>('menu')
     const [loadingProgress, setLoadingProgress] = useState(0)
     const [loadingStatus, setLoadingStatus] = useState('Initializing')
-    const [activeTrainingModule, setActiveTrainingModule] = useState<TrainingModuleId | null>(null)
     const hasSave = !!loadGameState()
     
     const loadSavedState = useGameStore(state => state.loadSavedState)
     const resetGame = useGameStore(state => state.resetGame)
-    const setGameMode = useGameStore(state => state.setGameMode)
+    const startTrainingModule = useGameStore(state => state.startTrainingModule)
+    const currentTrainingModule = useGameStore(state => state.currentTrainingModule)
     const exitTrainingModule = useGameStore(state => state.exitTrainingModule)
     
     // Get current harbor theme from store (or default)
@@ -143,13 +143,12 @@ function App() {
     }, [])
 
     const handleStartTrainingModule = useCallback((moduleId: TrainingModuleId) => {
-        setActiveTrainingModule(moduleId)
+        startTrainingModule(moduleId)
         setScreen('game')
-    }, [])
+    }, [startTrainingModule])
 
     const handleCompleteTrainingModule = useCallback(() => {
         exitTrainingModule()
-        setActiveTrainingModule(null)
         setScreen('training')
     }, [exitTrainingModule])
 
@@ -232,9 +231,9 @@ function App() {
             <HUD onOpenTraining={handleOpenTraining} />
             
             {/* Training HUD (only when in training mode) */}
-            {activeTrainingModule && (
+            {currentTrainingModule && (
                 <TrainingHUD 
-                    moduleId={activeTrainingModule}
+                    moduleId={currentTrainingModule}
                     onExit={handleCompleteTrainingModule}
                     onComplete={handleCompleteTrainingModule}
                 />
