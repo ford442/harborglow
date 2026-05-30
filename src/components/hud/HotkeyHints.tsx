@@ -1,7 +1,8 @@
 // =============================================================================
-// HOTKEY HINTS - Keyboard shortcuts display
+// HOTKEY HINTS - Keyboard shortcuts display (mode-aware)
 // =============================================================================
 
+import { useGameStore } from '../../store/useGameStore'
 import {
   hotkeyHintsContainerStyle,
   hotkeyHintStyle,
@@ -10,6 +11,39 @@ import {
 } from './styles'
 
 export default function HotkeyHints() {
+  const operationMode = useGameStore((s) => s.operationMode)
+
+  if (operationMode === 'tugboat') {
+    return (
+      <div style={hotkeyHintsContainerStyle}>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>WASD</kbd>
+          <span style={hotkeyTextStyle}>Propulsion + Steer</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>SPACE</kbd>
+          <span style={hotkeyTextStyle}>Emergency Stop</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>SHIFT</kbd>
+          <span style={hotkeyTextStyle}>Boost</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>T</kbd>
+          <span style={hotkeyTextStyle}>Tow Line</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>RMB</kbd>
+          <span style={hotkeyTextStyle}>Look</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>Q</kbd>
+          <span style={hotkeyTextStyle}>Crane Mode</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={hotkeyHintsContainerStyle}>
       <div style={hotkeyHintStyle}>

@@ -92,10 +92,12 @@ export default function TugboatWelcomeModal({ onClose }: TugboatWelcomeModalProp
             <div style={controlsSectionStyle}>
                 <h3 style={controlsTitleStyle}>Tugboat Controls</h3>
                 <div style={controlsGridStyle}>
-                    <ControlItem keys={['W', 'S']} desc="Port/Starboard throttle" />
-                    <ControlItem keys={['A', 'D']} desc="Steering" />
-                    <ControlItem keys={['Mouse']} desc="First-person look" />
-                    <ControlItem keys={['SHIFT']} desc="Boost (if unlocked)" />
+                    <ControlItem keys={['W', 'S']} desc="Both engines forward / reverse" />
+                    <ControlItem keys={['A', 'D']} desc="Differential steering (twin-screw)" />
+                    <ControlItem keys={['SPACE']} desc="Emergency stop" />
+                    <ControlItem keys={['SHIFT']} desc="Engine boost" />
+                    <ControlItem keys={['T']} desc="Attach / detach tow line" />
+                    <ControlItem keys={['RMB']} desc="First-person look" />
                     <ControlItem keys={['TAB']} desc="Toggle HUD" />
                     <ControlItem keys={['Q']} desc="Return to Crane Mode" />
                 </div>
@@ -110,7 +112,7 @@ export default function TugboatWelcomeModal({ onClose }: TugboatWelcomeModalProp
                 fontSize: '12px',
                 color: 'rgba(255, 165, 0, 0.9)',
             }}>
-                <strong>💡 Tip:</strong> Start with the Tugboat Training module to learn the ropes. Check objectives to see available salvage contracts!
+                <strong>💡 Twin-Screw Tip:</strong> WASD drives <em>both</em> engines and their RPM differential. Watch the Propulsion bars in the HUD — cavitation warnings mean you're over-revving! Open the console panel to fine-tune each prop independently.
             </div>
         </Modal>
     )

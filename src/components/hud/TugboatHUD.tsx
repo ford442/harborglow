@@ -11,6 +11,8 @@ import { createGlassPanelStyles, createButtonStyles, GLASSMORPHISM, TYPOGRAPHY }
 import AcousticArray from '../AcousticArray'
 import SalvageDispatchModal from './SalvageDispatchModal'
 
+const RPM_MAX = 100
+
 // =============================================================================
 // BEAUFORT SCALE
 // =============================================================================
@@ -435,6 +437,138 @@ function TowCableHUD() {
 // =============================================================================
 
 // =============================================================================
+// PROPULSION HUD
+// Live PORT / STBD RPM bars and cavitation dot — updated via RAF (zero React
+// re-renders) so it stays smooth even at 60 fps keyboard input.
+// =============================================================================
+
+function PropulsionHUD() {
+  const portBarRef    = useRef<HTMLDivElement>(null)
+  const stbdBarRef    = useRef<HTMLDivElement>(null)
+  const portLabelRef  = useRef<HTMLSpanElement>(null)
+  const stbdLabelRef  = useRef<HTMLSpanElement>(null)
+  const portCavRef    = useRef<HTMLSpanElement>(null)
+  const stbdCavRef    = useRef<HTMLSpanElement>(null)
+  const rafRef        = useRef<number | null>(null)
+
+  useEffect(() => {
+    const update = () => {
+      const ts = useGameStore.getState().tugboatState
+      const portRpm  = ts.portEngineRpm  ?? 0
+      const stbdRpm  = ts.starboardEngineRpm ?? 0
+      const portCav  = ts.portCavitating  ?? false
+      const stbdCav  = ts.starboardCavitating ?? false
+
+      if (portBarRef.current && portLabelRef.current) {
+        const pct = Math.abs(portRpm) / RPM_MAX * 100
+        portBarRef.current.style.width = `${pct}%`
+        portBarRef.current.style.background = portRpm < 0 ? '#ff4444' : '#00d4aa'
+        portLabelRef.current.textContent = `${portRpm >= 0 ? '+' : ''}${Math.round(portRpm)}`
+        portLabelRef.current.style.color = portRpm < 0 ? '#ff6666' : '#00d4aa'
+      }
+      if (stbdBarRef.current && stbdLabelRef.current) {
+        const pct = Math.abs(stbdRpm) / RPM_MAX * 100
+        stbdBarRef.current.style.width = `${pct}%`
+        stbdBarRef.current.style.background = stbdRpm < 0 ? '#ff4444' : '#00aaff'
+        stbdLabelRef.current.textContent = `${stbdRpm >= 0 ? '+' : ''}${Math.round(stbdRpm)}`
+        stbdLabelRef.current.style.color = stbdRpm < 0 ? '#ff6666' : '#00aaff'
+      }
+      if (portCavRef.current) {
+        portCavRef.current.style.opacity = portCav ? '1' : '0.15'
+        portCavRef.current.style.color = portCav ? '#ffcc33' : '#666'
+      }
+      if (stbdCavRef.current) {
+        stbdCavRef.current.style.opacity = stbdCav ? '1' : '0.15'
+        stbdCavRef.current.style.color = stbdCav ? '#ffcc33' : '#666'
+      }
+
+      rafRef.current = requestAnimationFrame(update)
+    }
+    rafRef.current = requestAnimationFrame(update)
+    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }
+  }, [])
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: '9px',
+    fontWeight: 700,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase' as const,
+    width: '32px',
+    flexShrink: 0,
+    color: 'rgba(255,255,255,0.5)',
+  }
+
+  const trackStyle: React.CSSProperties = {
+    flex: 1,
+    height: 5,
+    borderRadius: 3,
+    background: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  }
+
+  const valueStyle: React.CSSProperties = {
+    fontSize: '10px',
+    fontWeight: 700,
+    fontFamily: TYPOGRAPHY.fontFamilyMono,
+    width: '36px',
+    textAlign: 'right' as const,
+    flexShrink: 0,
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '9px',
+          fontWeight: 700,
+          letterSpacing: '1.5px',
+          textTransform: 'uppercase' as const,
+          color: 'rgba(255,255,255,0.35)',
+          marginBottom: '2px',
+          display: 'flex',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span>⚙ Propulsion</span>
+        <span style={{ fontSize: '8px' }}>CAV</span>
+      </div>
+
+      {/* Port */}
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: '#00d4aa88' }}>PORT</span>
+        <div style={trackStyle}>
+          <div ref={portBarRef} style={{ height: '100%', width: '0%', borderRadius: 3, transition: 'none' }} />
+        </div>
+        <span ref={portLabelRef} style={{ ...valueStyle, color: '#00d4aa' }}>+0</span>
+        <span ref={portCavRef} style={{ fontSize: '10px', opacity: 0.15, flexShrink: 0 }}>⚠</span>
+      </div>
+
+      {/* Starboard */}
+      <div style={rowStyle}>
+        <span style={{ ...labelStyle, color: '#00aaff88' }}>STBD</span>
+        <div style={trackStyle}>
+          <div ref={stbdBarRef} style={{ height: '100%', width: '0%', borderRadius: 3, transition: 'none' }} />
+        </div>
+        <span ref={stbdLabelRef} style={{ ...valueStyle, color: '#00aaff' }}>+0</span>
+        <span ref={stbdCavRef} style={{ fontSize: '10px', opacity: 0.15, flexShrink: 0 }}>⚠</span>
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
 // CAVITATION WARNING BANNER (secondary HUD indicator)
 // Appears top-centre when either prop is cavitating, giving the player a
 // clear heads-up overlay even when the hardware console is off-screen.
@@ -559,6 +693,9 @@ export default function TugboatHUD() {
             direction={stormState.windDirection}
           />
         </div>
+
+        {/* Propulsion RPM mini-HUD */}
+        <PropulsionHUD />
 
         {/* Environmental shear indicator — only visible when shear is active */}
         <ShearIndicator windShear={windShear} currentDrift={currentDrift} />
