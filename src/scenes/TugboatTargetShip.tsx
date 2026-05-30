@@ -487,7 +487,7 @@ const _vS   = new THREE.Vector3()
 const _vT   = new THREE.Vector3()
 const _vMid = new THREE.Vector3()
 
-function TowLineVisual({
+export function TowLineVisual({
   shipRbRef,
   shipId,
 }: {
