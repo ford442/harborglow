@@ -170,6 +170,16 @@ export default function Tugboat() {
     resetCavitation: button(() => cavitationSystem.resetCavitation()),
   })
 
+  // Leva camera preset selector for tugboat multiview
+  useControls('Tugboat Camera', {
+    activePreset: {
+      value: 'tug-helm',
+      options: ['tug-helm', 'tug-deck', 'tug-chase', 'tug-prop', 'tug-towline'],
+      label: 'Active Preset',
+    },
+    multiviewEnabled: { value: false, label: 'Multiview Overlay' },
+  })
+
   // ---------------------------------------------------------------------------
   // INPUT STATE
   // ---------------------------------------------------------------------------

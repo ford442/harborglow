@@ -5,6 +5,11 @@ export type CameraPresetId =
   | 'dock-level'
   | 'drone-chase'
   | 'ship-interior'
+  | 'tug-helm'
+  | 'tug-deck'
+  | 'tug-chase'
+  | 'tug-prop'
+  | 'tug-towline'
 
 export type CameraPresetMode =
   | 'ship-relative'
@@ -12,6 +17,7 @@ export type CameraPresetMode =
   | 'spreader-relative'
   | 'drone-orbit'
   | 'world-static'
+  | 'tug-relative'
 
 export interface CameraPreset {
   id: CameraPresetId
@@ -23,7 +29,9 @@ export interface CameraPreset {
 }
 
 export type DashboardViewportId = 'crane' | 'hook' | 'drone' | 'underwater'
+export type TugboatViewportId = 'tug-helm' | 'tug-deck' | 'tug-chase' | 'tug-prop'
 export type DashboardPresets = Record<DashboardViewportId, CameraPresetId>
+export type TugboatDashboardPresets = Record<TugboatViewportId, CameraPresetId>
 
 export const CAMERA_PRESET_IDS: CameraPresetId[] = [
   'orbit-overview',
@@ -31,7 +39,12 @@ export const CAMERA_PRESET_IDS: CameraPresetId[] = [
   'cable-tip-follow',
   'dock-level',
   'drone-chase',
-  'ship-interior'
+  'ship-interior',
+  'tug-helm',
+  'tug-deck',
+  'tug-chase',
+  'tug-prop',
+  'tug-towline'
 ]
 
 export const isCameraPresetId = (value: unknown): value is CameraPresetId =>
