@@ -1,7 +1,7 @@
 # harborglow — Weekly Plan
 
 ## Today's focus
-**2026-05-24 — User Idea mode.** Ship blueprint visual differentiation: give each of the 11 ship types a distinct procedural silhouette distinguishable at LOD2 (impostor-box distance). Update `src/blueprints/ships.json` part dimensions/positions per type + `src/scenes/ProceduralShip.tsx` LOD2 impostor renderer. Full-day. (Chosen from Ideas; ESLint/Vitest idea landed as PR #22, so ship blueprints is the next unfinished item.)
+**2026-05-31 — User Idea mode.** Ship blueprint visual differentiation (continued from 2026-05-24): the LOD2 data in `ships.json` is already authored for all 11 ships (hull dims differentiated, feature types set). Today's work is entirely in the renderer — `Lod2Impostor` in `src/scenes/ProceduralShip.tsx` currently renders all features as flat same-color boxes, ignores the `profile` field, and produces indistinguishable silhouettes at distance. Fix: per-feature-type color/material table, profile-driven hull tint, and geometry variety for tall feature types (funnels, masts, LNG tanks). Full-day.
 
 ## Ideas
 <!--
@@ -11,7 +11,7 @@ Format: - [ ] Short description (optional: more context on next line indented)
 Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 -->
 - [x] Music/event sync timeline — done 2026-05-10 (cinematicSystem.ts + sequencerSystem.ts wired at crane + tugboat paths; LyricsDisplay setTimeout-free)
-- [in progress — 2026-05-24] Ship blueprint visual differentiation: give each of the 11 ship types a distinct procedural silhouette distinguishable at LOD2 (impostor-box distance). Update src/blueprints/ per type + ProceduralShip renderer. Full-day.
+- [in progress — 2026-05-31] Ship blueprint visual differentiation: give each of the 11 ship types a distinct procedural silhouette distinguishable at LOD2 (impostor-box distance). Data in ships.json already authored; today's work is Lod2Impostor renderer enhancement in ProceduralShip.tsx (feature-type color table, profile-driven hull tint, geometry variety). Carried from 2026-05-24.
 - [x] ESLint flat config migration + Vitest baseline — done 2026-05-17 (PR #22: eslint.config.js + Vitest smoke tests; npm run lint + npm test both wired)
 
 ## Backlog
@@ -44,6 +44,7 @@ Architecture decision locked after running C-prompts:
 Completed items, routine archives here with date.
 Prune occasionally when this gets long.
 -->
+- 2026-05-31 — (routine archival) Tugboat expansion sprint (PRs #66–#71, all Copilot): unified keyboard controls with twin-prop RPM system; fleet ships made pushable/towable by tug; TugboatSoundSystem (engine thrum, VHF radio, night-watch motif, event stingers); tugboat progression rewards wired (stats, upgrades, persistence); spectator drone towing cinematics; tugboat training modules + help prompts. All merged to main.
 - 2026-05-24 — (routine archival) Multiview viewport-local history stack (Alt A): `CameraTransform` type in store, `history[]` + `pinned[]` + `historyIndex` per viewport, back/forward nav + 📌 pin button + Shift+1–6 recall fully implemented in `MultiviewSystem.tsx`. Landed between 2026-05-10 and 2026-05-24.
 - 2026-05-17 — ESLint flat config (PR #22): `.eslintrc.json` → `eslint.config.js` (ESLint v9), Vitest added with sequencerSystem smoke test. `npm run lint` + `npm test` both wired.
 - 2026-05-17 — Large component decomposition (PR #26): musicSystem, ControlBooth, TrainingMode split into modular subcomponents; LightShow.tsx extracted into modular light rig components.
@@ -63,7 +64,7 @@ Prune occasionally when this gets long.
 
 ## Last run
 <!-- Routine writes summary here each run. Overwrites previous. -->
-Date: 2026-05-24
+Date: 2026-05-31
 Mode: User Idea
-Focus: Ship blueprint visual differentiation — distinct LOD2 impostor silhouettes for all 11 ship types (src/blueprints/ships.json + src/scenes/ProceduralShip.tsx).
+Focus: Ship blueprint visual differentiation (continued) — Lod2Impostor renderer enhancement in ProceduralShip.tsx: per-feature-type color/material table, profile-driven hull tint, geometry variety. ships.json data already complete.
 Outcome: (fill in at end of day)
