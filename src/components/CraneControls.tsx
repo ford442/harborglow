@@ -1,4 +1,4 @@
-import { useState, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useGameStore } from '../store/useGameStore'
 import { useCranePhysics } from './controls/useCranePhysics'
 import { useMusicPulse } from '../hooks/useMusicPulse'
@@ -83,9 +83,10 @@ interface ReadOnlySliderProps {
   isActive?: boolean
   hintKeys?: string[]
   hintLabel?: string
+  showHintText?: boolean
 }
 
-function ReadOnlySlider({ label, value, min, max, displayValue, color, pulse, isActive, hintKeys, hintLabel }: ReadOnlySliderProps) {
+function ReadOnlySlider({ label, value, min, max, displayValue, color, pulse, isActive, hintKeys, hintLabel, showHintText }: ReadOnlySliderProps) {
   const [hovered, setHovered] = useState(false)
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
   const pulseBoost = pulse > 0.5 ? 1 + (pulse - 0.5) * 0.6 : 1
@@ -145,6 +146,17 @@ function ReadOnlySlider({ label, value, min, max, displayValue, color, pulse, is
           }}
         />
       </div>
+
+      {showHintText && hintKeys && hintLabel && (
+        <div style={{
+          marginTop: '6px',
+          fontSize: '10px',
+          color: 'rgba(255,255,255,0.45)',
+          fontFamily: '"JetBrains Mono", monospace',
+        }}>
+          {hintLabel}: {hintKeys.join(' / ')}
+        </div>
+      )}
     </div>
   )
 }
@@ -155,6 +167,10 @@ export default function InteractiveCraneControls() {
   const isArctic = boothTier === 3
   const bpm = useGameStore(state => state.bpm)
   const pulse = useMusicPulse(bpm)
+  const [showHints, setShowHints] = useState(true)
+  const [showAllHints, setShowAllHints] = useState(false)
+  const gamepadConnectedRef = useRef(false)
+  const [gamepadConnected, setGamepadConnected] = useState(false)
 
   const {
     cableDepth,
@@ -205,6 +221,45 @@ export default function InteractiveCraneControls() {
   // ─── Winch speed interaction ────────────────────────────────────────────────
   const [winchHover, setWinchHover] = useState(false)
   const [winchActive, setWinchActive] = useState(false)
+
+  useEffect(() => {
+    const seen = localStorage.getItem('harborglow_hints_seen') === 'true'
+    setShowHints(!seen)
+    if (!seen) {
+      const timer = window.setTimeout(() => {
+        setShowHints(false)
+        localStorage.setItem('harborglow_hints_seen', 'true')
+      }, 3000)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [])
+
+  useEffect(() => {
+    const updateGamepad = () => {
+      const hasGamepad = Array.from(navigator.getGamepads?.() || []).some(Boolean)
+      gamepadConnectedRef.current = hasGamepad
+      setGamepadConnected(hasGamepad)
+    }
+
+    updateGamepad()
+    window.addEventListener('gamepadconnected', updateGamepad)
+    window.addEventListener('gamepaddisconnected', updateGamepad)
+    return () => {
+      window.removeEventListener('gamepadconnected', updateGamepad)
+      window.removeEventListener('gamepaddisconnected', updateGamepad)
+    }
+  }, [])
+
+  const hintKeys = (keys: string[], hintType?: 'trolley' | 'cable' | 'rotate' | 'winch' | 'twistlock') => {
+    if (!gamepadConnectedRef.current) return keys
+    if (hintType === 'winch') return ['LT', 'RT']
+    if (hintType === 'rotate') return ['RS']
+    if (hintType === 'trolley') return ['LSX']
+    if (hintType === 'cable') return ['LSY']
+    if (hintType === 'twistlock') return ['A']
+    return keys
+  }
 
   const handleWinchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setWinchSpeed(parseFloat(e.target.value))
@@ -259,8 +314,9 @@ export default function InteractiveCraneControls() {
               color={NEON.cyan}
               pulse={pulse}
               isActive={isMoving}
-              hintKeys={['↑', '↓']}
+              hintKeys={hintKeys(['↑', '↓'], 'trolley')}
               hintLabel="Trolley"
+              showHintText={showHints || showAllHints}
             />
 
             {/* Hook Height */}
@@ -273,8 +329,9 @@ export default function InteractiveCraneControls() {
               color={NEON.blue}
               pulse={pulse}
               isActive={isMoving}
-              hintKeys={['W', 'S']}
+              hintKeys={hintKeys(['W', 'S'], 'cable')}
               hintLabel="Cable"
+              showHintText={showHints || showAllHints}
             />
 
             {/* Swing / Rotation */}
@@ -287,8 +344,9 @@ export default function InteractiveCraneControls() {
               color={NEON.magenta}
               pulse={pulse}
               isActive={isMoving}
-              hintKeys={['←', '→']}
+              hintKeys={hintKeys(['←', '→'], 'rotate')}
               hintLabel="Rotate"
+              showHintText={showHints || showAllHints}
             />
 
             {/* Winch Speed — interactive */}
@@ -394,30 +452,51 @@ export default function InteractiveCraneControls() {
             </button>
           </HoverHint>
 
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: '"JetBrains Mono", monospace' }}>
+              {showHints || showAllHints ? 'Hints visible' : 'Hints hidden'}
+            </div>
+            <button
+              onClick={() => setShowAllHints((value) => !value)}
+              style={{
+                padding: '3px 8px',
+                borderRadius: '999px',
+                border: '1px solid rgba(0,212,170,0.35)',
+                background: 'rgba(0,212,170,0.08)',
+                color: '#00d4aa',
+                fontSize: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              [?]
+            </button>
+          </div>
+
           {/* Keyboard hints */}
+          {(showHints || showAllHints) && (
           <div className="mt-3 pt-3 border-t border-white/5 text-[10px] text-gray-500 grid grid-cols-2 gap-x-3 gap-y-1.5 font-mono">
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: NEON.cyan, boxShadow: `0 0 4px ${NEON.cyan}` }} />
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">↑</kbd>
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">↓</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? 'LSX' : '↑'}</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? '' : '↓'}</kbd>
               <span>Trolley</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: NEON.blue, boxShadow: `0 0 4px ${NEON.blue}` }} />
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">W</kbd>
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">S</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? 'LSY' : 'W'}</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? '' : 'S'}</kbd>
               <span>Cable</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: NEON.magenta, boxShadow: `0 0 4px ${NEON.magenta}` }} />
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">←</kbd>
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">→</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? 'RS' : '←'}</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? '' : '→'}</kbd>
               <span>Rotate</span>
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: NEON.amber, boxShadow: `0 0 4px ${NEON.amber}` }} />
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">+</kbd>
-              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">-</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? 'LT' : '+'}</kbd>
+              <kbd className="px-1 rounded bg-gray-800 border border-gray-700 text-[9px]">{gamepadConnected ? 'RT' : '-'}</kbd>
               <span>Speed</span>
             </span>
             <span className="flex items-center gap-1.5 col-span-2">
@@ -426,6 +505,7 @@ export default function InteractiveCraneControls() {
               <span>Toggle</span>
             </span>
           </div>
+          )}
         </div>
       </div>
     )

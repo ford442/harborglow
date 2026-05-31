@@ -41,9 +41,13 @@ import {
 } from './MainMenu/styles'
 
 type ModalType = 'settings' | 'credits' | 'howtoplay' | 'changelog' | null
+const CURRENT_VERSION = 'v2.0.0'
 
 function HarborLightsBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fogNearRef = useRef<HTMLDivElement>(null)
+  const fogFarRef = useRef<HTMLDivElement>(null)
+  const mouseOffsetRef = useRef({ x: 0, y: 0 })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -51,7 +55,7 @@ function HarborLightsBackground() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    let animId: number
+    let animId = 0
     let w = 0, h = 0
 
     const resize = () => {
@@ -60,6 +64,19 @@ function HarborLightsBackground() {
     }
     resize()
     window.addEventListener('resize', resize)
+
+    const setFogTransform = () => {
+      const { x } = mouseOffsetRef.current
+      if (fogNearRef.current) fogNearRef.current.style.transform = `translateX(${x * 0.005}px)`
+      if (fogFarRef.current) fogFarRef.current.style.transform = `translateX(${x * 0.012}px)`
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      mouseOffsetRef.current.x = event.clientX - window.innerWidth / 2
+      setFogTransform()
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
 
     // Pre-generate lights
     const harborLights = Array.from({ length: 20 }, (_, i) => ({
@@ -72,6 +89,17 @@ function HarborLightsBackground() {
       speed: 0.5 + Math.random() * 1.5,
       blink: Math.random() > 0.7,
     }))
+
+    const ships = Array.from({ length: 3 }, (_, i) => ({
+      x: canvas.width + i * 260,
+      y: 0.66 + Math.random() * 0.12,
+      speed: 0.08 + Math.random() * 0.07,
+      scale: 0.6 + Math.random() * 0.8,
+      hue: i % 2 === 0 ? 210 : 25,
+    }))
+
+    const gulls: Array<{ x: number; y: number; speed: number; phase: number; scale: number }> = []
+    let nextGullSpawnAt = 0
 
     const stars = Array.from({ length: 40 }, () => ({
       x: Math.random(),
@@ -89,8 +117,55 @@ function HarborLightsBackground() {
 
     const lighthouse = { x: 0.82, y: 0.55, beamAngle: 0 }
 
+    const drawShip = (x: number, y: number, scale: number, hue: number) => {
+      const shipWidth = 140 * scale
+      const shipHeight = 36 * scale
+      const keelY = y
+      ctx.fillStyle = `hsl(${hue} 25% 10%)`
+      ctx.beginPath()
+      ctx.moveTo(x - shipWidth * 0.5, keelY)
+      ctx.lineTo(x - shipWidth * 0.25, keelY - shipHeight * 0.08)
+      ctx.lineTo(x + shipWidth * 0.25, keelY - shipHeight * 0.08)
+      ctx.lineTo(x + shipWidth * 0.46, keelY - shipHeight * 0.48)
+      ctx.lineTo(x + shipWidth * 0.32, keelY - shipHeight * 0.48)
+      ctx.lineTo(x + shipWidth * 0.18, keelY - shipHeight * 0.26)
+      ctx.lineTo(x - shipWidth * 0.38, keelY - shipHeight * 0.26)
+      ctx.closePath()
+      ctx.fill()
+
+      ctx.fillStyle = `hsl(${hue} 18% 18%)`
+      ctx.fillRect(x - shipWidth * 0.12, keelY - shipHeight * 0.7, shipWidth * 0.22, shipHeight * 0.42)
+      ctx.fillRect(x + shipWidth * 0.08, keelY - shipHeight * 0.92, shipWidth * 0.08, shipHeight * 0.24)
+    }
+
+    const drawGull = (gull: { x: number; y: number; speed: number; phase: number; scale: number }, t: number) => {
+      const wing = Math.sin(t * 2 + gull.phase) * 8 * gull.scale
+      ctx.strokeStyle = 'rgba(245, 248, 255, 0.7)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(gull.x - 10 * gull.scale, gull.y)
+      ctx.bezierCurveTo(
+        gull.x - 4 * gull.scale,
+        gull.y - 8 * gull.scale - wing,
+        gull.x + 2 * gull.scale,
+        gull.y - 8 * gull.scale - wing,
+        gull.x + 10 * gull.scale,
+        gull.y
+      )
+      ctx.bezierCurveTo(
+        gull.x + 2 * gull.scale,
+        gull.y - 4 * gull.scale + wing * 0.25,
+        gull.x - 2 * gull.scale,
+        gull.y - 4 * gull.scale + wing * 0.25,
+        gull.x - 10 * gull.scale,
+        gull.y
+      )
+      ctx.stroke()
+    }
+
     const render = (time: number) => {
       const t = time * 0.001
+      const audio = audioVisualSync.analyze(t)
       ctx.clearRect(0, 0, w, h)
 
       // Sky gradient
@@ -125,6 +200,10 @@ function HarborLightsBackground() {
         ctx.fillRect(0, y, w, 1)
       }
 
+      // Harbor silhouettes in the distance
+      ctx.fillStyle = '#06101c'
+      ctx.fillRect(0, waterY - h * 0.04, w, h * 0.04)
+
       // Crane silhouette
       ctx.fillStyle = '#040810'
       ctx.beginPath()
@@ -143,6 +222,18 @@ function HarborLightsBackground() {
       ctx.arc(0.15 * w, 0.36 * h, 3, 0, Math.PI * 2)
       ctx.fill()
       ctx.shadowBlur = 0
+
+      // Moving ship silhouettes
+      ships.forEach((ship) => {
+        ship.x += ship.speed * (16 + audio.energy * 8)
+        if (ship.x > w + 220) {
+          ship.x = -220
+          ship.y = 0.66 + Math.random() * 0.12
+          ship.scale = 0.6 + Math.random() * 0.8
+          ship.hue = Math.random() > 0.5 ? 210 : 25
+        }
+        drawShip(ship.x, waterY + ship.y * h * 0.18, ship.scale, ship.hue)
+      })
 
       // Lighthouse
       ctx.fillStyle = '#1a1a2e'
@@ -173,23 +264,45 @@ function HarborLightsBackground() {
       ctx.fill()
 
       // Harbor lights
+      const beatPhase = audio.beatPhase
+      const beatActive = audio.beat || audio.energy > 0.12
       harborLights.forEach(light => {
         const lx = light.x * w
         const ly = light.y * h
         const pulse = light.blink
           ? 0.5 + 0.5 * Math.sin(t * light.speed + light.phase)
           : 0.7 + 0.3 * Math.sin(t * light.speed + light.phase)
+        const beatScale = beatActive ? 1 + 0.25 * Math.exp(-beatPhase * 4) : 1
 
         ctx.globalAlpha = pulse
         ctx.shadowColor = light.color
         ctx.shadowBlur = light.glowSize
         ctx.fillStyle = light.color
         ctx.beginPath()
-        ctx.arc(lx, ly, light.size, 0, Math.PI * 2)
+        ctx.arc(lx, ly, light.size * beatScale, 0, Math.PI * 2)
         ctx.fill()
         ctx.shadowBlur = 0
         ctx.globalAlpha = 1
       })
+
+      // Seagulls
+      if (t > nextGullSpawnAt) {
+        nextGullSpawnAt = t + 8 + Math.random() * 12
+        gulls.push({
+          x: -40,
+          y: 40 + Math.random() * 120,
+          speed: 0.7 + Math.random() * 0.6,
+          phase: Math.random() * Math.PI * 2,
+          scale: 0.9 + Math.random() * 0.7,
+        })
+      }
+      for (let i = gulls.length - 1; i >= 0; i--) {
+        const gull = gulls[i]
+        gull.x += gull.speed * (12 + audio.energy * 2)
+        gull.y += Math.sin(t * 1.4 + gull.phase) * 0.15
+        drawGull(gull, t)
+        if (gull.x > w + 60) gulls.splice(i, 1)
+      }
 
       animId = requestAnimationFrame(render)
     }
@@ -197,27 +310,53 @@ function HarborLightsBackground() {
 
     return () => {
       cancelAnimationFrame(animId)
+      window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('resize', resize)
     }
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        zIndex: 0,
-      }}
-    />
+    <>
+      <div
+        ref={fogFarRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse at 30% 40%, rgba(200,220,255,0.08) 0%, transparent 55%), radial-gradient(ellipse at 70% 30%, rgba(0,212,170,0.05) 0%, transparent 50%)',
+          mixBlendMode: 'screen',
+          pointerEvents: 'none',
+          willChange: 'transform',
+        }}
+      />
+      <div
+        ref={fogNearRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, rgba(140,180,220,0.02) 0%, rgba(120,150,190,0.08) 100%)',
+          opacity: 0.9,
+          pointerEvents: 'none',
+          willChange: 'transform',
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 0,
+        }}
+      />
+    </>
   )
 }
 
 export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, onTugboatMode }: MainMenuProps) {
     const [activeModal, setActiveModal] = useState<ModalType>(null)
     const [saveInfo, setSaveInfo] = useState<{ reputation?: number; shipCount?: number } | null>(null)
+    const [hasNewVersion, setHasNewVersion] = useState(false)
     const [particles, setParticles] = useState<Array<{
         id: number
         x: number
@@ -258,6 +397,11 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, o
             }
         }
     }, [hasSave])
+
+    useEffect(() => {
+        const seen = localStorage.getItem('harborglow_last_seen_version')
+        setHasNewVersion(seen !== CURRENT_VERSION)
+    }, [])
 
     // Start intro music when menu mounts
     useEffect(() => {
@@ -314,7 +458,13 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, o
         }
     }, [])
 
-    const openModal = (modal: ModalType) => setActiveModal(modal)
+    const openModal = (modal: ModalType) => {
+        if (modal === 'changelog') {
+            localStorage.setItem('harborglow_last_seen_version', CURRENT_VERSION)
+            setHasNewVersion(false)
+        }
+        setActiveModal(modal)
+    }
     const closeModal = () => setActiveModal(null)
 
     useEffect(() => {
@@ -459,13 +609,33 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, o
             </div>
 
             <div
-                style={{ ...versionBadgeStyle, cursor: 'pointer', transition: 'all 0.2s ease' }}
+                style={{
+                    ...versionBadgeStyle,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: hasNewVersion ? '0 0 18px rgba(0,212,170,0.25)' : versionBadgeStyle.boxShadow,
+                }}
                 onClick={() => openModal('changelog')}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(0,212,170,0.5)'; e.currentTarget.style.boxShadow = '0 0 16px rgba(0,212,170,0.2)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = '' }}
             >
                 <span style={versionDotStyle} />
-                <span>v2.0.0</span>
+                <span>{CURRENT_VERSION}</span>
+                {hasNewVersion && (
+                    <span style={{
+                        marginLeft: '4px',
+                        padding: '2px 6px',
+                        borderRadius: '999px',
+                        background: 'rgba(0,212,170,0.2)',
+                        color: '#00d4aa',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        letterSpacing: '1px',
+                        animation: 'harbor-pulse 1.4s ease-in-out infinite',
+                    }}>
+                        NEW
+                    </span>
+                )}
             </div>
 
             {activeModal === 'howtoplay' && <HowToPlayModal onClose={closeModal} />}

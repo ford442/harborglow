@@ -11,6 +11,7 @@ import TelemetryGraph from './dashboard/TelemetryGraph'
 import SystemStatusMonitor from './dashboard/SystemStatusMonitor'
 import WeatherMonitor from './dashboard/WeatherMonitor'
 import HeatedWindow from './dashboard/HeatedWindow'
+import CraneControlMonitor from './dashboard/CraneControlMonitor'
 
 // =============================================================================
 // CRANE DASHBOARD — Orchestrates the multi-monitor control booth UI.
@@ -20,7 +21,7 @@ import HeatedWindow from './dashboard/HeatedWindow'
 export type BoothTier = 1 | 2 | 3
 
 export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [number, number, number] }) {
-  const [fourthMonitorMode, setFourthMonitorMode] = useState<'winch' | 'landside'>('winch')
+  const [fourthMonitorMode, setFourthMonitorMode] = useState<'winch' | 'landside' | 'controls'>('winch')
 
   const {
     weather,
@@ -89,7 +90,7 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
         e.preventDefault()
-        setFourthMonitorMode(prev => prev === 'winch' ? 'landside' : 'winch')
+        setFourthMonitorMode(prev => prev === 'winch' ? 'landside' : prev === 'landside' ? 'controls' : 'winch')
       }
     }
     window.addEventListener('keydown', handleKey)
@@ -97,7 +98,12 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
   }, [])
 
   const toggleFourthMonitor = () =>
-    setFourthMonitorMode(prev => prev === 'winch' ? 'landside' : 'winch')
+    setFourthMonitorMode(prev => prev === 'winch' ? 'landside' : prev === 'landside' ? 'controls' : 'winch')
+
+  const fourthMonitorLabel =
+    fourthMonitorMode === 'winch' ? 'WINCH CABLES' :
+    fourthMonitorMode === 'landside' ? 'LANDSIDE QUAY' :
+    'CRANE CONTROLS'
 
   // ─── Standard Tier 1/2 dashboard ────────────────────────────────────────────
   if (!isArctic) {
@@ -128,13 +134,17 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
                 </MonitorFeed>
 
                 <MonitorFeed
-                  label={fourthMonitorMode === 'winch' ? 'WINCH CABLES' : 'LANDSIDE QUAY'}
+                  label={fourthMonitorLabel}
                   camNumber="CAM 04"
                   active={true}
                   weather={weather}
                   tier={boothTier}
                 >
-                  <WinchCam cableLength={cableDepth} tension={loadTension} isMoving={isMoving} />
+                  {fourthMonitorMode === 'controls' ? (
+                    <CraneControlMonitor />
+                  ) : (
+                    <WinchCam cableLength={cableDepth} tension={loadTension} isMoving={isMoving} />
+                  )}
                 </MonitorFeed>
               </div>
             </div>
@@ -143,7 +153,11 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
               <button className="monitor-toggle-btn" onClick={toggleFourthMonitor}>
                 <span className="btn-icon">🔄</span>
                 <span className="btn-label">
-                  {fourthMonitorMode === 'winch' ? 'SWITCH TO QUAY' : 'SWITCH TO WINCH'}
+                  {fourthMonitorMode === 'winch'
+                    ? 'SWITCH TO QUAY'
+                    : fourthMonitorMode === 'landside'
+                      ? 'SWITCH TO CONTROLS'
+                      : 'SWITCH TO WINCH'}
                 </span>
                 <span className="btn-hint">[TAB]</span>
               </button>
@@ -196,6 +210,10 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
             <MonitorFeed label="360° ARCTIC" camNumber="CAM 06" active={true} weather={weather} tier={boothTier} isOverhead={true}>
               <Arctic360Cam snowIntensity={arcticData.snowIntensity} windSpeed={arcticData.windSpeed} isMoving={isMoving} />
             </MonitorFeed>
+
+            <MonitorFeed label="CRANE CONTROLS" camNumber="CAM 07" active={true} weather={weather} tier={boothTier} isOverhead={true}>
+              <CraneControlMonitor />
+            </MonitorFeed>
           </div>
         </div>
 
@@ -220,13 +238,17 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
               </MonitorFeed>
 
               <MonitorFeed
-                label={fourthMonitorMode === 'winch' ? 'WINCH CABLES' : 'LANDSIDE QUAY'}
+                label={fourthMonitorLabel}
                 camNumber="CAM 04"
                 active={true}
                 weather={weather}
                 tier={boothTier}
               >
-                <WinchCam cableLength={cableDepth} tension={loadTension} isMoving={isMoving} />
+                {fourthMonitorMode === 'controls' ? (
+                  <CraneControlMonitor />
+                ) : (
+                  <WinchCam cableLength={cableDepth} tension={loadTension} isMoving={isMoving} />
+                )}
               </MonitorFeed>
             </div>
           </div>
@@ -246,7 +268,7 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
             <button className="arctic-btn toggle" onClick={toggleFourthMonitor}>
               <span className="btn-glow" />
               <span className="btn-icon">🔄</span>
-              <span className="btn-label">CAM 04</span>
+              <span className="btn-label">{fourthMonitorLabel}</span>
               <span className="btn-hint">[TAB]</span>
             </button>
           </div>

@@ -125,7 +125,7 @@ export function Monitor({
 
 interface MonitorHUDProps {
   label: string
-  type: 'hook' | 'drone' | 'underwater'
+  type: 'hook' | 'drone' | 'underwater' | 'controls'
 }
 
 export function MonitorHUD({ label, type }: MonitorHUDProps) {
@@ -228,6 +228,14 @@ export function MonitorConfigFactory() {
       curveRadius: 6,
       label: "UNDERWATER",
       type: 'underwater' as const
+    },
+    {
+      position: [3.6, 2.0, -0.5],
+      rotation: [0, -Math.PI / 2 - 0.2, 0],
+      size: [1.8, 1.1],
+      curveRadius: 4,
+      label: "CONTROLS",
+      type: 'controls' as const
     }
   ]
 }

@@ -4,6 +4,7 @@ import { useFrame, useThree, createPortal } from '@react-three/fiber'
 import { PerspectiveCamera as DreiPerspectiveCamera } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import CraneControlMonitor3D from './controlBooth/CraneControlMonitor3D'
 import { 
   BoothRoom, 
   WindowFrame, 
@@ -265,6 +266,26 @@ export default function ControlBooth({
         />
         {children}
         <MonitorHUD label="DEEP CAM" type="underwater" />
+      </Monitor>
+
+      <Monitor
+        position={[3.6, 2.0, -0.5]}
+        rotation={[0, -Math.PI / 2 - 0.2, 0]}
+        size={[1.8, 1.1]}
+        curveRadius={4}
+        label="CONTROLS"
+        materials={materials}
+        quality={quality}
+      >
+        <DreiPerspectiveCamera
+          makeDefault={false}
+          position={[0, 0, 5]}
+          fov={35}
+          near={0.1}
+          far={100}
+        />
+        <CraneControlMonitor3D />
+        <MonitorHUD label="CRANE CTRL" type="controls" />
       </Monitor>
       
       {/* MAIN SCENE CONTENT */}

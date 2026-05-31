@@ -33,6 +33,8 @@ let installSynth: Tone.PolySynth | null = null
 let tensionSynth: Tone.AMSynth | null = null
 let twistlockSynth: Tone.MetalSynth | null = null
 let celebrationSynth: Tone.PolySynth | null = null
+let queueHumSynth: Tone.NoiseSynth | null = null
+let queueHumFilter: Tone.Filter | null = null
 
 // Initialize synths
 function initSynths() {
@@ -119,6 +121,23 @@ function initSynths() {
       },
       volume: globalConfig.volume - 2,
     }).toDestination()
+  }
+
+  if (!queueHumFilter) {
+    queueHumFilter = new Tone.Filter(800, 'lowpass')
+  }
+
+  if (!queueHumSynth) {
+    queueHumSynth = new Tone.NoiseSynth({
+      noise: { type: 'pink' },
+      envelope: {
+        attack: 0.01,
+        decay: 0.08,
+        sustain: 0.6,
+        release: 0.2,
+      },
+      volume: globalConfig.volume - 18,
+    }).connect(queueHumFilter).toDestination()
   }
 }
 
@@ -216,6 +235,20 @@ export async function playInstallationCelebration(rigType: RigType): Promise<voi
   celebrationSynth?.triggerAttackRelease(fanfare.notes, '2n', now + 0.5)
 }
 
+export async function startQueueTravelHum(intensity = 1): Promise<void> {
+  if (!globalConfig.enabled) return
+  await Tone.start()
+  initSynths()
+  if (!queueHumSynth) return
+  queueHumSynth.volume.value = globalConfig.volume - (22 - Math.min(10, intensity * 6))
+  queueHumFilter?.frequency.rampTo(700 + intensity * 500, 0.1)
+  queueHumSynth.triggerAttack()
+}
+
+export function stopQueueTravelHum(): void {
+  queueHumSynth?.triggerRelease()
+}
+
 // Set global sound configuration
 export function setSoundConfig(config: Partial<SoundConfig>): void {
   globalConfig = { ...globalConfig, ...config }
@@ -226,6 +259,7 @@ export function setSoundConfig(config: Partial<SoundConfig>): void {
   if (tensionSynth) tensionSynth.volume.value = globalConfig.volume - 10
   if (twistlockSynth) twistlockSynth.volume.value = globalConfig.volume - 8
   if (celebrationSynth) celebrationSynth.volume.value = globalConfig.volume - 2
+  if (queueHumSynth) queueHumSynth.volume.value = globalConfig.volume - 18
 }
 
 // Mute/unmute all sounds
@@ -241,10 +275,14 @@ export function disposeSoundEffects(): void {
   tensionSynth?.dispose()
   twistlockSynth?.dispose()
   celebrationSynth?.dispose()
+  queueHumSynth?.dispose()
+  queueHumFilter?.dispose()
   
   snapSynth = null
   installSynth = null
   tensionSynth = null
   twistlockSynth = null
   celebrationSynth = null
+  queueHumSynth = null
+  queueHumFilter = null
 }

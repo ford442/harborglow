@@ -10,6 +10,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, TUGBOAT_WAKE_GLSL } from '../systems/TugboatWakeSystem'
+import { useMusicPulse } from '../hooks/useMusicPulse'
 
 // -------------------------------------------------------------------------
 // MAX WAVE LAYERS (must match WaveSystem.ts)
@@ -131,9 +132,13 @@ export default function Water({ isNight = true }: WaterProps) {
   const stormIntensity = useGameStore((s) => s.stormIntensity)
   const lightIntensity = useGameStore((s) => s.lightIntensity)
   const timeOfDay = useGameStore((s) => s.timeOfDay)
+  const bpm = useGameStore((s) => s.bpm)
+  const musicPlaying = useGameStore((s) => s.musicPlaying)
   const ships = useGameStore((s) => s.ships)
   const installedUpgrades = useGameStore((s) => s.installedUpgrades)
   const spreaderPos = useGameStore((s) => s.spreaderPos)
+  const musicPulse = useMusicPulse(bpm)
+  const musicActive = Array.from(musicPlaying.values()).some(Boolean)
 
   // Determine active layer count by quality
   const activeLayers = quality === 'high' ? 4 : quality === 'medium' ? 3 : 2
@@ -460,7 +465,7 @@ export default function Water({ isNight = true }: WaterProps) {
 
     mat.uniforms.uTime.value = waveSystem.getTime()
     mat.uniforms.uCameraPos.value.copy(camera.position)
-    mat.uniforms.uGlobalAmp.value = waveParams.amplitude
+    mat.uniforms.uGlobalAmp.value = waveParams.amplitude * (musicActive ? 1 + musicPulse * 0.12 : 1)
     mat.uniforms.uGlobalSpeed.value = waveParams.speed
     mat.uniforms.uStormIntensity.value = stormIntensity
     mat.uniforms.uNightBlend.value = clampedNightBlend

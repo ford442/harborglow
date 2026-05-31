@@ -58,6 +58,7 @@ import { seaEventsSystem } from '../systems/seaEventsSystem'
 import { harborEventSystem } from '../systems/eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../systems/dynamicEventSystem'
 import { experimentalTechSystem } from '../systems/techSystem'
+import { setSceneCamera } from '../utils/sceneCamera'
 
 // =============================================================================
 // CONSTANTS
@@ -157,6 +158,12 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const shipPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map())
     // Reusable vector for swaySystem — avoids per-frame allocation
     const swayTrolleyVecRef = useRef(new THREE.Vector3())
+    const { camera } = useThree()
+
+    useEffect(() => {
+        setSceneCamera(camera)
+        return () => setSceneCamera(null)
+    }, [camera])
     
     // Derived values
     const currentShip = useMemo(() => 

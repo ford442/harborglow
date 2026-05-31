@@ -420,6 +420,12 @@ interface SerializableState {
     // Upgrade menu highlighting and auto-pilot
     highlightedUpgradePart: string | null
     pendingAutoInstall: { shipId: string; partName: string } | null
+    installQueue: Array<{ shipId: string; partName: string }>
+    installQueueIndex: number
+    isQueueRunning: boolean
+    isQueuePaused: boolean
+    queuePausedAt: number | null
+    queuePausedShipId: string | null
     // Training system
     trainingProgress: TrainingProgress
     gameMode: GameMode
@@ -546,6 +552,11 @@ interface GameState extends SerializableState {
     setWinchSpeed: (speed: number) => void
     setHighlightedUpgradePart: (partName: string | null) => void
     setPendingAutoInstall: (pending: { shipId: string; partName: string } | null) => void
+    setInstallQueue: (queue: Array<{ shipId: string; partName: string }>) => void
+    advanceInstallQueue: () => void
+    abortInstallQueue: () => void
+    pauseInstallQueue: (shipId: string) => void
+    resumeInstallQueue: () => void
     setJoystickLeft: (pos: { x: number; y: number }) => void
     setJoystickRight: (pos: { x: number; y: number }) => void
     setTwistlockEngaged: (engaged: boolean) => void
@@ -605,6 +616,7 @@ const defaultState: Omit<GameState, keyof {
     scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown; setQualityPreset: unknown;
     setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
     setTrolleyPosition: unknown; setWinchSpeed: unknown; setHighlightedUpgradePart: unknown; setPendingAutoInstall: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
+    setInstallQueue: unknown; advanceInstallQueue: unknown; abortInstallQueue: unknown; pauseInstallQueue: unknown; resumeInstallQueue: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
     pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
@@ -664,6 +676,12 @@ const defaultState: Omit<GameState, keyof {
     winchSpeed: 1.0,
     highlightedUpgradePart: null,
     pendingAutoInstall: null,
+    installQueue: [],
+    installQueueIndex: 0,
+    isQueueRunning: false,
+    isQueuePaused: false,
+    queuePausedAt: null,
+    queuePausedShipId: null,
     joystickLeft: { x: 0, y: 0 },
     joystickRight: { x: 0, y: 0 },
     isMoving: false,
@@ -1233,8 +1251,87 @@ export const useGameStore = create<GameState>((set, get) => ({
     setWinchSpeed: (speed: number) => set({ winchSpeed: speed }),
     setHighlightedUpgradePart: (partName) => set({ highlightedUpgradePart: partName }),
     setPendingAutoInstall: (pending) => set({ pendingAutoInstall: pending }),
-    setJoystickLeft: (pos) => set({ joystickLeft: pos }),
-    setJoystickRight: (pos) => set({ joystickRight: pos }),
+    setInstallQueue: (queue) => set((state) => {
+        const nextState = {
+            installQueue: queue,
+            installQueueIndex: 0,
+            isQueueRunning: queue.length > 0,
+            isQueuePaused: false,
+            queuePausedAt: null,
+            queuePausedShipId: null,
+            pendingAutoInstall: null,
+        }
+        scheduleSave({ ...state, ...nextState })
+        return nextState
+    }),
+    advanceInstallQueue: () => set((state) => {
+        const nextIndex = state.installQueueIndex + 1
+        if (nextIndex >= state.installQueue.length) {
+            return {
+                installQueue: [],
+                installQueueIndex: 0,
+                isQueueRunning: false,
+                isQueuePaused: false,
+                queuePausedAt: null,
+                queuePausedShipId: null,
+            }
+        }
+        return {
+            installQueueIndex: nextIndex,
+            isQueuePaused: false,
+            queuePausedAt: null,
+            queuePausedShipId: null,
+        }
+    }),
+    abortInstallQueue: () => set({
+        installQueue: [],
+        installQueueIndex: 0,
+        isQueueRunning: false,
+        isQueuePaused: false,
+        queuePausedAt: null,
+        queuePausedShipId: null,
+    }),
+    pauseInstallQueue: (shipId) => set((state) => ({
+        isQueuePaused: true,
+        queuePausedAt: Date.now(),
+        queuePausedShipId: shipId,
+        isQueueRunning: state.installQueue.length > 0,
+    })),
+    resumeInstallQueue: () => set({
+        isQueuePaused: false,
+        queuePausedAt: null,
+        queuePausedShipId: null,
+    }),
+    setJoystickLeft: (pos) => set((state) => {
+        const nextState = { joystickLeft: pos }
+        if ((state.isQueueRunning || state.isQueuePaused) && (Math.abs(pos.x) > 0.001 || Math.abs(pos.y) > 0.001)) {
+            return {
+                ...nextState,
+                installQueue: [],
+                installQueueIndex: 0,
+                isQueueRunning: false,
+                isQueuePaused: false,
+                queuePausedAt: null,
+                queuePausedShipId: null,
+            }
+        }
+        return nextState
+    }),
+    setJoystickRight: (pos) => set((state) => {
+        const nextState = { joystickRight: pos }
+        if ((state.isQueueRunning || state.isQueuePaused) && (Math.abs(pos.x) > 0.001 || Math.abs(pos.y) > 0.001)) {
+            return {
+                ...nextState,
+                installQueue: [],
+                installQueueIndex: 0,
+                isQueueRunning: false,
+                isQueuePaused: false,
+                queuePausedAt: null,
+                queuePausedShipId: null,
+            }
+        }
+        return nextState
+    }),
     setTwistlockEngaged: (engaged) => set({ twistlockEngaged: engaged }),
     setHeaterActive: (active) => set({ heaterActive: active }),
     setIsMoving: (moving) => set({ isMoving: moving }),

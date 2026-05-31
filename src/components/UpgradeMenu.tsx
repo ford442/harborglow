@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useGameStore, Ship, selectUpgradeProgress, ShipType } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
@@ -6,6 +6,57 @@ import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { UPGRADE_CONFIGS, shipTypeLabels, shipTypeColors } from './upgrade/upgradeConfigs'
 import { ParticleBurst, ShipFullyUpgradedCelebration, useUpgradeSounds } from './VisualFeedback'
 import { useCompletionGlow } from '../hooks/useCompletionGlow'
+import { useMusicPulse } from '../hooks/useMusicPulse'
+import * as THREE from 'three'
+import { getSceneCamera } from '../utils/sceneCamera'
+
+function optimizeQueueOrder(
+    parts: Array<{ shipId: string; partName: string; worldPos: THREE.Vector3 }>,
+    startPos: THREE.Vector3
+) {
+    const remaining = [...parts]
+    const ordered: typeof parts = []
+    let current = startPos.clone()
+
+    while (remaining.length > 0) {
+        let nearestIdx = 0
+        let nearestDist = Infinity
+        remaining.forEach((item, index) => {
+            const distance = current.distanceTo(item.worldPos)
+            if (distance < nearestDist) {
+                nearestDist = distance
+                nearestIdx = index
+            }
+        })
+
+        const next = remaining.splice(nearestIdx, 1)[0]
+        ordered.push(next)
+        current = next.worldPos.clone()
+    }
+
+    return ordered.map(({ shipId, partName }) => ({ shipId, partName }))
+}
+
+function projectWorldToScreen(worldPos: THREE.Vector3, camera: THREE.Camera) {
+    const projected = worldPos.clone().project(camera)
+    if (projected.z < -1 || projected.z > 1) return null
+
+    const canvas = document.querySelector('canvas')
+    const width = canvas?.clientWidth || window.innerWidth
+    const height = canvas?.clientHeight || window.innerHeight
+
+    return {
+        x: (projected.x * 0.5 + 0.5) * width,
+        y: (-projected.y * 0.5 + 0.5) * height,
+    }
+}
+
+function formatPartLabel(partName: string) {
+    if (!partName) return ''
+    return partName
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase())
+}
 
 // =============================================================================
 // UPGRADE MENU COMPONENT - Phase 7-8 Polish
@@ -25,6 +76,14 @@ export default function UpgradeMenu() {
     const setHighlightedUpgradePart = useGameStore(state => state.setHighlightedUpgradePart)
     const pendingAutoInstall = useGameStore(state => state.pendingAutoInstall)
     const setPendingAutoInstall = useGameStore(state => state.setPendingAutoInstall)
+    const installQueue = useGameStore(state => state.installQueue)
+    const installQueueIndex = useGameStore(state => state.installQueueIndex)
+    const isQueueRunning = useGameStore(state => state.isQueueRunning)
+    const isQueuePaused = useGameStore(state => state.isQueuePaused)
+    const queuePausedShipId = useGameStore(state => state.queuePausedShipId)
+    const queuePausedAt = useGameStore(state => state.queuePausedAt)
+    const setInstallQueue = useGameStore(state => state.setInstallQueue)
+    const abortInstallQueue = useGameStore(state => state.abortInstallQueue)
 
     const [installing, setInstalling] = useState<string | null>(null)
     const [showBandReveal, setShowBandReveal] = useState(false)
@@ -32,6 +91,8 @@ export default function UpgradeMenu() {
     const [isUpgradingVersion, setIsUpgradingVersion] = useState(false)
     const [showFlash, setShowFlash] = useState(false)
     const [showV2Notification, setShowV2Notification] = useState(false)
+    const [typedBandName, setTypedBandName] = useState('')
+    const [confetti, setConfetti] = useState<Array<{ id: number; left: number; delay: number; hue: number; duration: number; x: number; y: number; rot: number }>>([])
     
     // Visual feedback states
     const [particleBurst, setParticleBurst] = useState<{
@@ -42,10 +103,17 @@ export default function UpgradeMenu() {
     
     const [showCelebration, setShowCelebration] = useState(false)
     const [lastInstalled, setLastInstalled] = useState<string | null>(null)
+    const [selectedForQueue, setSelectedForQueue] = useState<Set<string>>(new Set())
     
     const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
+    const bpm = useGameStore((state) => state.bpm)
+    const musicPulse = useMusicPulse(bpm)
 
     const currentShip = ships.find(ship => ship.id === currentShipId)
+
+    useEffect(() => {
+        setSelectedForQueue(new Set())
+    }, [currentShipId])
 
     // Track when all upgrades are complete for cinematic reveal
     useEffect(() => {
@@ -71,6 +139,42 @@ export default function UpgradeMenu() {
         }
     }, [installedUpgrades, currentShip, showBandReveal, playCelebrationSound, showCelebration])
 
+    useEffect(() => {
+        if (!showBandReveal) {
+            setTypedBandName('')
+            setConfetti([])
+            return
+        }
+
+        let index = 0
+        const interval = window.setInterval(() => {
+            index += 1
+            setTypedBandName(bandName.slice(0, index))
+            if (index >= bandName.length) {
+                window.clearInterval(interval)
+            }
+        }, 60)
+
+        return () => window.clearInterval(interval)
+    }, [bandName, showBandReveal])
+
+    useEffect(() => {
+        if (!showBandReveal) return
+        const burst = Array.from({ length: 48 }, (_, id) => ({
+            id,
+            left: 50 + (Math.random() - 0.5) * 26,
+            delay: Math.random() * 0.2,
+            hue: 160 + Math.floor(Math.random() * 120),
+            duration: 1.4 + Math.random() * 0.8,
+            x: (Math.random() - 0.5) * 80,
+            y: (Math.random() - 0.5) * 24,
+            rot: (Math.random() - 0.5) * 220,
+        }))
+        setConfetti(burst)
+        const timer = window.setTimeout(() => setConfetti([]), 2000)
+        return () => window.clearTimeout(timer)
+    }, [showBandReveal])
+
     // Listen for sequencer-driven band-name hide cue
     useEffect(() => {
         const onHide = () => setShowBandReveal(false)
@@ -79,25 +183,31 @@ export default function UpgradeMenu() {
     }, [])
 
     // Poll for auto-install completion
+    const activeAutoInstall = isQueueRunning
+        ? installQueue[installQueueIndex] ?? null
+        : pendingAutoInstall
+
     useEffect(() => {
-        if (!pendingAutoInstall || !currentShip) return
+        if (!activeAutoInstall || !currentShip) return
 
         const isInstalled = installedUpgrades.some(
-            u => u.shipId === pendingAutoInstall.shipId && u.partName === pendingAutoInstall.partName
+            u => u.shipId === activeAutoInstall.shipId && u.partName === activeAutoInstall.partName
         )
 
         if (isInstalled) {
             setInstalling(null)
-            setLastInstalled(pendingAutoInstall.partName)
+            setLastInstalled(activeAutoInstall.partName)
             setHighlightedUpgradePart(null)
-            setPendingAutoInstall(null)
+            if (!isQueueRunning) {
+                setPendingAutoInstall(null)
+            }
 
             // Hide particle burst after animation
             setTimeout(() => {
                 setParticleBurst(prev => ({ ...prev, active: false }))
             }, 1000)
         }
-    }, [installedUpgrades, pendingAutoInstall, currentShip, setHighlightedUpgradePart, setPendingAutoInstall])
+    }, [activeAutoInstall, installedUpgrades, currentShip, isQueueRunning, setHighlightedUpgradePart, setPendingAutoInstall])
 
     // Clear highlight when menu unmounts or current ship changes
     useEffect(() => {
@@ -123,6 +233,55 @@ export default function UpgradeMenu() {
     const availableUpgrades = upgradeOptions.filter(opt => !installedPartNames.has(opt.partName))
     const progress = (shipUpgrades.length / upgradeOptions.length) * 100
     const shipColor = shipTypeColors[currentShip.type]
+    const queueableUpgrades = availableUpgrades.filter(opt => selectedForQueue.has(opt.partName))
+
+    useEffect(() => {
+        setSelectedForQueue((current) => {
+            const valid = new Set(availableUpgrades.map((option) => option.partName))
+            const next = new Set([...current].filter((partName) => valid.has(partName)))
+            if (next.size === current.size) {
+                let matches = true
+                next.forEach((partName) => {
+                    if (!current.has(partName)) matches = false
+                })
+                if (matches) return current
+            }
+            return next
+        })
+    }, [availableUpgrades])
+
+    const queuePreviewPoints = useMemo(() => {
+        if (queueableUpgrades.length < 2 || !currentShip) return []
+        const camera = getSceneCamera()
+        if (!camera) return []
+
+        const start = new THREE.Vector3(cranePosition.x, cranePosition.y, cranePosition.z)
+        const resolved = queueableUpgrades
+            .map((option) => {
+                const point = currentShip.attachmentPoints.find((item) => item.partName === option.partName)
+                if (!point) return null
+                return {
+                    shipId: currentShip.id,
+                    partName: option.partName,
+                    worldPos: new THREE.Vector3(
+                        currentShip.position[0] + point.position[0],
+                        currentShip.position[1] + point.position[1],
+                        currentShip.position[2] + point.position[2]
+                    ),
+                }
+            })
+            .filter((item): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
+
+        const ordered = optimizeQueueOrder(resolved, start)
+        return ordered
+            .map((item) => {
+                const point = resolved.find((resolvedItem) => resolvedItem.partName === item.partName)
+                return point?.worldPos ?? null
+            })
+            .filter((item): item is THREE.Vector3 => Boolean(item))
+            .map((point) => projectWorldToScreen(point, camera))
+            .filter((point): point is { x: number; y: number } => Boolean(point))
+    }, [cranePosition.x, cranePosition.y, cranePosition.z, currentShip, queueableUpgrades])
 
     const handleSelectUpgrade = (partName: string) => {
         // If already navigating to this one, do nothing
@@ -179,15 +338,88 @@ export default function UpgradeMenu() {
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
     const isMaxVersion = currentVersion === '2.0'
+    const genrePulseDuration = Math.max(0.45, 60 / bpm)
 
     const isNavigating = (partName: string) =>
-        pendingAutoInstall?.shipId === currentShip.id && pendingAutoInstall?.partName === partName
+        activeAutoInstall?.shipId === currentShip.id && activeAutoInstall?.partName === partName
 
     const isHighlighted = (partName: string) =>
         highlightedUpgradePart === partName && !isNavigating(partName)
 
+    const toggleQueueSelection = (partName: string) => {
+        setSelectedForQueue((current) => {
+            const next = new Set(current)
+            if (next.has(partName)) {
+                next.delete(partName)
+            } else {
+                next.add(partName)
+            }
+            return next
+        })
+    }
+
+    const startQueuedAutoInstall = () => {
+        if (!currentShip?.isDocked) return
+        const selected = availableUpgrades.filter((opt) => selectedForQueue.has(opt.partName))
+        if (selected.length === 0) return
+
+        const parts = selected
+            .map((option) => {
+                const point = currentShip.attachmentPoints.find((item) => item.partName === option.partName)
+                if (!point) return null
+                return {
+                    shipId: currentShip.id,
+                    partName: option.partName,
+                    worldPos: new THREE.Vector3(
+                        currentShip.position[0] + point.position[0],
+                        currentShip.position[1] + point.position[1],
+                        currentShip.position[2] + point.position[2]
+                    ),
+                }
+            })
+            .filter((item): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
+
+        if (parts.length === 0) return
+
+        const orderedQueue = optimizeQueueOrder(
+            parts,
+            new THREE.Vector3(cranePosition.x, cranePosition.y, cranePosition.z)
+        )
+
+        setInstalling(orderedQueue[0]?.partName ?? null)
+        setHighlightedUpgradePart(null)
+        setPendingAutoInstall(null)
+        setInstallQueue(orderedQueue)
+        setSelectedForQueue(new Set())
+    }
+
     return (
         <>
+            {isQueueRunning && (
+                <div style={queueStatusStyle}>
+                    <div style={queueStatusTextStyle}>
+                        {isQueuePaused
+                            ? `Waiting for ship ${queuePausedShipId?.slice(-6) || ''}...`
+                            : `Installing ${Math.min(installQueueIndex + 1, installQueue.length)} of ${installQueue.length} — ${formatPartLabel(activeAutoInstall?.partName || 'Pending')}`}
+                    </div>
+                    <button
+                        onClick={abortInstallQueue}
+                        style={queueAbortButtonStyle}
+                        aria-label="Abort install queue"
+                    >
+                        ✕
+                    </button>
+                    <div style={queueProgressBarBgStyle}>
+                        <div
+                            style={{
+                                ...queueProgressBarFillStyle,
+                                width: `${installQueue.length === 0 ? 0 : (installQueueIndex / installQueue.length) * 100}%`,
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* Main Upgrade Menu */}
             <div style={{ ...menuContainerStyle, ...(glow || {}) }}>
                 <div style={{
@@ -250,6 +482,7 @@ export default function UpgradeMenu() {
                             const navigating = isNavigating(option.partName)
                             const highlighted = isHighlighted(option.partName)
                             const justInstalled = lastInstalled === option.partName && !navigating
+                            const selected = selectedForQueue.has(option.partName)
 
                             return (
                                 <div
@@ -270,6 +503,18 @@ export default function UpgradeMenu() {
                                         opacity: navigating || !currentShip.isDocked ? 0.7 : 1,
                                     }}
                                 >
+                                    <label
+                                        style={queueCheckboxStyle}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selected}
+                                            onChange={() => toggleQueueSelection(option.partName)}
+                                            disabled={!currentShip.isDocked || navigating}
+                                        />
+                                    </label>
+
                                     {/* Clickable area for selection */}
                                     <div
                                         style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
@@ -378,6 +623,20 @@ export default function UpgradeMenu() {
                     </div>
                 )}
 
+                {selectedForQueue.size >= 2 && (
+                    <button
+                        onClick={startQueuedAutoInstall}
+                        disabled={!currentShip.isDocked}
+                        style={{
+                            ...queueButtonStyle,
+                            opacity: currentShip.isDocked ? 1 : 0.5,
+                            cursor: currentShip.isDocked ? 'pointer' : 'not-allowed',
+                        }}
+                    >
+                        Queue Auto-Install ({selectedForQueue.size})
+                    </button>
+                )}
+
                 {/* Installed summary */}
                 {shipUpgrades.length > 0 && availableUpgrades.length > 0 && (
                     <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #333' }}>
@@ -391,6 +650,24 @@ export default function UpgradeMenu() {
                     </div>
                 )}
             </div>
+
+            {queuePreviewPoints.length >= 2 && (
+                <svg
+                    style={queuePreviewOverlayStyle}
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
+                >
+                    <polyline
+                        points={queuePreviewPoints.map((point) => `${point.x},${point.y}`).join(' ')}
+                        fill="none"
+                        stroke="#00ffff"
+                        strokeWidth="2"
+                        strokeDasharray="6 8"
+                        opacity="0.45"
+                    />
+                </svg>
+            )}
 
             {/* Particle Burst Effect */}
             <ParticleBurst
@@ -430,11 +707,35 @@ export default function UpgradeMenu() {
             {/* Upgrade Complete Banner */}
             {showBandReveal && currentShip && (
                 <div style={upgradeCompleteBannerStyle}>
+                    {confetti.map((item) => (
+                        <div
+                            key={item.id}
+                            style={{
+                                ...confettiPieceStyle,
+                                left: `calc(${item.left}% + ${item.x}px)`,
+                                top: `calc(50% + ${item.y}px)`,
+                                background: `hsl(${item.hue} 95% 65%)`,
+                                animationDelay: `${item.delay}s`,
+                                animationDuration: `${item.duration}s`,
+                                transform: `rotate(${item.rot}deg)`,
+                            }}
+                        />
+                    ))}
                     <div style={bannerGlowLineStyle} />
                     <div style={bannerContentStyle}>
                         <div style={bannerLabelStyle}>UPGRADE COMPLETE</div>
-                        <div style={bannerBandNameStyle}>{bandName}</div>
-                        <div style={bannerGenreStyle}>{musicSystem.getBandInfo(currentShip.type).genre}</div>
+                        <div style={bannerBandNameStyle}>{typedBandName || bandName}</div>
+                        <div
+                            style={{
+                                ...bannerGenreStyle,
+                                animation: 'genre-pulse linear infinite',
+                                animationDuration: `${genrePulseDuration.toFixed(2)}s`,
+                                opacity: 0.75 + musicPulse * 0.25,
+                                textShadow: `0 0 ${10 + musicPulse * 16}px rgba(0,212,170,${0.2 + musicPulse * 0.4})`,
+                            }}
+                        >
+                            {musicSystem.getBandInfo(currentShip.type).genre}
+                        </div>
                         <button
                             style={watchLightShowButtonStyle}
                             onClick={() => {
@@ -462,6 +763,15 @@ export default function UpgradeMenu() {
                 @keyframes banner-slide-down {
                     from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
                     to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+                @keyframes confetti-burst {
+                    0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+                    12% { opacity: 1; }
+                    100% { opacity: 0; transform: translate3d(0, -180px, 0) rotate(540deg); }
+                }
+                @keyframes genre-pulse {
+                    0%, 100% { letter-spacing: 0.2px; }
+                    50% { letter-spacing: 0.8px; }
                 }
             `}</style>
         </>
@@ -654,4 +964,98 @@ const watchLightShowButtonStyle: React.CSSProperties = {
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     textTransform: 'uppercase',
+}
+
+const confettiPieceStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '8px',
+    height: '3px',
+    borderRadius: '999px',
+    pointerEvents: 'none',
+    opacity: 0,
+    animationName: 'confetti-burst',
+    animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    animationFillMode: 'forwards',
+    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.15))',
+}
+
+const queueStatusStyle: React.CSSProperties = {
+    position: 'absolute',
+    right: '20px',
+    bottom: '430px',
+    width: '280px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 12px',
+    background: 'rgba(0, 18, 24, 0.95)',
+    border: '1px solid rgba(0, 212, 170, 0.35)',
+    borderRadius: '10px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+    zIndex: 15,
+    pointerEvents: 'auto',
+}
+
+const queueStatusTextStyle: React.CSSProperties = {
+    flex: 1,
+    minWidth: 0,
+    color: '#bffef4',
+    fontSize: '11px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+}
+
+const queueAbortButtonStyle: React.CSSProperties = {
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    border: '1px solid rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#fff',
+    cursor: 'pointer',
+}
+
+const queueProgressBarBgStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '12px',
+    right: '12px',
+    bottom: '8px',
+    height: '4px',
+    background: 'rgba(0, 212, 170, 0.12)',
+    borderRadius: '999px',
+    overflow: 'hidden',
+}
+
+const queueProgressBarFillStyle: React.CSSProperties = {
+    height: '100%',
+    background: 'linear-gradient(90deg, #00d4aa, #00ffff)',
+    boxShadow: '0 0 8px rgba(0, 212, 170, 0.5)',
+    transition: 'width 0.25s ease',
+}
+
+const queueCheckboxStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: '8px',
+}
+
+const queueButtonStyle: React.CSSProperties = {
+    width: '100%',
+    marginTop: '10px',
+    padding: '10px 12px',
+    background: 'linear-gradient(135deg, rgba(0,212,170,0.22), rgba(0,255,255,0.12))',
+    border: '1px solid rgba(0, 212, 170, 0.45)',
+    borderRadius: '8px',
+    color: '#bffef4',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+}
+
+const queuePreviewOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    pointerEvents: 'none',
+    zIndex: 12,
 }

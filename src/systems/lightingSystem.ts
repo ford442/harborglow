@@ -85,7 +85,8 @@ class LightingSystem {
   // ============================================================================
   getLightIntensity(baseIntensity: number): number {
     if (!this.currentShow.isActive) return baseIntensity
-    return baseIntensity * this.intensityMultiplier * (1 + this.beatPulse * 0.5)
+    const quantizedBeat = Math.floor(this.beatPulse * 4) / 4
+    return baseIntensity * this.intensityMultiplier * (1 + quantizedBeat * 0.5)
   }
 
   getEmissiveColor(baseColor: string, shipId: string): string {
