@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
+import { KeyboardControls } from '@react-three/drei'
 import { Leva } from 'leva'
 import { useGameStore } from './store/useGameStore'
 import { loadGameState } from './utils/storage_manager'
@@ -17,6 +18,15 @@ import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
 const MainScene = lazy(() => import(/* webpackChunkName: "main-scene" */ './scenes/MainScene'))
+
+const WALKING_CONTROL_MAP = [
+    { name: 'forward', keys: ['KeyW'] },
+    { name: 'backward', keys: ['KeyS'] },
+    { name: 'left', keys: ['KeyA'] },
+    { name: 'right', keys: ['KeyD'] },
+    { name: 'jump', keys: ['Space'] },
+    { name: 'sprint', keys: ['ShiftLeft', 'ShiftRight'] },
+]
 
 // =============================================================================
 // APP COMPONENT
@@ -216,14 +226,16 @@ function App() {
                 }}
             >
                 <Suspense fallback={<SceneFallback />}>
-                    <Physics gravity={[0, -9.81, 0]}>
-                        {/*
-                          Operator Cabin Experience:
-                          - Default: 4-camera multiview (multiview mode)
-                          - Press 'C' to toggle Immersive Cab Mode (first-person)
-                        */}
-                        <MainScene harborTheme={harborTheme()} />
-                    </Physics>
+                    <KeyboardControls map={WALKING_CONTROL_MAP}>
+                        <Physics gravity={[0, -9.81, 0]}>
+                            {/*
+                              Operator Cabin Experience:
+                              - Default: 4-camera multiview (multiview mode)
+                              - Press 'C' to toggle Immersive Cab Mode (first-person)
+                            */}
+                            <MainScene harborTheme={harborTheme()} />
+                        </Physics>
+                    </KeyboardControls>
                 </Suspense>
             </Canvas>
             

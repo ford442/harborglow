@@ -167,7 +167,7 @@ function createOrbitPath(
 }
 
 // Camera system hook
-export function useCinematicCamera() {
+export function useCinematicCamera(enabled = true) {
   const { camera } = useThree()
   const ships = useGameStore(state => state.ships)
   const currentShipId = useGameStore(state => state.currentShipId)
@@ -357,6 +357,7 @@ export function useCinematicCamera() {
   
   // Main camera update loop
   useFrame((state, delta) => {
+    if (!enabled) return
     // Allow tug spectator to run even without a current ship
     if (!currentShip && !tugSpectatorActive) return
     

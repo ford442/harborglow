@@ -1,8 +1,3 @@
-// =============================================================================
-// ENHANCED HUD - Phase 7-8 Polish
-// Camera multiview, crane indicators, ship status panel
-// =============================================================================
-
 import { useEffect } from 'react'
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
@@ -44,13 +39,44 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const currentShipId = useGameStore(state => state.currentShipId)
   const ships = useGameStore(state => state.ships)
   const currentShip = ships.find(s => s.id === currentShipId)
-  const gameMode = useGameStore(state => state.gameMode)
+  const operationMode = useGameStore(state => state.operationMode)
+  const cameraMode = useGameStore(state => state.cameraMode)
+  const walkingPosition = useGameStore(state => state.walkingPosition)
+  const walkingSpawnPoint = useGameStore(state => state.walkingSpawnPoint)
+  const beginWalkingFromCab = useGameStore(state => state.beginWalkingFromCab)
+  const returnToCraneFromWalking = useGameStore(state => state.returnToCraneFromWalking)
+
+  const isCraneMode = operationMode === 'crane'
+  const isWalkingMode = operationMode === 'walking'
+  const canLeaveCab = isCraneMode && cameraMode === 'crane-cockpit'
+
+  const dx = walkingPosition[0] - walkingSpawnPoint[0]
+  const dz = walkingPosition[2] - walkingSpawnPoint[2]
+  const canEnterCab = isWalkingMode && Math.sqrt(dx * dx + dz * dz) <= 4.2
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || event.key.toLowerCase() !== 'f') return
+      const activeTag = document.activeElement?.tagName
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return
+      if (canLeaveCab) {
+        beginWalkingFromCab()
+        return
+      }
+      if (canEnterCab) {
+        returnToCraneFromWalking()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [beginWalkingFromCab, canEnterCab, canLeaveCab, returnToCraneFromWalking])
   
   return (
     <div style={hudContainerStyle}>
-      <OperatorCabinUI onOpenTraining={onOpenTraining} />
+      {isCraneMode && <OperatorCabinUI onOpenTraining={onOpenTraining} />}
       
-      <ModeToggle />
+      {!isWalkingMode && <ModeToggle />}
       
       <TopBar currentShip={currentShip} ships={ships} />
       
@@ -66,27 +92,66 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       
       <WaveHeightDebug />
       
-      {currentShip && <ShipStatusPanel ship={currentShip} />}
+      {currentShip && !isWalkingMode && <ShipStatusPanel ship={currentShip} />}
       
-      <CameraMultiviewControls />
+      {isCraneMode && <CameraMultiviewControls />}
       
-      <CraneControlIndicators />
+      {isCraneMode && <CraneControlIndicators />}
       
-      <ShipSpawner />
-      <UpgradeMenu />
+      {isCraneMode && <ShipSpawner />}
+      {isCraneMode && <UpgradeMenu />}
       <LyricsDisplay />
-      <ShipVersionDisplay />
-      <CraneControls />
+      {!isWalkingMode && <ShipVersionDisplay />}
+      {isCraneMode && <CraneControls />}
       
-      <DynamicEventNotifier />
+      {!isWalkingMode && <DynamicEventNotifier />}
       
-      <ReputationPanel />
+      {!isWalkingMode && <ReputationPanel />}
       
-      <CreditFeedback />
+      {!isWalkingMode && <CreditFeedback />}
       
       <TugboatWelcomeHandler />
       
       <HotkeyHints />
+
+      {canLeaveCab && (
+        <div style={transitionPromptStyle}>
+          Press <kbd style={keyHintStyle}>F</kbd> to leave cab
+        </div>
+      )}
+
+      {canEnterCab && (
+        <div style={transitionPromptStyle}>
+          Press <kbd style={keyHintStyle}>F</kbd> to enter cab
+        </div>
+      )}
     </div>
   )
+}
+
+const transitionPromptStyle: React.CSSProperties = {
+  position: 'absolute',
+  left: '50%',
+  bottom: '28px',
+  transform: 'translateX(-50%)',
+  color: '#f2f6ff',
+  background: 'rgba(12, 18, 28, 0.72)',
+  border: '1px solid rgba(130, 192, 255, 0.45)',
+  borderRadius: '8px',
+  padding: '10px 14px',
+  fontSize: '13px',
+  fontWeight: 600,
+  letterSpacing: '0.3px',
+  pointerEvents: 'none',
+}
+
+const keyHintStyle: React.CSSProperties = {
+  display: 'inline-block',
+  margin: '0 4px',
+  padding: '1px 6px',
+  borderRadius: '4px',
+  border: '1px solid rgba(255,255,255,0.4)',
+  background: 'rgba(255,255,255,0.12)',
+  fontFamily: '"JetBrains Mono", monospace',
+  fontSize: '12px',
 }

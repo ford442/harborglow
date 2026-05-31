@@ -13,6 +13,7 @@ export default function ModeToggle() {
 
   const handleToggle = useCallback(() => {
     if (transitioning) return
+    if (operationMode === 'walking') return
     const nextMode = operationMode === 'crane' ? 'tugboat' : 'crane'
     setTransitioning(true)
     setOperationMode(nextMode)
@@ -23,6 +24,7 @@ export default function ModeToggle() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'm' || e.key === 'M') {
+        if (operationMode === 'walking') return
         // Don't steal focus from inputs
         const tag = document.activeElement?.tagName
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
@@ -31,7 +33,9 @@ export default function ModeToggle() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleToggle])
+  }, [handleToggle, operationMode])
+
+  if (operationMode === 'walking') return null
 
   const isTugboat = operationMode === 'tugboat'
 

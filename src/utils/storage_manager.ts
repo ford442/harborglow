@@ -32,7 +32,7 @@ export type GameState = {
     underwater?: string;
   };
   // Tugboat mode state
-  operationMode?: 'crane' | 'tugboat';
+  operationMode?: 'crane' | 'tugboat' | 'walking';
   tugboatState?: {
     position: [number, number, number];
     velocity: [number, number, number];

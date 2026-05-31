@@ -44,6 +44,33 @@ export default function HotkeyHints() {
     )
   }
 
+  if (operationMode === 'walking') {
+    return (
+      <div style={hotkeyHintsContainerStyle}>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>WASD</kbd>
+          <span style={hotkeyTextStyle}>Walk</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>SHIFT</kbd>
+          <span style={hotkeyTextStyle}>Sprint</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>SPACE</kbd>
+          <span style={hotkeyTextStyle}>Jump</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>F</kbd>
+          <span style={hotkeyTextStyle}>Enter Cab</span>
+        </div>
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>CLICK</kbd>
+          <span style={hotkeyTextStyle}>Lock Mouse</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={hotkeyHintsContainerStyle}>
       <div style={hotkeyHintStyle}>

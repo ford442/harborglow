@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 
-export function useCameraTransition() {
+export function useCameraTransition(enabled = true) {
   const { camera } = useThree()
   const operationMode = useGameStore((s) => s.operationMode)
   const prevModeRef = useRef(operationMode)
@@ -22,6 +22,7 @@ export function useCameraTransition() {
   })
 
   useEffect(() => {
+    if (!enabled) return
     if (prevModeRef.current !== operationMode) {
       // Trigger transition
       const t = transitionRef.current
@@ -41,9 +42,10 @@ export function useCameraTransition() {
 
       prevModeRef.current = operationMode
     }
-  }, [operationMode, camera])
+  }, [enabled, operationMode, camera])
 
   useFrame((_, delta) => {
+    if (!enabled) return
     const t = transitionRef.current
     if (!t.active) return
 

@@ -28,7 +28,9 @@ import Crane from './Crane'
 import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
 import DistressedShip from './DistressedShip'
+import Player from './Player'
 import Dock from './Dock'
+import DockWalkEnvironment from './DockWalkEnvironment'
 import BaseHarborLighting from './BaseHarborLighting'
 import Water from './Water'
 import FoamSystem from './FoamSystem'
@@ -160,8 +162,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     )
 
     // Initialize systems
-    useCinematicCamera()
-    useCameraTransition()
+    const cameraHooksEnabled = operationMode !== 'walking'
+    useCinematicCamera(cameraHooksEnabled)
+    useCameraTransition(cameraHooksEnabled)
     const { audioData } = useAudioVisualSync()
 
     // Tugboat mode: spawn objectives when entering tugboat mode
@@ -500,8 +503,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <Dock isNight={isNight} />
             
             {/* Crane or Tugboat depending on mode */}
-            {operationMode === 'crane' && <Crane />}
+            {(operationMode === 'crane' || operationMode === 'walking') && <Crane />}
             {operationMode === 'tugboat' && <Tugboat />}
+            {operationMode === 'walking' && <Player />}
+            <DockWalkEnvironment isNight={isNight} />
             
             {/* On-Dock Rail System */}
             <OnDockRail isNight={isNight} />
@@ -599,7 +604,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     // RENDER: Based on cabin view mode
     // ================================================================
     
-    if (cabinViewMode === 'immersive') {
+    if (operationMode === 'crane' && cabinViewMode === 'immersive') {
         // IMMERSIVE CAB MODE - First person inside cabin
         return (
             <>
@@ -614,7 +619,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     return (
         <>
             {/* Main Camera - Crane Cab POV (hidden in tugboat mode; helm cam is inside Tugboat.tsx) */}
-            {operationMode !== 'tugboat' && (
+            {operationMode === 'crane' && (
                 <PerspectiveCamera
                     makeDefault
                     position={[18, 24, 8]}
@@ -1499,10 +1504,10 @@ function useLevaControls(config: LevaControlsConfig) {
         // Tugboat Mode Controls
         'Force Operation Mode': {
             value: 'crane',
-            options: ['crane', 'tugboat'],
+            options: ['crane', 'tugboat', 'walking'],
             folder: 'Tugboat Mode',
             onChange: (value: string) => {
-                useGameStore.getState().setOperationMode(value as 'crane' | 'tugboat')
+                useGameStore.getState().setOperationMode(value as 'crane' | 'tugboat' | 'walking')
             }
         },
         'Storm Duration': {

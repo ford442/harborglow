@@ -41,7 +41,7 @@ export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-t
                          'spectator' | 'transition' | 'crane' | 'booth'
 export type CabinViewMode = 'multiview' | 'immersive'
 export type GameMode = 'sandbox' | 'training'
-export type OperationMode = 'crane' | 'tugboat'
+export type OperationMode = 'crane' | 'tugboat' | 'walking'
 export type SeaEventType = 'milky_seas' | 'whale_migration' | 'shark_patrol' | 'meteor_shower' | 'bioluminescent_bloom' | 'none'
 
 // HarborGlow Bay Research-Based Events
@@ -495,6 +495,11 @@ interface GameState extends SerializableState {
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
+    walkingPosition: [number, number, number]
+    walkingVelocity: [number, number, number]
+    walkingSpawnPoint: [number, number, number]
+    walkingReturnCameraMode: CameraMode
+    walkingReturnCabinViewMode: CabinViewMode
     
     // Actions
     addShip: (ship: Ship) => void
@@ -564,6 +569,9 @@ interface GameState extends SerializableState {
     addReputation: (amount: number) => void
     // Tugboat mode
     setOperationMode: (mode: OperationMode) => void
+    beginWalkingFromCab: () => void
+    returnToCraneFromWalking: () => void
+    updateWalkingState: (position: [number, number, number], velocity: [number, number, number]) => void
     updateTugboatState: (patch: Partial<TugboatState>) => void
     setTugboatObjectives: (objectives: TugboatObjective[]) => void
     markTugboatFirstTimeViewed: () => void
@@ -595,6 +603,7 @@ const defaultState: Omit<GameState, keyof {
     pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
     recallPinnedViewportCamera: unknown; setFocusedViewport: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
+    beginWalkingFromCab: unknown; returnToCraneFromWalking: unknown; updateWalkingState: unknown;
     addHarborEvent: unknown; removeHarborEvent: unknown; setEventEnabled: unknown;
     setCurrentHarbor: unknown; setCabinViewMode: unknown; setGameTime: unknown;
     setAttachmentSystemConfig: unknown; clearLastInstallation: unknown;
@@ -664,6 +673,11 @@ const defaultState: Omit<GameState, keyof {
     focusedViewport: null,
     wildlife: [],
     activeSeaEvent: null,
+    walkingPosition: [2, 0.2, 7],
+    walkingVelocity: [0, 0, 0],
+    walkingSpawnPoint: [2, 0.2, 7],
+    walkingReturnCameraMode: 'crane-cockpit' as CameraMode,
+    walkingReturnCabinViewMode: 'multiview' as CabinViewMode,
     activeHarborEvents: [],
     gameTime: null,
     eventEnabledSettings: {
@@ -951,6 +965,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             },
             focusedViewport: null,
             operationMode: 'crane',
+            walkingPosition: [2, 0.2, 7],
+            walkingVelocity: [0, 0, 0],
+            walkingSpawnPoint: [2, 0.2, 7],
+            walkingReturnCameraMode: 'crane-cockpit',
+            walkingReturnCabinViewMode: 'multiview',
             tugboatState: {
                 position: [20, 0.5, 10],
                 velocity: [0, 0, 0],
@@ -1030,7 +1049,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     drone: isCameraPresetId(saved.dashboardPresets?.drone) ? saved.dashboardPresets.drone : DEFAULT_STORE_DASHBOARD_PRESETS.drone,
                     underwater: isCameraPresetId(saved.dashboardPresets?.underwater) ? saved.dashboardPresets.underwater : DEFAULT_STORE_DASHBOARD_PRESETS.underwater,
                 },
-                operationMode: saved.operationMode ?? 'crane',
+                operationMode: (['crane', 'tugboat', 'walking'] as const).includes((saved.operationMode ?? 'crane') as OperationMode)
+                    ? ((saved.operationMode ?? 'crane') as OperationMode)
+                    : 'crane',
                 tugboatState: saved.tugboatState ? {
                     ...saved.tugboatState,
                     portEngineRpm: (saved.tugboatState as TugboatState).portEngineRpm ?? 0,
@@ -1420,6 +1441,40 @@ export const useGameStore = create<GameState>((set, get) => ({
         set(patch)
         scheduleSave({ ...get(), ...patch })
         console.log(`🚤 Operation mode: ${mode}`)
+    },
+
+    beginWalkingFromCab: () => {
+        const state = get()
+        if (state.operationMode !== 'crane' || state.cameraMode !== 'crane-cockpit') return
+        const patch = {
+            operationMode: 'walking' as OperationMode,
+            walkingPosition: [...state.walkingSpawnPoint] as [number, number, number],
+            walkingVelocity: [0, 0, 0] as [number, number, number],
+            walkingReturnCameraMode: state.cameraMode,
+            walkingReturnCabinViewMode: state.cabinViewMode,
+            cameraMode: 'orbit' as CameraMode,
+        }
+        set(patch)
+        scheduleSave({ ...get(), ...patch })
+    },
+
+    returnToCraneFromWalking: () => {
+        const state = get()
+        if (state.operationMode !== 'walking') return
+        const patch = {
+            operationMode: 'crane' as OperationMode,
+            cameraMode: state.walkingReturnCameraMode || 'crane-cockpit',
+            cabinViewMode: state.walkingReturnCabinViewMode || 'multiview',
+        }
+        set(patch)
+        scheduleSave({ ...get(), ...patch })
+    },
+
+    updateWalkingState: (position, velocity) => {
+        set({
+            walkingPosition: position,
+            walkingVelocity: velocity
+        })
     },
     
     updateTugboatState: (patch: Partial<TugboatState>) => set((state) => ({
