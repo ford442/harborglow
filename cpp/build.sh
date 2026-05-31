@@ -14,7 +14,24 @@
 
 set -euo pipefail
 cd "$(dirname "$0")"
-source /content/buil*/emsdk/emsdk_env.sh
+
+EMSDK_ENV=""
+for candidate in "${EMSDK_ENV:-}" /content/buil*/emsdk/emsdk_env.sh "$HOME"/emsdk/emsdk_env.sh; do
+  if [[ -n "$candidate" && -f "$candidate" ]]; then
+    EMSDK_ENV="$candidate"
+    break
+  fi
+done
+
+if [[ -n "$EMSDK_ENV" ]]; then
+  # shellcheck source=/dev/null
+  source "$EMSDK_ENV"
+fi
+
+if ! command -v em++ &>/dev/null; then
+  echo "⚠️  Emscripten SDK not found; skipping wasm build."
+  exit 0
+fi
 
 # ---------------------------------------------------------------------------
 # Check Emscripten

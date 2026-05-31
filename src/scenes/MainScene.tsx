@@ -29,6 +29,7 @@ import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
 import DistressedShip from './DistressedShip'
 import Dock from './Dock'
+import BaseHarborLighting from './BaseHarborLighting'
 import Water from './Water'
 import FoamSystem from './FoamSystem'
 import { stormSystem } from '../systems/StormSystem'
@@ -40,6 +41,7 @@ import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
 import { VolumetricLightCone } from './VolumetricLighting'
+import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
 import WildlifeRenderer from './Wildlife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
@@ -483,6 +485,14 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                     installedUpgrades={installedUpgrades}
                 />
             )}
+            <BaseHarborLighting />
+            <SpectatorNightCinematicEffects
+                isNight={isNight}
+                lightIntensity={lightIntensity}
+                spectatorState={spectatorState}
+                ships={ships}
+                spectatorAngleRef={spectatorAngleRef}
+            />
 
             {/* Scene Objects */}
             <Water isNight={isNight} />
@@ -785,6 +795,129 @@ function WaterLightVolumes({
                     distance={20}
                 />
             )}
+        </>
+    )
+}
+
+function SpectatorNightCinematicEffects({
+    isNight,
+    lightIntensity,
+    spectatorState,
+    ships,
+    spectatorAngleRef,
+}: {
+    isNight: boolean
+    lightIntensity: number
+    spectatorState: { isActive: boolean; targetShipId: string | null; startTime: number; duration: number }
+    ships: Ship[]
+    spectatorAngleRef: React.MutableRefObject<number>
+}) {
+    const keyLightRef = useRef<THREE.SpotLight>(null)
+    const keyTargetRef = useRef<THREE.Object3D>(null)
+    const boostRef = useRef(0)
+    const rayPrimaryRef = useRef<THREE.Mesh>(null)
+    const raySecondaryRef = useRef<THREE.Mesh>(null)
+
+    const primaryRayMaterial = useMemo(() => buildGodRayMaterial(), [])
+    const secondaryRayMaterial = useMemo(() => buildGodRayMaterial(), [])
+
+    useEffect(() => {
+        primaryRayMaterial.uniforms.uColor.value = new THREE.Color('#8bd4ff')
+        secondaryRayMaterial.uniforms.uColor.value = new THREE.Color('#ffb572')
+        if (keyLightRef.current && keyTargetRef.current) {
+            keyLightRef.current.target = keyTargetRef.current
+        }
+        return () => {
+            primaryRayMaterial.dispose()
+            secondaryRayMaterial.dispose()
+        }
+    }, [primaryRayMaterial, secondaryRayMaterial])
+
+    useFrame((state) => {
+        const targetShip = spectatorState.targetShipId
+            ? ships.find((s) => s.id === spectatorState.targetShipId)
+            : undefined
+        const enabled = isNight && spectatorState.isActive && !!targetShip
+        const beat = lightingSystem.getBeatPulse()
+        const nowSec = Date.now() / 1000
+
+        const duration = Math.max(1, spectatorState.duration || 10)
+        const elapsed = enabled ? Math.max(0, nowSec - spectatorState.startTime / 1000) : 0
+        const fadeIn = THREE.MathUtils.clamp(elapsed / 1.25, 0, 1)
+        const fadeOut = THREE.MathUtils.clamp((duration - elapsed) / 1.5, 0, 1)
+        const targetBoost = enabled
+            ? fadeIn * fadeOut * (0.75 + beat * 0.3) * Math.max(0.25, lightIntensity / 1.5)
+            : 0
+        boostRef.current = THREE.MathUtils.lerp(boostRef.current, targetBoost, 0.08)
+
+        const boost = boostRef.current
+        if (!targetShip) {
+            if (keyLightRef.current) keyLightRef.current.intensity = 0
+            primaryRayMaterial.uniforms.uIntensity.value = 0
+            secondaryRayMaterial.uniforms.uIntensity.value = 0
+            return
+        }
+
+        const shipPos = targetShip.position
+        const orbitAhead = spectatorAngleRef.current + Math.PI / 5
+        const orbitRadius = Math.max(12, targetShip.length * 0.7)
+        const shimmer = 0.85 + Math.sin(state.clock.elapsedTime * 0.55) * 0.15
+
+        if (keyLightRef.current) {
+            keyLightRef.current.position.set(
+                shipPos[0] + Math.cos(orbitAhead) * orbitRadius,
+                shipPos[1] + 8 + Math.sin(state.clock.elapsedTime * 0.3) * 0.5,
+                shipPos[2] + Math.sin(orbitAhead) * orbitRadius
+            )
+            if (keyTargetRef.current) {
+                keyTargetRef.current.position.set(shipPos[0], shipPos[1] + 3.2, shipPos[2])
+                keyTargetRef.current.updateMatrixWorld()
+            }
+            keyLightRef.current.intensity = 1.8 * boost * shimmer
+            keyLightRef.current.distance = 34
+            keyLightRef.current.angle = Math.PI / 6
+        }
+
+        if (rayPrimaryRef.current) {
+            rayPrimaryRef.current.position.set(shipPos[0], shipPos[1] + 8.5, shipPos[2] - targetShip.length * 0.12)
+            rayPrimaryRef.current.rotation.set(0.14, orbitAhead, 0.18)
+        }
+        if (raySecondaryRef.current) {
+            raySecondaryRef.current.position.set(
+                shipPos[0] + Math.cos(orbitAhead + 0.8) * 3.8,
+                shipPos[1] + 6.8,
+                shipPos[2] + Math.sin(orbitAhead + 0.8) * 3.8
+            )
+            raySecondaryRef.current.rotation.set(0.22, orbitAhead + 0.9, -0.16)
+        }
+
+        primaryRayMaterial.uniforms.uIntensity.value = 0.8 * boost * (0.85 + beat * 0.2)
+        secondaryRayMaterial.uniforms.uIntensity.value = 0.52 * boost * (0.8 + beat * 0.15)
+        updateGodRay(primaryRayMaterial, state.clock.elapsedTime)
+        updateGodRay(secondaryRayMaterial, state.clock.elapsedTime + 0.65)
+    })
+
+    return (
+        <>
+            <object3D ref={keyTargetRef} />
+            <spotLight
+                ref={keyLightRef}
+                color="#ffd7a6"
+                intensity={0}
+                angle={Math.PI / 6}
+                penumbra={0.55}
+                distance={32}
+                decay={2}
+            />
+
+            <mesh ref={rayPrimaryRef}>
+                <coneGeometry args={[2.1, 16, 18, 1, true]} />
+                <primitive object={primaryRayMaterial} attach="material" />
+            </mesh>
+            <mesh ref={raySecondaryRef}>
+                <coneGeometry args={[1.55, 13, 14, 1, true]} />
+                <primitive object={secondaryRayMaterial} attach="material" />
+            </mesh>
         </>
     )
 }

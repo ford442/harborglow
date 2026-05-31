@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { AudioAnalysisData } from '../systems/audioVisualSync'
+import { useControls } from 'leva'
 
 // =============================================================================
 // POLISHED POST-PROCESSING STACK
@@ -117,9 +118,27 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
   const bpm = useGameStore(state => state.bpm)
   const ships = useGameStore(state => state.ships)
   const currentShipId = useGameStore(state => state.currentShipId)
+  const spectatorState = useGameStore(state => state.spectatorState)
   
   const config = QUALITY_CONFIGS[qualityPreset]
   const currentShip = ships.find(s => s.id === currentShipId)
+  const cinematicTargetShip = spectatorState.targetShipId
+    ? ships.find(s => s.id === spectatorState.targetShipId)
+    : undefined
+  const cinematicBoostRef = useRef(0)
+  const baseRadiance = isNight
+    ? (timeOfDay >= 20 && timeOfDay < 22 ? 1.06 : 1.1)
+    : (timeOfDay >= 17 && timeOfDay < 20 ? 1.03 : 1)
+
+  const {
+    'Night Spectator Boost': cinematicNightBoost,
+    'Bloom Boost %': cinematicBloomBoost,
+    'Color Lift': cinematicColorLift,
+  } = useControls('Cinematic', {
+    'Night Spectator Boost': { value: 1, min: 0, max: 2, step: 0.05 },
+    'Bloom Boost %': { value: 0.32, min: 0, max: 0.8, step: 0.02 },
+    'Color Lift': { value: 0.14, min: 0, max: 0.4, step: 0.02 },
+  })
   
   // Check for light show activity
   const lightShowActive = useMemo(() => ships.some(s => s.version === '2.0'), [ships])
@@ -238,18 +257,35 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
       beatRef.current.pulse = THREE.MathUtils.lerp(beatRef.current.pulse, 0.0, 0.15)
     }
     
+    const spectatorNightActive = isNight && spectatorState.isActive && !!cinematicTargetShip
+    const duration = Math.max(1, spectatorState.duration || 10)
+    const elapsed = spectatorNightActive ? (Date.now() - spectatorState.startTime) / 1000 : 0
+    const fadeIn = THREE.MathUtils.clamp(elapsed / 1.3, 0, 1)
+    const fadeOut = THREE.MathUtils.clamp((duration - elapsed) / 1.6, 0, 1)
+    const cinematicTargetBoost = spectatorNightActive
+      ? fadeIn * fadeOut * cinematicNightBoost
+      : 0
+    cinematicBoostRef.current = THREE.MathUtils.lerp(
+      cinematicBoostRef.current,
+      cinematicTargetBoost,
+      0.08
+    )
+
     // Update bloom
     if (bloomPassRef.current) {
       const baseIntensity = config.bloom.intensity * (isNight ? 1.3 : 0.9)
       // PHASE 8: Audio-reactive bloom boost
       const audioBoost = audioData ? audioData.bass * 0.5 + audioData.envelope * 0.3 : 0
-      bloomPassRef.current.strength = baseIntensity * beatRef.current.intensity * (1 + audioBoost)
+      const cinematicBloom = 1 + cinematicBoostRef.current * cinematicBloomBoost
+      bloomPassRef.current.strength = baseIntensity * baseRadiance * beatRef.current.intensity * (1 + audioBoost) * cinematicBloom
       
       // PHASE 8: Modulate bloom threshold with audio envelope
       if (audioData) {
         const baseThreshold = config.bloom.threshold
         // Lower threshold during high energy = more bloom
-        bloomPassRef.current.threshold = baseThreshold - audioData.energy * 0.1
+        bloomPassRef.current.threshold = baseThreshold - audioData.energy * 0.1 - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
+      } else {
+        bloomPassRef.current.threshold = config.bloom.threshold - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
       }
     }
     
@@ -257,6 +293,18 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     if (colorPassRef.current) {
       colorPassRef.current.uniforms.uTime.value = time
       colorPassRef.current.uniforms.uBeatPulse.value = beatRef.current.pulse
+
+      // Night spectator cinematic push (temporary, smoothly blended).
+      const lut = getTimeLUT()
+      const colorBoost = cinematicBoostRef.current * cinematicColorLift
+      colorPassRef.current.uniforms.uBrightness.value = lut.brightness + colorBoost * 0.06 + (baseRadiance - 1) * 0.03
+      colorPassRef.current.uniforms.uSaturation.value = lut.saturation + colorBoost * 0.22
+      colorPassRef.current.uniforms.uWarmth.value = lut.warmth + colorBoost * 0.12
+      colorPassRef.current.uniforms.uHighlights.value.set(
+        lut.highlights[0] + colorBoost * 0.12,
+        lut.highlights[1] + colorBoost * 0.14,
+        lut.highlights[2] + colorBoost * 0.2
+      )
       
       // Update DOF focus if enabled
       if (currentShip && config.dof) {

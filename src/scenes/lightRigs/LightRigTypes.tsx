@@ -1,11 +1,10 @@
-import { useRef, useMemo, useEffect, useState, Dispatch, SetStateAction } from 'react'
+import { useRef, useMemo, useEffect, useState, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import * as Tone from 'tone'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../../store/useGameStore'
 import { useShaderTime } from './LightRigAnimations'
 import { SparkEffect } from './SparkEffect'
-import { sequencerSystem } from '../../systems/sequencerSystem'
+import { useBeatAlignedPowerOn } from './useBeatAlignedPowerOn'
 
 interface LightRigProps {
   position: [number, number, number]
@@ -13,41 +12,6 @@ interface LightRigProps {
   shipId: string
   installed?: boolean
   onInstallComplete?: () => void
-}
-
-// =============================================================================
-// SHARED HOOK — BEAT-ALIGNED POWER-ON KICKOFF
-// Replaces the old per-component setTimeout with a Tone.js Transport cue so
-// that the rig lights snap on exactly on the beat.
-//
-// Beat offsets are staggered across rig types (0.25 → 1.25) to give a
-// cascade-on-the-beat effect that preserves the original sequential feel.
-//
-// Fallback: if the Transport is not yet started (e.g. music hasn't begun),
-// a plain setTimeout fires after 500 ms so the rig still lights up.
-// =============================================================================
-
-function usePowerOnSequence(
-  installProgress: number,
-  powerOnProgress: number,
-  setPowerOnProgress: Dispatch<SetStateAction<number>>,
-  beatOffset: number
-): void {
-  useEffect(() => {
-    // Guard: only schedule when install just completed and power-on hasn't begun.
-    if (installProgress < 1 || powerOnProgress > 0) return
-
-    const transport = Tone.getTransport()
-
-    if (transport.state !== 'started') {
-      // Transport not running — fall back to wall-clock so the rig still lights up.
-      const fb = setTimeout(() => setPowerOnProgress(0.1), 500)
-      return () => clearTimeout(fb)
-    }
-
-    const id = sequencerSystem.schedule(beatOffset, () => setPowerOnProgress(0.1))
-    return () => sequencerSystem.cancel(id)
-  }, [installProgress, powerOnProgress, setPowerOnProgress, beatOffset])
 }
 
 // =============================================================================
@@ -62,9 +26,10 @@ export function LEDStripArray({
 }: LightRigProps) {
   const groupRef = useRef<THREE.Group>(null)
   const ledsRef = useRef<THREE.InstancedMesh>(null)
+  const glowRef = useRef<THREE.PointLight>(null)
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
-  const [powerOnProgress, setPowerOnProgress] = useState(installed ? 1 : 0)
   const [sparks, setSparks] = useState<Array<{ id: number; pos: THREE.Vector3; time: number }>>([])
+  const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 0.25, 0.95)
 
   const bpm = useGameStore(state => state.bpm)
   const time = useThree().clock.elapsedTime
@@ -101,22 +66,9 @@ export function LEDStripArray({
     }
   }, [installed, installProgress, onInstallComplete, position])
 
-  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
-  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.25)
-
-  // Power on sequence
-  useEffect(() => {
-    if (powerOnProgress > 0 && powerOnProgress < 1) {
-      const interval = setInterval(() => {
-        setPowerOnProgress(prev => Math.min(1, prev + 0.05))
-      }, 50)
-      return () => clearInterval(interval)
-    }
-  }, [powerOnProgress])
-
   // Update LED colors based on music
   useFrame(state => {
-    if (!ledsRef.current || powerOnProgress < 1) return
+    if (!ledsRef.current || !isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
@@ -144,6 +96,10 @@ export function LEDStripArray({
     ledsRef.current.instanceMatrix.needsUpdate = true
     if (ledsRef.current.instanceColor) {
       ledsRef.current.instanceColor.needsUpdate = true
+    }
+
+    if (glowRef.current) {
+      glowRef.current.intensity = progressRef.current * 5
     }
   })
 
@@ -202,9 +158,10 @@ export function LEDStripArray({
       ))}
 
       {/* Power on glow effect */}
-      {powerOnProgress > 0 && powerOnProgress < 1 && (
+      {isPoweredOn && (
         <pointLight
-          intensity={powerOnProgress * 5}
+          ref={glowRef}
+          intensity={0}
           distance={10}
           color="#00ffff"
         />
@@ -225,9 +182,10 @@ export function MovingHeadSpotlight({
 }: LightRigProps) {
   const headRef = useRef<THREE.Group>(null)
   const beamRef = useRef<THREE.Mesh>(null)
+  const spotRef = useRef<THREE.SpotLight>(null)
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
-  const [powerOnProgress, setPowerOnProgress] = useState(installed ? 1 : 0)
   const [sparks, setSparks] = useState<Array<{ id: number; pos: THREE.Vector3 }>>([])
+  const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 0.5, 1.19)
 
   const bpm = useGameStore(state => state.bpm)
 
@@ -254,21 +212,9 @@ export function MovingHeadSpotlight({
     }
   }, [installed, installProgress, onInstallComplete, position])
 
-  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
-  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.5)
-
-  useEffect(() => {
-    if (powerOnProgress > 0 && powerOnProgress < 1) {
-      const interval = setInterval(() => {
-        setPowerOnProgress(prev => Math.min(1, prev + 0.04))
-      }, 60)
-      return () => clearInterval(interval)
-    }
-  }, [powerOnProgress])
-
   // Moving head animation
   useFrame(state => {
-    if (!headRef.current || powerOnProgress < 1) return
+    if (!headRef.current || !isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
@@ -280,6 +226,17 @@ export function MovingHeadSpotlight({
 
     headRef.current.rotation.y = Math.sin(time * panSpeed) * 0.8
     headRef.current.rotation.x = Math.sin(time * tiltSpeed) * 0.4 - 0.2
+
+    const power = progressRef.current
+    if (beamRef.current) {
+      const material = beamRef.current.material as THREE.ShaderMaterial
+      if (material.uniforms?.uIntensity) {
+        material.uniforms.uIntensity.value = power
+      }
+    }
+    if (spotRef.current) {
+      spotRef.current.intensity = 10 * power
+    }
   })
 
   // Beam geometry
@@ -350,7 +307,7 @@ export function MovingHeadSpotlight({
         </mesh>
 
         {/* Volumetric Beam */}
-        {powerOnProgress === 1 && (
+        {isPoweredOn && (
           <mesh ref={beamRef} geometry={beamGeometry} rotation={[Math.PI, 0, 0]}>
             <shaderMaterial
               transparent
@@ -394,8 +351,9 @@ export function MovingHeadSpotlight({
         )}
 
         {/* Actual light */}
-        {powerOnProgress === 1 && (
+        {isPoweredOn && (
           <spotLight
+            ref={spotRef}
             intensity={10}
             distance={80}
             angle={0.3}
@@ -430,8 +388,9 @@ export function LaserProjector({
 }: LightRigProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
-  const [powerOnProgress, setPowerOnProgress] = useState(installed ? 1 : 0)
   const [patternPhase, setPatternPhase] = useState(0)
+  const powerIndicatorRef = useRef<THREE.MeshBasicMaterial | null>(null)
+  const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 0.75, 0.79)
 
   const bpm = useGameStore(state => state.bpm)
 
@@ -450,28 +409,22 @@ export function LaserProjector({
     }
   }, [installed, installProgress, onInstallComplete])
 
-  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
-  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 0.75)
-
-  useEffect(() => {
-    if (powerOnProgress > 0 && powerOnProgress < 1) {
-      const interval = setInterval(() => {
-        setPowerOnProgress(prev => Math.min(1, prev + 0.06))
-      }, 40)
-      return () => clearInterval(interval)
-    }
-  }, [powerOnProgress])
-
   // Laser patterns
   useFrame(state => {
-    if (powerOnProgress < 1) return
+    if (!isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
     const beatNum = Math.floor(time / beatDuration)
 
     // Change pattern every 8 beats
-    setPatternPhase(Math.floor(beatNum / 8) % 4)
+    const nextPattern = Math.floor(beatNum / 8) % 4
+    setPatternPhase(prev => (prev === nextPattern ? prev : nextPattern))
+
+    if (powerIndicatorRef.current) {
+      const power = progressRef.current
+      powerIndicatorRef.current.color.set(power >= 1 ? '#00ff00' : '#ff5500')
+    }
   })
 
   const laserCount = 6
@@ -504,12 +457,13 @@ export function LaserProjector({
           </mesh>
 
           {/* Laser beam */}
-          {powerOnProgress === 1 && (
+          {isPoweredOn && (
             <LaserBeam
               color={laser.color}
               patternPhase={patternPhase}
               offset={laser.offset}
               angle={laser.angle}
+              powerOnProgressRef={progressRef}
             />
           )}
         </group>
@@ -519,7 +473,8 @@ export function LaserProjector({
       <mesh position={[0, 1.5, 0]}>
         <sphereGeometry args={[0.2]} />
         <meshBasicMaterial
-          color={powerOnProgress === 1 ? '#00ff00' : '#ff0000'}
+          ref={powerIndicatorRef}
+          color="#ff0000"
           toneMapped={false}
         />
       </mesh>
@@ -532,12 +487,14 @@ function LaserBeam({
   color,
   patternPhase,
   offset,
-  angle
+  angle,
+  powerOnProgressRef
 }: {
   color: THREE.Color
   patternPhase: number
   offset: number
   angle: number
+  powerOnProgressRef: MutableRefObject<number>
 }) {
   const beamRef = useRef<THREE.Mesh>(null)
   const timeRef = useShaderTime()
@@ -546,7 +503,8 @@ function LaserBeam({
   const uniforms = useMemo(
     () => ({
       uColor: { value: color },
-      uTime: { value: 0 }
+      uTime: { value: 0 },
+      uIntensity: { value: 0 }
     }),
     [color]
   )
@@ -555,6 +513,7 @@ function LaserBeam({
     if (!beamRef.current) return
 
     const time = state.clock.elapsedTime
+    const power = powerOnProgressRef.current
 
     // Different patterns based on phase
     let rotX = 0,
@@ -587,6 +546,12 @@ function LaserBeam({
     if (material.uniforms?.uTime) {
       material.uniforms.uTime.value = timeRef.current
     }
+    if (material.uniforms?.uColor) {
+      material.uniforms.uColor.value = color
+    }
+    if (material.uniforms?.uIntensity) {
+      material.uniforms.uIntensity.value = power
+    }
   })
 
   return (
@@ -606,11 +571,12 @@ function LaserBeam({
         fragmentShader={`
           uniform vec3 uColor;
           uniform float uTime;
+          uniform float uIntensity;
           varying vec3 vWorldPos;
 
           void main() {
             // Core beam
-            float core = 1.0;
+            float core = uIntensity;
 
             // Atmospheric scattering (Mie scattering)
             float dist = length(vWorldPos);
@@ -620,7 +586,7 @@ function LaserBeam({
             float pulse = 0.8 + sin(uTime * 10.0) * 0.2;
 
             vec3 finalColor = uColor * (core + scattering) * pulse;
-            float alpha = (0.3 + scattering * 0.5) * pulse;
+            float alpha = (0.3 + scattering * 0.5) * pulse * uIntensity;
 
             gl_FragColor = vec4(finalColor, alpha);
           }
@@ -643,8 +609,8 @@ export function StrobeBank({
 }: LightRigProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
-  const [powerOnProgress, setPowerOnProgress] = useState(installed ? 1 : 0)
   const [flashState, setFlashState] = useState(Array(8).fill(false))
+  const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 1.0, 0.59)
 
   const bpm = useGameStore(state => state.bpm)
 
@@ -663,21 +629,9 @@ export function StrobeBank({
     }
   }, [installed, installProgress, onInstallComplete])
 
-  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
-  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 1.0)
-
-  useEffect(() => {
-    if (powerOnProgress > 0 && powerOnProgress < 1) {
-      const interval = setInterval(() => {
-        setPowerOnProgress(prev => Math.min(1, prev + 0.08))
-      }, 40)
-      return () => clearInterval(interval)
-    }
-  }, [powerOnProgress])
-
   // Strobe flashing
   useFrame(state => {
-    if (powerOnProgress < 1) return
+    if (!isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
@@ -726,8 +680,8 @@ export function StrobeBank({
             color={flashState[i] ? '#ffffff' : '#444444'}
             toneMapped={false}
           />
-          {flashState[i] && powerOnProgress === 1 && (
-            <pointLight intensity={20} distance={30} color="#ffffff" />
+          {flashState[i] && isPoweredOn && (
+            <pointLight intensity={20 * progressRef.current} distance={30} color="#ffffff" />
           )}
         </mesh>
       ))}
@@ -746,9 +700,10 @@ export function NeonTubeArrangement({
   onInstallComplete
 }: LightRigProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const tubeMaterialRefs = useRef<Array<THREE.MeshStandardMaterial | null>>([])
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
-  const [powerOnProgress, setPowerOnProgress] = useState(installed ? 1 : 0)
   const [flicker, setFlicker] = useState(1)
+  const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 1.25, 1.58)
 
   const bpm = useGameStore(state => state.bpm)
 
@@ -767,25 +722,19 @@ export function NeonTubeArrangement({
     }
   }, [installed, installProgress, onInstallComplete])
 
-  // Beat-aligned power-on kickoff (replaces the old setTimeout inside the reducer)
-  usePowerOnSequence(installProgress, powerOnProgress, setPowerOnProgress, 1.25)
-
-  useEffect(() => {
-    if (powerOnProgress > 0 && powerOnProgress < 1) {
-      const interval = setInterval(() => {
-        setPowerOnProgress(prev => Math.min(1, prev + 0.03))
-      }, 60)
-      return () => clearInterval(interval)
-    }
-  }, [powerOnProgress])
-
   // Neon flicker effect
   useFrame(state => {
-    if (powerOnProgress < 1) return
+    if (!isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
     const beatPhase = (time % beatDuration) / beatDuration
+
+    for (const material of tubeMaterialRefs.current) {
+      if (material) {
+        material.emissiveIntensity = progressRef.current * flicker
+      }
+    }
 
     // Occasional flicker on beat
     if (beatPhase < 0.05 && Math.random() > 0.7) {
@@ -817,15 +766,18 @@ export function NeonTubeArrangement({
           <mesh rotation={[0, 0, Math.PI / 2]}>
             <cylinderGeometry args={[0.15, 0.15, tube.len]} />
             <meshStandardMaterial
+              ref={el => {
+                tubeMaterialRefs.current[i] = el
+              }}
               color={tube.color}
               emissive={tube.color}
-              emissiveIntensity={powerOnProgress * flicker}
+              emissiveIntensity={0}
               toneMapped={false}
             />
           </mesh>
 
           {/* Glow effect */}
-          {powerOnProgress === 1 && (
+          {isPoweredOn && (
             <mesh rotation={[0, 0, Math.PI / 2]} scale={[1.5, 1, 1.5]}>
               <cylinderGeometry args={[0.15, 0.15, tube.len]} />
               <meshBasicMaterial
