@@ -18,6 +18,7 @@ import type { RapierRigidBody } from '@react-three/rapier'
 import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'
+import NightShipLights from './NightShipLights'
 import { useLOD } from '../systems/performanceSystem'
 import AttachmentPointVisual from './AttachmentPoint'
 import { 
@@ -456,6 +457,8 @@ export default function ShipComponent({ ship }: ShipProps) {
             >
                 <group ref={groupRef}>
                     <ProceduralShip blueprintId={ship.type} version={ship.version}>
+                        <NightShipLights ship={ship} lod={lod} />
+
                         {/* Tow attachment hint ring (tugboat mode only) */}
                         {isDynamic && TowHintIndicator}
 

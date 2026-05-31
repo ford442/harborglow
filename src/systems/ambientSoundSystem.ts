@@ -53,6 +53,7 @@ let harborFilter: Tone.Filter | null = null
 // Seagulls - FM synth for bird calls
 let birdSynth: Tone.Synth | null = null
 let birdFilter: Tone.Filter | null = null
+let birdPanner: Tone.Panner | null = null
 
 // Distant foghorn - low oscillator
 let foghornSynth: Tone.Oscillator | null = null
@@ -115,7 +116,9 @@ function initSynths() {
 
   // Seagulls - triangle wave with filter
   if (!birdSynth) {
-    birdFilter = new Tone.Filter(2000, 'bandpass').toDestination()
+    birdPanner = new Tone.Panner(0).toDestination()
+    birdFilter = new Tone.Filter(2000, 'bandpass')
+    birdFilter.connect(birdPanner)
     
     birdSynth = new Tone.Synth({
       oscillator: { type: 'triangle' },
@@ -342,12 +345,38 @@ function updateBirdActivity(intensity: number) {
   scheduleBird()
 }
 
-export async function playBirdCall(type: 'seagull' | 'distant' = 'seagull') {
+interface BirdCallSpatialContext {
+  sourcePosition: [number, number, number]
+  listenerPosition: [number, number, number]
+}
+
+export async function playBirdCall(
+  type: 'seagull' | 'distant' = 'seagull',
+  spatial?: BirdCallSpatialContext
+) {
   if (!config.enabled) return
   await Tone.start()
   initSynths()
   
   const now = Tone.now()
+
+  if (birdSynth && !spatial) {
+    birdSynth.volume.value = config.masterVolume - 8
+  }
+
+  // Optional simple spatialization (left/right pan + distance attenuation).
+  if (spatial && birdPanner && birdSynth) {
+    const [sx, , sz] = spatial.sourcePosition
+    const [lx, , lz] = spatial.listenerPosition
+    const dx = sx - lx
+    const dz = sz - lz
+    const distance = Math.sqrt(dx * dx + dz * dz)
+    const pan = Math.max(-1, Math.min(1, dx / 45))
+    const attenuation = Math.max(0.2, Math.min(1, 1 - distance / 140))
+
+    birdPanner.pan.rampTo(pan, 0.05)
+    birdSynth.volume.value = config.masterVolume - 16 + attenuation * 10
+  }
   
   if (type === 'seagull') {
     // Classic seagull cry
@@ -356,7 +385,7 @@ export async function playBirdCall(type: 'seagull' | 'distant' = 'seagull') {
     birdSynth?.frequency.rampTo('C5', 0.2, now + 0.1)
   } else {
     // Distant bird
-    if (birdSynth) birdSynth.volume.value = config.masterVolume - 15
+    if (birdSynth && !spatial) birdSynth.volume.value = config.masterVolume - 15
     birdSynth?.triggerAttackRelease('E5', '4n', now)
   }
 }
@@ -573,6 +602,7 @@ export function disposeAmbientSounds() {
   harborFilter?.dispose()
   birdSynth?.dispose()
   birdFilter?.dispose()
+  birdPanner?.dispose()
   foghornSynth?.dispose()
   shipEngineSynth?.dispose()
   shipEngineLFO?.dispose()
@@ -585,6 +615,7 @@ export function disposeAmbientSounds() {
   waveSynth = null
   harborSynth = null
   birdSynth = null
+  birdPanner = null
   foghornSynth = null
   shipEngineSynth = null
   windSynth = null

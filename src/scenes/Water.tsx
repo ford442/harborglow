@@ -15,6 +15,7 @@ import { tugboatWakeState, TUGBOAT_WAKE_GLSL } from '../systems/TugboatWakeSyste
 // MAX WAVE LAYERS (must match WaveSystem.ts)
 // -------------------------------------------------------------------------
 const MAX_LAYERS = 4
+const MAX_DYNAMIC_LIGHTS = 6
 
 // -------------------------------------------------------------------------
 // SHADER SNIPPETS
@@ -108,6 +109,13 @@ interface WaterProps {
   isNight?: boolean
 }
 
+interface DynamicLightSource {
+  position: THREE.Vector3
+  color: THREE.Color
+  intensity: number
+  radius: number
+}
+
 // -------------------------------------------------------------------------
 // COMPONENT
 // -------------------------------------------------------------------------
@@ -121,6 +129,11 @@ export default function Water({ isNight = true }: WaterProps) {
   const quality = useGameStore((s) => s.qualityPreset)
   const waveParams = useGameStore((s) => s.waveParams)
   const stormIntensity = useGameStore((s) => s.stormIntensity)
+  const lightIntensity = useGameStore((s) => s.lightIntensity)
+  const timeOfDay = useGameStore((s) => s.timeOfDay)
+  const ships = useGameStore((s) => s.ships)
+  const installedUpgrades = useGameStore((s) => s.installedUpgrades)
+  const spreaderPos = useGameStore((s) => s.spreaderPos)
 
   // Determine active layer count by quality
   const activeLayers = quality === 'high' ? 4 : quality === 'medium' ? 3 : 2
@@ -176,6 +189,12 @@ export default function Water({ isNight = true }: WaterProps) {
       uWaveSteepness: { value: uWaveSteepness },
       uActiveLayers: { value: activeLayers },
       uIsNight: { value: isNight },
+      uNightBlend: { value: isNight ? 1 : 0 },
+      uDynLightPositions: { value: Array.from({ length: MAX_DYNAMIC_LIGHTS }, () => new THREE.Vector3()) },
+      uDynLightColors: { value: Array.from({ length: MAX_DYNAMIC_LIGHTS }, () => new THREE.Color('#000000')) },
+      uDynLightIntensities: { value: new Float32Array(MAX_DYNAMIC_LIGHTS) },
+      uDynLightRadii: { value: new Float32Array(MAX_DYNAMIC_LIGHTS) },
+      uDynLightCount: { value: 0 },
       // --- Tugboat wake uniforms (updated per-frame from TugboatWakeSystem) ---
       uTugActive: { value: false },
       uTugPos: { value: new THREE.Vector3() },
@@ -233,6 +252,12 @@ export default function Water({ isNight = true }: WaterProps) {
     uniform float uStormIntensity;
     uniform float uTime;
     uniform bool uIsNight;
+    uniform float uNightBlend;
+    uniform vec3 uDynLightPositions[${MAX_DYNAMIC_LIGHTS}];
+    uniform vec3 uDynLightColors[${MAX_DYNAMIC_LIGHTS}];
+    uniform float uDynLightIntensities[${MAX_DYNAMIC_LIGHTS}];
+    uniform float uDynLightRadii[${MAX_DYNAMIC_LIGHTS}];
+    uniform int uDynLightCount;
 
     varying vec2 vUv;
     varying vec3 vWorldPos;
@@ -287,6 +312,32 @@ export default function Water({ isNight = true }: WaterProps) {
       float godRay = pow(max(0.0, dot(viewDir, -uSunDir)), 8.0) * uGodRayIntensity;
       color += uSunColor * godRay;
 
+      // --- Dynamic harbor lights (ships, dock, crane) ---
+      vec3 dynSpec = vec3(0.0);
+      vec3 dynCaustics = vec3(0.0);
+      vec3 dynGlow = vec3(0.0);
+      for (int i = 0; i < ${MAX_DYNAMIC_LIGHTS}; i++) {
+        if (i >= uDynLightCount) break;
+        vec3 lightVec = uDynLightPositions[i] - vWorldPos;
+        float dist = length(lightVec);
+        vec3 lightDir = lightVec / max(dist, 0.0001);
+        float radius = max(1.0, uDynLightRadii[i]);
+        float atten = uDynLightIntensities[i] * exp(-dist / radius) / (1.0 + dist * 0.12);
+        float NdotL = max(dot(normal, lightDir), 0.0);
+
+        vec3 dynHalfDir = normalize(lightDir + viewDir);
+        float dynSpecPow = mix(36.0, 120.0, clamp(1.0 - uRoughness, 0.0, 1.0));
+        float spec = pow(max(dot(normal, dynHalfDir), 0.0), dynSpecPow) * atten;
+        dynSpec += uDynLightColors[i] * spec * 0.8;
+
+        float localPattern = caustics(vWorldPos.xz * 0.65 + lightDir.xz * 3.0 + float(i) * 0.13, uTime * 0.9 + float(i) * 1.37);
+        dynCaustics += uDynLightColors[i] * localPattern * atten * NdotL * 0.5;
+        dynGlow += uDynLightColors[i] * atten * (0.08 + NdotL * 0.18);
+      }
+      color += dynSpec * uNightBlend;
+      color += dynCaustics * (0.5 + uCausticsStrength) * uNightBlend;
+      color += dynGlow * 0.35 * uNightBlend;
+
       // --- Chromatic aberration at glancing angles ---
       float abStrength = (1.0 - NdotV) * uChromaticAberration;
       vec2 refractDir = refract(-viewDir, normal, 0.75).xz * abStrength;
@@ -306,11 +357,113 @@ export default function Water({ isNight = true }: WaterProps) {
     if (!materialRef.current) return
 
     const mat = materialRef.current
+    const nightBlend = isNight
+      ? 1
+      : timeOfDay < 8
+        ? (8 - timeOfDay) / 3
+        : timeOfDay > 18
+          ? (timeOfDay - 18) / 5
+          : 0
+    const clampedNightBlend = Math.max(0, Math.min(1, nightBlend))
+
+    const shipTypeColor: Record<string, string> = {
+      cruise: '#ffc27d',
+      container: '#66d7ff',
+      tanker: '#ff9c4f',
+      bulk: '#e6b87f',
+      lng: '#7bd6ff',
+      roro: '#ff9e6e',
+      research: '#87bbff',
+      droneship: '#a3d8ff',
+      ferry: '#9dd9ff',
+      trawler: '#d8b07a',
+      horizon: '#95beff',
+    }
+
+    const upgradeByShip = new Map<string, number>()
+    installedUpgrades.forEach((upgrade) => {
+      upgradeByShip.set(upgrade.shipId, (upgradeByShip.get(upgrade.shipId) ?? 0) + 1)
+    })
+
+    const dynamicSources: DynamicLightSource[] = []
+
+    // Dock pools and beacons
+    const dockBase = Math.max(0.25, lightIntensity)
+    dynamicSources.push(
+      { position: new THREE.Vector3(-20, 8, -8), color: new THREE.Color('#ffb15a'), intensity: 2.4 * dockBase, radius: 30 },
+      { position: new THREE.Vector3(20, 8, -8), color: new THREE.Color('#ffb15a'), intensity: 2.4 * dockBase, radius: 30 },
+      { position: new THREE.Vector3(-30, -3, 10), color: new THREE.Color('#38b6ff'), intensity: 1.8 * dockBase, radius: 34 },
+      { position: new THREE.Vector3(30, -3, 10), color: new THREE.Color('#38b6ff'), intensity: 1.8 * dockBase, radius: 34 },
+    )
+
+    // Crane hook / work light source
+    dynamicSources.push({
+      position: new THREE.Vector3(spreaderPos.x, spreaderPos.y + 0.8, spreaderPos.z),
+      color: new THREE.Color('#ffd99a'),
+      intensity: (2.2 + Math.max(0, 8 - spreaderPos.y) * 0.2) * lightIntensity,
+      radius: 14,
+    })
+
+    ships.forEach((ship) => {
+      const installedCount = upgradeByShip.get(ship.id) ?? 0
+      const maxPoints = Math.max(1, ship.attachmentPoints.length)
+      const progress = Math.min(1, installedCount / maxPoints)
+      const baseColor = new THREE.Color(shipTypeColor[ship.type] ?? '#a5ceff')
+      const shipCenter = new THREE.Vector3(ship.position[0], ship.position[1] + 4.5, ship.position[2])
+
+      // Persistent ship glow (baseline + progress)
+      dynamicSources.push({
+        position: shipCenter,
+        color: baseColor,
+        intensity: (0.7 + progress * 1.6) * lightIntensity,
+        radius: Math.max(12, ship.length * 0.7),
+      })
+
+      // Tanker flare style hotspot
+      if (ship.type === 'tanker') {
+        dynamicSources.push({
+          position: new THREE.Vector3(ship.position[0] - 2.4, ship.position[1] + 9.5, ship.position[2] - ship.length * 0.22),
+          color: new THREE.Color('#ff7f35'),
+          intensity: (1.4 + progress * 2.0) * lightIntensity,
+          radius: 20,
+        })
+      }
+
+      // Use a subset of installed upgrade points as local reflected highlights
+      let usedPoints = 0
+      for (const upgrade of installedUpgrades) {
+        if (upgrade.shipId !== ship.id || usedPoints >= 2) continue
+        const part = ship.attachmentPoints.find((p) => p.partName === upgrade.partName)
+        if (!part) continue
+        dynamicSources.push({
+          position: new THREE.Vector3(
+            ship.position[0] + part.position[0],
+            ship.position[1] + part.position[1] + 1.2,
+            ship.position[2] + part.position[2]
+          ),
+          color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.35),
+          intensity: (1.1 + progress * 1.3) * lightIntensity,
+          radius: 12,
+        })
+        usedPoints += 1
+      }
+    })
+
+    const scored = dynamicSources
+      .map((source) => {
+        const distance = source.position.distanceTo(camera.position)
+        const score = source.intensity / (1 + distance * 0.05)
+        return { source, score }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_DYNAMIC_LIGHTS)
+
     mat.uniforms.uTime.value = waveSystem.getTime()
     mat.uniforms.uCameraPos.value.copy(camera.position)
     mat.uniforms.uGlobalAmp.value = waveParams.amplitude
     mat.uniforms.uGlobalSpeed.value = waveParams.speed
     mat.uniforms.uStormIntensity.value = stormIntensity
+    mat.uniforms.uNightBlend.value = clampedNightBlend
 
     // Sync wave layer directions (they drift with chaos)
     const layers = waveSystem.getLayersForShader()
@@ -320,6 +473,22 @@ export default function Water({ isNight = true }: WaterProps) {
         mat.uniforms.uWaveSpeeds.value[i] = layers[i].speed
         mat.uniforms.uWaveDirections.value[i * 2] = layers[i].direction[0]
         mat.uniforms.uWaveDirections.value[i * 2 + 1] = layers[i].direction[1]
+      }
+    }
+
+    mat.uniforms.uDynLightCount.value = scored.length
+    for (let i = 0; i < MAX_DYNAMIC_LIGHTS; i++) {
+      const current = scored[i]?.source
+      const pos = mat.uniforms.uDynLightPositions.value[i] as THREE.Vector3
+      const col = mat.uniforms.uDynLightColors.value[i] as THREE.Color
+      mat.uniforms.uDynLightIntensities.value[i] = current ? current.intensity * clampedNightBlend : 0
+      mat.uniforms.uDynLightRadii.value[i] = current ? current.radius : 1
+      if (current) {
+        pos.copy(current.position)
+        col.copy(current.color)
+      } else {
+        pos.set(0, -1000, 0)
+        col.set('#000000')
       }
     }
 

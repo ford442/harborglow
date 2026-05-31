@@ -39,6 +39,7 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
+import { VolumetricLightCone } from './VolumetricLighting'
 import WildlifeRenderer from './Wildlife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
@@ -103,6 +104,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const timeOfDay = useGameStore(s => s.timeOfDay)
     const stormIntensity = useGameStore(s => s.stormIntensity)
     const weather = useGameStore(s => s.weather)
+    const lightIntensity = useGameStore(s => s.lightIntensity)
+    const spreaderPos = useGameStore(s => s.spreaderPos)
+    const installedUpgrades = useGameStore(s => s.installedUpgrades)
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
     const cabinViewMode = useGameStore(s => s.cabinViewMode)
@@ -469,7 +473,16 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             )}
 
             {/* Night dock lighting */}
-            {isNight && <NightDockLights />}
+            {isNight && <NightDockLights lightIntensity={lightIntensity} />}
+            {isNight && <NightVolumetricCones lightIntensity={lightIntensity} currentShip={currentShip} />}
+            {isNight && (
+                <WaterLightVolumes
+                    lightIntensity={lightIntensity}
+                    currentShip={currentShip}
+                    spreaderPos={spreaderPos}
+                    installedUpgrades={installedUpgrades}
+                />
+            )}
 
             {/* Scene Objects */}
             <Water isNight={isNight} />
@@ -484,10 +497,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <OnDockRail isNight={isNight} />
             
             {/* Sea Birds */}
-            <SeaBirds 
-                isNight={isNight} 
-                cranePositions={[[0, 0, 0], [-20, 0, -10], [20, 0, -10]]}
-            />
+            <SeaBirds isNight={isNight} />
             
             {/* Distant Ship Queue */}
             <DistantShipQueue isNight={isNight} />
@@ -625,7 +635,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 // SUB-COMPONENTS
 // =============================================================================
 
-function NightDockLights() {
+function NightDockLights({ lightIntensity }: { lightIntensity: number }) {
+    const beatPulse = lightingSystem.getBeatPulse()
+    const pulseBoost = 1 + beatPulse * 0.35
+    const scaled = lightIntensity * pulseBoost
+
     return (
         <>
             {/* Dock amber lights */}
@@ -633,7 +647,7 @@ function NightDockLights() {
                 <pointLight
                     key={i}
                     position={pos as [number, number, number]}
-                    intensity={2}
+                    intensity={1.2 * scaled}
                     color="#ffaa00"
                     distance={30}
                     decay={2}
@@ -641,13 +655,136 @@ function NightDockLights() {
             ))}
             
             {/* Blue underwater glow */}
-            <pointLight position={[-30, -3, 10]} intensity={1.5} color="#00aaff" distance={40} decay={2} />
-            <pointLight position={[30, -3, 10]} intensity={1.5} color="#00aaff" distance={40} decay={2} />
+            <pointLight position={[-30, -3, 10]} intensity={0.8 * scaled} color="#00aaff" distance={40} decay={2} />
+            <pointLight position={[30, -3, 10]} intensity={0.8 * scaled} color="#00aaff" distance={40} decay={2} />
             
             
             {/* Red warning beacons */}
-            <pointLight position={[-25, 15, 0]} intensity={1} color="#ff0000" distance={20} />
-            <pointLight position={[25, 15, 0]} intensity={1} color="#ff0000" distance={20} />
+            <pointLight position={[-25, 15, 0]} intensity={0.5 * scaled} color="#ff0000" distance={20} />
+            <pointLight position={[25, 15, 0]} intensity={0.5 * scaled} color="#ff0000" distance={20} />
+        </>
+    )
+}
+
+function NightVolumetricCones({ lightIntensity, currentShip }: { lightIntensity: number; currentShip?: Ship }) {
+    const baseIntensity = Math.max(0.2, lightIntensity)
+    const pulse = 1 + lightingSystem.getBeatPulse() * 0.25
+
+    return (
+        <>
+            <VolumetricLightCone
+                type="spot"
+                position={[-20, 8, -8]}
+                target={[-20, 0, -8]}
+                color="#ffbb66"
+                intensity={0.28 * baseIntensity}
+                angle={Math.PI / 8}
+                distance={18}
+            />
+            <VolumetricLightCone
+                type="spot"
+                position={[20, 8, -8]}
+                target={[20, 0, -8]}
+                color="#ffbb66"
+                intensity={0.28 * baseIntensity}
+                angle={Math.PI / 8}
+                distance={18}
+            />
+            {currentShip && (
+                <VolumetricLightCone
+                    type="spot"
+                    position={[currentShip.position[0], currentShip.position[1] + 10, currentShip.position[2]]}
+                    target={[currentShip.position[0], currentShip.position[1] + 1, currentShip.position[2]]}
+                    color="#7fc9ff"
+                    intensity={0.22 * baseIntensity * pulse}
+                    angle={Math.PI / 7}
+                    distance={16}
+                />
+            )}
+        </>
+    )
+}
+
+function WaterLightVolumes({
+    lightIntensity,
+    currentShip,
+    spreaderPos,
+    installedUpgrades,
+}: {
+    lightIntensity: number
+    currentShip?: Ship
+    spreaderPos: { x: number; y: number; z: number }
+    installedUpgrades: Array<{ shipId: string; partName: string }>
+}) {
+    const beat = lightingSystem.getBeatPulse()
+    const pulse = 1 + beat * 0.35
+    const scale = Math.max(0.25, lightIntensity) * pulse
+
+    const progress = currentShip
+        ? Math.min(
+            1,
+            installedUpgrades.filter((u) => u.shipId === currentShip.id).length / Math.max(1, currentShip.attachmentPoints.length)
+        )
+        : 0
+
+    return (
+        <>
+            {/* Dock light shafts toward waterline for low-angle/underwater reads */}
+            <VolumetricLightCone
+                type="spot"
+                position={[-30, -1, 10]}
+                target={[-30, -7, 10]}
+                color="#35b8ff"
+                intensity={0.24 * scale}
+                angle={Math.PI / 7}
+                distance={14}
+            />
+            <VolumetricLightCone
+                type="spot"
+                position={[30, -1, 10]}
+                target={[30, -7, 10]}
+                color="#35b8ff"
+                intensity={0.24 * scale}
+                angle={Math.PI / 7}
+                distance={14}
+            />
+
+            {/* Crane hook working beam into water/ship deck vicinity */}
+            <VolumetricLightCone
+                type="spot"
+                position={[spreaderPos.x, spreaderPos.y + 0.6, spreaderPos.z]}
+                target={[spreaderPos.x, spreaderPos.y - 5, spreaderPos.z]}
+                color="#ffd79e"
+                intensity={0.22 * scale}
+                angle={Math.PI / 5}
+                distance={16}
+            />
+
+            {/* Bright ship source, stronger after upgrades */}
+            {currentShip && (
+                <VolumetricLightCone
+                    type="spot"
+                    position={[currentShip.position[0], currentShip.position[1] + 7, currentShip.position[2]]}
+                    target={[currentShip.position[0], currentShip.position[1] - 2, currentShip.position[2]]}
+                    color={currentShip.type === 'tanker' ? '#ff8b45' : '#7fd6ff'}
+                    intensity={(0.18 + progress * 0.3) * scale}
+                    angle={Math.PI / 6}
+                    distance={18}
+                />
+            )}
+
+            {/* Tanker flare stack ray */}
+            {currentShip?.type === 'tanker' && (
+                <VolumetricLightCone
+                    type="spot"
+                    position={[currentShip.position[0] - 2.5, currentShip.position[1] + 9.5, currentShip.position[2] - currentShip.length * 0.22]}
+                    target={[currentShip.position[0] - 1.5, currentShip.position[1] - 3, currentShip.position[2] - currentShip.length * 0.05]}
+                    color="#ff7d38"
+                    intensity={(0.26 + progress * 0.34) * scale}
+                    angle={Math.PI / 8}
+                    distance={20}
+                />
+            )}
         </>
     )
 }

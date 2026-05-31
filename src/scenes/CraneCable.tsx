@@ -13,6 +13,11 @@ interface CraneCableProps {
   tension: number                      // 0-1 based on loadTension
   showPhysics?: boolean                // Show debug visualization
   twistlockEngaged?: boolean           // When true, cable should appear taut/locked
+  nearAttachment?: boolean             // Blue guidance glow near valid attachment points
+  installBoost?: number                // 0-1 warm pulse during successful install
+  lightIntensity?: number              // Shared global light intensity
+  isNight?: boolean                    // Time-of-day factor for emissive visibility
+  climaxPulse?: number                 // Harbor show beat pulse
 }
 
 // Calculate catenary curve between two points
@@ -78,9 +83,16 @@ export default function CraneCable({
   tension,
   showPhysics = false,
   twistlockEngaged = false,
+  nearAttachment = false,
+  installBoost = 0,
+  lightIntensity = 1,
+  isNight = false,
+  climaxPulse = 0,
 }: CraneCableProps) {
   const cableRef = useRef<THREE.Mesh>(null)
   const curveRef = useRef<THREE.CatmullRomCurve3 | null>(null)
+  const cableMatRef = useRef<THREE.MeshStandardMaterial>(null)
+  const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   
   // Delta-corrected sway state
   const swayAmplitudeRef = useRef(0)
@@ -169,6 +181,36 @@ export default function CraneCable({
     )
     
     cableRef.current.geometry = newGeometry
+
+    const nightScale = (isNight ? 1 : 0.2) * lightIntensity
+    const pulse = 1 + climaxPulse * 0.35
+    const tensionGlow = tension > 0.6 ? 0.22 : 0
+    const guidanceGlow = nearAttachment ? 0.2 : 0
+    const warmInstallGlow = Math.max(0, installBoost) * 0.65
+    const glow = (tensionGlow + guidanceGlow + warmInstallGlow) * nightScale * pulse
+
+    if (cableMatRef.current) {
+      if (warmInstallGlow > 0.05) {
+        cableMatRef.current.emissive.set('#ffb46a')
+      } else if (nearAttachment) {
+        cableMatRef.current.emissive.set('#66c8ff')
+      } else if (tension > 0.6) {
+        cableMatRef.current.emissive.set(cableColor)
+      } else {
+        cableMatRef.current.emissive.set('#000000')
+      }
+      cableMatRef.current.emissiveIntensity = glow
+    }
+    if (glowMatRef.current) {
+      if (warmInstallGlow > 0.05) {
+        glowMatRef.current.color.set('#ffb46a')
+      } else if (nearAttachment) {
+        glowMatRef.current.color.set('#66c8ff')
+      } else {
+        glowMatRef.current.color.set(cableColor)
+      }
+      glowMatRef.current.opacity = Math.min(0.38, glow * 0.28)
+    }
   })
   
   const cableColor = getTensionColor(tension)
@@ -182,24 +224,26 @@ export default function CraneCable({
           args={[curve, 16, cableThickness, 6, false]}
         />
         <meshStandardMaterial
+          ref={cableMatRef}
           color={cableColor}
           metalness={0.6}
           roughness={0.4}
-          emissive={tension > 0.6 ? cableColor : '#000000'}
-          emissiveIntensity={tension > 0.6 ? 0.3 : 0}
+          emissive="#000000"
+          emissiveIntensity={0}
         />
       </mesh>
       
       {/* Tension glow effect for high tension */}
-      {tension > 0.7 && (
+      {(tension > 0.7 || nearAttachment || installBoost > 0.05) && (
         <mesh>
           <tubeGeometry
             args={[curve, 16, cableThickness * 1.5, 6, false]}
           />
           <meshBasicMaterial
+            ref={glowMatRef}
             color={cableColor}
             transparent
-            opacity={0.2}
+            opacity={0}
             blending={THREE.AdditiveBlending}
           />
         </mesh>

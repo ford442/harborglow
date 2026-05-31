@@ -3,18 +3,29 @@
 // Animated dock crane with operational lights and dynamic cable system
 // =============================================================================
 
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { RigidBody } from '@react-three/rapier'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import CraneDashboard from '../components/CraneDashboard'
 import CraneCable from './CraneCable'
 import { useGameStore } from '../store/useGameStore'
+import { lightingSystem } from '../systems/lightingSystem'
 
 export default function Crane() {
     const craneRef = useRef<THREE.Group>(null)
     const trolleyRef = useRef<THREE.Group>(null)
     const hookRef = useRef<THREE.Group>(null)
+    const cabinBodyMatRef = useRef<THREE.MeshStandardMaterial>(null)
+    const cabinWindowMatRef = useRef<THREE.MeshStandardMaterial>(null)
+    const hookOrbMatRef = useRef<THREE.MeshBasicMaterial>(null)
+    const towerSpotRef = useRef<THREE.SpotLight>(null)
+    const hookSpotRef = useRef<THREE.SpotLight>(null)
+    const hookFillRef = useRef<THREE.PointLight>(null)
+    const cabinWarmRef = useRef<THREE.PointLight>(null)
+    const cabinCoolRef = useRef<THREE.PointLight>(null)
+    const spreaderRimRefs = useRef<Array<THREE.PointLight | null>>([])
+    const safetyStripMatRefs = useRef<Array<THREE.MeshStandardMaterial | null>>([])
     
     // Get crane state from store
     const spreaderPos = useGameStore((state) => state.spreaderPos)
@@ -22,12 +33,48 @@ export default function Crane() {
     const loadTension = useGameStore((state) => state.loadTension)
     const twistlockEngaged = useGameStore((state) => state.twistlockEngaged)
     const trolleyPosition = useGameStore((state) => state.trolleyPosition)
+    const ships = useGameStore((state) => state.ships)
+    const attachmentSystemConfig = useGameStore((state) => state.attachmentSystemConfig)
+    const isNight = useGameStore((state) => state.isNight)
+    const timeOfDay = useGameStore((state) => state.timeOfDay)
+    const lightIntensity = useGameStore((state) => state.lightIntensity)
+    const musicPlaying = useGameStore((state) => state.musicPlaying)
+    const lastInstallation = useGameStore((state) => state.lastInstallation)
+
+    const safetyStripPositions = useMemo(() =>
+        Array.from({ length: 12 }, (_, i) => {
+            const x = 1.5 + i * 2
+            return [
+                [x, 10.95, 1.05] as [number, number, number],
+                [x, 10.95, -1.05] as [number, number, number],
+            ]
+        }).flat(),
+    [])
+
+    const nearAttachmentDistance = useMemo(() => {
+        let minDistance = Infinity
+        for (const ship of ships) {
+            for (const point of ship.attachmentPoints || []) {
+                const worldX = ship.position[0] + point.position[0]
+                const worldY = ship.position[1] + point.position[1]
+                const worldZ = ship.position[2] + point.position[2]
+                const dx = worldX - spreaderPos.x
+                const dy = worldY - spreaderPos.y
+                const dz = worldZ - spreaderPos.z
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                if (dist < minDistance) minDistance = dist
+            }
+        }
+        return minDistance
+    }, [ships, spreaderPos.x, spreaderPos.y, spreaderPos.z])
+
+    const nearAttachment = nearAttachmentDistance <= Math.max(attachmentSystemConfig.snapRadius, 4)
 
     // Animate crane operations
     useFrame((state) => {
         // Gentle idle movement
         const time = state.clock.elapsedTime
-        
+
         // Trolley moves based on store position
         const newTrolleyPos = (trolleyPosition - 0.5) * 40
         
@@ -41,6 +88,59 @@ export default function Crane() {
             hookRef.current.position.y = newHookHeight
             hookRef.current.rotation.y = spreaderRotation
         }
+
+        const nightFactor = isNight
+            ? 1
+            : timeOfDay < 8
+                ? (8 - timeOfDay) / 3
+                : timeOfDay > 18
+                    ? (timeOfDay - 18) / 4
+                    : 0
+        const baseNight = Math.max(0, Math.min(1, nightFactor))
+        const beatPulse = lightingSystem.getBeatPulse()
+        const harborShowActive = lightingSystem.isShowActive() || Array.from(musicPlaying.values()).some(Boolean)
+        const pulseBoost = harborShowActive ? 1 + beatPulse * 0.45 : 1
+        const installAgeMs = lastInstallation ? Date.now() - lastInstallation.timestamp : Number.POSITIVE_INFINITY
+        const installBoost = installAgeMs < 1600 ? 1 - (installAgeMs / 1600) : 0
+        const loweredHookBoost = 1 + Math.max(0, (8 - spreaderPos.y) * 0.08)
+        const sharedNight = lightIntensity * baseNight * pulseBoost
+
+        if (cabinBodyMatRef.current) {
+            cabinBodyMatRef.current.emissive.set('#ff9b30')
+            cabinBodyMatRef.current.emissiveIntensity = 0.18 * sharedNight
+        }
+        if (cabinWindowMatRef.current) {
+            cabinWindowMatRef.current.emissive.set('#ffc875')
+            cabinWindowMatRef.current.emissiveIntensity = 0.42 * sharedNight
+        }
+        if (hookOrbMatRef.current) {
+            hookOrbMatRef.current.color.set('#ffe7ad')
+        }
+
+        if (cabinWarmRef.current) {
+            cabinWarmRef.current.intensity = 0.7 * sharedNight
+        }
+        if (cabinCoolRef.current) {
+            cabinCoolRef.current.intensity = 0.35 * sharedNight
+        }
+        if (towerSpotRef.current) {
+            towerSpotRef.current.intensity = 1.1 * sharedNight * (0.9 + beatPulse * 0.2)
+        }
+        if (hookSpotRef.current) {
+            hookSpotRef.current.intensity = (1.4 + installBoost * 1.1) * sharedNight * loweredHookBoost
+        }
+        if (hookFillRef.current) {
+            hookFillRef.current.intensity = (0.6 + installBoost * 0.7 + (nearAttachment ? 0.3 : 0)) * sharedNight
+        }
+        spreaderRimRefs.current.forEach((ref) => {
+            if (!ref) return
+            ref.intensity = (0.45 + (nearAttachment ? 0.35 : 0) + installBoost * 0.5) * sharedNight
+        })
+        safetyStripMatRefs.current.forEach((mat) => {
+            if (!mat) return
+            mat.emissive.set('#ffb658')
+            mat.emissiveIntensity = (0.22 + beatPulse * 0.08) * sharedNight
+        })
     })
 
     // Calculate tension normalized 0-1
@@ -109,13 +209,27 @@ export default function Crane() {
                 {/* === CRANE CABIN === */}
                 <mesh position={[1.5, 8, 0]} castShadow>
                     <boxGeometry args={[2, 2.5, 2]} />
-                    <meshStandardMaterial color="#ffaa00" />
+                    <meshStandardMaterial
+                        ref={cabinBodyMatRef}
+                        color="#ffaa00"
+                        emissive="#000000"
+                        emissiveIntensity={0}
+                    />
                 </mesh>
                 {/* Cabin windows */}
                 <mesh position={[2.5, 8.5, 0]}>
                     <boxGeometry args={[0.1, 1, 1.5]} />
-                    <meshStandardMaterial color="#1a1a2e" metalness={0.9} roughness={0.1} />
+                    <meshStandardMaterial
+                        ref={cabinWindowMatRef}
+                        color="#1a1a2e"
+                        emissive="#000000"
+                        emissiveIntensity={0}
+                        metalness={0.9}
+                        roughness={0.1}
+                    />
                 </mesh>
+                <pointLight ref={cabinWarmRef} position={[1.5, 8.4, 0]} intensity={0} color="#ffbe7a" distance={9} />
+                <pointLight ref={cabinCoolRef} position={[2.1, 8.5, 0.6]} intensity={0} color="#75bfff" distance={6} />
 
                 {/* === JIB (ARM) === */}
                 {/* Main jib */}
@@ -129,6 +243,17 @@ export default function Crane() {
                     <mesh key={`jib-lattice-${i}`} position={[2 + i * 2, 10, 0]}>
                         <boxGeometry args={[0.1, 1.3, 2.1]} />
                         <meshBasicMaterial color="#777777" transparent opacity={0.4} />
+                    </mesh>
+                ))}
+                {safetyStripPositions.map((position, i) => (
+                    <mesh key={`jib-safety-${i}`} position={position}>
+                        <boxGeometry args={[0.35, 0.08, 0.08]} />
+                        <meshStandardMaterial
+                            ref={(ref) => { safetyStripMatRefs.current[i] = ref }}
+                            color="#1f1f1f"
+                            emissive="#000000"
+                            emissiveIntensity={0}
+                        />
                     </mesh>
                 ))}
 
@@ -194,6 +319,15 @@ export default function Crane() {
                             endPos={hookWorldPos}
                             tension={normalizedTension}
                             twistlockEngaged={twistlockEngaged}
+                            nearAttachment={nearAttachment}
+                            installBoost={
+                                lastInstallation && Date.now() - lastInstallation.timestamp < 1600
+                                    ? 1 - ((Date.now() - lastInstallation.timestamp) / 1600)
+                                    : 0
+                            }
+                            lightIntensity={lightIntensity}
+                            isNight={isNight}
+                            climaxPulse={lightingSystem.getBeatPulse()}
                         />
                     )}
 
@@ -244,14 +378,40 @@ export default function Crane() {
                         
                         {/* Light on hook for visibility */}
                         <pointLight 
+                            ref={hookFillRef}
                             position={[0, 0, 0]} 
-                            intensity={1} 
+                            intensity={0}
                             color="#ffffaa" 
+                            distance={8}
+                        />
+                        <spotLight
+                            ref={hookSpotRef}
+                            position={[0, 0, 0]}
+                            target-position={[0, -3.2, 0]}
+                            intensity={0}
+                            angle={Math.PI / 3}
+                            penumbra={0.8}
+                            distance={13}
+                            color="#ffd78c"
+                            castShadow
+                        />
+                        <pointLight
+                            ref={(ref) => { spreaderRimRefs.current[0] = ref }}
+                            position={[-0.45, 0.05, 0]}
+                            intensity={0}
+                            color="#77c7ff"
+                            distance={5}
+                        />
+                        <pointLight
+                            ref={(ref) => { spreaderRimRefs.current[1] = ref }}
+                            position={[0.45, 0.05, 0]}
+                            intensity={0}
+                            color="#77c7ff"
                             distance={5}
                         />
                         <mesh position={[0, 0, 0]}>
                             <sphereGeometry args={[0.1]} />
-                            <meshBasicMaterial color="#ffffaa" />
+                            <meshBasicMaterial ref={hookOrbMatRef} color="#ffffaa" />
                         </mesh>
                     </group>
                 </group>
@@ -271,9 +431,10 @@ export default function Crane() {
 
                 {/* Work lights on tower */}
                 <spotLight
+                    ref={towerSpotRef}
                     position={[2, 8, 2]}
                     target-position={[5, 0, 5]}
-                    intensity={2}
+                    intensity={0}
                     angle={Math.PI / 4}
                     penumbra={0.5}
                     distance={30}

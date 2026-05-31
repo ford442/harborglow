@@ -18,6 +18,8 @@ interface ProceduralShipProps {
 const PBRPart = ({ part, shipDefaults, shipType }: { part: BlueprintPart; shipDefaults: { metalness: number; roughness: number; envMapIntensity: number }; shipType: string }) => {
   const materialProps = part.material || {};
   const weather = useGameStore(state => state.weather);
+  const isNight = useGameStore(state => state.isNight);
+  const lightIntensity = useGameStore(state => state.lightIntensity);
   
   const geometry = useMemo(() => {
     switch (part.type) {
@@ -46,6 +48,10 @@ const PBRPart = ({ part, shipDefaults, shipType }: { part: BlueprintPart; shipDe
   
   // Calculate weathering level based on ship type
   const weatheringLevel = shipType === 'container' ? 0.5 : shipType === 'tanker' ? 0.6 : 0.3;
+  const emissiveScale = (isNight ? 0.3 : 0.07) * lightIntensity;
+  const emissiveIntensity = materialProps.emissive ? emissiveScale : 0;
+  const windowEmissive = isNight ? '#ffcc88' : '#223344';
+  const windowEmissiveIntensity = isNight ? 0.45 * lightIntensity : 0.05 * lightIntensity;
 
   return (
     <mesh
@@ -58,8 +64,8 @@ const PBRPart = ({ part, shipDefaults, shipType }: { part: BlueprintPart; shipDe
       {isWindow ? (
         <meshStandardMaterial
           color={materialProps.color || '#223344'}
-          emissive={materialProps.emissive || '#000000'}
-          emissiveIntensity={materialProps.emissive ? 1.5 : 0}
+          emissive={materialProps.emissive || windowEmissive}
+          emissiveIntensity={windowEmissiveIntensity}
           metalness={0.9}
           roughness={0.05}
           envMapIntensity={1.5}
@@ -91,7 +97,7 @@ const PBRPart = ({ part, shipDefaults, shipType }: { part: BlueprintPart; shipDe
         <meshStandardMaterial
           color={materialProps.color || '#ffffff'}
           emissive={materialProps.emissive || '#000000'}
-          emissiveIntensity={materialProps.emissive ? 1.5 : 0}
+          emissiveIntensity={emissiveIntensity}
           metalness={metalness}
           roughness={roughness}
           envMapIntensity={envMapIntensity}
@@ -537,27 +543,99 @@ const HorizonDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWid
   </group>
 );
 
-const Lod2Impostor = ({ lod2, color }: { lod2: Lod2Data; color: string }) => (
-  <group>
-    <mesh>
-      <boxGeometry args={[lod2.hull.width, lod2.hull.height, lod2.hull.length]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
-    {lod2.features.map((feature, i) => (
-      <mesh
-        key={i}
-        position={[
-          feature.xOffset,
-          lod2.hull.height / 2 + feature.yOffset + feature.height / 2,
-          feature.zOffset,
-        ]}
-      >
-        <boxGeometry args={[feature.width, feature.height, feature.depth]} />
-        <meshBasicMaterial color={color} />
+// -------------------------------------------------------------------------
+// LOD2 Impostor — simplified distant geometry with per-type features
+// -------------------------------------------------------------------------
+
+const FEATURE_COLORS: Record<string, string> = {
+  funnel: '#222222',
+  superstructure: '#c8d8e8',
+  cellguides: '#e87020',
+  bridge: '#7ab8d4',
+  pipeline: '#b06020',
+  hatches: '#cc3333',
+  tank: '#d0dde8',
+  ramp: '#445566',
+  aframe: '#f0c020',
+  helideck: '#f8f8f8',
+  pad: '#888899',
+  mast: '#1a1a1a',
+  gantry: '#334455',
+  passenger_deck: '#ece8dc',
+  car_deck: '#2d4a2d',
+  moonpool: '#1a4a6a',
+};
+
+const GLOWING_FEATURES = new Set(['funnel', 'cellguides', 'aframe', 'helideck']);
+
+const tintHullColor = (baseColor: string, profile: string): string => {
+  const c = new THREE.Color(baseColor);
+  switch (profile) {
+    case 'stepped':
+      c.r = Math.min(c.r * 1.15, 1);
+      c.g = Math.min(c.g * 1.15, 1);
+      c.b = Math.min(c.b * 1.15, 1);
+      break;
+    case 'tall':
+      c.r *= 0.85;
+      c.g *= 0.85;
+      c.b *= 0.85;
+      break;
+    case 'barge': {
+      const grey = new THREE.Color('#808080');
+      c.lerp(grey, 0.25);
+      break;
+    }
+    case 'flat':
+    default:
+      break;
+  }
+  return `#${c.getHexString()}`;
+};
+
+const Lod2Impostor = ({ lod2, color }: { lod2: Lod2Data; color: string }) => {
+  const hullColor = tintHullColor(color, lod2.profile);
+
+  return (
+    <group>
+      <mesh>
+        <boxGeometry args={[lod2.hull.width, lod2.hull.height, lod2.hull.length]} />
+        <meshBasicMaterial color={hullColor} />
       </mesh>
-    ))}
-  </group>
-);
+      {lod2.features.map((feature, i) => {
+        const featureColor = FEATURE_COLORS[feature.type] ?? color;
+        const isGlowing = GLOWING_FEATURES.has(feature.type);
+        const isCylinder = feature.type === 'funnel' || feature.type === 'tank';
+        const isMast = feature.type === 'mast';
+        const w = Math.min(feature.width, feature.depth);
+
+        return (
+          <mesh
+            key={i}
+            position={[
+              feature.xOffset,
+              lod2.hull.height / 2 + feature.yOffset + feature.height / 2,
+              feature.zOffset,
+            ]}
+          >
+            {isCylinder ? (
+              <cylinderGeometry args={[w * 0.4, w * 0.5, feature.height, 8]} />
+            ) : isMast ? (
+              <cylinderGeometry args={[0.3, 0.4, feature.height, 6]} />
+            ) : (
+              <boxGeometry args={[feature.width, feature.height, feature.depth]} />
+            )}
+            {isGlowing ? (
+              <meshStandardMaterial color={featureColor} emissive={featureColor} emissiveIntensity={0.3} />
+            ) : (
+              <meshLambertMaterial color={featureColor} />
+            )}
+          </mesh>
+        );
+      })}
+    </group>
+  );
+};
 
 // Main Procedural Ship Component
 export const ProceduralShip = ({ 
