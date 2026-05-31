@@ -1,3 +1,4 @@
+// archived post-refactor tool — not for active use
 const fs = require('fs');
 
 // src/scenes/UpgradeCelebration.tsx - line 195:9

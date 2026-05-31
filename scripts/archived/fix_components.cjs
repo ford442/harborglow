@@ -1,3 +1,4 @@
+// archived post-refactor tool — not for active use
 const fs = require('fs');
 
 // We will fix the "Fast refresh only works..." by separating out non-component exports.

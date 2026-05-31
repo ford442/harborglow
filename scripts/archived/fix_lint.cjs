@@ -1,3 +1,4 @@
+// archived post-refactor tool — not for active use
 const fs = require('fs');
 
 // Disable max-warnings=0 to focus on upgrades and streamlining rather than perfect dependency arrays,

@@ -1,3 +1,4 @@
+// archived post-refactor tool — not for active use
 const fs = require('fs');
 
 // LoadingScreen.tsx
