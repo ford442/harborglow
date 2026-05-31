@@ -8,7 +8,7 @@ export type GameState = {
   lyricsSize?: number;
   lightIntensity?: number;
   timeOfDay?: number;
-  cameraMode?: 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' | 'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' | 'spectator' | 'transition' | 'crane' | 'booth';
+  cameraMode?: 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' | 'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' | 'spectator' | 'transition' | 'crane' | 'booth' | 'onFoot';
   // Ship tracking data
   shipVersions?: Record<string, string>;
   shipSailTimes?: Record<string, number>;

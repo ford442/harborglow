@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { RigidBody, CylinderCollider } from '@react-three/rapier'
 import * as THREE from 'three'
+import { useFrame } from '@react-three/fiber'
+import { useAudioData } from '../systems/audioVisualSync'
 
 // =============================================================================
 // DOCK COMPONENT
@@ -135,10 +137,12 @@ function DockFenders() {
 
 // =============================================================================
 // DOCK LIGHTS
-// Volumetric-style point lights for night atmosphere
+// Volumetric-style point lights with music reactivity for night atmosphere
 // =============================================================================
 
 function DockLights() {
+    const audioData = useAudioData()
+
     const lightPositions = useMemo(() => [
         { x: -35, z: -4, color: '#ffaa44', intensity: 3 },
         { x: -15, z: -4, color: '#ffaa44', intensity: 3 },
@@ -146,6 +150,68 @@ function DockLights() {
         { x: 15, z: -4, color: '#ffaa44', intensity: 3 },
         { x: 35, z: -4, color: '#ffaa44', intensity: 3 },
     ], [])
+
+    const lightRefs = useRef<(THREE.PointLight | null)[]>(new Array(lightPositions.length).fill(null))
+    const coneRefs = useRef<(THREE.Mesh | null)[]>(new Array(lightPositions.length).fill(null))
+    const coneMatRefs = useRef<(THREE.MeshBasicMaterial | null)[]>(new Array(lightPositions.length).fill(null))
+
+    // Smoothed state
+    const currentIntensities = useRef<number[]>(lightPositions.map(l => l.intensity))
+    const currentOpacities = useRef<number[]>(lightPositions.map(() => 0.05))
+    const currentScales = useRef<number[]>(lightPositions.map(() => 1))
+    const currentColors = useRef<THREE.Color[]>(lightPositions.map(l => new THREE.Color(l.color)))
+
+    // Reusable color objects to avoid allocations in useFrame
+    const baseColor = useMemo(() => new THREE.Color(), [])
+    const targetColor = useMemo(() => new THREE.Color(), [])
+
+    useFrame(() => {
+        const reactive = audioData.energy > 0.1
+
+        for (let i = 0; i < lightPositions.length; i++) {
+            const light = lightPositions[i]
+
+            // Target values based on audio
+            const targetIntensity = reactive
+                ? light.intensity + audioData.energy * 2 + (audioData.beat ? 2 : 0)
+                : light.intensity
+            const targetOpacity = reactive ? 0.05 + audioData.energy * 0.1 : 0.05
+            const targetScale = reactive ? 1 + audioData.bass * 0.3 : 1
+
+            // Color temperature shift toward amber when bass is high
+            baseColor.set(light.color)
+            if (reactive && audioData.bass > 0.5) {
+                targetColor.set('#ff8800')
+                baseColor.lerp(targetColor, (audioData.bass - 0.5) * 2 * 0.6)
+            }
+
+            // Smooth lerp toward targets
+            currentIntensities.current[i] = THREE.MathUtils.lerp(currentIntensities.current[i], targetIntensity, 0.1)
+            currentOpacities.current[i] = THREE.MathUtils.lerp(currentOpacities.current[i], targetOpacity, 0.08)
+            currentScales.current[i] = THREE.MathUtils.lerp(currentScales.current[i], targetScale, 0.1)
+            currentColors.current[i].lerp(baseColor, 0.1)
+
+            // Apply to point lights
+            const pl = lightRefs.current[i]
+            if (pl) {
+                pl.intensity = currentIntensities.current[i]
+                pl.color.copy(currentColors.current[i])
+            }
+
+            // Apply to cone meshes (scale)
+            const cone = coneRefs.current[i]
+            if (cone) {
+                cone.scale.setScalar(currentScales.current[i])
+            }
+
+            // Apply to cone materials (opacity + color)
+            const mat = coneMatRefs.current[i]
+            if (mat) {
+                mat.opacity = currentOpacities.current[i]
+                mat.color.copy(currentColors.current[i])
+            }
+        }
+    })
 
     return (
         <>
@@ -163,6 +229,7 @@ function DockLights() {
                     </mesh>
                     {/* Point light */}
                     <pointLight
+                        ref={el => { lightRefs.current[i] = el }}
                         position={[light.x, 2.5, light.z]}
                         intensity={light.intensity}
                         color={light.color}
@@ -171,12 +238,16 @@ function DockLights() {
                         castShadow
                     />
                     {/* Fake volumetric cone */}
-                    <mesh position={[light.x, 0.5, light.z]}>
+                    <mesh
+                        ref={el => { coneRefs.current[i] = el }}
+                        position={[light.x, 0.5, light.z]}
+                    >
                         <coneGeometry args={[3, 4, 16, 1, true]} />
-                        <meshBasicMaterial 
-                            color={light.color} 
-                            transparent 
-                            opacity={0.05} 
+                        <meshBasicMaterial
+                            ref={el => { coneMatRefs.current[i] = el }}
+                            color={light.color}
+                            transparent
+                            opacity={0.05}
                             side={THREE.DoubleSide}
                             depthWrite={false}
                         />

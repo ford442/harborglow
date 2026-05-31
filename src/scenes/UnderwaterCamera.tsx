@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback } from 'react'
+import { useRef, useMemo, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
@@ -39,6 +39,10 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
   const marineLifeRef = useRef<MarineLife[]>([])
   const godRayRef = useRef<{ intensity: number; angle: number }>({ intensity: 0, angle: 0 })
   
+  // Deep abyss backdrop geometry/material (memoized for performance)
+  const abyssGeometry = useMemo(() => new THREE.SphereGeometry(80, 16, 16), [])
+  const abyssMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#020814', side: THREE.BackSide, depthWrite: false }), [])
+  
   // Get ship upgrade status for light effects
   const shipUpgradeProgress = useMemo(() => {
     if (!currentShip) return 0
@@ -68,9 +72,9 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
       type,
       position: new THREE.Vector3(x, -8 - Math.random() * 10, z),
       velocity: new THREE.Vector3(
-        (Math.random() - 0.5) * 0.5,
-        type === 'bubbles' ? 0.5 + Math.random() * 0.5 : (Math.random() - 0.5) * 0.1,
-        (Math.random() - 0.5) * 0.5
+        (Math.random() - 0.5) * 0.2,
+        type === 'bubbles' ? 0.3 + Math.random() * 0.3 : (Math.random() - 0.5) * 0.05,
+        (Math.random() - 0.5) * 0.2
       ),
       size: type === 'whale' ? 8 : type === 'shark' ? 3 : type === 'jellyfish' ? 1.5 : 0.1 + Math.random() * 0.2,
       life: 0,
@@ -78,7 +82,7 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
       color: new THREE.Color().setHSL(
         type === 'jellyfish' ? 0.8 + Math.random() * 0.2 : 0.5 + Math.random() * 0.3,
         0.8,
-        type === 'plankton' ? 0.8 : 0.5
+        type === 'plankton' ? 0.95 : 0.5
       )
     }
     
@@ -90,7 +94,7 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
     const time = state.clock.elapsedTime
     
     // Spawn new marine life
-    if (marineLifeRef.current.length < 150 * intensity) {
+    if (marineLifeRef.current.length < 250 * intensity) {
       for (let i = 0; i < 3; i++) {
         if (Math.random() < 0.3 * intensity) spawnMarineLife()
       }
@@ -119,8 +123,10 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
       })
       .filter(creature => creature.life < creature.maxLife && creature.position.y < 0)
     
-    // Update god rays based on ship lights
-    const targetGodRayIntensity = shipUpgradeProgress * lightIntensity * 0.8 * intensity
+    // Update god rays based on ship lights + music reactivity
+    const baseIntensity = shipUpgradeProgress * lightIntensity * 1.4 * intensity
+    const audioBoost = (audioData?.bass ?? 0) * 0.5 + (audioData?.envelope ?? 0) * 0.3
+    const targetGodRayIntensity = baseIntensity + audioBoost
     godRayRef.current.intensity = THREE.MathUtils.lerp(
       godRayRef.current.intensity,
       targetGodRayIntensity,
@@ -129,53 +135,55 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
     godRayRef.current.angle += delta * 0.2
     
     // Audio-reactive bioluminescence pulse
-    if (audioData?.beat && audioData.beatIntensity > 0.5) {
+    if (audioData?.beat && audioData.beatIntensity > 0.3) {
       marineLifeRef.current.forEach(creature => {
         if (creature.type === 'plankton' || creature.type === 'jellyfish') {
+          const baseLightness = creature.type === 'plankton' ? 0.95 : 0.5
           creature.color.setHSL(
             creature.color.getHSL({ h: 0, s: 0, l: 0 }).h,
             1,
-            0.8 + audioData.beatIntensity * 0.2
+            baseLightness + audioData.beatIntensity * 0.3 + (audioData?.bass ?? 0) * 0.2
           )
         }
       })
     }
   })
   
-  // Generate god ray positions based on ship position
-  const godRays = useMemo(() => {
+  // Generate god ray positions based on ship position (computed each frame for audio reactivity)
+  const godRays = (() => {
     if (!currentShip || godRayRef.current.intensity < 0.01) return []
     
     const shipPos = new THREE.Vector3(...currentShip.position)
     const rays: { position: THREE.Vector3; angle: number; intensity: number; color: THREE.Color }[] = []
     
+    // Ship type specific colors
+    const colors: Record<string, string> = {
+      cruise: '#ff6b9d',
+      container: '#00d4aa',
+      tanker: '#ff9500',
+      bulk: '#8b4513',
+      lng: '#00bfff',
+      roro: '#9b59b6',
+      research: '#2ecc71',
+      droneship: '#34495e'
+    }
+    
     // Create rays from ship lights piercing through water
     for (let i = 0; i < 6; i++) {
       const angle = (i / 6) * Math.PI * 2 + godRayRef.current.angle
       const offset = new THREE.Vector3(Math.cos(angle) * 5, 0, Math.sin(angle) * 5)
-      
-      // Ship type specific colors
-      const colors: Record<string, string> = {
-        cruise: '#ff6b9d',
-        container: '#00d4aa',
-        tanker: '#ff9500',
-        bulk: '#8b4513',
-        lng: '#00bfff',
-        roro: '#9b59b6',
-        research: '#2ecc71',
-        droneship: '#34495e'
-      }
+      const intensityMult = 0.5 + ((i * 0.618) % 1) * 0.5 // stable pseudo-random
       
       rays.push({
         position: shipPos.clone().add(offset),
         angle: angle + Math.PI,
-        intensity: godRayRef.current.intensity * (0.5 + Math.random() * 0.5),
+        intensity: godRayRef.current.intensity * intensityMult,
         color: new THREE.Color(colors[currentShip.type] || '#ffffff')
       })
     }
     
     return rays
-  }, [currentShip, shipUpgradeProgress, lightIntensity, intensity])
+  })()
   
   // Group marine life by type for efficient rendering
   const plankton = marineLifeRef.current.filter(m => m.type === 'plankton')
@@ -185,6 +193,9 @@ export default function UnderwaterCamera({ intensity = 1 }: UnderwaterCameraProp
   
   return (
     <group>
+      {/* Deep abyss backdrop */}
+      <mesh position={[0, -40, 0]} geometry={abyssGeometry} material={abyssMaterial} />
+      
       {/* Underwater fog/god rays */}
       {godRays.map((ray, i) => (
         <GodRay
@@ -241,15 +252,27 @@ function GodRay({
   color: THREE.Color
 }) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const meshRef = useRef<THREE.Mesh>(null)
+  
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uIntensity.value = intensity
+      materialRef.current.uniforms.uColor.value = color
+    }
+  }, [intensity, color])
   
   useFrame((state) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
     }
+    if (meshRef.current) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 3) * intensity * 0.15
+      meshRef.current.scale.set(1, pulse, 1)
+    }
   })
   
   return (
-    <mesh position={[position.x, -5, position.z]} rotation={[0, angle, 0]}>
+    <mesh ref={meshRef} position={[position.x, -5, position.z]} rotation={[0, angle, 0]}>
       <cylinderGeometry args={[0.5, 3, 15, 8, 1, true]} />
       <shaderMaterial
         ref={materialRef}
@@ -288,7 +311,7 @@ function GodRay({
             float noise = sin(vUv.x * 10.0 + vUv.y * 5.0 + uTime) * 0.1 + 0.9;
             
             vec3 color = uColor * uIntensity * fade * noise;
-            gl_FragColor = vec4(color, fade * uIntensity * 0.5);
+            gl_FragColor = vec4(color, fade * uIntensity * 0.6);
           }
         `}
       />
@@ -302,7 +325,7 @@ function GodRay({
 function PlanktonField({ plankton }: { plankton: MarineLife[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
-  const count = Math.max(0, Math.min(plankton.length, 150))
+  const count = Math.max(0, Math.min(plankton.length, 250))
   
   useFrame(() => {
     if (!meshRef.current || count === 0) return
@@ -311,7 +334,7 @@ function PlanktonField({ plankton }: { plankton: MarineLife[] }) {
       const p = plankton[i]
       if (!p) continue
       dummy.position.copy(p.position)
-      dummy.scale.setScalar(p.size * (0.8 + Math.sin(p.life * 3) * 0.2))
+      dummy.scale.setScalar(p.size * (0.8 + Math.sin(p.life * 2) * 0.4))
       dummy.updateMatrix()
       meshRef.current.setMatrixAt(i, dummy.matrix)
       meshRef.current.setColorAt(i, p.color)
@@ -328,7 +351,7 @@ function PlanktonField({ plankton }: { plankton: MarineLife[] }) {
       ref={meshRef}
       args={[undefined, undefined, count]}
     >
-      <sphereGeometry args={[0.05, 4, 4]} />
+      <sphereGeometry args={[0.06, 4, 4]} />
       <meshBasicMaterial
         color="#ffffff"
         transparent
@@ -535,10 +558,13 @@ function BubbleField({ bubbles }: { bubbles: MarineLife[] }) {
  */
 function CausticsPlane({ intensity }: { intensity: number }) {
   const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const { audioData } = useAudioVisualSync()
   
   useFrame((state) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
+      materialRef.current.uniforms.uAudioBass.value = audioData?.bass ?? 0
+      materialRef.current.uniforms.uAudioEnergy.value = audioData?.energy ?? 0
     }
   })
   
@@ -551,7 +577,9 @@ function CausticsPlane({ intensity }: { intensity: number }) {
         depthWrite={false}
         uniforms={{
           uTime: { value: 0 },
-          uIntensity: { value: intensity }
+          uIntensity: { value: intensity },
+          uAudioBass: { value: 0 },
+          uAudioEnergy: { value: 0 }
         }}
         vertexShader={`
           varying vec2 vUv;
@@ -563,6 +591,8 @@ function CausticsPlane({ intensity }: { intensity: number }) {
         fragmentShader={`
           uniform float uTime;
           uniform float uIntensity;
+          uniform float uAudioBass;
+          uniform float uAudioEnergy;
           varying vec2 vUv;
           
           float caustic(vec2 uv, float time) {
@@ -582,8 +612,11 @@ function CausticsPlane({ intensity }: { intensity: number }) {
           }
           
           void main() {
-            float c = caustic(vUv, uTime);
-            vec3 color = vec3(0.3, 0.5, 0.7) * c * uIntensity;
+            float time = uTime * (1.0 + uAudioEnergy * 2.0);
+            float c = caustic(vUv, time);
+            vec3 baseColor = vec3(0.008, 0.031, 0.078);
+            vec3 brightColor = vec3(0.25, 0.5, 0.75);
+            vec3 color = mix(baseColor, brightColor, c) * (1.0 + uAudioBass * 0.8) * uIntensity;
             gl_FragColor = vec4(color, c * 0.3 * uIntensity);
           }
         `}

@@ -6,6 +6,7 @@
 import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
+import { useAudioData } from '../systems/audioVisualSync'
 
 interface CraneCableProps {
   startPos: [number, number, number]  // Crane trolley/head position
@@ -89,10 +90,16 @@ export default function CraneCable({
   isNight = false,
   climaxPulse = 0,
 }: CraneCableProps) {
+  const audioData = useAudioData()
   const cableRef = useRef<THREE.Mesh>(null)
   const curveRef = useRef<THREE.CatmullRomCurve3 | null>(null)
   const cableMatRef = useRef<THREE.MeshStandardMaterial>(null)
   const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const glowMeshRef = useRef<THREE.Mesh>(null)
+
+  // Reusable colors to avoid per-frame allocations
+  const tempColor1 = useMemo(() => new THREE.Color(), [])
+  const tempColor2 = useMemo(() => new THREE.Color(), [])
   
   // Delta-corrected sway state
   const swayAmplitudeRef = useRef(0)
@@ -140,9 +147,10 @@ export default function CraneCable({
       swayAmplitudeRef.current *= Math.pow(0.005, delta)
     }
     
-    // Add sway based on movement and wind
-    const swayX = Math.sin(time * 0.5) * swayAmplitudeRef.current
-    const swayZ = Math.cos(time * 0.3) * swayAmplitudeRef.current * 0.8
+    // Enhanced sway with audio envelope
+    const musicSway = swayAmplitudeRef.current + audioData.envelope * 0.02
+    const swayX = Math.sin(time * 0.5) * musicSway
+    const swayZ = Math.cos(time * 0.3) * musicSway * 0.8
     
     // Generate points with sway
     const points: THREE.Vector3[] = []
@@ -182,6 +190,35 @@ export default function CraneCable({
     
     cableRef.current.geometry = newGeometry
 
+    // Update glow mesh geometry with beat-pulse thickness
+    if (glowMeshRef.current) {
+      const glowGeo = glowMeshRef.current.geometry as THREE.TubeGeometry
+      glowGeo.dispose()
+      const pulseThickness = getCableThickness(tension) * 1.5 * (1 + audioData.beatIntensity * 0.3)
+      glowMeshRef.current.geometry = new THREE.TubeGeometry(
+        curveRef.current,
+        16,
+        pulseThickness,
+        6,
+        false
+      )
+    }
+
+    // Dynamic cable color with audio reactivity
+    const baseTensionColor = getTensionColor(tension)
+    tempColor1.set(baseTensionColor)
+
+    // Spectral centroid shift: cool blue for high, warm amber for low
+    const centroidAmount = Math.abs(audioData.spectralCentroid - 0.5) * 2 * 0.3
+    tempColor2.set(audioData.spectralCentroid > 0.5 ? '#4488ff' : '#ffcc66')
+    tempColor1.lerp(tempColor2, centroidAmount)
+
+    // Bass boost toward warm orange/red when tension > 0.3
+    if (tension > 0.3) {
+      tempColor2.set('#ff4422')
+      tempColor1.lerp(tempColor2, audioData.bass * 0.4)
+    }
+
     const nightScale = (isNight ? 1 : 0.2) * lightIntensity
     const pulse = 1 + climaxPulse * 0.35
     const tensionGlow = tension > 0.6 ? 0.22 : 0
@@ -195,11 +232,13 @@ export default function CraneCable({
       } else if (nearAttachment) {
         cableMatRef.current.emissive.set('#66c8ff')
       } else if (tension > 0.6) {
-        cableMatRef.current.emissive.set(cableColor)
+        cableMatRef.current.emissive.set(tempColor1)
       } else {
         cableMatRef.current.emissive.set('#000000')
       }
       cableMatRef.current.emissiveIntensity = glow
+      // Update visible cable tint with dynamic color
+      cableMatRef.current.color.copy(tempColor1)
     }
     if (glowMatRef.current) {
       if (warmInstallGlow > 0.05) {
@@ -207,7 +246,7 @@ export default function CraneCable({
       } else if (nearAttachment) {
         glowMatRef.current.color.set('#66c8ff')
       } else {
-        glowMatRef.current.color.set(cableColor)
+        glowMatRef.current.color.set(tempColor1)
       }
       glowMatRef.current.opacity = Math.min(0.38, glow * 0.28)
     }
@@ -235,7 +274,7 @@ export default function CraneCable({
       
       {/* Tension glow effect for high tension */}
       {(tension > 0.7 || nearAttachment || installBoost > 0.05) && (
-        <mesh>
+        <mesh ref={glowMeshRef}>
           <tubeGeometry
             args={[curve, 16, cableThickness * 1.5, 6, false]}
           />

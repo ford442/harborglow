@@ -20,7 +20,7 @@ interface InstallationFeedbackProps {
 // Sound effects using Tone.js
 const playInstallSound = async (rigType: RigType) => {
   await Tone.start()
-  
+
   const synth = new Tone.PolySynth(Tone.Synth).toDestination()
   const metal = new Tone.MetalSynth({
     harmonicity: 5.1,
@@ -28,10 +28,10 @@ const playInstallSound = async (rigType: RigType) => {
     resonance: 4000,
     octaves: 1.5
   }).toDestination()
-  
+
   // Small lookahead buffer — avoids scheduling at an already-past AudioContext time
   const now = Tone.now() + 0.05
-  
+
   // Chord based on rig type
   const chords: Record<RigType, string[]> = {
     rgb_matrix: ['C5', 'E5', 'G5'],
@@ -40,15 +40,15 @@ const playInstallSound = async (rigType: RigType) => {
     led_strip: ['F5', 'A5', 'C6'],
     searchlight: ['A4', 'C#5', 'E5'],
   }
-  
+
   const chord = chords[rigType]
-  
+
   // Mechanical "clunk"
   metal.triggerAttackRelease('32n', now)
-  
+
   // Musical chime
   synth.triggerAttackRelease(chord, '8n', now + 0.05)
-  
+
   // Sparkle effect
   const sparkle = new Tone.MetalSynth({
     harmonicity: 12,
@@ -57,34 +57,56 @@ const playInstallSound = async (rigType: RigType) => {
     envelope: { decay: 0.4, release: 0.2 },
     volume: -15,
   }).toDestination()
-  
+
   sparkle.triggerAttackRelease('32n', now + 0.1)
 }
 
 // Play celebration sound for fully upgraded ship
 const playCelebrationSound = async () => {
   await Tone.start()
-  
+
   const synth = new Tone.PolySynth(Tone.Synth).toDestination()
   const bass = new Tone.MembraneSynth().toDestination()
-  
+
   const now = Tone.now()
-  
+
   // Fanfare
   synth.triggerAttackRelease('C5', '8n', now)
   synth.triggerAttackRelease('E5', '8n', now + 0.1)
   synth.triggerAttackRelease('G5', '8n', now + 0.2)
   synth.triggerAttackRelease('C6', '2n', now + 0.3)
-  
+
   // Bass hit
   bass.triggerAttackRelease('C2', '4n', now)
   bass.triggerAttackRelease('G2', '4n', now + 0.4)
 }
 
-// Screen flash overlay
+// Chromatic full-screen flash overlay
+function ChromaticFlash({ active }: { active: boolean }) {
+  if (!active) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#00ffff',
+        opacity: 0.35,
+        mixBlendMode: 'screen',
+        backdropFilter: 'hue-rotate(30deg)',
+        WebkitBackdropFilter: 'hue-rotate(30deg)',
+        pointerEvents: 'none',
+        zIndex: 10000,
+        animation: 'chromatic-flash 0.15s ease-out forwards',
+      }}
+    />
+  )
+}
+
+// Screen flash overlay (legacy, kept for celebration)
 function ScreenFlash({ active, color }: { active: boolean; color: string }) {
   if (!active) return null
-  
+
   return (
     <div
       style={{
@@ -100,10 +122,41 @@ function ScreenFlash({ active, color }: { active: boolean; color: string }) {
   )
 }
 
+// CSS radial shockwave overlay
+function RadialShockwaveOverlay({ active }: { active: boolean }) {
+  if (!active) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        width: '10vmin',
+        height: '10vmin',
+        transform: 'translate(-50%, -50%)',
+        pointerEvents: 'none',
+        zIndex: 9995,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          border: '3px solid rgba(0, 255, 255, 0.9)',
+          boxShadow: '0 0 20px rgba(0, 255, 255, 0.6), inset 0 0 20px rgba(0, 255, 255, 0.3)',
+          animation: 'shockwave-expand 0.6s ease-out forwards',
+        }}
+      />
+    </div>
+  )
+}
+
 // LOCKED text overlay
 function LockedOverlay({ active }: { active: boolean }) {
   if (!active) return null
-  
+
   return (
     <div
       style={{
@@ -118,11 +171,12 @@ function LockedOverlay({ active }: { active: boolean }) {
     >
       <div
         style={{
-          fontSize: '72px',
+          fontSize: '96px',
           fontWeight: 900,
           color: '#00ff00',
-          textShadow: '0 0 40px #00ff00, 0 0 80px #00ff00',
-          letterSpacing: '8px',
+          textShadow:
+            '0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 40px #00ff00, 0 0 80px #00ff00, 0 0 120px #00cc00',
+          letterSpacing: '10px',
         }}
       >
         LOCKED
@@ -135,7 +189,7 @@ function LockedOverlay({ active }: { active: boolean }) {
 function InstallProgressOverlay({ progress }: { progress: number }) {
   const circumference = 2 * Math.PI * 50
   const strokeDashoffset = circumference * (1 - progress)
-  
+
   return (
     <div
       style={{
@@ -147,7 +201,14 @@ function InstallProgressOverlay({ progress }: { progress: number }) {
         zIndex: 9997,
       }}
     >
-      <svg width="120" height="120" viewBox="0 0 120 120">
+      <svg
+        width="120"
+        height="120"
+        viewBox="0 0 120 120"
+        style={{
+          filter: 'drop-shadow(0 0 8px currentColor)',
+        }}
+      >
         {/* Background ring */}
         <circle
           cx="60"
@@ -172,6 +233,7 @@ function InstallProgressOverlay({ progress }: { progress: number }) {
             transform: 'rotate(-90deg)',
             transformOrigin: 'center',
             transition: 'stroke-dashoffset 0.1s ease',
+            filter: 'drop-shadow(0 0 6px #00ff00)',
           }}
         />
       </svg>
@@ -202,13 +264,15 @@ export default function InstallationFeedback({
   const [phase, setPhase] = useState<'idle' | 'installing' | 'locked' | 'celebrating'>('idle')
   const [progress, setProgress] = useState(0)
   const [showFlash, setShowFlash] = useState(false)
-  
+  const [showChromatic, setShowChromatic] = useState(false)
+  const [showShockwave, setShowShockwave] = useState(false)
+
   const { triggerInstallationShake } = useScreenShake()
-  const ships = useGameStore(state => state.ships)
-  const installedUpgrades = useGameStore(state => state.installedUpgrades)
-  
-  const ship = ships.find(s => s.id === shipId)
-  
+  const ships = useGameStore((state) => state.ships)
+  const installedUpgrades = useGameStore((state) => state.installedUpgrades)
+
+  const ship = ships.find((s) => s.id === shipId)
+
   // Check if ship is fully upgraded
   const isFullyUpgraded = useCallback(() => {
     if (!ship) return false
@@ -222,20 +286,20 @@ export default function InstallationFeedback({
       research: 7,
       droneship: 6,
     }
-    const installed = installedUpgrades.filter(u => u.shipId === shipId).length
+    const installed = installedUpgrades.filter((u) => u.shipId === shipId).length
     return installed >= upgradeCounts[ship.type]
   }, [ship, shipId, installedUpgrades])
-  
+
   useEffect(() => {
     // Start installation sequence
     setPhase('installing')
-    
+
     // Play install sound
     playInstallSound(rigType)
-    
+
     // Progress animation
     const progressInterval = setInterval(() => {
-      setProgress(p => {
+      setProgress((p) => {
         if (p >= 1) {
           clearInterval(progressInterval)
           return 1
@@ -243,29 +307,33 @@ export default function InstallationFeedback({
         return p + 0.05
       })
     }, 50)
-    
+
     // LOCKED phase
     const lockedTimeout = setTimeout(() => {
       setPhase('locked')
       setShowFlash(true)
-      
+      setShowChromatic(true)
+      setShowShockwave(true)
+
       // Trigger screen shake
       if (ship) {
         triggerInstallationShake(ship.length)
       }
-      
+
       // Hide flash after animation
       setTimeout(() => setShowFlash(false), 300)
-      
+      setTimeout(() => setShowChromatic(false), 150)
+      setTimeout(() => setShowShockwave(false), 600)
+
       // Check for full upgrade celebration
       if (isFullyUpgraded()) {
         setTimeout(() => {
           setPhase('celebrating')
           playCelebrationSound()
-          
+
           // Trigger camera orbit and light show
           // This would integrate with your camera/lighting systems
-          
+
           // End celebration
           setTimeout(() => {
             setPhase('idle')
@@ -280,29 +348,47 @@ export default function InstallationFeedback({
         }, 1000)
       }
     }, 1000)
-    
+
     return () => {
       clearInterval(progressInterval)
       clearTimeout(lockedTimeout)
     }
   }, [rigType, ship, triggerInstallationShake, isFullyUpgraded, onComplete])
-  
+
   if (phase === 'idle') return null
-  
+
   return (
     <>
-      {/* Screen flash */}
-      <ScreenFlash 
-        active={showFlash} 
-        color={phase === 'celebrating' ? '#00d4ff' : '#00ff00'} 
+      {/* Haptic-style shake wrapper */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 9990,
+          animation:
+            phase === 'locked' ? 'haptic-shake 0.4s ease-in-out' : undefined,
+        }}
       />
-      
+
+      {/* Chromatic flash */}
+      <ChromaticFlash active={showChromatic} />
+
+      {/* Screen flash */}
+      <ScreenFlash
+        active={showFlash}
+        color={phase === 'celebrating' ? '#00d4ff' : '#00ff00'}
+      />
+
+      {/* Radial shockwave overlay */}
+      <RadialShockwaveOverlay active={showShockwave} />
+
       {/* LOCKED overlay */}
       <LockedOverlay active={phase === 'locked'} />
-      
+
       {/* Progress overlay */}
       {phase === 'installing' && <InstallProgressOverlay progress={progress} />}
-      
+
       {/* Celebration overlay */}
       {phase === 'celebrating' && (
         <div
@@ -340,38 +426,67 @@ export default function InstallationFeedback({
           </div>
         </div>
       )}
-      
+
       {/* CSS animations */}
       <style>{`
         @keyframes flash {
           0% { opacity: 0.5; }
           100% { opacity: 0; }
         }
-        
+
+        @keyframes chromatic-flash {
+          0% { opacity: 0.45; }
+          100% { opacity: 0; }
+        }
+
         @keyframes locked-pop {
-          0% { 
+          0% {
             transform: translate(-50%, -50%) scale(0.5);
             opacity: 0;
           }
-          50% { 
+          50% {
             transform: translate(-50%, -50%) scale(1.2);
             opacity: 1;
           }
-          100% { 
+          100% {
             transform: translate(-50%, -50%) scale(1);
             opacity: 1;
           }
         }
-        
+
         @keyframes celebration-in {
-          0% { 
+          0% {
             transform: scale(0.8);
             opacity: 0;
           }
-          100% { 
+          100% {
             transform: scale(1);
             opacity: 1;
           }
+        }
+
+        @keyframes shockwave-expand {
+          0% {
+            transform: scale(0);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(20);
+            opacity: 0;
+          }
+        }
+
+        @keyframes haptic-shake {
+          0%, 100% { transform: translate(0, 0); }
+          10% { transform: translate(-4px, 2px); }
+          20% { transform: translate(4px, -2px); }
+          30% { transform: translate(-3px, -3px); }
+          40% { transform: translate(3px, 3px); }
+          50% { transform: translate(-2px, 1px); }
+          60% { transform: translate(2px, -1px); }
+          70% { transform: translate(-1px, -2px); }
+          80% { transform: translate(1px, 2px); }
+          90% { transform: translate(-1px, 1px); }
         }
       `}</style>
     </>

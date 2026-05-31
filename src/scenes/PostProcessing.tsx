@@ -312,6 +312,15 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
         const distance = camera.position.distanceTo(shipPos)
         colorPassRef.current.uniforms.uFocusDistance.value = distance
       }
+      
+      // Spectator mode cinematic boost
+      const baseChromaticAberration = config.chromaticAberration
+      const spectatorChromaticBoost = spectatorState.isActive ? 2.0 : 1.0
+      colorPassRef.current.uniforms.uChromaticAberration.value = baseChromaticAberration * spectatorChromaticBoost
+      
+      const baseVignette = config.vignette
+      const spectatorVignetteBoost = spectatorState.isActive ? 0.1 : 0.0
+      colorPassRef.current.uniforms.uVignette.value = baseVignette + spectatorVignetteBoost
     }
     
     // Render
@@ -446,6 +455,17 @@ function createColorGradingShader(lut: typeof COLOR_LUTS.day, config: typeof QUA
         
         // Color tint
         color += uTint * 0.1;
+        
+        // Fake DOF - radial blur at edges for cinematic spectator mode
+        if (uDofEnabled > 0.5) {
+          float edgeBlur = smoothstep(0.25, 0.85, dist) * 0.04;
+          vec3 blurColor = color;
+          blurColor += texture2D(tDiffuse, uv + vec2(edgeBlur, 0.0)).rgb;
+          blurColor += texture2D(tDiffuse, uv + vec2(-edgeBlur, 0.0)).rgb;
+          blurColor += texture2D(tDiffuse, uv + vec2(0.0, edgeBlur)).rgb;
+          blurColor += texture2D(tDiffuse, uv + vec2(0.0, -edgeBlur)).rgb;
+          color = mix(color, blurColor * 0.2, smoothstep(0.25, 0.85, dist));
+        }
         
         gl_FragColor = vec4(color, 1.0);
       }

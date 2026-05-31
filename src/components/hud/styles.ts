@@ -109,6 +109,23 @@ export const activeIndicatorStyle: React.CSSProperties = {
   fontSize: '10px',
 }
 
+export const cameraPillBaseStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 14px',
+  background: GLASSMORPHISM.background,
+  backdropFilter: GLASSMORPHISM.backdropFilter,
+  borderRadius: '20px',
+  fontSize: '11px',
+  fontWeight: 600,
+  letterSpacing: '0.5px',
+  textTransform: 'uppercase',
+  border: GLASSMORPHISM.border,
+  color: '#888',
+  transition: 'all 0.3s ease',
+}
+
 // Time Display styles
 export const timeDisplayContainerStyle: React.CSSProperties = {
   position: 'absolute',

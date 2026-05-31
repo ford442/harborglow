@@ -16,7 +16,9 @@ import { useScreenShake } from '../hooks/useScreenShake'
 import { playSound, playInstallationCelebration } from '../systems/soundEffects'
 import { economySystem } from '../systems/economySystem'
 import ParticleBurst3D from './ParticleBurst3D'
+import MagicalInstallFlash from './MagicalInstallFlash'
 import InstallationFeedback from './InstallationFeedback'
+import { RIG_TYPE_COLORS } from '../systems/attachmentSystem'
 
 interface AttachmentSystemManagerProps {
   children?: React.ReactNode
@@ -202,14 +204,21 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
   
   return (
     <>
-      {/* Render particle burst for last installation */}
+      {/* Render particle burst and magical flash for last installation */}
       {lastInstall && (
-        <ParticleBurst3D
-          position={lastInstall.position}
-          rigType={lastInstall.rigType}
-          active={true}
-          onComplete={() => {}}
-        />
+        <>
+          <MagicalInstallFlash
+            position={lastInstall.position}
+            color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
+            active={true}
+          />
+          <ParticleBurst3D
+            position={lastInstall.position}
+            rigType={lastInstall.rigType}
+            active={true}
+            onComplete={() => {}}
+          />
+        </>
       )}
       
       {/* Installation feedback overlay */}

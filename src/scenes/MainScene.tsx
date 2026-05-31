@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
 import { useControls } from 'leva'
 import * as THREE from 'three'
@@ -20,6 +20,7 @@ import { timeSystem, DayPhase, PHASES, getPhaseDescription } from '../systems/ti
 import { moonSystem, MOON_PHASES, MoonPhaseName, getPhaseGameplayEffects } from '../systems/moonSystem'
 import { trafficSystem } from '../systems/trafficSystem'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
+import CraneAutoPilot from '../components/CraneAutoPilot'
 import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
 import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTwistlockEngage } from '../systems/craneSoundSystem'
 
@@ -49,6 +50,8 @@ import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
 import OnDockRail from './OnDockRail'
 import SeaBirds from './SeaBirds'
+import UnderwaterCamera from './UnderwaterCamera'
+import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { wildlifeSystem } from '../systems/wildlifeSystem'
 import { seaEventsSystem } from '../systems/seaEventsSystem'
@@ -162,7 +165,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     )
 
     // Initialize systems
-    const cameraHooksEnabled = operationMode !== 'walking'
+    const cameraHooksEnabled = cameraMode !== 'onFoot'
     useCinematicCamera(cameraHooksEnabled)
     useCameraTransition(cameraHooksEnabled)
     const { audioData } = useAudioVisualSync()
@@ -453,6 +456,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             {/* Phase 9: Attachment System Manager */}
             <AttachmentSystemManager />
 
+            {/* Crane Auto-Pilot for upgrade menu navigation */}
+            <CraneAutoPilot />
+
             {/* Lighting */}
             <ambientLight 
                 intensity={ambientIntensity} 
@@ -503,9 +509,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <Dock isNight={isNight} />
             
             {/* Crane or Tugboat depending on mode */}
-            {(operationMode === 'crane' || operationMode === 'walking') && <Crane />}
+            {(operationMode === 'crane' || cameraMode === 'onFoot') && <Crane />}
             {operationMode === 'tugboat' && <Tugboat />}
-            {operationMode === 'walking' && <Player />}
+            {cameraMode === 'onFoot' && <Player />}
             <DockWalkEnvironment isNight={isNight} />
             
             {/* On-Dock Rail System */}
@@ -520,6 +526,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             {/* Wildlife and Sea Events */}
             <WildlifeRenderer />
             <SeaEvents />
+            <UnderwaterEffects />
+            <HarborAmbiance />
 
             {/* Effects */}
             <GlobalIllumination enabled={true} quality="high" />
@@ -619,7 +627,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     return (
         <>
             {/* Main Camera - Crane Cab POV (hidden in tugboat mode; helm cam is inside Tugboat.tsx) */}
-            {operationMode === 'crane' && (
+            {operationMode === 'crane' && cameraMode !== 'onFoot' && (
                 <PerspectiveCamera
                     makeDefault
                     position={[18, 24, 8]}
@@ -629,7 +637,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 />
             )}
             
-            {operationMode === 'crane' && (
+            {operationMode === 'crane' && cameraMode !== 'onFoot' && (
                 <OrbitControls 
                     ref={orbitControlsRef}
                     target={currentShip?.position || [0, 0, 0]}
@@ -1915,6 +1923,19 @@ function useShipScheduling(config: ShipSchedulingConfig) {
 // =============================================================================
 // HELPERS
 // =============================================================================
+
+function UnderwaterEffects() {
+  const cameraMode = useGameStore(s => s.cameraMode)
+  const { camera } = useThree()
+  const [show, setShow] = useState(false)
+  
+  useFrame(() => {
+    setShow(cameraMode === 'ship-water' || camera.position.y < -1)
+  })
+  
+  if (!show) return null
+  return <UnderwaterCamera intensity={1.2} />
+}
 
 function getSunPosition(hour: number): [number, number, number] {
     const angle = ((hour - 12) / 12) * Math.PI

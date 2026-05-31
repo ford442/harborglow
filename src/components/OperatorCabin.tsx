@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import * as THREE from 'three'
-import { useGameStore, ShipType } from '../store/useGameStore'
+import { useGameStore, ShipType, CameraMode } from '../store/useGameStore'
 import { useAudioData } from '../systems/audioVisualSync'
 import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
 import { moonSystem, MoonPhaseName, MOON_PHASES } from '../systems/moonSystem'
@@ -14,6 +14,8 @@ import { trafficSystem, TrafficShip, useDockedShip } from '../systems/trafficSys
 import { swaySystem, useSwaySystem } from '../systems/swaySystem'
 import { weatherSystem, useWeatherSystem, WeatherType } from '../systems/weatherSystem'
 import { useEconomySystem } from '../systems/economySystem'
+import { ShipSpawner } from '../systems/shipSpawner'
+import { useCompletionGlow } from '../hooks/useCompletionGlow'
 
 // =============================================================================
 // TYPES
@@ -48,6 +50,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
     state.ships.find(s => s.id === state.currentShipId)
   )
   const gameMode = useGameStore(state => state.gameMode)
+  const cameraMode = useGameStore(state => state.cameraMode)
   
   // Toggle view mode with 'C' key
   useEffect(() => {
@@ -61,9 +64,10 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
   }, [viewMode, setCabinViewMode])
   
   const shipColor = currentShip ? SHIP_COLORS[currentShip.type as keyof typeof SHIP_COLORS]?.primary || '#00d4aa' : '#00d4aa'
+  const glow = useCompletionGlow()
   
   return (
-    <div style={cabinContainerStyle}>
+    <div style={{ ...cabinContainerStyle, ...(glow || {}) }}>
       {/* Mode Toggle Button */}
       <button
         style={modeToggleStyle}
@@ -106,6 +110,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
               gridArea: 'main'
             }}
             isMain
+            cameraMode={cameraMode}
           />
           
           {/* Hook Cam */}
@@ -121,6 +126,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
               accentColor: '#ff9500',
               gridArea: 'hook'
             }}
+            cameraMode={cameraMode}
           />
           
           {/* Drone Overview */}
@@ -136,6 +142,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
               accentColor: '#00bfff',
               gridArea: 'drone'
             }}
+            cameraMode={cameraMode}
           />
           
           {/* Underwater Cam */}
@@ -151,6 +158,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
               accentColor: '#00aaff',
               gridArea: 'underwater'
             }}
+            cameraMode={cameraMode}
           />
         </div>
       )}
@@ -173,11 +181,33 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
 interface CameraPanelProps {
   config: CameraFeedConfig
   isMain?: boolean
+  cameraMode: CameraMode
 }
 
-function CameraPanel({ config, isMain }: CameraPanelProps) {
+function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioData = useAudioData()
+  const [hovered, setHovered] = useState(false)
+  const [flashOpacity, setFlashOpacity] = useState(0)
+  
+  const panelIdToCameraMode: Record<string, CameraMode> = {
+    'crane': 'crane-cockpit',
+    'hook': 'crane-shoulder',
+    'drone': 'ship-aerial',
+    'underwater': 'ship-water',
+  }
+  
+  const mappedMode = panelIdToCameraMode[config.id]
+  const isActive = cameraMode === mappedMode
+  
+  const handleClick = () => {
+    if (mappedMode) {
+      useGameStore.getState().setCameraMode(mappedMode)
+      setFlashOpacity(0.2)
+      setTimeout(() => setFlashOpacity(0), 200)
+    }
+  }
+  
   const craneState = useGameStore(state => ({
     spreaderPos: state.spreaderPos,
     rotation: state.craneRotation ?? 0.2,
@@ -235,11 +265,23 @@ function CameraPanel({ config, isMain }: CameraPanelProps) {
   
   return (
     <div
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         ...panelStyle,
         gridArea: config.gridArea,
-        borderColor: `${config.accentColor}40`,
-        boxShadow: `inset 0 0 30px ${config.accentColor}15, 0 4px 20px rgba(0,0,0,0.5)`,
+        borderColor: isActive ? '#00d4aa' : `${config.accentColor}40`,
+        borderWidth: isActive ? '2px' : '1px',
+        boxShadow: isActive
+          ? `inset 0 0 30px #00d4aa20, 0 0 20px #00d4aa40, 0 4px 20px rgba(0,0,0,0.5)`
+          : hovered
+          ? `inset 0 0 30px ${config.accentColor}25, 0 0 16px ${config.accentColor}40, 0 4px 20px rgba(0,0,0,0.5)`
+          : `inset 0 0 30px ${config.accentColor}15, 0 4px 20px rgba(0,0,0,0.5)`,
+        cursor: 'pointer',
+        transform: hovered ? 'scale(1.02)' : 'scale(1)',
+        transition: 'all 0.2s ease',
+        zIndex: hovered ? 10 : 1,
       }}
     >
       {/* Monitor Bezel */}
@@ -310,6 +352,17 @@ function CameraPanel({ config, isMain }: CameraPanelProps) {
         <div style={{ ...cornerAccentStyle, bottom: 0, right: 0, background: config.accentColor }} />
         <div style={{ ...cornerAccentVStyle, bottom: 0, right: 0, background: config.accentColor }} />
       </div>
+      
+      {/* Click flash overlay */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: `rgba(255,255,255,${flashOpacity})`,
+        pointerEvents: 'none',
+        transition: 'opacity 0.2s ease',
+        zIndex: 20,
+        borderRadius: '12px',
+      }} />
     </div>
   )
 }
@@ -358,6 +411,197 @@ function EconomyMetrics({ credits, reputation }: { credits: number; reputation: 
         </div>
       </div>
     </div>
+  )
+}
+
+// =============================================================================
+// HARBOR SILHOUETTE - Empty state artwork
+// =============================================================================
+
+function HarborSilhouette() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let animId: number
+    const stars = Array.from({ length: 30 }, () => ({
+      x: Math.random(),
+      y: Math.random() * 0.6,
+      size: Math.random() * 1.5 + 0.5,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 1.5
+    }))
+
+    const render = (time: number) => {
+      const w = canvas.width
+      const h = canvas.height
+      const t = time * 0.001
+
+      // Background gradient (deep navy to black)
+      const bg = ctx.createLinearGradient(0, 0, 0, h)
+      bg.addColorStop(0, '#02040a')
+      bg.addColorStop(0.5, '#0a1224')
+      bg.addColorStop(1, '#0d1a2e')
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, w, h)
+
+      // Stars
+      stars.forEach(star => {
+        const twinkle = 0.4 + 0.6 * Math.sin(t * star.speed + star.phase)
+        ctx.fillStyle = `rgba(200, 220, 255, ${twinkle})`
+        ctx.beginPath()
+        ctx.arc(star.x * w, star.y * h, star.size, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      // Water area
+      const waterY = h * 0.65
+      const waterGrad = ctx.createLinearGradient(0, waterY, 0, h)
+      waterGrad.addColorStop(0, '#0a1a2e')
+      waterGrad.addColorStop(1, '#020510')
+      ctx.fillStyle = waterGrad
+      ctx.fillRect(0, waterY, w, h - waterY)
+
+      // Shimmering reflections
+      for (let i = 0; i < 8; i++) {
+        const y = waterY + (i + 1) * (h - waterY) / 9
+        const shimmer = 0.15 + 0.1 * Math.sin(t * 2 + i * 1.3)
+        const width = w * (0.3 + 0.4 * Math.sin(i * 0.7))
+        const x = w * 0.5 + Math.sin(t * 0.5 + i) * w * 0.15 - width / 2
+        ctx.fillStyle = `rgba(0, 180, 255, ${shimmer})`
+        ctx.fillRect(x, y, width, 1)
+      }
+
+      // Dock silhouette
+      ctx.fillStyle = '#050a12'
+      ctx.fillRect(0, h - 20, w, 20)
+
+      // Crane silhouette
+      ctx.fillStyle = '#070f1a'
+      // Crane base
+      ctx.fillRect(w * 0.15, h - 45, 8, 25)
+      // Crane arm
+      ctx.beginPath()
+      ctx.moveTo(w * 0.19, h - 45)
+      ctx.lineTo(w * 0.19, h - 65)
+      ctx.lineTo(w * 0.55, h - 58)
+      ctx.lineTo(w * 0.55, h - 52)
+      ctx.closePath()
+      ctx.fill()
+      // Crane cabin
+      ctx.fillRect(w * 0.16, h - 50, 10, 8)
+
+      // Small ship silhouette in distance
+      ctx.fillStyle = '#080e18'
+      ctx.beginPath()
+      ctx.moveTo(w * 0.65, h - 22)
+      ctx.lineTo(w * 0.75, h - 22)
+      ctx.lineTo(w * 0.78, h - 18)
+      ctx.lineTo(w * 0.63, h - 18)
+      ctx.closePath()
+      ctx.fill()
+
+      // Lighthouse / dock light glow
+      const lightX = w * 0.08
+      const lightY = h - 35
+      const glowPulse = 0.6 + 0.4 * Math.sin(t * 1.5)
+
+      // Glow
+      const glow = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, 25)
+      glow.addColorStop(0, `rgba(0, 212, 170, ${0.4 * glowPulse})`)
+      glow.addColorStop(1, 'transparent')
+      ctx.fillStyle = glow
+      ctx.fillRect(lightX - 25, lightY - 25, 50, 50)
+
+      // Light point
+      ctx.fillStyle = `rgba(0, 255, 200, ${glowPulse})`
+      ctx.beginPath()
+      ctx.arc(lightX, lightY, 2.5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Rotating lighthouse beam
+      const beamAngle = t * 0.8
+      ctx.save()
+      ctx.translate(lightX, lightY)
+      ctx.rotate(beamAngle)
+      const beamGrad = ctx.createLinearGradient(0, 0, 60, 0)
+      beamGrad.addColorStop(0, `rgba(0, 212, 170, ${0.25 * glowPulse})`)
+      beamGrad.addColorStop(1, 'transparent')
+      ctx.fillStyle = beamGrad
+      ctx.beginPath()
+      ctx.moveTo(0, 0)
+      ctx.lineTo(60, -6)
+      ctx.lineTo(60, 6)
+      ctx.closePath()
+      ctx.fill()
+      ctx.restore()
+
+      animId = requestAnimationFrame(render)
+    }
+
+    animId = requestAnimationFrame(render)
+    return () => cancelAnimationFrame(animId)
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={228}
+      height={140}
+      style={{
+        width: '100%',
+        height: '140px',
+        borderRadius: '8px',
+        display: 'block',
+        marginBottom: '12px',
+      }}
+    />
+  )
+}
+
+// =============================================================================
+// SPAWN CTA BUTTON
+// =============================================================================
+
+function SpawnCTAButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); setPressed(false) }}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      style={{
+        width: '100%',
+        padding: '14px 16px',
+        background: 'linear-gradient(135deg, #00bcd4 0%, #0066ff 100%)',
+        border: 'none',
+        borderRadius: '8px',
+        color: '#fff',
+        fontSize: '13px',
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        cursor: 'pointer',
+        pointerEvents: 'auto',
+        transition: 'all 0.2s ease',
+        boxShadow: hovered
+          ? '0 0 24px rgba(0, 188, 212, 0.5), 0 4px 16px rgba(0, 102, 255, 0.4)'
+          : '0 0 12px rgba(0, 188, 212, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3)',
+        transform: pressed ? 'scale(0.97)' : hovered ? 'scale(1.03)' : 'scale(1)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+        marginBottom: '10px',
+      }}
+    >
+      ⚓ Spawn Your First Vessel
+    </button>
   )
 }
 
@@ -425,7 +669,13 @@ function OperatorStatusPanel() {
   if (!currentShip) {
     return (
       <div style={statusPanelStyle}>
-        <div style={{ color: '#888', fontSize: '12px' }}>No Ship Selected</div>
+        <HarborSilhouette />
+        <SpawnCTAButton onClick={() => { ShipSpawner.spawnShip('cruise') }} />
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '10px', color: '#666', lineHeight: '1.5' }}>
+            Select a ship from the harbor menu above, or spawn one here to begin operations.
+          </span>
+        </div>
         {/* Moon Phase - Always Visible */}
         <MoonPhaseIndicator phase={moonState.phase} config={moonConfig} tideHeight={moonState.tideHeight} />
       </div>

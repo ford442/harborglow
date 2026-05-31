@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import { CapsuleCollider, RigidBody, RapierRigidBody } from '@react-three/rapier'
@@ -13,6 +13,7 @@ const JUMP_VELOCITY = 6.2
 
 export default function Player() {
     const rigidBodyRef = useRef<RapierRigidBody>(null)
+    const controlsRef = useRef<any>(null)
     const updateWalkingState = useGameStore((s) => s.updateWalkingState)
     const spawnPoint = useGameStore((s) => s.walkingSpawnPoint)
     const [, getKeys] = useKeyboardControls<WalkingControls>()
@@ -24,6 +25,17 @@ export default function Player() {
     const moveRef = useRef(new THREE.Vector3())
     const lastPublishRef = useRef(0)
     const jumpCooldownRef = useRef(0)
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            controlsRef.current?.lock?.()
+        }, 100)
+
+        return () => {
+            window.clearTimeout(timer)
+            controlsRef.current?.unlock?.()
+        }
+    }, [])
 
     useFrame((state, delta) => {
         const rb = rigidBodyRef.current
@@ -95,7 +107,7 @@ export default function Player() {
             <group position={[0, 1.6, 0]}>
                 <PerspectiveCamera makeDefault fov={72} near={0.1} far={1000} />
             </group>
-            <PointerLockControls />
+            <PointerLockControls ref={controlsRef} />
         </RigidBody>
     )
 }

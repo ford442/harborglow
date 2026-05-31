@@ -38,7 +38,7 @@ export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'ror
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
-                         'spectator' | 'transition' | 'crane' | 'booth'
+                         'spectator' | 'transition' | 'crane' | 'booth' | 'onFoot'
 export type CabinViewMode = 'multiview' | 'immersive'
 export type GameMode = 'sandbox' | 'training'
 export type OperationMode = 'crane' | 'tugboat' | 'walking'
@@ -397,6 +397,7 @@ interface SerializableState {
     cableDepth: number
     loadTension: number
     trolleyPosition: number
+    winchSpeed: number
     joystickLeft: { x: number; y: number }
     joystickRight: { x: number; y: number }
     isMoving: boolean
@@ -416,6 +417,9 @@ interface SerializableState {
     // Last installation for feedback effects
     lastInstallation: InstallationEvent | null
     clearLastInstallation: () => void
+    // Upgrade menu highlighting and auto-pilot
+    highlightedUpgradePart: string | null
+    pendingAutoInstall: { shipId: string; partName: string } | null
     // Training system
     trainingProgress: TrainingProgress
     gameMode: GameMode
@@ -539,6 +543,9 @@ interface GameState extends SerializableState {
     setCableDepth: (depth: number) => void
     setLoadTension: (tension: number) => void
     setTrolleyPosition: (position: number) => void
+    setWinchSpeed: (speed: number) => void
+    setHighlightedUpgradePart: (partName: string | null) => void
+    setPendingAutoInstall: (pending: { shipId: string; partName: string } | null) => void
     setJoystickLeft: (pos: { x: number; y: number }) => void
     setJoystickRight: (pos: { x: number; y: number }) => void
     setTwistlockEngaged: (engaged: boolean) => void
@@ -597,7 +604,7 @@ const defaultState: Omit<GameState, keyof {
     setTimeOfDay: unknown; setCameraMode: unknown; resetGame: unknown; loadSavedState: unknown;
     scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown; setQualityPreset: unknown;
     setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
-    setTrolleyPosition: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
+    setTrolleyPosition: unknown; setWinchSpeed: unknown; setHighlightedUpgradePart: unknown; setPendingAutoInstall: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
     pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
@@ -654,6 +661,9 @@ const defaultState: Omit<GameState, keyof {
     cableDepth: 15,
     loadTension: 0,
     trolleyPosition: 0.5,
+    winchSpeed: 1.0,
+    highlightedUpgradePart: null,
+    pendingAutoInstall: null,
     joystickLeft: { x: 0, y: 0 },
     joystickRight: { x: 0, y: 0 },
     isMoving: false,
@@ -1033,7 +1043,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 lyricsSize: saved.lyricsSize ?? 28,
                 lightIntensity: saved.lightIntensity ?? 1.5,
                 timeOfDay: saved.timeOfDay ?? 22,
-                cameraMode: saved.cameraMode && (['orbit', 'crane-cockpit', 'crane-shoulder', 'crane-top', 'ship-low', 'ship-aerial', 'ship-water', 'ship-rig', 'spectator', 'transition', 'crane', 'booth'] as const).includes(saved.cameraMode as CameraMode)
+                cameraMode: saved.cameraMode && (['orbit', 'crane-cockpit', 'crane-shoulder', 'crane-top', 'ship-low', 'ship-aerial', 'ship-water', 'ship-rig', 'spectator', 'transition', 'crane', 'booth', 'onFoot'] as const).includes(saved.cameraMode as CameraMode)
                     ? saved.cameraMode as CameraMode
                     : 'orbit',
                 isNight: (saved.timeOfDay ?? 22) < 6 || (saved.timeOfDay ?? 22) > 18,
@@ -1220,6 +1230,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     setCableDepth: (depth) => set({ cableDepth: depth }),
     setLoadTension: (tension) => set({ loadTension: tension }),
     setTrolleyPosition: (position) => set({ trolleyPosition: position }),
+    setWinchSpeed: (speed: number) => set({ winchSpeed: speed }),
+    setHighlightedUpgradePart: (partName) => set({ highlightedUpgradePart: partName }),
+    setPendingAutoInstall: (pending) => set({ pendingAutoInstall: pending }),
     setJoystickLeft: (pos) => set({ joystickLeft: pos }),
     setJoystickRight: (pos) => set({ joystickRight: pos }),
     setTwistlockEngaged: (engaged) => set({ twistlockEngaged: engaged }),
@@ -1452,7 +1465,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             walkingVelocity: [0, 0, 0] as [number, number, number],
             walkingReturnCameraMode: state.cameraMode,
             walkingReturnCabinViewMode: state.cabinViewMode,
-            cameraMode: 'orbit' as CameraMode,
+            cameraMode: 'onFoot' as CameraMode,
         }
         set(patch)
         scheduleSave({ ...get(), ...patch })

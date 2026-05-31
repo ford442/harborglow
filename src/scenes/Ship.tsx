@@ -125,6 +125,8 @@ export default function ShipComponent({ ship }: ShipProps) {
     const twistlockEngaged  = useGameStore((state) => state.twistlockEngaged)
     const attachmentConfig  = useGameStore((state) => state.attachmentSystemConfig)
     const operationMode     = useGameStore((state) => state.operationMode)
+    const currentShipId     = useGameStore((state) => state.currentShipId)
+    const highlightedUpgradePart = useGameStore((state) => state.highlightedUpgradePart)
 
     const isDynamic = operationMode === 'tugboat'
 
@@ -483,6 +485,8 @@ export default function ShipComponent({ ship }: ShipProps) {
                                 snapStrength={snapStrength}
                                 visibilityRange={attachmentConfig.visibilityRange}
                                 showDistance={true}
+                                isCurrentShip={currentShipId === ship.id}
+                                isSelectedUpgrade={highlightedUpgradePart === point.partName}
                             />
                         ))}
                     </ProceduralShip>

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
 import LyricsDisplay from './LyricsDisplay'
+import SpectatorTitleCard from './SpectatorTitleCard'
 import ShipVersionDisplay from './ShipVersionDisplay'
 import CraneControls from './CraneControls'
 import { OperatorCabinUI } from './OperatorCabin'
@@ -100,6 +101,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       
       {isCraneMode && <ShipSpawner />}
       {isCraneMode && <UpgradeMenu />}
+      <SpectatorTitleCard />
       <LyricsDisplay />
       {!isWalkingMode && <ShipVersionDisplay />}
       {isCraneMode && <CraneControls />}

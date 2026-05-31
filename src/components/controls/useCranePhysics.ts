@@ -31,6 +31,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
     loadTension,
     trolleyPosition,
     twistlockEngaged,
+    winchSpeed,
     setSpreaderPos,
     setSpreaderRotation,
     setCableDepth,
@@ -47,6 +48,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
     loadTension: state.loadTension,
     trolleyPosition: state.trolleyPosition,
     twistlockEngaged: state.twistlockEngaged,
+    winchSpeed: state.winchSpeed,
     setSpreaderPos: state.setSpreaderPos,
     setSpreaderRotation: state.setSpreaderRotation,
     setCableDepth: state.setCableDepth,
@@ -76,7 +78,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
 
       const moveSpeed = 10 * delta
       const rotSpeed = 2 * delta
-      const cableSpeed = 8 * delta
+      const cableSpeed = 8 * delta * winchSpeed
 
       let moved = false
       let newTension = loadTension
@@ -161,7 +163,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
     return () => cancelAnimationFrame(animationId)
   }, [
     leftStick, rightStick, spreaderPos, spreaderRotation, cableDepth, loadTension,
-    trolleyPosition, isArctic, setSpreaderPos, setSpreaderRotation, setCableDepth,
+    trolleyPosition, winchSpeed, isArctic, setSpreaderPos, setSpreaderRotation, setCableDepth,
     setLoadTension, setTrolleyPosition, setJoystickLeft, setJoystickRight, setIsMoving,
   ])
 

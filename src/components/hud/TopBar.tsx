@@ -18,6 +18,7 @@ import {
   shipListStyle,
   shipListItemStyle,
   activeIndicatorStyle,
+  cameraPillBaseStyle,
 } from './styles'
 
 interface TopBarProps {
@@ -28,7 +29,19 @@ interface TopBarProps {
 export default function TopBar({ currentShip, ships }: TopBarProps) {
   const currentShipId = useGameStore(state => state.currentShipId)
   const setCurrentShip = useGameStore(state => state.setCurrentShip)
+  const cameraMode = useGameStore(state => state.cameraMode)
+  const musicPlaying = useGameStore(state => state.musicPlaying)
   const [showShipList, setShowShipList] = useState(false)
+  
+  const isMusicActive = currentShip ? musicPlaying.get(currentShip.id) : false
+  
+  const formatCameraMode = (mode: string): string => {
+    return mode
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
   
   const shipColors: Record<ShipType, string> = {
     cruise: '#ff6b9d',
@@ -98,6 +111,27 @@ export default function TopBar({ currentShip, ships }: TopBarProps) {
           </div>
         )}
       </div>
+      
+      {/* Camera Mode Indicator */}
+      <div
+        style={{
+          ...cameraPillBaseStyle,
+          border: `1px solid ${isMusicActive ? '#00d4aa40' : 'rgba(255,255,255,0.1)'}`,
+          color: isMusicActive ? '#00d4aa' : '#888',
+          animation: isMusicActive ? 'camera-pill-pulse 2s ease-in-out infinite' : 'none',
+          boxShadow: isMusicActive ? '0 0 12px #00d4aa40' : 'none',
+        }}
+      >
+        <span style={{ fontSize: '12px' }}>📷</span>
+        <span>{formatCameraMode(cameraMode)}</span>
+      </div>
+      
+      <style>{`
+        @keyframes camera-pill-pulse {
+          0%, 100% { box-shadow: 0 0 12px #00d4aa40; }
+          50% { box-shadow: 0 0 20px #00d4aa80; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -26,23 +26,29 @@ interface AttachmentPointVisualProps {
   snapStrength?: number    // 0-1 based on crane proximity
   visibilityRange?: number // Configurable visibility range
   showDistance?: boolean   // Show floating distance indicator
+  isCurrentShip?: boolean  // Whether this point belongs to the currently selected ship
+  isSelectedUpgrade?: boolean // Whether this point is highlighted in the upgrade menu
 }
 
 // Pulsing ring component
 function PulsingRing({ 
   color, 
   radius, 
-  intensity 
+  intensity,
+  speed = 3,
+  pulseAmount = 0.1,
 }: { 
   color: string
   radius: number
   intensity: number 
+  speed?: number
+  pulseAmount?: number
 }) {
   const ringRef = useRef<THREE.Mesh>(null)
   
   useFrame((state) => {
     if (!ringRef.current) return
-    const scale = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.1 * intensity
+    const scale = 1 + Math.sin(state.clock.elapsedTime * speed) * pulseAmount * intensity
     ringRef.current.scale.setScalar(scale)
     ringRef.current.rotation.z += 0.01 * intensity
   })
@@ -54,6 +60,66 @@ function PulsingRing({
         color={color} 
         transparent 
         opacity={0.5 * intensity}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  )
+}
+
+// Rotating targeting reticle
+function TargetingReticle({
+  color,
+  radius,
+}: {
+  color: string
+  radius: number
+}) {
+  const groupRef = useRef<THREE.Group>(null)
+
+  useFrame((state) => {
+    if (!groupRef.current) return
+    groupRef.current.rotation.z = state.clock.elapsedTime * 0.8
+  })
+
+  return (
+    <group ref={groupRef} position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Outer crosshair ring */}
+      <mesh>
+        <ringGeometry args={[radius * 0.9, radius, 32, 1, 0, Math.PI * 1.8]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.6}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* Crosshair ticks */}
+      {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle, i) => (
+        <mesh
+          key={i}
+          position={[Math.cos(angle) * radius * 1.15, Math.sin(angle) * radius * 1.15, 0]}
+          rotation={[0, 0, angle]}
+        >
+          <boxGeometry args={[radius * 0.25, 0.03, 0.01]} />
+          <meshBasicMaterial color={color} transparent opacity={0.7} blending={THREE.AdditiveBlending} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+// Vertical beacon beam
+function BeaconBeam({ color, height = 5 }: { color: string; height?: number }) {
+  return (
+    <mesh position={[0, height / 2, 0]}>
+      <cylinderGeometry args={[0.04, 0.12, height, 8, 1, true]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.3}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
         side={THREE.DoubleSide}
       />
     </mesh>
@@ -235,6 +301,8 @@ export default function AttachmentPointVisual({
   snapStrength = 0,
   visibilityRange = 15,
   showDistance = true,
+  isCurrentShip = false,
+  isSelectedUpgrade = false,
 }: AttachmentPointVisualProps) {
   const groupRef = useRef<THREE.Group>(null)
   const lightRef = useRef<THREE.PointLight>(null)
@@ -243,17 +311,25 @@ export default function AttachmentPointVisual({
   const colors = useMemo(() => RIG_TYPE_COLORS[rigType], [rigType])
   const shipColor = SHIP_TYPE_LIGHT_COLORS[shipType]
   
+  // Prominent cyan styling when this ship is selected and point is available/hovered
+  const isProminent = isCurrentShip && (state === 'available' || state === 'hovered')
+  
+  // Selected upgrade gets the MOST prominent treatment
+  const isBeacon = isSelectedUpgrade && state !== 'installed'
+  const primaryColor = isBeacon ? '#00ffff' : isProminent ? '#00ffff' : colors.primary
+  
   // Calculate visibility opacity based on distance
   const visibilityOpacity = useMemo(() => {
     if (state === 'installed') return 1
-    const fadeStart = visibilityRange * 1.5
-    const fadeEnd = visibilityRange * 0.5
+    const rangeMultiplier = isBeacon ? 3.0 : isProminent ? 2.0 : 1.0
+    const fadeStart = visibilityRange * 1.5 * rangeMultiplier
+    const fadeEnd = visibilityRange * 0.5 * rangeMultiplier
     
     if (distance > fadeStart) return 0
     if (distance < fadeEnd) return 1
     
     return 1 - (distance - fadeEnd) / (fadeStart - fadeEnd)
-  }, [distance, visibilityRange, state])
+  }, [distance, visibilityRange, state, isProminent, isBeacon])
   
   // Animation for available state
   useFrame((frameState) => {
@@ -261,7 +337,9 @@ export default function AttachmentPointVisual({
     
     // Gentle floating animation
     if (state === 'available' || state === 'hovered') {
-      groupRef.current.position.y = position[1] + Math.sin(frameState.clock.elapsedTime * 2) * 0.1
+      const floatAmount = isBeacon ? 0.25 : isProminent ? 0.15 : 0.1
+      const floatSpeed = isBeacon ? 5 : isProminent ? 3 : 2
+      groupRef.current.position.y = position[1] + Math.sin(frameState.clock.elapsedTime * floatSpeed) * floatAmount
     }
     
     // Pulse light intensity
@@ -281,41 +359,90 @@ export default function AttachmentPointVisual({
       position={position} 
       rotation={rotation}
     >
+      {/* Vertical beacon beam for selected upgrade */}
+      {isBeacon && (
+        <BeaconBeam color="#00ffff" height={5} />
+      )}
+
       {state === 'available' && (
         <>
           {/* Glowing orb */}
           <mesh>
-            <sphereGeometry args={[0.15]} />
+            <sphereGeometry args={[isBeacon ? 0.25 : isProminent ? 0.2 : 0.15]} />
             <meshBasicMaterial 
-              color={colors.primary} 
+              color={primaryColor} 
               transparent 
-              opacity={0.6 * visibilityOpacity}
+              opacity={(isBeacon ? 0.95 : isProminent ? 0.85 : 0.6) * visibilityOpacity}
             />
           </mesh>
           
           {/* Outer glow */}
           <mesh>
-            <sphereGeometry args={[0.25]} />
+            <sphereGeometry args={[isBeacon ? 0.45 : isProminent ? 0.35 : 0.25]} />
             <meshBasicMaterial 
-              color={colors.primary}
+              color={primaryColor}
               transparent
-              opacity={0.2 * visibilityOpacity}
+              opacity={(isBeacon ? 0.55 : isProminent ? 0.45 : 0.2) * visibilityOpacity}
               blending={THREE.AdditiveBlending}
             />
           </mesh>
           
+          {/* Extra bright outer glow for prominent / beacon */}
+          {(isProminent || isBeacon) && (
+            <mesh>
+              <sphereGeometry args={[isBeacon ? 0.7 : 0.5]} />
+              <meshBasicMaterial 
+                color={primaryColor}
+                transparent
+                opacity={(isBeacon ? 0.3 : 0.2) * visibilityOpacity}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          )}
+          
+          {/* Ultra glow for beacon */}
+          {isBeacon && (
+            <mesh>
+              <sphereGeometry args={[0.95]} />
+              <meshBasicMaterial 
+                color="#00ffff"
+                transparent
+                opacity={0.12 * visibilityOpacity}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          )}
+          
           {/* Pulsing ring */}
           <PulsingRing 
-            color={colors.primary} 
-            radius={0.5}
-            intensity={visibilityOpacity}
+            color={primaryColor} 
+            radius={isBeacon ? 0.75 : isProminent ? 0.55 : 0.5}
+            intensity={isBeacon ? 2.0 : isProminent ? 1.5 : visibilityOpacity}
+            speed={isBeacon ? 8 : isProminent ? 6 : 3}
+            pulseAmount={isBeacon ? 0.2 : isProminent ? 0.15 : 0.1}
           />
+          
+          {/* Second inner pulsing ring for prominent / beacon */}
+          {(isProminent || isBeacon) && (
+            <PulsingRing 
+              color="#00d4aa"
+              radius={isBeacon ? 0.4 : 0.3}
+              intensity={isBeacon ? 1.8 : 1.3}
+              speed={isBeacon ? 10 : 8}
+              pulseAmount={isBeacon ? 0.18 : 0.12}
+            />
+          )}
+          
+          {/* Targeting reticle for beacon */}
+          {isBeacon && (
+            <TargetingReticle color="#00ffff" radius={0.85} />
+          )}
           
           {/* Distance indicator */}
           {showDistance && (
             <DistanceIndicator 
               distance={distance} 
-              color={colors.primary}
+              color={primaryColor}
               isSnapZone={false}
             />
           )}
@@ -326,37 +453,68 @@ export default function AttachmentPointVisual({
         <>
           {/* Brighter orb */}
           <mesh>
-            <sphereGeometry args={[0.18]} />
+            <sphereGeometry args={[isBeacon ? 0.28 : isProminent ? 0.22 : 0.18]} />
             <meshStandardMaterial 
-              color={colors.primary}
-              emissive={colors.primary}
-              emissiveIntensity={0.5}
+              color={primaryColor}
+              emissive={primaryColor}
+              emissiveIntensity={isBeacon ? 1.2 : isProminent ? 0.8 : 0.5}
             />
           </mesh>
           
           {/* Expanded glow */}
           <mesh>
-            <sphereGeometry args={[0.35]} />
+            <sphereGeometry args={[isBeacon ? 0.55 : isProminent ? 0.45 : 0.35]} />
             <meshBasicMaterial 
-              color={colors.primary}
+              color={primaryColor}
               transparent
-              opacity={0.3}
+              opacity={isBeacon ? 0.55 : isProminent ? 0.45 : 0.3}
               blending={THREE.AdditiveBlending}
             />
           </mesh>
           
+          {/* Extra prominent glow */}
+          {(isProminent || isBeacon) && (
+            <mesh>
+              <sphereGeometry args={[isBeacon ? 0.75 : 0.6]} />
+              <meshBasicMaterial 
+                color={isBeacon ? '#00ffff' : '#00d4aa'}
+                transparent
+                opacity={isBeacon ? 0.28 : 0.22}
+                blending={THREE.AdditiveBlending}
+              />
+            </mesh>
+          )}
+          
           {/* Faster pulsing ring */}
           <PulsingRing 
-            color={colors.primary} 
-            radius={0.6}
-            intensity={1.2}
+            color={primaryColor} 
+            radius={isBeacon ? 0.9 : isProminent ? 0.7 : 0.6}
+            intensity={isBeacon ? 2.0 : isProminent ? 1.6 : 1.2}
+            speed={isBeacon ? 8 : isProminent ? 6 : 3}
+            pulseAmount={isBeacon ? 0.2 : isProminent ? 0.15 : 0.1}
           />
+          
+          {/* Second inner pulsing ring for prominent / beacon */}
+          {(isProminent || isBeacon) && (
+            <PulsingRing 
+              color="#00d4aa"
+              radius={isBeacon ? 0.45 : 0.35}
+              intensity={isBeacon ? 1.8 : 1.4}
+              speed={isBeacon ? 10 : 8}
+              pulseAmount={isBeacon ? 0.16 : 0.12}
+            />
+          )}
+          
+          {/* Targeting reticle for beacon */}
+          {isBeacon && (
+            <TargetingReticle color="#00ffff" radius={1.0} />
+          )}
           
           {/* Distance indicator */}
           {showDistance && (
             <DistanceIndicator 
               distance={distance} 
-              color={colors.primary}
+              color={primaryColor}
               isSnapZone={false}
             />
           )}
