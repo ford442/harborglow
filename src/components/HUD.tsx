@@ -25,6 +25,7 @@ import {
   WaveHeightDebug,
   MissionHUD,
   RewardAnimation,
+  DockWalkHUD,
   hudContainerStyle,
 } from './hud'
 
@@ -115,6 +116,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <TugboatWelcomeHandler />
       
       <HotkeyHints />
+
+      {isWalkingMode && <DockWalkHUD />}
 
       {canLeaveCab && (
         <div style={transitionPromptStyle}>

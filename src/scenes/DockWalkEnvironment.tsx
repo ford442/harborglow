@@ -1,4 +1,59 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
+
+// Dock-edge bollards with animated glow for night mode
+const BOLLARD_X_POSITIONS = [-36, -28, -20, -12, -4, 4, 12, 20, 28, 36]
+const BOLLARD_Z = 6.8   // ship-facing edge of walkable deck
+const BOLLARD_Y = -1.1  // deck surface + half bollard height
+
+function DockBollard({ x, isNight }: { x: number; isNight: boolean }) {
+    const glowRef = useRef<THREE.Mesh>(null)
+    const lightRef = useRef<THREE.PointLight>(null)
+
+    useFrame(({ clock }) => {
+        const t = clock.elapsedTime
+        const pulse = 0.7 + 0.3 * Math.sin(t * 1.8 + x * 0.4)
+        if (glowRef.current) {
+            const mat = glowRef.current.material as THREE.MeshBasicMaterial
+            mat.opacity = isNight ? pulse * 0.85 : 0.3
+        }
+        if (lightRef.current && isNight) {
+            lightRef.current.intensity = pulse * 1.4
+        }
+    })
+
+    return (
+        <group position={[x, BOLLARD_Y, BOLLARD_Z]}>
+            {/* Cast iron bollard body */}
+            <mesh castShadow>
+                <cylinderGeometry args={[0.18, 0.22, 0.9, 10]} />
+                <meshStandardMaterial color="#3a3f46" roughness={0.6} metalness={0.55} />
+            </mesh>
+            {/* Bollard cap */}
+            <mesh position={[0, 0.52, 0]}>
+                <sphereGeometry args={[0.22, 10, 8]} />
+                <meshStandardMaterial color="#444a52" roughness={0.5} metalness={0.5} />
+            </mesh>
+            {/* Amber glow ring */}
+            <mesh ref={glowRef} position={[0, 0.3, 0]}>
+                <torusGeometry args={[0.24, 0.045, 8, 20]} />
+                <meshBasicMaterial color="#ffaa22" transparent opacity={0.7} />
+            </mesh>
+            {isNight && (
+                <pointLight
+                    ref={lightRef}
+                    position={[0, 0.5, 0]}
+                    color="#ffaa22"
+                    intensity={1.2}
+                    distance={4.5}
+                    decay={2}
+                />
+            )}
+        </group>
+    )
+}
 
 interface DockWalkEnvironmentProps {
     isNight?: boolean
@@ -91,6 +146,11 @@ export default function DockWalkEnvironment({ isNight = true }: DockWalkEnvironm
             <RigidBody type="fixed" position={[0, 2, 5]}>
                 <CuboidCollider args={[2.1, 2.1, 2.1]} />
             </RigidBody>
+
+            {/* Dock-edge bollards */}
+            {BOLLARD_X_POSITIONS.map(x => (
+                <DockBollard key={`bollard-${x}`} x={x} isNight={isNight} />
+            ))}
 
             {/* Breakwater + lighthouse silhouette */}
             <RigidBody type="fixed" colliders="cuboid">
