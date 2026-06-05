@@ -1,0 +1,1056 @@
+[    1263ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/chunk-YCOEJRGR.js?v=9ccca694:21550
+[    1542ms] [LOG] %c * Tone.js v14.9.17 *  background: #000; color: #fff @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:9671
+[    1566ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:7611
+[    1567ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:2868
+[    1581ms] [LOG] 📋 Loaded 11 ships from standardized Vessel Blueprint Protocol v1.0 @ http://localhost:5175/src/types/ShipBlueprint.ts:8
+[    2081ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    2081ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    2082ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    2083ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    2083ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    2084ms] [WARNING] The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. https://developer.chrome.com/blog/autoplay/#web_audio @ http://localhost:5175/node_modules/.vite/deps/tone.js?v=8d531783:1145
+[    6270ms] [LOG] 🎵 AudioVisualSync initialized @ http://localhost:5175/src/systems/audioVisualSync.ts:82
+[    6295ms] [LOG] 🎵 AudioVisualSync initialized @ http://localhost:5175/src/systems/audioVisualSync.ts:82
+[    6320ms] [LOG] 🎵 AudioVisualSync initialized @ http://localhost:5175/src/systems/audioVisualSync.ts:82
+[    6337ms] [LOG] 🎵 AudioVisualSync initialized @ http://localhost:5175/src/systems/audioVisualSync.ts:82
+[    6346ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    6347ms] [LOG] ▶️ IntroMusicSystem: playing title track @ http://localhost:5175/src/systems/introMusicSystem.ts:177
+[    6351ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    6354ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    6357ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    6360ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    6364ms] [LOG] 🎵 IntroMusicSystem initialized (mode: AI audio) @ http://localhost:5175/src/systems/introMusicSystem.ts:28
+[    7158ms] [LOG] ▶️ IntroMusicSystem: playing loading loop @ http://localhost:5175/src/systems/introMusicSystem.ts:199
+[   11976ms] [LOG] 🗑️ Game reset @ http://localhost:5175/src/store/useGameStore.ts:502
+[   12477ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   12698ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   12705ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   12711ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13154ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13174ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13183ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13232ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13272ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13348ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13397ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13405ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13415ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13420ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13423ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13434ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13623ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13702ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13706ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   13721ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14016ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14026ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14042ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14063ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14083ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14087ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14206ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14236ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14254ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14267ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14287ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14325ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14338ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14349ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14359ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14382ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14427ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14433ms] [WARNING] THREE.Color: Unknown color #gold @ http://localhost:5175/node_modules/.vite/deps/chunk-TIG2MKL5.js?v=9ccca694:5848
+[   14451ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14470ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14488ms] [WARNING] THREE.Color: Unknown color #gold @ http://localhost:5175/node_modules/.vite/deps/chunk-TIG2MKL5.js?v=9ccca694:5848
+[   14543ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14561ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14594ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14608ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14662ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14675ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14697ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14711ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14730ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14819ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14828ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14837ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14840ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14868ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14886ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14889ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   14897ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15021ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15050ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15059ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15062ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15098ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15100ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15109ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15136ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15145ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15148ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15156ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15165ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15169ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15178ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15187ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15203ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15207ms] [WARNING] THREE.Color: Unknown color #gold @ http://localhost:5175/node_modules/.vite/deps/chunk-TIG2MKL5.js?v=9ccca694:5848
+[   15214ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15265ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15268ms] [WARNING] THREE.Color: Unknown color #gold @ http://localhost:5175/node_modules/.vite/deps/chunk-TIG2MKL5.js?v=9ccca694:5848
+[   15273ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15276ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15285ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15294ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15297ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15325ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15333ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15342ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15345ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15354ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15363ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   15420ms] [LOG] 🚤 Tugboat mode reset @ http://localhost:5175/src/store/useGameStore.ts:1190
+[   15421ms] [LOG] 🌦️ Weather changing: clear → fog @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[   15422ms] [LOG] 🌤️ Storm ended @ http://localhost:5175/src/systems/StormSystem.ts:58
+[   15434ms] [LOG] 🐋 Humpback whale migration event started @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:222
+[   15435ms] [LOG] 🌤️ Weather set to: clear @ http://localhost:5175/src/store/useGameStore.ts:663
+[   15435ms] [LOG] 🎮 Cabin view mode: multiview @ http://localhost:5175/src/store/useGameStore.ts:885
+[   15438ms] [LOG] 🌤️ Storm ended @ http://localhost:5175/src/systems/StormSystem.ts:58
+[   15440ms] [LOG] 🚤 Operation mode: tugboat @ http://localhost:5175/src/store/useGameStore.ts:955
+[   15441ms] [LOG] 🚤 Operation mode: crane @ http://localhost:5175/src/store/useGameStore.ts:955
+[   15441ms] [LOG] 🌦️ Weather changing: clear → storm @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[   15442ms] [LOG] 🌤️ Weather set to: storm @ http://localhost:5175/src/store/useGameStore.ts:663
+[   15442ms] [LOG] 🌦️ Weather changing: clear → storm @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[   15443ms] [LOG] 🌤️ Weather set to: storm @ http://localhost:5175/src/store/useGameStore.ts:663
+[   15443ms] [LOG] ⛈️ Atmospheric River (Pineapple Express) approaching @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:421
+[   15443ms] [LOG] 🌊 Dynamic Event: Atmospheric River (Pineapple Express) (15.2min, 90% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   15444ms] [LOG] 🐋 Humpback whale migration event started @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:222
+[   15444ms] [LOG] 🌊 Dynamic Event: Gray Whale Migration (20.4min, 80% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   15444ms] [LOG] 🌊 Dynamic Event: Vessel Fire Emergency (6.5min, 90% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   15444ms] [LOG] ⚓ Fleet Week visit: destroyer @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:383
+[   15445ms] [LOG] 🌊 Dynamic Event: Fleet Week Naval Visit (27.8min, 80% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   15445ms] [LOG] ✨ Bioluminescent plankton bloom - disturb water to see glow @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:305
+[   15445ms] [LOG] 🌊 Dynamic Event: Bioluminescent Plankton Bloom (16.7min, 85% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   15446ms] [LOG] 🌦️ Weather changing: clear → fog @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[   15446ms] [LOG] 🌤️ Weather set to: clear @ http://localhost:5175/src/store/useGameStore.ts:663
+[   15446ms] [LOG] ✅ Event ended: Atmospheric River (Pineapple Express) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[   15446ms] [LOG] ✅ Event ended: Gray Whale Migration @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[   15447ms] [LOG] ✅ Event ended: Vessel Fire Emergency @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[   15447ms] [LOG] ✅ Event ended: Fleet Week Naval Visit @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[   15447ms] [LOG] ✅ Event ended: Bioluminescent Plankton Bloom @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[   15447ms] [LOG] 🧹 All dynamic events cleared @ http://localhost:5175/src/systems/dynamicEventSystem.ts:434
+[   15448ms] [LOG] 🔓 UNLOCKED: Precision Placement @ http://localhost:5175/src/systems/reputationSystem.ts:342
+[   15449ms] [LOG] 🏆 Reputation +26 (Total: 26) @ http://localhost:5175/src/store/useGameStore.ts:944
+[   15449ms] [LOG] ⭐ Reputation +26 (installation_complete) - Total: 26 @ http://localhost:5175/src/systems/reputationSystem.ts:239
+[   15449ms] [LOG] 🏆 Reputation +61 (Total: 87) @ http://localhost:5175/src/store/useGameStore.ts:944
+[   15450ms] [LOG] ⭐ Reputation +61 (installation_complete) - Total: 87 @ http://localhost:5175/src/systems/reputationSystem.ts:239
+[   15451ms] [LOG] 💰 +167 HC (installation) - Total: 167 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15451ms] [LOG] 💰 +220 HC (installation) - Total: 387 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15452ms] [LOG] 💰 +216 HC (installation) - Total: 603 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15452ms] [LOG] 💰 +220 HC (installation) - Total: 823 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15452ms] [LOG] 💰 +224 HC (installation) - Total: 1047 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15452ms] [LOG] 💰 +228 HC (installation) - Total: 1275 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15453ms] [LOG] 💰 +145 HC (installation) - Total: 1420 @ http://localhost:5175/src/systems/economySystem.ts:249
+[   15453ms] [LOG] 🏆 Reputation +39 (Total: 126) @ http://localhost:5175/src/store/useGameStore.ts:944
+[   15457ms] [LOG] ⭐ Reputation +39 (port_economy) - Total: 126 @ http://localhost:5175/src/systems/reputationSystem.ts:239
+[   15458ms] [LOG] Shift ended: 0 HC earned, 0 rep gained @ http://localhost:5175/src/scenes/MainScene.tsx:1985
+[   15628ms] [LOG] 📻 [HIGH] Medical emergency pier 35, ambulance en route @ http://localhost:5175/src/systems/ambientSoundSystem.ts:340
+[   16012ms] [LOG] 🌊 Ambient sound system started @ http://localhost:5175/src/systems/ambientSoundSystem.ts:362
+[   16069ms] [LOG] 🔬 Activated: Underwater ROV Swarm @ http://localhost:5175/src/systems/techSystem.ts:183
+[   24988ms] [LOG] 🛳️ Cruise ship arriving Pier 27 @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:439
+[   24989ms] [LOG] 🌊 Dynamic Event: Cruise Ship Arrival (5.0min, 96% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   24989ms] [LOG] 🦭 Sea lion haulout: 49 animals at breakwater @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:284
+[   24989ms] [LOG] 🌊 Dynamic Event: Sea Lion Haulout (24.8min, 86% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   24990ms] [LOG] 🌊 Dynamic Event: Dolphin Pod (7.8min, 58% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   30110ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   30284ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[   40481ms] [LOG] 🦭 Sea lion haulout: 11 animals at breakwater @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:284
+[   46571ms] [LOG] 🦈 Great white shark patrolling near harbor entrance @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:684
+[   46571ms] [LOG] 🌊 Dynamic Event: Great White Shark Patrol (8.0min, 97% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[   52567ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   59428ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   74152ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   81396ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   81540ms] [LOG] 🦈 SHARK PATROL EVENT STARTED @ http://localhost:5175/src/systems/seaEventsSystem.ts:134
+[   81541ms] [LOG]    Species: Carcharodon carcharias @ http://localhost:5175/src/systems/seaEventsSystem.ts:135
+[   81541ms] [LOG]    Behavior: Coastal hunting pattern @ http://localhost:5175/src/systems/seaEventsSystem.ts:136
+[   88847ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[   88899ms] [LOG] 🐋 Wildlife spawned: bioluminescent_plankton (wildlife-bioluminescent_plankton-1780702410475-wplpk) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[   96071ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[  103212ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[  103271ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103274ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103280ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103283ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103287ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103290ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103295ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103298ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103304ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103307ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103310ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103315ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  103318ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  117578ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[  117748ms] [LOG] 🐋 Humpback whale migration event started @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:222
+[  125394ms] [LOG] 🐋 Wildlife spawned: great_white_shark (wildlife-great_white_shark-1780702446970-qzz02) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  140106ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[  140124ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140127ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140135ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140138ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140142ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140147ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140151ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  140154ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  148047ms] [LOG] 🚤 Operation mode: tugboat @ http://localhost:5175/src/store/useGameStore.ts:955
+[  155692ms] [LOG] 🌦️ Weather changing: fog → storm @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[  155693ms] [LOG] ⛈️ Storm started — 180s duration @ http://localhost:5175/src/systems/StormSystem.ts:48
+[  155737ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155737ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  155841ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155842ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  155894ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155894ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  155943ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155943ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  155975ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155975ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  155997ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  155997ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156251ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156251ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156294ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156294ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156318ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156318ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156381ms] [LOG] 💾 Saved to storage_manager (v2) @ http://localhost:5175/src/utils/storage_manager.ts:8
+[  156423ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156423ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156474ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156475ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156513ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156513ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156543ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  156695ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156696ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156720ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156720ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156737ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156738ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156766ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  156770ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  156889ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156890ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156921ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156922ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156939ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156940ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  156991ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  156991ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  157003ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  157003ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  157007ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  157007ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  184957ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  184958ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  184979ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  184979ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  184984ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  184985ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  206751ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  206787ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  206787ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  206805ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  206805ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  206829ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  206829ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  217463ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  217670ms] [LOG] 🐋 Humpback whale migration event started @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:222
+[  227237ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  227262ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  227263ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  227274ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  227274ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  227278ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  227278ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  227288ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  237304ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  237305ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  237320ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  237320ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  237324ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  237325ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  237411ms] [LOG] 🐋 Wildlife spawned: bottlenose_dolphin (wildlife-bottlenose_dolphin-1780702558987-z2iab) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  248805ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  248864ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  248865ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  248878ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  248878ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  248887ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  248887ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  258859ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  259087ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  259087ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  259109ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  259109ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  259112ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  259112ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  268364ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  268424ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  268425ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  268467ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  268467ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  268472ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  268474ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  278354ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  278354ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  278381ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  278382ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  278386ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  278387ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  288432ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  288492ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  288493ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  288535ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  288536ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  288541ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  288541ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  299382ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  299383ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  299403ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  299404ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  299408ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  299408ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  299560ms] [LOG] 🐋 Humpback whale migration event started @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:222
+[  310003ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  310077ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  310077ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  310099ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  310099ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  310104ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  310104ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  321330ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  321386ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  321387ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  321412ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  321412ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  321417ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  321418ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  332139ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  332140ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  332162ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  332162ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  332165ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  332165ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  332263ms] [LOG] 🐋 Wildlife spawned: great_white_shark (wildlife-great_white_shark-1780702653839-399dv) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  332265ms] [LOG] 🛳️ Cruise ship arriving Pier 35 @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:439
+[  332266ms] [LOG] 🛳️ Cruise ship departing - bon voyage! @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:473
+[  342541ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  342618ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  342618ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  342639ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  342640ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  342646ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  342647ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  342758ms] [LOG] 🦭 Sea lion haulout: 12 animals at breakwater @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:284
+[  342758ms] [LOG] 🌊 Dynamic Event: Sea Lion Haulout (23.5min, 50% intensity) @ http://localhost:5175/src/systems/dynamicEventSystem.ts:256
+[  342759ms] [LOG] ✅ Event ended: Cruise Ship Arrival @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[  342761ms] [LOG] 🌦️ Weather changing: storm → clear @ http://localhost:5175/src/systems/weatherSystem.ts:190
+[  342761ms] [LOG] 🌤️ Storm ended @ http://localhost:5175/src/systems/StormSystem.ts:58
+[  352032ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  352086ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  352087ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  352108ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  352109ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  352115ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  352115ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  362873ms] [LOG] ⚡ Thunder! @ http://localhost:5175/src/systems/weatherSystem.ts:164
+[  362878ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  362921ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  362921ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  362936ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  362937ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  362940ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  362941ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  363069ms] [LOG] 🐋 Wildlife spawned: bottlenose_dolphin (wildlife-bottlenose_dolphin-1780702684644-rt9ya) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  374726ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  374726ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  374746ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  374747ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  374751ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  374751ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  374878ms] [LOG] 🐋 Wildlife spawned: great_white_shark (wildlife-great_white_shark-1780702696454-1ctj6) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  385559ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  385600ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  385600ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  385613ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  385613ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  385617ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  385617ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  396908ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  396908ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  396930ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  396931ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  396934ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  396935ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  397160ms] [LOG] 🐋 Wildlife spawned: great_white_shark (wildlife-great_white_shark-1780702718736-syc7w) @ http://localhost:5175/src/systems/wildlifeSystem.ts:246
+[  408344ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  408344ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  408365ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  408365ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  408370ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  408370ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  418101ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  418101ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  418135ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  418135ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  418139ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  418140ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  429229ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  429277ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  429277ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  429298ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  429298ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  429302ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  429302ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  440524ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  440525ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  440564ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  440564ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  440570ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  440570ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  451707ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  451708ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  451742ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  451742ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  451747ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  451748ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  463421ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  463422ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  463444ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  463444ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  463454ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  463455ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  476017ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  476095ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  476095ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  476125ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  476126ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  476132ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  476132ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  492913ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  492914ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  492943ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  492943ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  492949ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  492949ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  503297ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/scenes/Tugboat.tsx?t=1780702782730:0
+[  503320ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:5175/src/scenes/Tugboat.tsx?t=1780702782817:0
+[  503366ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  503367ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  503403ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  503404ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  503409ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  503409ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  503542ms] [LOG] ✅ Event ended: Dolphin Pod @ http://localhost:5175/src/systems/dynamicEventSystem.ts:365
+[  514878ms] [ERROR] [hmr] Failed to reload /src/scenes/Tugboat.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  514908ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  514909ms] [ERROR] [hmr] Failed to reload /src/scenes/Tugboat.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  514955ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  514956ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  515010ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  515011ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  515016ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  515016ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  526356ms] [ERROR] Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.%s 
+    at LyricsDisplay (http://localhost:5175/src/components/LyricsDisplay.tsx:25:41)
+    at div
+    at HUD (http://localhost:5175/src/components/HUD.tsx:50:3)
+    at ErrorBoundary (http://localhost:5175/src/components/ErrorBoundary.tsx:8:5)
+    at App (http://localhost:5175/src/App.tsx:49:31) @ http://localhost:5175/node_modules/.vite/deps/chunk-C75Y5DZU.js?v=9ccca694:17704
+[  526414ms] [LOG] 🚢 Enhanced PBR ship loaded: Container Vessel "StackMaster 4000" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  526415ms] [LOG]    ID: container, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  526447ms] [LOG] 🚢 Enhanced PBR ship loaded: Oil Tanker "Black Pearl" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  526447ms] [LOG]    ID: tanker, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  526453ms] [LOG] 🚢 Enhanced PBR ship loaded: Capesize Bulk Carrier "Iron Mountain" v1.0 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1551
+[  526453ms] [LOG]    ID: bulk, Metalness: 0.6, Roughness: 0.4 @ http://localhost:5175/src/scenes/ProceduralShip.tsx:1552
+[  526703ms] [LOG] 🌤️ Weather set to: clear @ http://localhost:5175/src/store/useGameStore.ts:663
+[  526704ms] [LOG] ⛈️ Atmospheric River passed - resuming normal operations @ http://localhost:5175/src/systems/eventSystem/HarborEventSystem.ts:635

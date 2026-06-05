@@ -787,8 +787,10 @@ export default function Tugboat() {
           glowIntensity={0.8}
         />
 
-        {/* === FIRST-PERSON HELM CAMERA === */}
-        <group position={[0, 2.15, 0.25]}>
+        {/* === FIRST-PERSON HELM CAMERA ===
+          Camera raised and pushed back so the captain looks over the
+          dashboard screens rather than into them. */}
+        <group position={[0, 2.35, -0.15]}>
           <group ref={camGroupRef}>
             <PerspectiveCamera
               makeDefault
