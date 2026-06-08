@@ -216,23 +216,15 @@ export default function UpgradeMenu() {
         }
     }, [currentShipId, setHighlightedUpgradePart])
 
-    if (!currentShip) {
-        return (
-            <div style={menuContainerStyle}>
-                <h3 style={{ margin: '0 0 10px 0', color: '#aaa' }}>No Ship Selected</h3>
-                <p style={{ color: '#888', fontSize: '12px' }}>
-                    Spawn a ship using the buttons above
-                </p>
-            </div>
-        )
-    }
-
-    const upgradeOptions = UPGRADE_CONFIGS[currentShip.type]
-    const shipUpgrades = installedUpgrades.filter(u => u.shipId === currentShip.id)
+    // Hooks must run unconditionally on every render — compute null-safe
+    // derived values here so the "no ship selected" branch below stays a
+    // pure render-time early return, not an early-return-before-hooks.
+    const upgradeOptions = currentShip ? UPGRADE_CONFIGS[currentShip.type] : []
+    const shipUpgrades = currentShip ? installedUpgrades.filter(u => u.shipId === currentShip.id) : []
     const installedPartNames = new Set(shipUpgrades.map(u => u.partName))
     const availableUpgrades = upgradeOptions.filter(opt => !installedPartNames.has(opt.partName))
-    const progress = (shipUpgrades.length / upgradeOptions.length) * 100
-    const shipColor = shipTypeColors[currentShip.type]
+    const progress = upgradeOptions.length > 0 ? (shipUpgrades.length / upgradeOptions.length) * 100 : 0
+    const shipColor = currentShip ? shipTypeColors[currentShip.type] : '#4a6fa5'
     const queueableUpgrades = availableUpgrades.filter(opt => selectedForQueue.has(opt.partName))
 
     useEffect(() => {
@@ -283,6 +275,19 @@ export default function UpgradeMenu() {
             .filter((point): point is { x: number; y: number } => Boolean(point))
     }, [cranePosition.x, cranePosition.y, cranePosition.z, currentShip, queueableUpgrades])
 
+    const glow = useCompletionGlow()
+
+    if (!currentShip) {
+        return (
+            <div style={menuContainerStyle}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#aaa' }}>No Ship Selected</h3>
+                <p style={{ color: '#888', fontSize: '12px' }}>
+                    Spawn a ship using the buttons above
+                </p>
+            </div>
+        )
+    }
+
     const handleSelectUpgrade = (partName: string) => {
         // If already navigating to this one, do nothing
         if (pendingAutoInstall?.partName === partName) return
@@ -331,8 +336,6 @@ export default function UpgradeMenu() {
             setIsUpgradingVersion(false)
         }
     }
-
-    const glow = useCompletionGlow()
 
     const currentVersion = currentShip?.version || '1.0'
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
