@@ -389,11 +389,11 @@ Root files:
 
 ## Testing Strategy
 
-**No automated test suite exists.** There are no test frameworks (Jest, Vitest, Playwright, Cypress) configured.
+**Vitest** is configured (`npm test`) with smoke tests for core systems (e.g. `sequencerSystem`).
 
 ### Smoke Test
-- `npm run heartbeat` acts as a basic smoke test by running `npm run build` and checking for uncommitted changes or remaining TODO/FIXME comments.
-- Recent heartbeat runs report a successful build (~4.13 MB raw / ~1.32 MB gzip, ~23–24 s, 1760 modules).
+- `npm run heartbeat` runs `git status`, a TODO/FIXME grep, `npm run build`, and `npm test`.
+- Recent heartbeat runs: build succeeds (~1760 modules), 95/95 Vitest tests pass, 0 TODO/FIXME in `src/`.
 
 ### Manual Testing Checklist
 1. Spawn each ship type and verify unique appearance.
@@ -409,21 +409,24 @@ Root files:
 
 ## Deployment
 
-The project includes a Python deployment script (`deploy.py`) that uses Paramiko for SFTP:
+The project includes a Python deployment script (`deploy.py`) that zips `dist/` and uploads it
+as a single bundle to a Contabo storage manager over HTTPS:
 
 ```bash
 # Build first, then deploy
 npm run build
+export DEPLOY_TOKEN="your_long_token_from_vps_env"
 python deploy.py
 ```
 
 **Deployment Configuration** (in `deploy.py`):
-- Host: `1ink.us`
-- Username: `ford442`
-- Remote directory: `test.1ink.us/harborglow`
+- Target: `https://storage.noahcohn.com/api/deploy/harborglow/bundle`
 - Local source: `dist/`
+- Auth: `DEPLOY_TOKEN` env var (sent as `X-Deploy-Token` header); no token is hardcoded in the script.
 
-**Security Note**: The deploy script contains a hardcoded password on line 45. In production, use environment variables.
+**Security Note**: Never hardcode `DEPLOY_TOKEN` (or any credential) back into `deploy.py` — always read it
+from the environment. The old Paramiko/SFTP-based `deploy_old.py` (with a hardcoded plaintext password) has
+been removed.
 
 ## GitHub Actions
 
@@ -431,14 +434,12 @@ python deploy.py
 
 ## Security Considerations
 
-1. **Hardcoded credentials** in `deploy.py` — username and password are plaintext.
+1. **`deploy.py`** reads `DEPLOY_TOKEN` from the environment only — never hardcode a token/password into this
+   file (this repo is public). `deploy_old.py` (Paramiko/SFTP, hardcoded plaintext password) has been removed.
 2. **No input validation** on ship spawn positions (currently random generation only).
 3. **No rate limiting** on upgrade installation.
 4. **No CSP headers** configured in the build output.
 5. **Save game state** stored in `localStorage` without encryption or integrity checks beyond a version string check.
-6. **Known code hygiene issues** (from heartbeat):
-   - 4 circular-dependency warnings: `harborEventSystem` re-export through `eventSystem/index.ts` affects `OnDockRail`, `DistantShipQueue`, `techSystem`, and `MainScene`.
-   - `deploy.py` recursive `upload_directory` uses the outer `sftp` variable instead of the `sftp_client` parameter.
 
 ## Key Data Types
 
