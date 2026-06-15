@@ -26,8 +26,7 @@
         "src"
     ],
     "exclude": [
-        "src/**/__tests__",
-        "src/_legacy"
+        "src/**/__tests__"
     ],
     "references": [
         {

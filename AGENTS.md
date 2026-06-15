@@ -292,12 +292,7 @@ Root files:
 │   ├── copilot-instructions.md
 │   └── playwright-mcp.json
 ├── deploy.py                # Python SFTP deployment script
-├── fix_components.cjs       # Cleanup: component fixes
-├── fix_deps.cjs             # Cleanup: dependency array fixes
-├── fix_hologram.cjs         # Cleanup: hologram fixes
-├── fix_let_const.cjs        # Cleanup: let-to-const conversion
-├── fix_lightshow.cjs        # Cleanup: light show fixes
-├── fix_lint.cjs             # Cleanup: lint autofix
+├── scripts/archive/           # One-shot codemods from Apr 2026 refactor (see README)
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
@@ -384,7 +379,7 @@ Root files:
 - Ignores: `dist`, `.eslintrc.json`
 
 ### Recent Cleanup
-- Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (`fix_let_const.cjs`, `fix_deps.cjs`).
+- Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (codemods now in `scripts/archive/`).
 - As of April 2026, there are **zero** `TODO` or `FIXME` comments remaining in `src/`.
 
 ## Testing Strategy
