@@ -23,7 +23,9 @@ export default defineConfig(({ mode }) => ({
     build: {
         minify: 'terser',
         sourcemap: mode === 'development',
-        target: 'es2020',
+        // esnext required for top-level await inside three/examples/jsm WebGPURenderer and related WGSL modules.
+        // The WebGL2 debug fallback path does not exercise this code.
+        target: 'esnext',
         // Chunk size warnings (1.3MB gzipped = ~4MB uncompressed)
         chunkSizeWarningLimit: 4000,
         rollupOptions: {
