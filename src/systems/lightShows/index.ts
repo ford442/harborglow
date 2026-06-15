@@ -1,19 +1,41 @@
 import { ShipType } from '../../store/useGameStore'
-import type { LightCue } from './types'
-import { lngLightShow } from './lngShow'
-import { tankerLightShow } from './tankerShow'
+import { LightCue } from './types'
+import { lngLightShow } from './lng'
+import { tankerLightShow } from './tanker'
 
-export type { LightCue, LightPattern } from './types'
+export type { LightCue, LightCuePattern, LightPattern } from './types'
 
-/**
- * Per-band light-cue schedules. Ships with no entry here fall back to
- * lightingSystem's generic shared beat-intensity curve.
- */
-const lightShows: Partial<Record<ShipType, LightCue[]>> = {
+export const SHIP_BPM: Record<ShipType, number> = {
+  cruise: 120,
+  container: 128,
+  tanker: 140,
+  bulk: 135,
+  lng: 118,
+  roro: 125,
+  research: 110,
+  droneship: 105,
+  ferry: 115,
+  trawler: 95,
+  horizon: 100,
+}
+
+export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
   lng: lngLightShow,
   tanker: tankerLightShow,
+  cruise: undefined,
+  container: undefined,
+  bulk: undefined,
+  roro: undefined,
+  research: undefined,
+  droneship: undefined,
+  ferry: undefined,
+  trawler: undefined,
+  horizon: undefined,
 }
 
 export function getLightShow(shipType: ShipType): LightCue[] | undefined {
-  return lightShows[shipType]
+  return lightShowRegistry[shipType]
 }
+
+export { lngLightShow } from './lng'
+export { tankerLightShow } from './tanker'

@@ -1,5 +1,5 @@
 import { ShipType } from '../store/useGameStore'
-import { getLightShow, LightCue } from './lightShows'
+import { getLightShow, LightCue, LightCuePattern, SHIP_BPM } from './lightShows'
 
 // =============================================================================
 // LIGHTING SYSTEM - HarborGlow PBR Edition
@@ -12,6 +12,7 @@ export interface LightShowState {
   shipType: ShipType | null
   startTime: number
   duration: number
+  bpm: number
 }
 
 // Per-band cue schedules loop on this many beats — matches the 32-beat
@@ -25,12 +26,14 @@ class LightingSystem {
     shipId: null,
     shipType: null,
     startTime: 0,
-    duration: 30000 // 30 seconds
+    duration: 30000, // 30 seconds
+    bpm: 128,
   }
 
-  private intensityMultiplier: number = 1.0
-  private beatPulse: number = 0
+  private intensityMultiplier = 1.0
+  private beatPulse = 0
   private activeCue: LightCue | null = null
+  private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
 
   // ============================================================================
   // HARBOR LIGHT SHOW - Triggered on v2.0 upgrade
@@ -41,14 +44,15 @@ class LightingSystem {
       shipId,
       shipType,
       startTime: Date.now(),
-      duration: 30000
+      duration: 30000,
+      bpm: SHIP_BPM[shipType] ?? 128,
     }
-    
+
     console.log('🎆 HARBOR LIGHT SHOW ACTIVATED!')
     console.log(`   Ship: ${shipId} (${shipType})`)
     console.log('   Duration: 30 seconds')
     console.log('   All LEDs, funnels, deck lights PULSING to beat!')
-    
+
     setTimeout(() => {
       this.endHarborShow()
     }, this.currentShow.duration)
@@ -60,8 +64,12 @@ class LightingSystem {
       this.currentShow.isActive = false
       this.currentShow.shipId = null
       this.currentShow.shipType = null
-      this.activeCue = null
     }
+
+    this.activeCue = null
+    this.cueState = null
+    this.beatPulse = 0
+    this.intensityMultiplier = 1.0
   }
 
   // ============================================================================
@@ -72,38 +80,47 @@ class LightingSystem {
       const elapsed = Date.now() - this.currentShow.startTime
       const progress = elapsed / this.currentShow.duration
 
-      const beatDuration = 60 / bpm
-      this.beatPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
-
+      const effectiveBpm = this.currentShow.bpm || bpm
+      const beatDuration = 60 / effectiveBpm
+      const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
       const schedule = this.currentShow.shipType ? getLightShow(this.currentShow.shipType) : undefined
-      if (schedule) {
+
+      if (schedule && schedule.length > 0) {
         const elapsedBeats = (elapsed / 1000) / beatDuration
-        this.activeCue = this.resolveCue(schedule, elapsedBeats)
+        const active = this.resolveCue(schedule, elapsedBeats)
+
+        this.activeCue = active
+        this.beatPulse = this.computePulse(active.pattern, elapsedBeats % CUE_LOOP_BEATS)
+        this.intensityMultiplier = active.intensity
+        this.cueState = {
+          color: active.color,
+          intensity: active.intensity,
+          pattern: active.pattern,
+          pulse: this.beatPulse,
+        }
       } else {
         this.activeCue = null
-      }
+        this.beatPulse = genericPulse
 
-      if (progress < 0.2) {
-        this.intensityMultiplier = 1.0 + progress * 5
-      } else if (progress > 0.8) {
-        this.intensityMultiplier = 1.0 + (1 - progress) * 5
-      } else {
-        this.intensityMultiplier = 2.0
+        if (progress < 0.2) {
+          this.intensityMultiplier = 1.0 + progress * 5
+        } else if (progress > 0.8) {
+          this.intensityMultiplier = 1.0 + (1 - progress) * 5
+        } else {
+          this.intensityMultiplier = 2.0
+        }
+
+        this.cueState = null
       }
     } else {
       this.intensityMultiplier = 1.0
       this.beatPulse = 0
       this.activeCue = null
+      this.cueState = null
     }
   }
 
-  // ============================================================================
-  // CUE DISPATCH - Per-band LightCue[] schedules (src/systems/lightShows/)
-  // ============================================================================
-
-  /** Find the cue active at `elapsedBeats`, looping the schedule every CUE_LOOP_BEATS. */
-  private resolveCue(schedule: LightCue[], elapsedBeats: number): LightCue | null {
-    if (schedule.length === 0) return null
+  private resolveCue(schedule: LightCue[], elapsedBeats: number): LightCue {
     const beatInLoop = elapsedBeats % CUE_LOOP_BEATS
     let active = schedule[0]
     for (const cue of schedule) {
@@ -113,7 +130,25 @@ class LightingSystem {
     return active
   }
 
-  /** Apply a cue's pattern to a base intensity, modulated by the current beat pulse. */
+  private computePulse(pattern: LightCuePattern, currentBeat: number): number {
+    switch (pattern) {
+      case 'breathe':
+        return (Math.sin(currentBeat * Math.PI / 2) + 1) / 2
+      case 'sweep':
+        return (currentBeat % 4) / 4
+      case 'strobe':
+        return ((currentBeat * 8) % 2) < 1 ? 1 : 0
+      case 'snap': {
+        const frac = currentBeat % 1
+        return frac < 0.25 ? 1 - frac * 4 : 0
+      }
+      case 'blackout':
+        return 0
+      default:
+        return 0
+    }
+  }
+
   private applyCuePattern(baseIntensity: number, cue: LightCue): number {
     const beat = this.beatPulse
     switch (cue.pattern) {
@@ -138,11 +173,6 @@ class LightingSystem {
       default:
         return baseIntensity * cue.intensity * this.intensityMultiplier
     }
-  }
-
-  /** The currently active cue for the running show, or null if none/generic. */
-  getActiveCue(): LightCue | null {
-    return this.activeCue
   }
 
   // ============================================================================
@@ -184,15 +214,23 @@ class LightingSystem {
     return this.beatPulse
   }
 
+  getActiveCue(): LightCue | null {
+    return this.activeCue
+  }
+
+  getCueState(): { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null {
+    return this.cueState
+  }
+
   // ============================================================================
   // CLIMAX TRIGGER - Called from musicSystem
   // ============================================================================
   triggerClimax(shipType: ShipType) {
     console.log(`🎵 CLIMAX SEQUENCE for ${shipType}!`)
-    
+
     const originalMultiplier = this.intensityMultiplier
     this.intensityMultiplier = 3.0
-    
+
     setTimeout(() => {
       this.intensityMultiplier = originalMultiplier
     }, 500)
@@ -210,7 +248,7 @@ class LightingSystem {
           ambientIntensity: 0.15,
           ambientColor: '#1a1a2e',
           sideLightIntensity: 1.5,
-          dramatic: true
+          dramatic: true,
         }
       case 'rain':
         return {
@@ -219,7 +257,7 @@ class LightingSystem {
           ambientIntensity: 0.3,
           ambientColor: '#2a2a3e',
           sideLightIntensity: 0.8,
-          dramatic: false
+          dramatic: false,
         }
       case 'fog':
         return {
@@ -228,7 +266,7 @@ class LightingSystem {
           ambientIntensity: 0.4,
           ambientColor: '#3a3a4e',
           sideLightIntensity: 0.5,
-          dramatic: false
+          dramatic: false,
         }
       default: // clear
         return {
@@ -237,7 +275,7 @@ class LightingSystem {
           ambientIntensity: 0.6,
           ambientColor: '#ffffff',
           sideLightIntensity: 0.5,
-          dramatic: false
+          dramatic: false,
         }
     }
   }

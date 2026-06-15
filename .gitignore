@@ -1,3 +1,4 @@
 node_modules
 emsdk
 dist
+.playwright-mcp/
