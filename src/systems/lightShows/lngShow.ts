@@ -1,0 +1,1 @@
+export { lngLightShow } from './lng'

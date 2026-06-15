@@ -1,5 +1,5 @@
 import { ShipType } from '../store/useGameStore'
-import { LightCue, LightCuePattern, SHIP_BPM, lightShowRegistry } from './lightShows'
+import { getLightShow, LightCue, LightCuePattern, SHIP_BPM } from './lightShows'
 
 // =============================================================================
 // LIGHTING SYSTEM - HarborGlow PBR Edition
@@ -15,6 +15,11 @@ export interface LightShowState {
   bpm: number
 }
 
+// Per-band cue schedules loop on this many beats — matches the 32-beat
+// upgrade-cinematic cycle in cinematicSystem.ts (climax at beat 24, hide
+// band name at beat 32).
+const CUE_LOOP_BEATS = 32
+
 class LightingSystem {
   private currentShow: LightShowState = {
     isActive: false,
@@ -22,11 +27,12 @@ class LightingSystem {
     shipType: null,
     startTime: 0,
     duration: 30000, // 30 seconds
-    bpm: 128
+    bpm: 128,
   }
 
-  private intensityMultiplier: number = 1.0
-  private beatPulse: number = 0
+  private intensityMultiplier = 1.0
+  private beatPulse = 0
+  private activeCue: LightCue | null = null
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
 
   // ============================================================================
@@ -39,7 +45,7 @@ class LightingSystem {
       shipType,
       startTime: Date.now(),
       duration: 30000,
-      bpm: SHIP_BPM[shipType] ?? 128
+      bpm: SHIP_BPM[shipType] ?? 128,
     }
 
     console.log('🎆 HARBOR LIGHT SHOW ACTIVATED!')
@@ -60,6 +66,7 @@ class LightingSystem {
       this.currentShow.shipType = null
     }
 
+    this.activeCue = null
     this.cueState = null
     this.beatPulse = 0
     this.intensityMultiplier = 1.0
@@ -70,25 +77,30 @@ class LightingSystem {
   // ============================================================================
   update(time: number, bpm: number) {
     if (this.currentShow.isActive) {
-      const elapsedMs = Date.now() - this.currentShow.startTime
-      const progress = elapsedMs / this.currentShow.duration
+      const elapsed = Date.now() - this.currentShow.startTime
+      const progress = elapsed / this.currentShow.duration
 
-      const cues = this.currentShow.shipType ? lightShowRegistry[this.currentShow.shipType] : undefined
+      const effectiveBpm = this.currentShow.bpm || bpm
+      const beatDuration = 60 / effectiveBpm
+      const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
+      const schedule = this.currentShow.shipType ? getLightShow(this.currentShow.shipType) : undefined
 
-      if (cues && cues.length > 0) {
-        const effectiveBpm = this.currentShow.bpm || bpm
-        const beatDuration = 60 / effectiveBpm
-        const currentBeat = elapsedMs / 1000 / beatDuration
+      if (schedule && schedule.length > 0) {
+        const elapsedBeats = (elapsed / 1000) / beatDuration
+        const active = this.resolveCue(schedule, elapsedBeats)
 
-        const active = this.resolveActiveCue(cues, currentBeat)
-        const pulse = this.computePulse(active.pattern, currentBeat)
-
-        this.beatPulse = pulse
+        this.activeCue = active
+        this.beatPulse = this.computePulse(active.pattern, elapsedBeats % CUE_LOOP_BEATS)
         this.intensityMultiplier = active.intensity
-        this.cueState = { color: active.color, intensity: active.intensity, pattern: active.pattern, pulse }
+        this.cueState = {
+          color: active.color,
+          intensity: active.intensity,
+          pattern: active.pattern,
+          pulse: this.beatPulse,
+        }
       } else {
-        const beatDuration = 60 / bpm
-        this.beatPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
+        this.activeCue = null
+        this.beatPulse = genericPulse
 
         if (progress < 0.2) {
           this.intensityMultiplier = 1.0 + progress * 5
@@ -103,24 +115,18 @@ class LightingSystem {
     } else {
       this.intensityMultiplier = 1.0
       this.beatPulse = 0
+      this.activeCue = null
       this.cueState = null
     }
   }
 
-  private resolveActiveCue(cues: LightCue[], currentBeat: number): LightCue {
-    if (currentBeat < cues[0].beat) {
-      return cues[0]
+  private resolveCue(schedule: LightCue[], elapsedBeats: number): LightCue {
+    const beatInLoop = elapsedBeats % CUE_LOOP_BEATS
+    let active = schedule[0]
+    for (const cue of schedule) {
+      if (cue.beat <= beatInLoop) active = cue
+      else break
     }
-
-    let active = cues[0]
-    for (let i = 1; i < cues.length; i++) {
-      if (cues[i].beat <= currentBeat) {
-        active = cues[i]
-      } else {
-        break
-      }
-    }
-
     return active
   }
 
@@ -143,11 +149,42 @@ class LightingSystem {
     }
   }
 
+  private applyCuePattern(baseIntensity: number, cue: LightCue): number {
+    const beat = this.beatPulse
+    switch (cue.pattern) {
+      case 'breathe': {
+        const breath = (Math.sin(beat * Math.PI * 0.5) + 1) / 2
+        return baseIntensity * cue.intensity * this.intensityMultiplier * (0.6 + breath * 0.4)
+      }
+      case 'sweep': {
+        const sweep = (Math.sin(beat * Math.PI * 2) + 1) / 2
+        return baseIntensity * cue.intensity * this.intensityMultiplier * (0.5 + sweep * 0.5)
+      }
+      case 'strobe': {
+        const flicker = beat > 0.5 ? 1 : 0.05
+        return baseIntensity * cue.intensity * this.intensityMultiplier * flicker
+      }
+      case 'snap': {
+        const quantizedBeat = Math.floor(beat * 4) / 4
+        return baseIntensity * cue.intensity * this.intensityMultiplier * (0.3 + quantizedBeat * 0.7)
+      }
+      case 'blackout':
+        return baseIntensity * 0.02
+      default:
+        return baseIntensity * cue.intensity * this.intensityMultiplier
+    }
+  }
+
   // ============================================================================
   // GETTERS for ship components
   // ============================================================================
   getLightIntensity(baseIntensity: number): number {
     if (!this.currentShow.isActive) return baseIntensity
+
+    if (this.activeCue) {
+      return this.applyCuePattern(baseIntensity, this.activeCue)
+    }
+
     const quantizedBeat = Math.floor(this.beatPulse * 4) / 4
     return baseIntensity * this.intensityMultiplier * (1 + quantizedBeat * 0.5)
   }
@@ -157,8 +194,8 @@ class LightingSystem {
       return baseColor
     }
 
-    if (this.cueState) {
-      return this.cueState.color
+    if (this.activeCue) {
+      return this.activeCue.color
     }
 
     const hue = (Date.now() / 1000 * 60) % 360
@@ -175,6 +212,10 @@ class LightingSystem {
 
   getBeatPulse(): number {
     return this.beatPulse
+  }
+
+  getActiveCue(): LightCue | null {
+    return this.activeCue
   }
 
   getCueState(): { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null {
@@ -207,7 +248,7 @@ class LightingSystem {
           ambientIntensity: 0.15,
           ambientColor: '#1a1a2e',
           sideLightIntensity: 1.5,
-          dramatic: true
+          dramatic: true,
         }
       case 'rain':
         return {
@@ -216,7 +257,7 @@ class LightingSystem {
           ambientIntensity: 0.3,
           ambientColor: '#2a2a3e',
           sideLightIntensity: 0.8,
-          dramatic: false
+          dramatic: false,
         }
       case 'fog':
         return {
@@ -225,7 +266,7 @@ class LightingSystem {
           ambientIntensity: 0.4,
           ambientColor: '#3a3a4e',
           sideLightIntensity: 0.5,
-          dramatic: false
+          dramatic: false,
         }
       default: // clear
         return {
@@ -234,7 +275,7 @@ class LightingSystem {
           ambientIntensity: 0.6,
           ambientColor: '#ffffff',
           sideLightIntensity: 0.5,
-          dramatic: false
+          dramatic: false,
         }
     }
   }
