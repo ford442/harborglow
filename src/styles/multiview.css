@@ -1,0 +1,688 @@
+/* =============================================================================
+   CRANE CABIN 4-MONITOR DASHBOARD STYLES
+   Authentic port simulator booth interface
+   ============================================================================= */
+
+.crane-dashboard-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-frame {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow:
+    0 0 40px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid #2a2a2a;
+}
+
+.monitor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monitor-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Individual Monitor */
+.crane-monitor {
+  position: relative;
+}
+
+.monitor-bezel {
+  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #0d0d0d 100%);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.monitor-screen {
+  width: 180px;
+  height: 135px;
+  background: #000;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.monitor-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cam-id {
+  color: #00ff88;
+  font-weight: bold;
+}
+
+.cam-desc {
+  color: #888;
+}
+
+.status-led {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.status-led.on {
+  background: #00ff00;
+  box-shadow:
+    0 0 4px #00ff00,
+    0 0 8px #00ff00;
+  animation: led-pulse 2s ease-in-out infinite;
+}
+
+.status-led.off {
+  background: #ff0000;
+  box-shadow: 0 0 4px #ff0000;
+}
+
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Scanlines */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.3) 2px,
+    rgba(0, 0, 0, 0.3) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* CRT Flicker */
+.crt-flicker {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.02);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 11;
+  animation: crt-flicker 0.15s infinite;
+}
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 0; }
+  5% { opacity: 0.03; }
+  10% { opacity: 0; }
+  15% { opacity: 0.02; }
+}
+
+/* Weather Effects */
+.weather-distortion .monitor-screen {
+  filter: contrast(1.1) brightness(0.9) saturate(0.8);
+}
+
+.rain-streaks {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.05) 2px,
+    rgba(255, 255, 255, 0.05) 4px
+  );
+  animation: rain-scroll 0.2s linear infinite;
+  pointer-events: none;
+  z-index: 12;
+}
+
+@keyframes rain-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-4px); }
+}
+
+.static-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.1;
+  animation: static-flicker 0.1s steps(2) infinite;
+  pointer-events: none;
+  z-index: 13;
+}
+
+@keyframes static-flicker {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.12; }
+}
+
+/* Camera Feed Content */
+.cam-feed {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, #0a1628 0%, #1a2a40 100%);
+}
+
+/* Left/Right Twistlock Cams */
+.feed-grid {
+  display: flex;
+  height: 100%;
+}
+
+.spreader-side {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spreader-beam {
+  width: 80%;
+  height: 8px;
+  background: linear-gradient(180deg, #666 0%, #444 100%);
+  border-radius: 2px;
+  position: relative;
+}
+
+.twistlock {
+  position: absolute;
+  width: 16px;
+  height: 20px;
+  background: linear-gradient(145deg, #888 0%, #555 100%);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.twistlock.left {
+  left: 15%;
+  top: 45%;
+}
+
+.twistlock.right {
+  right: 15%;
+  top: 45%;
+}
+
+.twistlock.engaged {
+  background: linear-gradient(145deg, #00aa44 0%, #006622 100%);
+  box-shadow: 0 0 8px #00ff44;
+}
+
+.lock-icon {
+  font-size: 10px;
+  filter: grayscale(100%) brightness(2);
+}
+
+.twistlock.engaged .lock-icon {
+  filter: none;
+}
+
+.corner-casting {
+  position: absolute;
+  bottom: 20%;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.3s ease;
+}
+
+.container-corner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #c49060 0%, #8b4513 100%);
+  border: 1px solid #5a3010;
+  border-radius: 2px;
+}
+
+.height-ruler {
+  width: 30px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+}
+
+.ruler-mark {
+  position: absolute;
+  left: 2px;
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: monospace;
+}
+
+/* Downward Spreader Cam */
+.top-down-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spreader-top {
+  width: 60px;
+  height: 40px;
+  transition: transform 0.3s ease;
+}
+
+.spreader-frame {
+  width: 100%;
+  height: 100%;
+  border: 3px solid #666;
+  border-radius: 2px;
+  position: relative;
+  background: rgba(100, 100, 100, 0.2);
+}
+
+.tl-corner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #444;
+  border-radius: 50%;
+}
+
+.tl-corner.tl { top: -6px; left: -6px; }
+.tl-corner.tr { top: -6px; right: -6px; }
+.tl-corner.bl { bottom: -6px; left: -6px; }
+.tl-corner.br { bottom: -6px; right: -6px; }
+
+.tl-corner.engaged {
+  background: #00ff44;
+  box-shadow: 0 0 6px #00ff44;
+}
+
+.tl-indicator {
+  width: 4px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.center-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-h, .crosshair-v {
+  position: absolute;
+  background: rgba(255, 0, 0, 0.6);
+}
+
+.crosshair-h {
+  width: 20px;
+  height: 1px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair-v {
+  width: 1px;
+  height: 20px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.target-container {
+  position: absolute;
+  width: 70px;
+  height: 50px;
+  border: 2px dashed rgba(255, 255, 0, 0.4);
+  border-radius: 4px;
+}
+
+.container-outline {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 0, 0.2);
+}
+
+.target-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(255, 255, 0, 0.6);
+  transform: translate(-50%, -50%);
+}
+
+.alignment-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guide-h, .guide-v {
+  position: absolute;
+  background: rgba(0, 255, 136, 0.3);
+}
+
+.guide-h {
+  width: 100%;
+  height: 1px;
+  top: 50%;
+}
+
+.guide-v {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+}
+
+/* Winch Cam */
+.winch-view {
+  display: flex;
+  height: 100%;
+  padding: 10px;
+  gap: 10px;
+}
+
+.cable-drum {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(180deg, #333 0%, #222 100%);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.drum-body {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 80%;
+  background: repeating-linear-gradient(
+    0deg,
+    #444 0px,
+    #444 3px,
+    #333 3px,
+    #333 6px
+  );
+  border-radius: 2px;
+}
+
+.cable-wind {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  background: linear-gradient(90deg, #666 0%, #888 50%, #666 100%);
+  border-radius: 1px;
+  transition: height 0.3s ease;
+}
+
+.tension-gauge {
+  width: 30px;
+  position: relative;
+  background: #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gauge-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, #004400 0%, #444400 50%, #440000 100%);
+  opacity: 0.3;
+}
+
+.gauge-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(0deg, #00ff00 0%, #ffff00 50%, #ff0000 100%);
+  transition: height 0.3s ease;
+}
+
+.gauge-labels {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 4px 0;
+}
+
+.cable-animation {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+}
+
+.cable-strand {
+  width: 2px;
+  height: 30px;
+  background: linear-gradient(180deg, #888 0%, #444 100%);
+  animation: cable-shimmer 1s ease-in-out infinite;
+}
+
+@keyframes cable-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Landside Cam */
+.quay-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(180deg, #1a2a40 0%, #0d1a28 60%, #1a2a40 100%);
+  overflow: hidden;
+}
+
+.quay-structure {
+  position: absolute;
+  bottom: 20%;
+  left: 0;
+  right: 0;
+}
+
+.quay-deck {
+  height: 20px;
+  background: linear-gradient(180deg, #555 0%, #333 100%);
+  border-top: 2px solid #777;
+}
+
+.quay-edge {
+  height: 4px;
+  background: repeating-linear-gradient(90deg, #ffaa00 0px, #ffaa00 10px, #333 10px, #333 20px);
+}
+
+.ship-silhouette {
+  position: absolute;
+  right: 5%;
+  bottom: 25%;
+  opacity: 0.6;
+}
+
+.ship-hull {
+  width: 80px;
+  height: 40px;
+  background: #2a3a50;
+  border-radius: 0 0 40px 40px;
+}
+
+.ship-superstructure {
+  position: absolute;
+  top: -30px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: #3a4a60;
+  border-radius: 2px;
+}
+
+.container-yard {
+  position: absolute;
+  bottom: 30%;
+  left: 5%;
+  right: 30%;
+}
+
+.container-stack {
+  position: absolute;
+  width: 15px;
+}
+
+.container-box {
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(180deg, #c49060 0%, #8b4513 100%);
+  margin-bottom: 1px;
+  border: 1px solid #5a3010;
+}
+
+.crane-position-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(0, 255, 136, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cpi-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid #00ff88;
+}
+
+.cpi-label {
+  position: absolute;
+  bottom: -12px;
+  font-size: 6px;
+  color: #00ff88;
+}
+
+/* Data Overlay */
+.data-overlay {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 4px;
+  border-radius: 2px;
+  font-family: 'Courier New', monospace;
+  font-size: 8px;
+}
+
+.data-overlay.center {
+  text-align: center;
+}
+
+.data-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.data-row:last-child {
+  margin-bottom: 0;
+}
+
+.data-label {
+  color: #888;
+}
+
+.data-value {
+  font-weight: bold;
+}
+
+.data-value.green { color: #00ff44; }
+.data-value.red { color: #ff4444; }
+.data-value.yellow { color: #ffcc00; }
+.data-value.cyan { color: #00ccff; }
+
+/* Dashboard Controls */
+.dashboard-controls {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.monitor-toggle-btn {
+  background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.monitor-toggle-btn:hover {
+  border-color: #00ff88;
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+.btn-icon {
+  font-size: 12px;
+}
+
+.btn-label {
+  font-size: 9px;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-hint {
+  font-size: 8px;
+  color: #666;
+  background: #1a1a1a;
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: monospace;
+}

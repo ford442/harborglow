@@ -19,11 +19,11 @@ export function useCompletionGlow(): CompletionGlowStyle | null {
     : false
   const isMusicPlaying = currentShip ? musicPlaying.get(currentShip.id) === true : false
 
+  const pulse = useMusicPulse(bpm)
+
   if (!currentShip || !isFullyUpgraded || !isMusicPlaying) {
     return null
   }
-
-  const pulse = useMusicPulse(bpm)
   const pulseBoost = pulse > 0.3 ? 1 + pulse * 0.8 : 1
 
   return {
