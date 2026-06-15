@@ -25,7 +25,9 @@ Routine maintains this automatically — you can add items too.
 - [ ] ControlBooth forks archived to `src/_legacy/` (PR #30) — decision pending: permanently delete or document as reference. Forks are excluded from tsconfig but still in repo.
 - [ ] Root-level codemod scripts (`fix_components.cjs`, `fix_deps.cjs`, `fix_hologram.cjs`, `fix_let_const.cjs`, `fix_lightshow.cjs`, `fix_lint.cjs`) — one-shot post-refactor tools; move to `scripts/` or delete.
 - [ ] God-rays WGSL compute shader staged at `shaders/god-rays-compute.wgsl` — not wired into PostProcessing pipeline; future WebGPU integration task.
-- [ ] GitHub issue #89 (open, unassigned, created 2026-06-09): WebGL2 fallback renderer for dev/debugging/agent-assisted porting. Used as today's decoupled Copilot unit (2026-06-14 dispatch, sections B–D).
+- [ ] GitHub issue #89 (open, unassigned, created 2026-06-09): WebGL2 fallback renderer for dev/debugging/agent-assisted porting. Deferred — overlaps with today's lightShows work (lightShowNodes.ts is WebGPU/TSL-specific).
+- [x] ControlBooth forks (`src/_legacy/`) + codemod scripts (`fix_*.cjs`) + `.playwright-mcp/`/`dist/*` debris — superseded by issue #92 / PR #93 (Copilot, in progress 2026-06-15): decision made (delete `_legacy`, archive `fix_*.cjs` to `scripts/archive/`, untrack `.playwright-mcp/` + `dist/*`). Verified file inventory via Gemini Pro expansion + direct repo check.
+- [ ] **SECURITY — decision needed from Noah**: PR #90 removed hardcoded credentials (SFTP password, deploy token) from HEAD, but they remain in this **public** repo's git history. K2/Kimi stress-test recommends: (1) rotate both credentials immediately regardless of anything else, (2) then decide whether to rewrite git history (`git-filter-repo`, force-push, GitHub support ticket to purge caches/old-PR refs — disruptive, invalidates all open PRs/clones) vs. accept the exposure as already-public and rely on rotation alone. This is a destructive, repo-wide operation requiring Noah's explicit go-ahead — not something to hand to an autonomous agent.
 
 ## Research notes — multiview camera dashboard (2026-04-19)
 Architecture decision locked after running C-prompts:
