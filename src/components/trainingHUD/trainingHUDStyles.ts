@@ -1,4 +1,8 @@
-// Shared style constants for Training HUD components
+import React from 'react';
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 export const hudContainerStyle: React.CSSProperties = {
   position: 'fixed',
@@ -395,7 +399,7 @@ export const alignmentGuidesStyle: React.CSSProperties = {
   height: '200px'
 }
 
-const guideBaseStyle: React.CSSProperties = {
+export const guideBaseStyle: React.CSSProperties = {
   position: 'absolute',
   width: '20px',
   height: '2px',

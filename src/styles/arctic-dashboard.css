@@ -1,0 +1,369 @@
+/* Arctic Console */
+.arctic-console {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  z-index: 5;
+}
+
+.arctic-console.curved {
+  transform: translateX(-50%) perspective(1000px) rotateX(5deg);
+}
+
+.console-led-glow {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #00ccff 20%, #0088ff 50%, #00ccff 80%, transparent 100%);
+  box-shadow: 0 0 20px #00ccff, 0 0 40px #0088ff;
+  animation: console-pulse 3s ease-in-out infinite;
+}
+
+@keyframes console-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.main-monitors-curved {
+  background: linear-gradient(180deg, #151520 0%, #0a0a15 100%);
+  border-radius: 20px 20px 10px 10px;
+  padding: 15px;
+  box-shadow:
+    0 0 30px rgba(0, 136, 255, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.curved-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.curved-row.lower {
+  transform: perspective(500px) rotateX(2deg);
+}
+
+/* Arctic Monitor Styling */
+.crane-monitor.arctic-mode .monitor-bezel {
+  background: linear-gradient(145deg, #1a1a2e 0%, #0d0d1a 50%, #050510 100%);
+  border: 1px solid #00ccff;
+  box-shadow: 0 0 15px rgba(0, 204, 255, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.arctic-led-accent {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #00ccff 50%, transparent 100%);
+  box-shadow: 0 0 8px #00ccff;
+}
+
+.frost-edge {
+  position: absolute;
+  inset: -2px;
+  border: 1px solid rgba(200, 240, 255, 0.3);
+  border-radius: 8px;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%, rgba(255, 255, 255, 0.05) 100%);
+}
+
+.status-led.arctic.on {
+  background: #00ccff;
+  box-shadow: 0 0 6px #00ccff, 0 0 12px #00ccff;
+}
+
+/* Arctic Cam Feed Styling */
+.cam-feed.arctic {
+  background: linear-gradient(180deg, #0a1620 0%, #051018 100%);
+}
+
+.spreader-beam.frosted {
+  background: linear-gradient(180deg, #4a5a6a 0%, #2a3a4a 100%);
+  border: 1px solid rgba(200, 220, 240, 0.3);
+}
+
+.twistlock.arctic.engaged {
+  background: linear-gradient(145deg, #00aadd 0%, #0066aa 100%);
+  box-shadow: 0 0 12px #00ccff, 0 0 24px #0088ff;
+}
+
+.container-corner.ice-coated {
+  background: linear-gradient(145deg, #c0d0e0 0%, #8090a0 100%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.spreader-frame.arctic {
+  border-color: #00ccff;
+  background: rgba(0, 204, 255, 0.1);
+}
+
+.tl-corner.arctic.engaged {
+  background: #00ccff;
+  box-shadow: 0 0 8px #00ccff;
+}
+
+.center-crosshair.arctic .crosshair-h,
+.center-crosshair.arctic .crosshair-v {
+  background: rgba(0, 204, 255, 0.8);
+}
+
+.container-outline.ice-glow {
+  border-color: rgba(0, 204, 255, 0.6);
+  box-shadow: 0 0 10px rgba(0, 204, 255, 0.3);
+}
+
+.target-crosshair.arctic {
+  border-color: rgba(0, 204, 255, 0.8);
+}
+
+.guide-h.arctic, .guide-v.arctic {
+  background: rgba(0, 204, 255, 0.4);
+}
+
+.cable-drum.arctic {
+  background: linear-gradient(180deg, #1a2a3a 0%, #0d1a28 100%);
+  border: 1px solid rgba(0, 204, 255, 0.3);
+}
+
+.cable-strand.arctic {
+  background: linear-gradient(180deg, #00ccff 0%, #0088ff 100%);
+}
+
+.data-overlay.arctic {
+  background: rgba(0, 10, 20, 0.85);
+  border: 1px solid rgba(0, 204, 255, 0.3);
+}
+
+.data-value.arctic-blue { color: #00ccff; text-shadow: 0 0 4px #00ccff; }
+.data-value.arctic-cyan { color: #00ffff; text-shadow: 0 0 4px #00ffff; }
+.data-value.arctic-yellow { color: #ffcc00; text-shadow: 0 0 4px #ffcc00; }
+
+/* Telemetry Panel */
+.telemetry-panel {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.telemetry-label {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.telemetry-graph {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.graph-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  flex: 1;
+  height: 100%;
+}
+
+.graph-bar {
+  flex: 1;
+  border-radius: 1px;
+  transition: height 0.3s ease;
+}
+
+.graph-line {
+  position: absolute;
+  bottom: 30%;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.telemetry-value {
+  font-size: 10px;
+  font-weight: bold;
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* System Status Panel */
+.system-status-panel {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.status-header {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 204, 255, 0.3);
+  padding-bottom: 4px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.status-name {
+  font-size: 6px;
+  color: #888;
+  flex: 1;
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-item.ok .status-indicator { background: #00ff44; box-shadow: 0 0 4px #00ff44; }
+.status-item.warn .status-indicator { background: #ffcc00; box-shadow: 0 0 4px #ffcc00; }
+.status-item.error .status-indicator { background: #ff4444; box-shadow: 0 0 4px #ff4444; }
+
+.status-temp {
+  font-size: 6px;
+  color: #aaa;
+}
+
+/* Weather Monitor Panel */
+.weather-monitor-panel {
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  background: linear-gradient(180deg, #0a1520 0%, #050a10 100%);
+}
+
+.weather-header {
+  font-size: 7px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 204, 255, 0.3);
+  padding-bottom: 4px;
+}
+
+.weather-data {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.weather-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.weather-icon {
+  font-size: 10px;
+}
+
+.weather-value {
+  font-size: 9px;
+  color: #00ffff;
+  font-weight: bold;
+}
+
+/* Thermal Camera */
+.thermal-cam {
+  background: linear-gradient(180deg, #051018 0%, #020810 100%);
+}
+
+.thermal-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+}
+
+.thermal-bg {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(180deg, #0a1a30 0%, #051020 50%, #0a2030 100%);
+}
+
+.ship-thermal-silhouette {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(0, 100, 150, 0.4) 0%, rgba(0, 60, 100, 0.6) 100%);
+  border-radius: 40% 40% 10% 10%;
+  filter: blur(2px);
+}
+
+.thermal-hotspot {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  background: radial-gradient(circle, rgba(255, 100, 0, 0.8) 0%, rgba(255, 50, 0, 0.4) 50%, transparent 100%);
+  border-radius: 50%;
+  animation: hotspot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hotspot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+.thermal-scale {
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.scale-gradient {
+  flex: 1;
+  background: linear-gradient(180deg, #ff4400 0%, #ff8800 25%, #ffff00 50%, #00ffff 75%, #0088ff 100%);
+  border-radius: 2px;
+}
+
+.scale-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 5px;
+  color: #888;
+  margin-top: 4px;
+  height: 60px;
+}

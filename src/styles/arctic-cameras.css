@@ -1,0 +1,359 @@
+/* Arctic 360° Camera */
+.arctic-360 {
+  background: linear-gradient(180deg, #0a1a28 0%, #051018 100%);
+}
+
+.arctic-view-360 {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.arctic-horizon {
+  position: absolute;
+  top: 40%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 220, 240, 0.3) 50%, transparent 100%);
+}
+
+.arctic-ice-field {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60%;
+  background: linear-gradient(180deg, rgba(200, 220, 240, 0.1) 0%, rgba(150, 170, 190, 0.2) 100%);
+}
+
+.iceberg {
+  position: absolute;
+  bottom: 30%;
+  width: 40px;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(220, 240, 255, 0.6) 0%, rgba(180, 200, 220, 0.4) 100%);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.snow-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.snow-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  animation: snow-fall linear infinite;
+}
+
+@keyframes snow-fall {
+  0% { transform: translateY(-10px) translateX(0); opacity: 1; }
+  100% { transform: translateY(150px) translateX(20px); opacity: 0; }
+}
+
+.wind-streaks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wind-streak {
+  position: absolute;
+  width: 30px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 220, 240, 0.3) 50%, transparent 100%);
+  animation: wind-blow 0.5s linear infinite;
+}
+
+@keyframes wind-blow {
+  0% { transform: translateX(-50px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(200px); opacity: 0; }
+}
+
+.arctic-compass {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 50px;
+  height: 50px;
+}
+
+.compass-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(0, 204, 255, 0.5);
+  border-radius: 50%;
+}
+
+.compass-dir {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 6px;
+  color: rgba(0, 204, 255, 0.8);
+  transform-origin: center;
+}
+
+.compass-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  background: linear-gradient(180deg, #ff4444 0%, transparent 50%, #00ff44 100%);
+  transform: translate(-50%, -50%);
+  animation: compass-rotate 10s linear infinite;
+}
+
+@keyframes compass-rotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Operator Chair */
+.operator-chair {
+  position: absolute;
+  bottom: -80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 100px;
+  z-index: 10;
+}
+
+.operator-chair.arctic {
+  filter: drop-shadow(0 0 20px rgba(0, 204, 255, 0.3));
+}
+
+.chair-back {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 60px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border-radius: 10px 10px 0 0;
+}
+
+.chair-headrest {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 20px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chair-logo {
+  font-size: 10px;
+  filter: grayscale(100%);
+}
+
+.chair-logo.arctic {
+  filter: none;
+  text-shadow: 0 0 8px #00ccff;
+}
+
+.chair-padding {
+  position: absolute;
+  bottom: 0;
+  left: 5px;
+  right: 5px;
+  height: 40px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-radius: 5px;
+}
+
+.chair-armrests {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.armrest {
+  width: 25px;
+  height: 40px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border-radius: 5px;
+  position: relative;
+}
+
+.joystick {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 25px;
+}
+
+.joystick-grip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 15px;
+  background: linear-gradient(180deg, #444 0%, #222 100%);
+  border-radius: 5px;
+}
+
+.joystick-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 10px;
+  background: linear-gradient(180deg, #333 0%, #111 100%);
+  border-radius: 3px;
+}
+
+.joystick.heated .joystick-grip {
+  background: linear-gradient(180deg, #664433 0%, #442211 100%);
+}
+
+.heat-glow {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle, rgba(255, 100, 0, 0.6) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: heat-pulse 2s ease-in-out infinite;
+}
+
+@keyframes heat-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.chair-base {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, #333 0%, #111 100%);
+  border-radius: 50%;
+}
+
+.chair-base.arctic-glow {
+  box-shadow: 0 0 20px rgba(0, 204, 255, 0.3);
+}
+
+/* Arctic Walls */
+.arctic-walls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wall-padding {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, #e8e8f0 0%, #d0d0e0 100%);
+  border: 2px solid #c0c0d0;
+}
+
+.wall-padding.left {
+  left: 0;
+  background: linear-gradient(90deg, #d0d0e0 0%, #e8e8f0 50%, transparent 100%);
+}
+
+.wall-padding.right {
+  right: 0;
+  background: linear-gradient(270deg, #d0d0e0 0%, #e8e8f0 50%, transparent 100%);
+}
+
+.ceiling-padding {
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 60px;
+  height: 40px;
+  background: linear-gradient(180deg, #e0e0f0 0%, transparent 100%);
+}
+
+/* Arctic Controls */
+.arctic-controls {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+}
+
+.arctic-btn {
+  position: relative;
+  background: linear-gradient(145deg, #1a2a3a 0%, #0d1a28 100%);
+  border: 1px solid #00ccff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.arctic-btn:hover {
+  box-shadow: 0 0 15px rgba(0, 204, 255, 0.4);
+  border-color: #00ffff;
+}
+
+.btn-glow {
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, rgba(0, 204, 255, 0.3) 0%, transparent 50%, rgba(0, 204, 255, 0.3) 100%);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.arctic-btn:hover .btn-glow {
+  opacity: 1;
+}
+
+.arctic-btn .btn-icon {
+  font-size: 14px;
+}
+
+.arctic-btn .btn-label {
+  font-size: 10px;
+  color: #00ccff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.arctic-btn .btn-hint {
+  font-size: 8px;
+  color: #0088aa;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 4px;
+  border-radius: 2px;
+}

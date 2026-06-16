@@ -9,63 +9,57 @@ import { useCompletionGlow } from '../hooks/useCompletionGlow'
 import { useMusicPulse } from '../hooks/useMusicPulse'
 import * as THREE from 'three'
 import { getSceneCamera } from '../utils/sceneCamera'
-
-function optimizeQueueOrder(
-    parts: Array<{ shipId: string; partName: string; worldPos: THREE.Vector3 }>,
-    startPos: THREE.Vector3
-) {
-    const remaining = [...parts]
-    const ordered: typeof parts = []
-    let current = startPos.clone()
-
-    while (remaining.length > 0) {
-        let nearestIdx = 0
-        let nearestDist = Infinity
-        remaining.forEach((item, index) => {
-            const distance = current.distanceTo(item.worldPos)
-            if (distance < nearestDist) {
-                nearestDist = distance
-                nearestIdx = index
-            }
-        })
-
-        const next = remaining.splice(nearestIdx, 1)[0]
-        ordered.push(next)
-        current = next.worldPos.clone()
-    }
-
-    return ordered.map(({ shipId, partName }) => ({ shipId, partName }))
-}
-
-function projectWorldToScreen(worldPos: THREE.Vector3, camera: THREE.Camera) {
-    const projected = worldPos.clone().project(camera)
-    if (projected.z < -1 || projected.z > 1) return null
-
-    const canvas = document.querySelector('canvas')
-    const width = canvas?.clientWidth || window.innerWidth
-    const height = canvas?.clientHeight || window.innerHeight
-
-    return {
-        x: (projected.x * 0.5 + 0.5) * width,
-        y: (-projected.y * 0.5 + 0.5) * height,
-    }
-}
-
-function formatPartLabel(partName: string) {
-    if (!partName) return ''
-    return partName
-        .replace(/[_-]+/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase())
-}
-
-// =============================================================================
-// UPGRADE MENU COMPONENT - Phase 7-8 Polish
-// Enhanced with particle effects and celebrations
-// =============================================================================
+import { AvailableUpgradesList } from './upgrade/AvailableUpgradesList'
+import { optimizeQueueOrder, projectWorldToScreen, formatPartLabel } from './upgrade/utils'
+import {
+    menuContainerStyle,
+    progressBarBgStyle,
+    progressBarFillStyle,
+    upgradeRowStyle,
+    installButtonStyle,
+    installingSpinnerStyle,
+    structuralOverhaulButtonStyle,
+    flashOverlayStyle,
+    v2NotificationStyle,
+    upgradeCompleteBannerStyle,
+    bannerGlowLineStyle,
+    bannerContentStyle,
+    bannerLabelStyle,
+    bannerBandNameStyle,
+    bannerGenreStyle,
+    watchLightShowButtonStyle,
+    confettiPieceStyle,
+    queueStatusStyle,
+    queueStatusTextStyle,
+    queueAbortButtonStyle,
+    queueProgressBarBgStyle,
+    queueProgressBarFillStyle,
+    queueCheckboxStyle,
+    queueButtonStyle,
+    queuePreviewOverlayStyle
+} from './upgrade/styles'
 
 export default function UpgradeMenu() {
     const currentShipId = useGameStore((state) => state.currentShipId)
     const ships = useGameStore((state) => state.ships)
+    const currentShip = ships.find((ship: any) => ship.id === currentShipId)
+
+    if (!currentShip) {
+        return (
+            <div style={menuContainerStyle}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#aaa' }}>No Ship Selected</h3>
+                <p style={{ color: '#888', fontSize: '12px' }}>
+                    Spawn a ship using the buttons above
+                </p>
+            </div>
+        )
+    }
+
+    return <UpgradeMenuInner currentShip={currentShip} />
+}
+
+function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
+    const currentShipId = currentShip.id
     const installedUpgrades = useGameStore((state) => state.installedUpgrades)
     const installUpgrade = useGameStore((state) => state.installUpgrade)
     const setMusicPlaying = useGameStore((state) => state.setMusicPlaying)
@@ -108,8 +102,7 @@ export default function UpgradeMenu() {
     const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
     const bpm = useGameStore((state) => state.bpm)
     const musicPulse = useMusicPulse(bpm)
-
-    const currentShip = ships.find(ship => ship.id === currentShipId)
+    const glow = useCompletionGlow()
 
     useEffect(() => {
         setSelectedForQueue(new Set())
@@ -122,8 +115,8 @@ export default function UpgradeMenu() {
             return
         }
 
-        const shipUpgrades = installedUpgrades.filter(u => u.shipId === currentShip.id)
-        const totalUpgrades = UPGRADE_CONFIGS[currentShip.type].length
+        const shipUpgrades = installedUpgrades.filter((u: any) => u.shipId === currentShip.id)
+        const totalUpgrades = UPGRADE_CONFIGS[currentShip.type as ShipType].length
         const allInstalled = shipUpgrades.length >= totalUpgrades
 
         if (allInstalled && !showBandReveal && !showCelebration) {
@@ -191,7 +184,7 @@ export default function UpgradeMenu() {
         if (!activeAutoInstall || !currentShip) return
 
         const isInstalled = installedUpgrades.some(
-            u => u.shipId === activeAutoInstall.shipId && u.partName === activeAutoInstall.partName
+            (u: any) => u.shipId === activeAutoInstall.shipId && u.partName === activeAutoInstall.partName
         )
 
         if (isInstalled) {
@@ -216,20 +209,19 @@ export default function UpgradeMenu() {
         }
     }, [currentShipId, setHighlightedUpgradePart])
 
-    // Hooks must run unconditionally on every render — compute null-safe
-    // derived values here so the "no ship selected" branch below stays a
-    // pure render-time early return, not an early-return-before-hooks.
-    const upgradeOptions = currentShip ? UPGRADE_CONFIGS[currentShip.type] : []
-    const shipUpgrades = currentShip ? installedUpgrades.filter(u => u.shipId === currentShip.id) : []
-    const installedPartNames = new Set(shipUpgrades.map(u => u.partName))
-    const availableUpgrades = upgradeOptions.filter(opt => !installedPartNames.has(opt.partName))
-    const progress = upgradeOptions.length > 0 ? (shipUpgrades.length / upgradeOptions.length) * 100 : 0
-    const shipColor = currentShip ? shipTypeColors[currentShip.type] : '#4a6fa5'
-    const queueableUpgrades = availableUpgrades.filter(opt => selectedForQueue.has(opt.partName))
+    const currentVersion = currentShip.version || '1.0'
+    const isMaxVersion = currentVersion === '2.0'
+    const upgradeOptions = UPGRADE_CONFIGS[currentShip.type as ShipType]
+    const shipUpgrades = installedUpgrades.filter((u: any) => u.shipId === currentShip.id)
+    const installedPartNames = new Set(shipUpgrades.map((u: any) => u.partName))
+    const availableUpgrades = upgradeOptions.filter((opt: any) => !installedPartNames.has(opt.partName))
+    const progress = (shipUpgrades.length / upgradeOptions.length) * 100
+    const shipColor = shipTypeColors[currentShip.type as ShipType]
+    const queueableUpgrades = availableUpgrades.filter((opt: any) => selectedForQueue.has(opt.partName))
 
     useEffect(() => {
         setSelectedForQueue((current) => {
-            const valid = new Set(availableUpgrades.map((option) => option.partName))
+            const valid = new Set(availableUpgrades.map((option: any) => option.partName))
             const next = new Set([...current].filter((partName) => valid.has(partName)))
             if (next.size === current.size) {
                 let matches = true
@@ -249,8 +241,8 @@ export default function UpgradeMenu() {
 
         const start = new THREE.Vector3(cranePosition.x, cranePosition.y, cranePosition.z)
         const resolved = queueableUpgrades
-            .map((option) => {
-                const point = currentShip.attachmentPoints.find((item) => item.partName === option.partName)
+            .map((option: any) => {
+                const point = currentShip.attachmentPoints.find((item: any) => item.partName === option.partName)
                 if (!point) return null
                 return {
                     shipId: currentShip.id,
@@ -262,17 +254,17 @@ export default function UpgradeMenu() {
                     ),
                 }
             })
-            .filter((item): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
+            .filter((item: any): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
 
         const ordered = optimizeQueueOrder(resolved, start)
         return ordered
-            .map((item) => {
-                const point = resolved.find((resolvedItem) => resolvedItem.partName === item.partName)
+            .map((item: any) => {
+                const point = resolved.find((resolvedItem: any) => resolvedItem.partName === item.partName)
                 return point?.worldPos ?? null
             })
-            .filter((item): item is THREE.Vector3 => Boolean(item))
-            .map((point) => projectWorldToScreen(point, camera))
-            .filter((point): point is { x: number; y: number } => Boolean(point))
+            .filter((item: any): item is THREE.Vector3 => Boolean(item))
+            .map((point: any) => projectWorldToScreen(point, camera))
+            .filter((point: any): point is { x: number; y: number } => Boolean(point))
     }, [cranePosition.x, cranePosition.y, cranePosition.z, currentShip, queueableUpgrades])
 
     const glow = useCompletionGlow()
@@ -289,38 +281,30 @@ export default function UpgradeMenu() {
     }
 
     const handleSelectUpgrade = (partName: string) => {
-        // If already navigating to this one, do nothing
         if (pendingAutoInstall?.partName === partName) return
         setHighlightedUpgradePart(partName)
     }
 
     const handleInstall = async (partName: string) => {
-        // Clear any previous pending
         setHighlightedUpgradePart(null)
         setInstalling(partName)
-        
-        // Play install sound
         await playInstallSound()
-        
-        // Trigger particle burst at crane position
         setParticleBurst({
             active: true,
             position: [cranePosition.x, cranePosition.y, cranePosition.z],
             color: shipColor,
         })
-        
-        // Start auto-pilot instead of fake delay
         setPendingAutoInstall({ shipId: currentShip.id, partName })
     }
 
     const handleStructuralOverhaul = async () => {
-        if (!currentShip?.isDocked) return
+        if (!currentShip.isDocked) return
         if (isUpgradingVersion) return
 
         setIsUpgradingVersion(true)
 
         try {
-            const currentVersion = currentShip?.version || '1.0'
+            const currentVersion = currentShip.version || '1.0'
             await upgradeShipVersion(currentShip.id)
 
             setShowFlash(true)
@@ -340,7 +324,6 @@ export default function UpgradeMenu() {
     const currentVersion = currentShip?.version || '1.0'
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
-    const isMaxVersion = currentVersion === '2.0'
     const genrePulseDuration = Math.max(0.45, 60 / bpm)
 
     const isNavigating = (partName: string) =>
@@ -361,18 +344,16 @@ export default function UpgradeMenu() {
         })
     }
 
-    const startQueuedAutoInstall = () => {
-        if (!currentShip?.isDocked) return
-        const selected = availableUpgrades.filter((opt) => selectedForQueue.has(opt.partName))
-        if (selected.length === 0) return
+    const startQueue = () => {
+        if (selectedForQueue.size === 0 || !currentShip) return
 
-        const parts = selected
-            .map((option) => {
-                const point = currentShip.attachmentPoints.find((item) => item.partName === option.partName)
+        const parts = Array.from(selectedForQueue)
+            .map((partName) => {
+                const point = currentShip.attachmentPoints.find((p: any) => p.partName === partName)
                 if (!point) return null
                 return {
                     shipId: currentShip.id,
-                    partName: option.partName,
+                    partName,
                     worldPos: new THREE.Vector3(
                         currentShip.position[0] + point.position[0],
                         currentShip.position[1] + point.position[1],
@@ -380,7 +361,7 @@ export default function UpgradeMenu() {
                     ),
                 }
             })
-            .filter((item): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
+            .filter((item: any): item is { shipId: string; partName: string; worldPos: THREE.Vector3 } => Boolean(item))
 
         if (parts.length === 0) return
 
@@ -423,7 +404,6 @@ export default function UpgradeMenu() {
                 </div>
             )}
 
-            {/* Main Upgrade Menu */}
             <div style={{ ...menuContainerStyle, ...(glow || {}) }}>
                 <div style={{
                     borderBottom: `2px solid ${shipColor}`,
@@ -431,7 +411,7 @@ export default function UpgradeMenu() {
                     marginBottom: '12px'
                 }}>
                     <h3 style={{ margin: 0, color: shipColor }}>
-                        {shipTypeLabels[currentShip.type]}
+                        {shipTypeLabels[currentShip.type as ShipType]}
                     </h3>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                         <p style={{ margin: 0, fontSize: '11px', color: '#888' }}>
@@ -453,7 +433,6 @@ export default function UpgradeMenu() {
                     )}
                 </div>
 
-                {/* Progress bar */}
                 <div style={{ marginBottom: '12px' }}>
                     <div style={{
                         display: 'flex',
@@ -475,590 +454,193 @@ export default function UpgradeMenu() {
                     </div>
                 </div>
 
-                {/* Available upgrades list */}
-                {availableUpgrades.length > 0 ? (
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: '#888' }}>
-                            🏗️ Crane pickup and place:
-                        </p>
-                        {availableUpgrades.map(option => {
-                            const navigating = isNavigating(option.partName)
-                            const highlighted = isHighlighted(option.partName)
-                            const justInstalled = lastInstalled === option.partName && !navigating
-                            const selected = selectedForQueue.has(option.partName)
+                <AvailableUpgradesList
+                    availableUpgrades={availableUpgrades}
+                    isNavigating={isNavigating}
+                    isHighlighted={isHighlighted}
+                    lastInstalled={lastInstalled}
+                    selectedForQueue={selectedForQueue}
+                    shipColor={shipColor}
+                    installing={installing}
+                    onSelectUpgrade={handleSelectUpgrade}
+                    onInstall={handleInstall}
+                    onToggleQueueSelection={toggleQueueSelection}
+                    activeAutoInstallPartName={activeAutoInstall?.partName}
+                />
 
-                            return (
-                                <div
-                                    key={option.partName}
-                                    style={{
-                                        ...upgradeRowStyle,
-                                        borderColor: navigating
-                                            ? shipColor
-                                            : highlighted
-                                                ? '#00ffff'
-                                                : '#444',
-                                        boxShadow: navigating
-                                            ? `0 0 15px ${shipColor}60, inset 0 0 10px ${shipColor}20`
-                                            : highlighted
-                                                ? '0 0 12px #00ffff40, inset 0 0 8px #00ffff20'
-                                                : 'none',
-                                        cursor: navigating || !currentShip.isDocked ? 'default' : 'pointer',
-                                        opacity: navigating || !currentShip.isDocked ? 0.7 : 1,
-                                    }}
-                                >
-                                    <label
-                                        style={queueCheckboxStyle}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={selected}
-                                            onChange={() => toggleQueueSelection(option.partName)}
-                                            disabled={!currentShip.isDocked || navigating}
-                                        />
-                                    </label>
-
-                                    {/* Clickable area for selection */}
-                                    <div
-                                        style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
-                                        onClick={() => {
-                                            if (!navigating && currentShip.isDocked) {
-                                                handleSelectUpgrade(option.partName)
-                                            }
-                                        }}
-                                    >
-                                        <span style={{ fontWeight: 'bold', color: navigating ? shipColor : highlighted ? '#00ffff' : '#ddd' }}>
-                                            {navigating
-                                                ? '🚡 Navigating Crane...'
-                                                : justInstalled
-                                                    ? '✓ Installed'
-                                                    : highlighted
-                                                        ? `👁 ${option.label}`
-                                                        : `⚡ ${option.label}`}
-                                        </span>
-                                        <span style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
-                                            {option.description}
-                                        </span>
-                                    </div>
-
-                                    {/* Install button — separate from row click */}
-                                    {!navigating && !justInstalled && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                if (currentShip.isDocked) {
-                                                    handleInstall(option.partName)
-                                                }
-                                            }}
-                                            disabled={!currentShip.isDocked}
-                                            style={{
-                                                ...installButtonStyle,
-                                                opacity: currentShip.isDocked ? 1 : 0.4,
-                                                cursor: currentShip.isDocked ? 'pointer' : 'not-allowed',
-                                            }}
-                                        >
-                                            Install
-                                        </button>
-                                    )}
-
-                                    {navigating && (
-                                        <span style={installingSpinnerStyle} />
-                                    )}
-
-                                    {justInstalled && (
-                                        <span style={{ fontSize: '16px', color: '#00ff88' }}>✓</span>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-                ) : (
-                    <div style={{ textAlign: 'center', padding: '20px' }}>
-                        <p style={{
-                            margin: 0,
-                            color: shipColor,
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                        }}>
-                            ✨ All Systems Online! ✨
-                        </p>
-                        <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#888' }}>
-                            Band: {musicSystem.getBandInfo(currentShip.type).name}
-                        </p>
-
-                        {currentShip.isDocked && !isMaxVersion && (
-                            <button
-                                onClick={handleStructuralOverhaul}
-                                disabled={isUpgradingVersion}
-                                style={{
-                                    ...structuralOverhaulButtonStyle,
-                                    opacity: isUpgradingVersion ? 0.7 : 1,
-                                    cursor: isUpgradingVersion ? 'wait' : 'pointer',
-                                    animation: isUpgradingVersion ? 'none' : 'pulse 2s infinite',
-                                }}
-                            >
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px' }}>
-                                        {isUpgradingVersion ? '🔧 UPGRADING...' : '⚡ FULL STRUCTURAL OVERHAUL'}
-                                    </span>
-                                    <span style={{ fontSize: '10px', marginTop: '4px', opacity: 0.9 }}>
-                                        {isUpgradingVersion
-                                            ? 'Transforming hull architecture...'
-                                            : `v${currentVersion} → v${nextVersion}`}
-                                    </span>
-                                </div>
-                            </button>
-                        )}
-
-                        {isMaxVersion && (
-                            <div style={{
-                                marginTop: '12px',
-                                padding: '8px',
-                                background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05))',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(255,215,0,0.3)'
-                            }}>
-                                <span style={{ fontSize: '11px', color: '#ffd700' }}>
-                                    🏆 MAXIMUM STRUCTURAL INTEGRITY ACHIEVED
+                {availableUpgrades.length === 0 && (
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '16px 0',
+                        color: shipColor,
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        animation: 'pulse 2s infinite'
+                    }}>
+                        {isMaxVersion ? (
+                            <>
+                                ✨ Hull Integrity Maximum ✨<br/>
+                                <span style={{ fontSize: '10px', color: '#aaa', fontWeight: 'normal' }}>
+                                    All modifications complete
                                 </span>
-                            </div>
+                            </>
+                        ) : (
+                            <>
+                                ✨ All Parts Installed ✨<br/>
+                                <span style={{ fontSize: '10px', color: '#aaa', fontWeight: 'normal' }}>
+                                    Ready for Structural Overhaul
+                                </span>
+                            </>
                         )}
                     </div>
                 )}
 
-                {selectedForQueue.size >= 2 && (
+                {queueableUpgrades.length > 1 && (
                     <button
-                        onClick={startQueuedAutoInstall}
-                        disabled={!currentShip.isDocked}
+                        onClick={startQueue}
+                        disabled={isQueueRunning || !!activeAutoInstall}
                         style={{
                             ...queueButtonStyle,
-                            opacity: currentShip.isDocked ? 1 : 0.5,
-                            cursor: currentShip.isDocked ? 'pointer' : 'not-allowed',
+                            opacity: isQueueRunning || !!activeAutoInstall ? 0.5 : 1,
+                            cursor: isQueueRunning || !!activeAutoInstall ? 'not-allowed' : 'pointer'
                         }}
                     >
-                        Queue Auto-Install ({selectedForQueue.size})
+                        Start Queue ({selectedForQueue.size} items)
                     </button>
                 )}
 
-                {/* Installed summary */}
-                {shipUpgrades.length > 0 && availableUpgrades.length > 0 && (
-                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #333' }}>
-                        <p style={{ margin: 0, fontSize: '10px', color: '#666' }}>
-                            Installed: {shipUpgrades.map(u => {
-                                const opt = upgradeOptions.find(o => o.partName === u.partName)
-                                return opt?.label || u.partName
-                            }).slice(0, 3).join(', ')}
-                            {shipUpgrades.length > 3 && ` +${shipUpgrades.length - 3} more`}
-                        </p>
-                    </div>
+                {!isMaxVersion && availableUpgrades.length === 0 && currentShip.isDocked && (
+                    <button
+                        onClick={handleStructuralOverhaul}
+                        disabled={isUpgradingVersion}
+                        style={structuralOverhaulButtonStyle}
+                    >
+                        {isUpgradingVersion ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <div style={installingSpinnerStyle} />
+                                <span>Refitting Hull...</span>
+                            </div>
+                        ) : (
+                            <>
+                                🛠️ Perform Structural Overhaul<br/>
+                                <span style={{ fontSize: '11px', fontWeight: 'normal', opacity: 0.8 }}>
+                                    Upgrade to v{nextVersion}
+                                </span>
+                            </>
+                        )}
+                    </button>
                 )}
             </div>
 
-            {queuePreviewPoints.length >= 2 && (
-                <svg
-                    style={queuePreviewOverlayStyle}
-                    width="100%"
-                    height="100%"
-                    viewBox={`0 0 ${window.innerWidth} ${window.innerHeight}`}
-                >
+            {queuePreviewPoints.length > 1 && (
+                <svg style={queuePreviewOverlayStyle}>
                     <polyline
-                        points={queuePreviewPoints.map((point) => `${point.x},${point.y}`).join(' ')}
+                        points={queuePreviewPoints.map((p) => `${p.x},${p.y}`).join(' ')}
                         fill="none"
-                        stroke="#00ffff"
+                        stroke="rgba(0, 212, 170, 0.5)"
                         strokeWidth="2"
-                        strokeDasharray="6 8"
-                        opacity="0.45"
+                        strokeDasharray="4 4"
                     />
+                    {queuePreviewPoints.map((p, i) => (
+                        <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r="4"
+                            fill="rgba(0, 212, 170, 0.8)"
+                        />
+                    ))}
                 </svg>
             )}
 
-            {/* Particle Burst Effect */}
-            <ParticleBurst
-                position={particleBurst.position}
-                color={particleBurst.color}
-                active={particleBurst.active}
-            />
-
-            {/* Ship Fully Upgraded Celebration */}
-            {currentShip && (
-                <ShipFullyUpgradedCelebration
-                    shipName={currentShip.name || shipTypeLabels[currentShip.type]}
-                    shipType={currentShip.type}
-                    active={showCelebration}
-                    onComplete={() => setShowCelebration(false)}
-                />
-            )}
-
-            {/* Flash Effect Overlay */}
             {showFlash && <div style={flashOverlayStyle} />}
 
-            {/* V2.0 Overhaul Notification */}
             {showV2Notification && (
                 <div style={v2NotificationStyle}>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>
-                        🎆 V2.0 OVERHAUL SYNC SHOW ACTIVATED! 🎆
-                    </div>
-                    <div style={{ fontSize: '16px', opacity: 0.9 }}>
-                        All LEDs, funnels, deck lights pulsing to the beat!
-                    </div>
-                    <div style={{ fontSize: '14px', marginTop: '10px', opacity: 0.7 }}>
-                        Harbor-wide light + music spectacle in progress...
-                    </div>
+                    <h2 style={{ margin: '0 0 10px 0', fontSize: '32px', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        🚀 VERSION 2.0 UNLOCKED! 🚀
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '18px', opacity: 0.9 }}>
+                        Maximum performance achieved.<br/>Harbor Light Show activated!
+                    </p>
                 </div>
             )}
 
-            {/* Upgrade Complete Banner */}
-            {showBandReveal && currentShip && (
-                <div style={upgradeCompleteBannerStyle}>
-                    {confetti.map((item) => (
-                        <div
-                            key={item.id}
-                            style={{
-                                ...confettiPieceStyle,
-                                left: `calc(${item.left}% + ${item.x}px)`,
-                                top: `calc(50% + ${item.y}px)`,
-                                background: `hsl(${item.hue} 95% 65%)`,
-                                animationDelay: `${item.delay}s`,
-                                animationDuration: `${item.duration}s`,
-                                transform: `rotate(${item.rot}deg)`,
-                            }}
-                        />
-                    ))}
+            {showBandReveal && (
+                <div style={{
+                    ...upgradeCompleteBannerStyle,
+                    borderColor: shipColor,
+                    boxShadow: `0 0 40px ${shipColor}30, 0 8px 32px rgba(0,0,0,0.5)`
+                }}>
                     <div style={bannerGlowLineStyle} />
+
                     <div style={bannerContentStyle}>
-                        <div style={bannerLabelStyle}>UPGRADE COMPLETE</div>
-                        <div style={bannerBandNameStyle}>{typedBandName || bandName}</div>
-                        <div
-                            style={{
-                                ...bannerGenreStyle,
-                                animation: 'genre-pulse linear infinite',
-                                animationDuration: `${genrePulseDuration.toFixed(2)}s`,
-                                opacity: 0.75 + musicPulse * 0.25,
-                                textShadow: `0 0 ${10 + musicPulse * 16}px rgba(0,212,170,${0.2 + musicPulse * 0.4})`,
-                            }}
-                        >
-                            {musicSystem.getBandInfo(currentShip.type).genre}
+                        <span style={bannerLabelStyle}>Installation Complete</span>
+                        <div style={{
+                            ...bannerBandNameStyle,
+                            textShadow: `0 0 20px ${shipColor}80`
+                        }}>
+                            {typedBandName}
+                            <span style={{
+                                opacity: typedBandName.length === bandName.length ? 0 : 1,
+                                animation: 'blink 1s step-end infinite'
+                            }}>_</span>
                         </div>
-                        <button
-                            style={watchLightShowButtonStyle}
-                            onClick={() => {
-                                useGameStore.getState().setSpectatorTarget(currentShip.id)
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, #00d4aa, #00ffb8)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0, 212, 170, 0.15)' }}
-                        >
-                            ✨ Watch Light Show
-                        </button>
+                        {typedBandName.length === bandName.length && (
+                            <span style={{
+                                ...bannerGenreStyle,
+                                animation: `genrePulse ${genrePulseDuration}s ease-in-out infinite alternate`
+                            }}>
+                                {musicSystem.getBandInfo(currentShip.type).genre}
+                            </span>
+                        )}
                     </div>
+
                     <div style={bannerGlowLineStyle} />
+
+                    {typedBandName.length === bandName.length && (
+                        <button
+                            style={{
+                                ...watchLightShowButtonStyle,
+                                borderColor: `${shipColor}80`,
+                                color: shipColor
+                            }}
+                            onClick={() => {
+                                setSpectatorTarget(currentShip.id, 10)
+                                setMusicPlaying(currentShip.id, true)
+                                setShowBandReveal(false)
+                            }}
+                        >
+                            Watch Live Set
+                        </button>
+                    )}
+
+                    {confetti.map(c => (
+                        <div key={c.id} style={{
+                            ...confettiPieceStyle,
+                            left: `${c.left}%`,
+                            top: '50%',
+                            backgroundColor: `hsl(${c.hue}, 100%, 60%)`,
+                            animationDelay: `${c.delay}s`,
+                            animationDuration: `${c.duration}s`,
+                            transform: `translate(${c.x}px, ${c.y}px) rotate(${c.rot}deg)`
+                        }} />
+                    ))}
                 </div>
             )}
 
-            <style>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; transform: scale(1); }
-                    50% { opacity: 0.8; transform: scale(1.02); }
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                @keyframes banner-slide-down {
-                    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
-                @keyframes confetti-burst {
-                    0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
-                    12% { opacity: 1; }
-                    100% { opacity: 0; transform: translate3d(0, -180px, 0) rotate(540deg); }
-                }
-                @keyframes genre-pulse {
-                    0%, 100% { letter-spacing: 0.2px; }
-                    50% { letter-spacing: 0.8px; }
-                }
-            `}</style>
+            <ParticleBurst
+                active={particleBurst.active}
+                position={particleBurst.position}
+                color={particleBurst.color}
+            />
+
+            <ShipFullyUpgradedCelebration
+                active={showCelebration}
+                shipName={currentShip.id}
+                shipType={currentShip.type}
+                onComplete={() => setShowCelebration(false)}
+            />
         </>
     )
-}
-
-// =============================================================================
-// STYLES
-// =============================================================================
-
-const menuContainerStyle: React.CSSProperties = {
-    position: 'absolute',
-    bottom: '20px',
-    right: '20px',
-    background: 'rgba(0,0,0,0.9)',
-    padding: '16px',
-    borderRadius: '12px',
-    pointerEvents: 'auto',
-    width: '280px',
-    maxHeight: '400px',
-    overflow: 'hidden',
-    border: '1px solid #333',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(10px)'
-}
-
-const progressBarBgStyle: React.CSSProperties = {
-    height: '6px',
-    backgroundColor: '#333',
-    borderRadius: '3px',
-    overflow: 'hidden'
-}
-
-const progressBarFillStyle: React.CSSProperties = {
-    height: '100%',
-    transition: 'width 0.5s ease',
-    borderRadius: '3px'
-}
-
-const upgradeRowStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    margin: '6px 0',
-    padding: '10px 12px',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    border: '1px solid #444',
-    borderRadius: '8px',
-    color: '#ddd',
-    fontSize: '12px',
-    textAlign: 'left',
-    transition: 'all 0.2s ease',
-}
-
-const installButtonStyle: React.CSSProperties = {
-    marginLeft: '8px',
-    padding: '6px 12px',
-    backgroundColor: 'rgba(0, 212, 170, 0.15)',
-    border: '1px solid rgba(0, 212, 170, 0.4)',
-    borderRadius: '6px',
-    color: '#00d4aa',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    whiteSpace: 'nowrap',
-}
-
-const installingSpinnerStyle: React.CSSProperties = {
-    width: '16px',
-    height: '16px',
-    border: '2px solid rgba(255,255,255,0.2)',
-    borderTopColor: 'currentColor',
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-}
-
-const structuralOverhaulButtonStyle: React.CSSProperties = {
-    display: 'block',
-    width: '100%',
-    margin: '16px 0 0 0',
-    padding: '16px 12px',
-    background: 'linear-gradient(135deg, #ffd700, #ffaa00)',
-    border: '2px solid #ffcc00',
-    borderRadius: '12px',
-    color: '#000',
-    fontSize: '13px',
-    textAlign: 'center',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 20px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-    textShadow: '0 1px 0 rgba(255,255,255,0.3)'
-}
-
-const flashOverlayStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#ffd700',
-    opacity: 0.3,
-    pointerEvents: 'none',
-    zIndex: 9999,
-    animation: 'flash 0.5s ease-out'
-}
-
-const v2NotificationStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    background: 'linear-gradient(135deg, rgba(255,0,128,0.95), rgba(128,0,255,0.95))',
-    padding: '40px 60px',
-    borderRadius: '20px',
-    border: '3px solid #ff00ff',
-    color: '#fff',
-    textAlign: 'center',
-    zIndex: 10000,
-    pointerEvents: 'none',
-    animation: 'pulseIn 0.5s ease-out, glow 2s infinite',
-    boxShadow: '0 0 60px rgba(255,0,255,0.6), inset 0 0 30px rgba(255,255,255,0.2)'
-}
-
-const upgradeCompleteBannerStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '80px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 150,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '20px 32px',
-    background: 'rgba(10, 15, 30, 0.92)',
-    backdropFilter: 'blur(16px)',
-    borderRadius: '16px',
-    border: '1px solid rgba(0, 212, 170, 0.4)',
-    boxShadow: '0 0 40px rgba(0,212,170,0.2), 0 8px 32px rgba(0,0,0,0.5)',
-    animation: 'banner-slide-down 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-}
-
-const bannerGlowLineStyle: React.CSSProperties = {
-    width: '100%',
-    height: '1px',
-    background: 'linear-gradient(90deg, transparent, #00d4aa, transparent)',
-    opacity: 0.6,
-}
-
-const bannerContentStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '6px',
-}
-
-const bannerLabelStyle: React.CSSProperties = {
-    fontSize: '10px',
-    fontWeight: 700,
-    letterSpacing: '3px',
-    color: '#00d4aa',
-    textTransform: 'uppercase',
-}
-
-const bannerBandNameStyle: React.CSSProperties = {
-    fontSize: '22px',
-    fontWeight: 800,
-    color: '#fff',
-    letterSpacing: '1px',
-    textShadow: '0 0 20px rgba(0,212,170,0.5)',
-}
-
-const bannerGenreStyle: React.CSSProperties = {
-    fontSize: '11px',
-    color: 'rgba(255,255,255,0.5)',
-    fontStyle: 'italic',
-}
-
-const watchLightShowButtonStyle: React.CSSProperties = {
-    marginTop: '10px',
-    padding: '10px 24px',
-    background: 'rgba(0, 212, 170, 0.15)',
-    border: '1px solid rgba(0, 212, 170, 0.5)',
-    borderRadius: '8px',
-    color: '#00d4aa',
-    fontSize: '12px',
-    fontWeight: 700,
-    letterSpacing: '1px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    textTransform: 'uppercase',
-}
-
-const confettiPieceStyle: React.CSSProperties = {
-    position: 'absolute',
-    width: '8px',
-    height: '3px',
-    borderRadius: '999px',
-    pointerEvents: 'none',
-    opacity: 0,
-    animationName: 'confetti-burst',
-    animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
-    animationFillMode: 'forwards',
-    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.15))',
-}
-
-const queueStatusStyle: React.CSSProperties = {
-    position: 'absolute',
-    right: '20px',
-    bottom: '430px',
-    width: '280px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 12px',
-    background: 'rgba(0, 18, 24, 0.95)',
-    border: '1px solid rgba(0, 212, 170, 0.35)',
-    borderRadius: '10px',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-    zIndex: 15,
-    pointerEvents: 'auto',
-}
-
-const queueStatusTextStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-    color: '#bffef4',
-    fontSize: '11px',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-}
-
-const queueAbortButtonStyle: React.CSSProperties = {
-    width: '24px',
-    height: '24px',
-    borderRadius: '50%',
-    border: '1px solid rgba(255,255,255,0.15)',
-    background: 'rgba(255,255,255,0.06)',
-    color: '#fff',
-    cursor: 'pointer',
-}
-
-const queueProgressBarBgStyle: React.CSSProperties = {
-    position: 'absolute',
-    left: '12px',
-    right: '12px',
-    bottom: '8px',
-    height: '4px',
-    background: 'rgba(0, 212, 170, 0.12)',
-    borderRadius: '999px',
-    overflow: 'hidden',
-}
-
-const queueProgressBarFillStyle: React.CSSProperties = {
-    height: '100%',
-    background: 'linear-gradient(90deg, #00d4aa, #00ffff)',
-    boxShadow: '0 0 8px rgba(0, 212, 170, 0.5)',
-    transition: 'width 0.25s ease',
-}
-
-const queueCheckboxStyle: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: '8px',
-}
-
-const queueButtonStyle: React.CSSProperties = {
-    width: '100%',
-    marginTop: '10px',
-    padding: '10px 12px',
-    background: 'linear-gradient(135deg, rgba(0,212,170,0.22), rgba(0,255,255,0.12))',
-    border: '1px solid rgba(0, 212, 170, 0.45)',
-    borderRadius: '8px',
-    color: '#bffef4',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
-}
-
-const queuePreviewOverlayStyle: React.CSSProperties = {
-    position: 'fixed',
-    inset: 0,
-    pointerEvents: 'none',
-    zIndex: 12,
 }
