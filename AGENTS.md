@@ -38,6 +38,38 @@ The game includes an alternate operation mode where players control a tugboat to
 | Bundle Analysis | rollup-plugin-visualizer | ^5.12.0 |
 | Minification | terser | ^5.46.1 |
 
+## Renderer Backends (WebGPU + WebGL2 Fallback)
+
+The app is **WebGPU-first** (via Three.js `WebGPURenderer` + R3F) but ships a **toggleable WebGL2 fallback renderer** (`WebGLRenderer`) for:
+
+- Easier visual debugging of crane, ships, glowing rigs, particles, and music-reactive light shows (agents and Playwright have a hard time introspecting WebGPU framebuffers).
+- Using WebGL2 as a stable reference implementation while porting/iterating graphics features (GLSL vs TSL/WGSL).
+- Robust CI / automated testing and screenshot comparison.
+
+**How to switch** (priority order):
+1. URL param: `?renderer=webgl` or `?renderer=webgpu`
+2. Leva debug UI (in-game): open the Leva panel → **"Renderer Backend"** folder → dropdown
+3. `localStorage` key `harborglow.renderer.preference` (persisted automatically)
+
+Canvas uses `key={`renderer-${pref}`}` + an `async gl` factory so switching remounts only the R3F context while Zustand game state, Rapier world, Tone transport, etc. remain live.
+
+**Debug helpers** (both paths):
+- `G` — wireframe overlay on all meshes (ships, crane, light rigs, dock...)
+- `F` — Rapier `<Debug />` collider visualization
+- Yellow top banner (updated `WebGPUWarning.tsx`) shows the active backend + reason
+- `&wireframe=1&physicsDebug=1` for deep-linkable debug sessions
+- `window.currentRenderer`, `window.harborglowRenderer`, `<canvas>.dataset.renderer` are set for tooling
+
+Shared scene graph means **visual parity is expected for all core content** (ships from blueprints, attachment points, light rigs, AudioReactiveLightShow, PostProcessing, volumetric lights, etc.). Differences are mainly post-processing fidelity, shadow map details, and availability of TSL compute nodes.
+
+See:
+- `docs/RENDERER.md` — usage, architecture diagram, WebGL2→WebGPU porting table
+- `src/rendering/` — `createRenderer.ts`, `rendererConfig.ts`, `rendererState.ts`, `WireframeDebug.tsx`, `RendererDiagnosticsMonitor.tsx`
+- `src/App.tsx` — Canvas + Leva bridge + keyboard wiring
+- `src/components/WebGPUWarning.tsx`
+
+When adding graphics work, develop/tune first on `?renderer=webgl`, verify on `?renderer=webgpu`.
+
 ## Build and Development Commands
 
 ```bash
@@ -159,6 +191,13 @@ src/
 │   ├── UpgradeMenu.tsx
 │   ├── VisualFeedback.tsx
 │   └── WebGPUWarning.tsx
+│   (new) src/rendering/        # Dual-renderer support (createRenderer, config, WireframeDebug, diagnostics)
+│       ├── createRenderer.ts
+│       ├── rendererConfig.ts
+│       ├── rendererState.ts
+│       ├── WireframeDebug.tsx
+│       ├── RendererDiagnosticsMonitor.tsx
+│       └── index.ts
 ├── scenes/                  # R3F 3D scene components (~37 files)
 │   ├── AttachmentPoint.tsx
 │   ├── AudioReactiveLightShow.tsx
@@ -292,12 +331,7 @@ Root files:
 │   ├── copilot-instructions.md
 │   └── playwright-mcp.json
 ├── deploy.py                # Python SFTP deployment script
-├── fix_components.cjs       # Cleanup: component fixes
-├── fix_deps.cjs             # Cleanup: dependency array fixes
-├── fix_hologram.cjs         # Cleanup: hologram fixes
-├── fix_let_const.cjs        # Cleanup: let-to-const conversion
-├── fix_lightshow.cjs        # Cleanup: light show fixes
-├── fix_lint.cjs             # Cleanup: lint autofix
+├── scripts/archive/           # One-shot codemods from Apr 2026 refactor (see README)
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
@@ -384,16 +418,16 @@ Root files:
 - Ignores: `dist`, `.eslintrc.json`
 
 ### Recent Cleanup
-- Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (`fix_let_const.cjs`, `fix_deps.cjs`).
+- Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (codemods now in `scripts/archive/`).
 - As of April 2026, there are **zero** `TODO` or `FIXME` comments remaining in `src/`.
 
 ## Testing Strategy
 
-**No automated test suite exists.** There are no test frameworks (Jest, Vitest, Playwright, Cypress) configured.
+**Vitest** is configured (`npm test`) with smoke tests for core systems (e.g. `sequencerSystem`).
 
 ### Smoke Test
-- `npm run heartbeat` acts as a basic smoke test by running `npm run build` and checking for uncommitted changes or remaining TODO/FIXME comments.
-- Recent heartbeat runs report a successful build (~4.13 MB raw / ~1.32 MB gzip, ~23–24 s, 1760 modules).
+- `npm run heartbeat` runs `git status`, a TODO/FIXME grep, `npm run build`, and `npm test`.
+- Recent heartbeat runs: build succeeds (~1760 modules), 95/95 Vitest tests pass, 0 TODO/FIXME in `src/`.
 
 ### Manual Testing Checklist
 1. Spawn each ship type and verify unique appearance.
@@ -401,29 +435,33 @@ Root files:
 3. Verify lyrics sync with music.
 4. Check spectator drone activates after completion.
 5. Test day/night cycle affects lighting.
-6. Verify WebGPU warning appears on unsupported browsers.
-7. Test training module flow (open hub, start module, complete, return).
-8. Verify save/load persistence across page reloads.
-9. Test tugboat mode toggle and tugboat HUD.
-10. Verify moon phase display in time system.
+6. Verify WebGPU/Renderer warning banner appears on unsupported browsers or when `?renderer=webgl` is used.
+7. Test renderer toggle: `?renderer=webgl`, Leva "Renderer Backend" dropdown, `G` (wireframe), `F` (physics debug). Verify wireframe + colliders appear under both backends and game state is unaffected.
+8. Test training module flow (open hub, start module, complete, return).
+9. Verify save/load persistence across page reloads.
+10. Test tugboat mode toggle and tugboat HUD.
+11. Verify moon phase display in time system.
 
 ## Deployment
 
-The project includes a Python deployment script (`deploy.py`) that uses Paramiko for SFTP:
+The project includes a Python deployment script (`deploy.py`) that zips `dist/` and uploads it
+as a single bundle to a Contabo storage manager over HTTPS:
 
 ```bash
 # Build first, then deploy
 npm run build
+export DEPLOY_TOKEN="your_long_token_from_vps_env"
 python deploy.py
 ```
 
 **Deployment Configuration** (in `deploy.py`):
-- Host: `1ink.us`
-- Username: `ford442`
-- Remote directory: `test.1ink.us/harborglow`
+- Target: `https://storage.noahcohn.com/api/deploy/harborglow/bundle`
 - Local source: `dist/`
+- Auth: `DEPLOY_TOKEN` env var (sent as `X-Deploy-Token` header); no token is hardcoded in the script.
 
-**Security Note**: The deploy script contains a hardcoded password on line 45. In production, use environment variables.
+**Security Note**: Never hardcode `DEPLOY_TOKEN` (or any credential) back into `deploy.py` — always read it
+from the environment. The old Paramiko/SFTP-based `deploy_old.py` (with a hardcoded plaintext password) has
+been removed.
 
 ## GitHub Actions
 
@@ -431,14 +469,12 @@ python deploy.py
 
 ## Security Considerations
 
-1. **Hardcoded credentials** in `deploy.py` — username and password are plaintext.
+1. **`deploy.py`** reads `DEPLOY_TOKEN` from the environment only — never hardcode a token/password into this
+   file (this repo is public). `deploy_old.py` (Paramiko/SFTP, hardcoded plaintext password) has been removed.
 2. **No input validation** on ship spawn positions (currently random generation only).
 3. **No rate limiting** on upgrade installation.
 4. **No CSP headers** configured in the build output.
 5. **Save game state** stored in `localStorage` without encryption or integrity checks beyond a version string check.
-6. **Known code hygiene issues** (from heartbeat):
-   - 4 circular-dependency warnings: `harborEventSystem` re-export through `eventSystem/index.ts` affects `OnDockRail`, `DistantShipQueue`, `techSystem`, and `MainScene`.
-   - `deploy.py` recursive `upload_directory` uses the outer `sftp` variable instead of the `sftp_client` parameter.
 
 ## Key Data Types
 
@@ -540,8 +576,9 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 
 ## Browser Requirements
 
-- **Minimum**: WebGL-enabled browser
-- **Recommended**: WebGPU support (Chrome 113+, Edge 113+)
+- **Minimum**: WebGL2-enabled browser (the WebGL2 fallback renderer works everywhere WebGL2 is available)
+- **Recommended**: WebGPU support (Chrome 113+, Edge 113+) for the primary path
+- **Renderer switching**: `?renderer=webgl` forces the stable debug/reference WebGLRenderer; `?renderer=webgpu` (default) uses WebGPURenderer (with automatic internal fallback when needed). See `docs/RENDERER.md`.
 - **Audio**: Requires user interaction to start (browser autoplay policy)
 
 ---

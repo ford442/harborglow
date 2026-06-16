@@ -2,8 +2,16 @@ import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { KeyboardControls } from '@react-three/drei'
-import { Leva } from 'leva'
+import { Leva, useControls } from 'leva'
 import { useGameStore } from './store/useGameStore'
+import {
+  createGameRenderer,
+  parseRendererPreference,
+  persistRendererPreference,
+  RendererDiagnosticsMonitor,
+  WireframeDebug,
+  type RendererPreference,
+} from './rendering'
 import { loadGameState } from './utils/storage_manager'
 import { TrainingModuleId } from './systems/trainingSystem'
 import * as Tone from 'tone'
@@ -12,6 +20,7 @@ import LoadingScreen from './components/LoadingScreen'
 import ErrorBoundary from './components/ErrorBoundary'
 import HUD from './components/HUD'
 import TrainingMode from './components/TrainingMode'
+import WebGPUWarning from './components/WebGPUWarning'
 import TrainingHUD from './components/TrainingHUD'
 import { introMusicSystem } from './systems/introMusicSystem'
 import './App.css'
@@ -57,6 +66,81 @@ function App() {
             default: return 'industrial'
         }
     }, [boothTier])
+
+    // -------------------------------------------------------------------------
+    // RENDERER BACKEND (WebGPU primary + toggleable WebGL2 fallback)
+    // ?renderer=webgl, localStorage, or Leva control. Canvas remounts on change.
+    // -------------------------------------------------------------------------
+    const [rendererPreference, setRendererPreference] = useState<RendererPreference>(() =>
+      parseRendererPreference()
+    )
+    const [wireframeDebug, setWireframeDebug] = useState(() => {
+      const params = new URLSearchParams(window.location.search)
+      const raw = params.get('wireframe')
+      return raw === '1' || raw === 'true'
+    })
+    const [physicsDebug, setPhysicsDebug] = useState(() => {
+      const params = new URLSearchParams(window.location.search)
+      const raw = params.get('physicsDebug')
+      return raw === '1' || raw === 'true'
+    })
+
+    const handleRendererPreferenceChange = useCallback((next: RendererPreference) => {
+      persistRendererPreference(next)
+      setRendererPreference(next)
+    }, [])
+
+    // Leva-controlled renderer backend toggle (appears under "Renderer Backend" folder)
+    // Changing this updates state + URL + localStorage; Canvas key forces remount with new gl factory.
+    useControls(
+      'Renderer Backend',
+      {
+        renderer: {
+          value: rendererPreference,
+          options: {
+            'WebGPU (primary)': 'webgpu',
+            'WebGL2 (fallback/debug)': 'webgl',
+          },
+          onChange: (v: string) => {
+            const next = (v === 'webgl' ? 'webgl' : 'webgpu') as RendererPreference
+            if (next !== rendererPreference) {
+              handleRendererPreferenceChange(next)
+            }
+          },
+        },
+      },
+      { collapsed: true }
+    )
+
+    // URL sync for wireframe / physicsDebug (shareable debug links)
+    useEffect(() => {
+      const params = new URLSearchParams(window.location.search)
+      if (wireframeDebug) params.set('wireframe', '1')
+      else params.delete('wireframe')
+      if (physicsDebug) params.set('physicsDebug', '1')
+      else params.delete('physicsDebug')
+      const next = params.toString()
+      window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`)
+    }, [wireframeDebug, physicsDebug])
+
+    // Keyboard shortcuts for debug overlays (G = wireframe, F = physics colliders)
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.repeat) return
+        // Ignore when focused on inputs
+        const target = e.target as HTMLElement | null
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+
+        if (e.code === 'KeyG') {
+          setWireframeDebug((prev) => !prev)
+        }
+        if (e.code === 'KeyF') {
+          setPhysicsDebug((prev) => !prev)
+        }
+      }
+      window.addEventListener('keydown', handleKeyDown)
+      return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [])
 
     // Initialize audio on user gesture
     useEffect(() => {
@@ -205,24 +289,40 @@ function App() {
     }
 
     // Game screen - IMMERSIVE CONTROL BOOTH MODE with ErrorBoundary
+    // Canvas is keyed by rendererPreference so that switching backends (via Leva / ?renderer / localStorage)
+    // fully remounts the R3F root with the correct (async) gl factory.
     return (
         <ErrorBoundary>
             <Canvas
+                key={`renderer-${rendererPreference}`}
                 shadows
                 camera={{ position: [0, 2.5, 4.5], fov: 60 }}
                 dpr={[1, 2]} // Responsive pixel ratio
-                gl={{
-                    antialias: true,
-                    powerPreference: 'high-performance',
-                    stencil: false,
-                    depth: true
-                }}
+                gl={
+                  // Async factory required for WebGPURenderer (R3F awaits the promise). Cast keeps tsc happy; runtime contract is supported.
+                  (async (canvas: HTMLCanvasElement) =>
+                    createGameRenderer(canvas, {
+                      preference: rendererPreference,
+                      antialias: true,
+                      powerPreference: 'high-performance',
+                      stencil: false,
+                      depth: true,
+                    })) as any
+                }
                 style={{
                     position: 'absolute',
                     inset: 0,
                     width: '100vw',
                     height: '100vh',
                     display: 'block'
+                }}
+                onCreated={(state) => {
+                  // Ensure canvas dataset + window exposure are set even on initial mount
+                  const canvas = (state.gl as any).domElement as HTMLCanvasElement | undefined
+                  // The monitor effect will also call expose; this is a belt-and-suspenders for early tooling
+                  if (canvas) {
+                    canvas.dataset.renderer = rendererPreference
+                  }
                 }}
             >
                 <Suspense fallback={<SceneFallback />}>
@@ -234,6 +334,11 @@ function App() {
                               - Press 'C' to toggle Immersive Cab Mode (first-person)
                             */}
                             <MainScene harborTheme={harborTheme()} />
+
+                            {/* Renderer-agnostic debug helpers (work on both WebGPU and WebGL2) */}
+                            <RendererDiagnosticsMonitor preference={rendererPreference} />
+                            <WireframeDebug enabled={wireframeDebug} />
+                            {/* physicsDebug flag is live (F key / URL / future Leva) — Rapier <Debug/> not exported in current @react-three/rapier; extend here with useRapier() + manual lines if needed for full collider viz. */}
                         </Physics>
                     </KeyboardControls>
                 </Suspense>
@@ -241,6 +346,9 @@ function App() {
             
             {/* HUD Overlay */}
             <HUD onOpenTraining={handleOpenTraining} />
+            
+            {/* Renderer status / WebGPU availability banner (visible when needed or forced to fallback) */}
+            <WebGPUWarning />
             
             {/* Training HUD (only when in training mode) */}
             {currentTrainingModule && (

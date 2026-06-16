@@ -19,11 +19,14 @@ export function useCompletionGlow(): CompletionGlowStyle | null {
     : false
   const isMusicPlaying = currentShip ? musicPlaying.get(currentShip.id) === true : false
 
+  // useMusicPulse must run unconditionally on every render (Rules of Hooks);
+  // the glow style itself is what we gate on the completion state.
   const pulse = useMusicPulse(bpm)
 
   if (!currentShip || !isFullyUpgraded || !isMusicPlaying) {
     return null
   }
+
   const pulseBoost = pulse > 0.3 ? 1 + pulse * 0.8 : 1
 
   return {
