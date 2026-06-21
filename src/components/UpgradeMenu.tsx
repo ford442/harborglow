@@ -267,19 +267,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
             .filter((point: any): point is { x: number; y: number } => Boolean(point))
     }, [cranePosition.x, cranePosition.y, cranePosition.z, currentShip, queueableUpgrades])
 
-    const glow = useCompletionGlow()
-
-    if (!currentShip) {
-        return (
-            <div style={menuContainerStyle}>
-                <h3 style={{ margin: '0 0 10px 0', color: '#aaa' }}>No Ship Selected</h3>
-                <p style={{ color: '#888', fontSize: '12px' }}>
-                    Spawn a ship using the buttons above
-                </p>
-            </div>
-        )
-    }
-
     const handleSelectUpgrade = (partName: string) => {
         if (pendingAutoInstall?.partName === partName) return
         setHighlightedUpgradePart(partName)
@@ -321,7 +308,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
         }
     }
 
-    const currentVersion = currentShip?.version || '1.0'
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
     const genrePulseDuration = Math.max(0.45, 60 / bpm)
