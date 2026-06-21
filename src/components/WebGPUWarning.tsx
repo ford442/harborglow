@@ -30,7 +30,11 @@ export default function WebGPUWarning() {
     return unsub
   }, [])
 
-  const usingWebGL = diagnostics.activeBackend === 'webgl' || diagnostics.preference === 'webgl'
+  // gl is created via an async factory (WebGPURenderer.init() awaits device creation), so
+  // `diagnostics` still holds its placeholder defaults until RendererDiagnosticsMonitor's
+  // effect fires inside the Canvas. Only trust activeBackend once that first report lands —
+  // otherwise this banner falsely flashes "WebGL2 active" on every WebGPU page load.
+  const usingWebGL = (diagnostics.initialized && diagnostics.activeBackend === 'webgl') || diagnostics.preference === 'webgl'
   const noWebGPU = typeof navigator !== 'undefined' && !('gpu' in navigator)
 
   // Always show when forced to WebGL debug path, or when WebGPU genuinely missing.

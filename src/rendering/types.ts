@@ -9,4 +9,6 @@ export interface RendererDiagnostics {
   activeBackend: ActiveRendererBackend;
   rendererName: string;
   webgpuAvailable: boolean;
+  /** False until RendererDiagnosticsMonitor reports the first real backend (gl is created via an async factory). */
+  initialized: boolean;
 }
