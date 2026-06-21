@@ -1,0 +1,26 @@
+import { LightCue } from './types'
+
+export const bulkLightShow: LightCue[] = [
+  { beat: 0, pattern: 'snap', color: '#b87333', intensity: 0.95 },
+  { beat: 1, pattern: 'snap', color: '#7a7a7a', intensity: 0.8 },
+  { beat: 2, pattern: 'snap', color: '#b87333', intensity: 0.95 },
+  { beat: 3, pattern: 'blackout', color: '#000000', intensity: 0 },
+  { beat: 6, pattern: 'snap', color: '#7a7a7a', intensity: 0.85 },
+  { beat: 7, pattern: 'snap', color: '#b87333', intensity: 0.9 },
+  { beat: 8, pattern: 'blackout', color: '#000000', intensity: 0 },
+  { beat: 12, pattern: 'snap', color: '#b87333', intensity: 1.0 },
+  { beat: 13, pattern: 'snap', color: '#7a7a7a', intensity: 0.85 },
+  { beat: 14, pattern: 'snap', color: '#b87333', intensity: 1.0 },
+  { beat: 15, pattern: 'blackout', color: '#000000', intensity: 0 },
+  { beat: 18, pattern: 'snap', color: '#7a7a7a', intensity: 0.9 },
+  { beat: 19, pattern: 'snap', color: '#b87333', intensity: 0.95 },
+  { beat: 20, pattern: 'blackout', color: '#000000', intensity: 0 },
+  { beat: 24, pattern: 'snap', color: '#e6e6e6', intensity: 1.0 },
+  { beat: 25, pattern: 'snap', color: '#b87333', intensity: 1.0 },
+  { beat: 26, pattern: 'snap', color: '#e6e6e6', intensity: 1.0 },
+  { beat: 27, pattern: 'snap', color: '#b87333', intensity: 1.0 },
+  { beat: 28, pattern: 'snap', color: '#e6e6e6', intensity: 1.0 },
+  { beat: 29, pattern: 'snap', color: '#b87333', intensity: 1.0 },
+  { beat: 30, pattern: 'snap', color: '#e6e6e6', intensity: 1.0 },
+  { beat: 31, pattern: 'blackout', color: '#000000', intensity: 0 },
+]

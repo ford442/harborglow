@@ -2,6 +2,15 @@ import { ShipType } from '../../store/useGameStore'
 import { LightCue } from './types'
 import { lngLightShow } from './lng'
 import { tankerLightShow } from './tanker'
+import { cruiseLightShow } from './cruise'
+import { containerLightShow } from './container'
+import { bulkLightShow } from './bulk'
+import { roroLightShow } from './roro'
+import { researchLightShow } from './research'
+import { droneshipLightShow } from './droneship'
+import { ferryLightShow } from './ferry'
+import { trawlerLightShow } from './trawler'
+import { horizonLightShow } from './horizon'
 
 export type { LightCue, LightCuePattern, LightPattern } from './types'
 
@@ -22,15 +31,15 @@ export const SHIP_BPM: Record<ShipType, number> = {
 export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
   lng: lngLightShow,
   tanker: tankerLightShow,
-  cruise: undefined,
-  container: undefined,
-  bulk: undefined,
-  roro: undefined,
-  research: undefined,
-  droneship: undefined,
-  ferry: undefined,
-  trawler: undefined,
-  horizon: undefined,
+  cruise: cruiseLightShow,
+  container: containerLightShow,
+  bulk: bulkLightShow,
+  roro: roroLightShow,
+  research: researchLightShow,
+  droneship: droneshipLightShow,
+  ferry: ferryLightShow,
+  trawler: trawlerLightShow,
+  horizon: horizonLightShow,
 }
 
 export function getLightShow(shipType: ShipType): LightCue[] | undefined {

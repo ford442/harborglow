@@ -102,7 +102,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
     const bpm = useGameStore((state) => state.bpm)
     const musicPulse = useMusicPulse(bpm)
-    const glow = useCompletionGlow()
 
     useEffect(() => {
         setSelectedForQueue(new Set())
@@ -321,7 +320,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
         }
     }
 
-    const currentVersion = currentShip?.version || '1.0'
     const versionMap: Record<string, string> = { '1.0': '1.5', '1.5': '2.0', '2.0': '2.0' }
     const nextVersion = versionMap[currentVersion]
     const genrePulseDuration = Math.max(0.45, 60 / bpm)

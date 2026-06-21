@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { lightingSystem } from '../lightingSystem'
 import { getLightShow } from '../lightShows'
+import { ShipType } from '../../store/useGameStore'
 
 // =============================================================================
 // LIGHTING SYSTEM — per-band light-cue dispatch smoke tests
@@ -13,7 +14,7 @@ describe('lightShows registry', () => {
   })
 
   it('ships without an authored schedule fall back to undefined', () => {
-    expect(getLightShow('cruise')).toBeUndefined()
+    expect(getLightShow('unknown' as ShipType)).toBeUndefined()
   })
 })
 
@@ -59,10 +60,10 @@ describe('LightingSystem cue dispatch', () => {
   })
 
   it('falls back to the generic beat-intensity curve for ships without a cue schedule', () => {
-    lightingSystem.startHarborShow('ship-cruise', 'cruise')
+    lightingSystem.startHarborShow('ship-unknown', 'unknown' as ShipType)
     lightingSystem.update(0, 120)
 
     expect(lightingSystem.getActiveCue()).toBeNull()
-    expect(lightingSystem.getEmissiveColor('#ffffff', 'ship-cruise')).toMatch(/^hsl\(/)
+    expect(lightingSystem.getEmissiveColor('#ffffff', 'ship-unknown')).toMatch(/^hsl\(/)
   })
 })
