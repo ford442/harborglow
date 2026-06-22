@@ -31,6 +31,7 @@ export default function RendererDiagnosticsMonitor({ preference }: RendererDiagn
       activeBackend,
       rendererName: displayName,
       webgpuAvailable: isWebGpuNavigatorAvailable(),
+      initialized: true,
     });
 
     // Expose for external tooling / CI / agents (canvas may be obtained via gl.domElement)
