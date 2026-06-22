@@ -26,26 +26,27 @@ export const selectCurrentShip = (state: GameState): Ship | undefined =>
 export const selectShipUpgrades = (state: GameState, shipId: string): Upgrade[] =>
     state.installedUpgrades.filter(u => u.shipId === shipId)
 
+// Total number of light rigs required to fully upgrade each ship type.
+export const UPGRADE_TARGETS: Record<ShipType, number> = {
+    cruise: 8,
+    container: 10,
+    tanker: 8,
+    bulk: 9,        // Capesize bulk carrier - 9 cargo hold lighting zones
+    lng: 10,        // LNG carrier - 5 membrane tank enclosures + 5 superstructure
+    roro: 8,        // Ro-Ro ferry - vehicle deck lighting + ramp illumination
+    research: 7,    // Research vessel - lab lighting + sonar array + equipment bays
+    droneship: 6,   // Space recovery drone ship - landing platform + thruster bays
+    ferry: 4,       // Island Hopper ferry - passenger deck + car deck + nav lights
+    trawler: 4,     // North Star trawler - wheelhouse + gantry + fish hold + mast
+    horizon: 4      // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
+}
+
 export const selectUpgradeProgress = (state: GameState, shipId: string): number => {
     const ship = state.ships.find(s => s.id === shipId)
     if (!ship) return 0
-    
-    const upgradeCounts: Record<ShipType, number> = {
-        cruise: 8,
-        container: 10,
-        tanker: 8,
-        bulk: 9,        // Capesize bulk carrier - 9 cargo hold lighting zones
-        lng: 10,        // LNG carrier - 5 membrane tank enclosures + 5 superstructure
-        roro: 8,        // Ro-Ro ferry - vehicle deck lighting + ramp illumination
-        research: 7,    // Research vessel - lab lighting + sonar array + equipment bays
-        droneship: 6,   // Space recovery drone ship - landing platform + thruster bays
-        ferry: 4,       // Island Hopper ferry - passenger deck + car deck + nav lights
-        trawler: 4,     // North Star trawler - wheelhouse + gantry + fish hold + mast
-        horizon: 4      // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
-    }
-    
+
     const installed = state.installedUpgrades.filter(u => u.shipId === shipId).length
-    const total = upgradeCounts[ship.type]
+    const total = UPGRADE_TARGETS[ship.type]
     return (installed / total) * 100
 }
 

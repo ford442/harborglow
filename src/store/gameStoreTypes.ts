@@ -205,6 +205,23 @@ export interface TugboatCareerStats {
     nightRescues: number
 }
 
+/**
+ * A crane-mode objective: install every light rig on a docked ship to
+ * complete the contract. Gives the opening control-booth scene an explicit
+ * goal + progress + reward instead of an empty harbor.
+ */
+export interface CraneContract {
+    id: string
+    shipId: string
+    shipType: ShipType
+    shipName: string
+    /** Total rigs that must be installed to finish (= ship's full upgrade count). */
+    targetRigs: number
+    /** Credit bonus awarded once on completion. */
+    reward: number
+    status: 'active' | 'completed'
+}
+
 export interface SalvageContract {
     id: string
     vesselLabel: string
@@ -492,6 +509,10 @@ interface SerializableState {
     updateMission: (patch: Partial<Mission>) => void
     completeMission: (bonus?: number) => void
     failMission: (penalty?: number) => void
+    // Crane-mode starter objective
+    craneContract: CraneContract | null
+    setCraneContract: (contract: CraneContract | null) => void
+    completeCraneContract: () => void
 }
 
 export interface GameState extends SerializableState {
@@ -638,6 +659,7 @@ export const defaultState: Omit<GameState, keyof {
     addMoney: unknown; deductMoney: unknown;
     setActiveMission: unknown; updateMission: unknown;
     completeMission: unknown; failMission: unknown;
+    setCraneContract: unknown; completeCraneContract: unknown;
     attachTowLine: unknown; detachTowLine: unknown; signalTowLineSnap: unknown;
     setTugSpectatorActive: unknown;
 }> = {
@@ -786,6 +808,7 @@ export const defaultState: Omit<GameState, keyof {
     rainDensity: 0.5,
     money: 0,
     activeMission: null,
+    craneContract: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
     tugSpectatorActive: false,
 }

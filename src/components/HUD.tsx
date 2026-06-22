@@ -24,6 +24,7 @@ import {
   TugboatHUD,
   WaveHeightDebug,
   MissionHUD,
+  CraneObjectiveHUD,
   RewardAnimation,
   DockWalkHUD,
   hudContainerStyle,
@@ -89,7 +90,9 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <TugboatConsole />
       
       <MissionHUD />
-      
+
+      {isCraneMode && <CraneObjectiveHUD />}
+
       <RewardAnimation />
       
       <WaveHeightDebug />
