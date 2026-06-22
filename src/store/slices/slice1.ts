@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
-import { GameState, defaultState, DEFAULT_STORE_DASHBOARD_PRESETS, createSalvageContracts, DEFAULT_HANDSHAKE_SEQUENCE } from '../gameStoreTypes';
-import { clearSave } from '../../utils/storage_manager';
+import { GameState, defaultState, DEFAULT_STORE_DASHBOARD_PRESETS, createSalvageContracts, DEFAULT_HANDSHAKE_SEQUENCE, scheduleSave } from '../gameStoreTypes';
+import { clearSave, loadGameState } from '../../utils/storage_manager';
+import { reputationSystem } from '../../systems/reputationSystem';
+import { isCameraPresetId } from '../../types/CameraPreset';
 
 export const createSlice1 = (set: any, get: any) => ({
     ...defaultState,
@@ -35,6 +37,25 @@ export const createSlice1 = (set: any, get: any) => ({
     }),
 
     setCurrentShip: (id) => set({ currentShipId: id }),
+
+    // Crane-mode starter objective
+    setCraneContract: (contract) => set((state) => {
+        const newState = { craneContract: contract }
+        scheduleSave({ ...state, ...newState })
+        return newState
+    }),
+
+    completeCraneContract: () => set((state) => {
+        const contract = state.craneContract
+        if (!contract || contract.status === 'completed') return {}
+        const newState = {
+            craneContract: { ...contract, status: 'completed' as const },
+            money: state.money + contract.reward,
+        }
+        scheduleSave({ ...state, ...newState })
+        console.log(`📊 Crane contract complete — +${contract.reward} credits`)
+        return newState
+    }),
 
     installUpgrade: (shipId, partName) => set((state) => {
         const newUpgrades = [
@@ -210,6 +231,7 @@ export const createSlice1 = (set: any, get: any) => ({
             windStrength: 0,
             rainDensity: 0.5,
             activeMission: null,
+            craneContract: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
         })
         console.log('🗑️ Game reset')

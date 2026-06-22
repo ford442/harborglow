@@ -3,7 +3,8 @@ import { Canvas } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { KeyboardControls } from '@react-three/drei'
 import { Leva, useControls } from 'leva'
-import { useGameStore } from './store/useGameStore'
+import { useGameStore, UPGRADE_TARGETS } from './store/useGameStore'
+import { ShipSpawner } from './systems/shipSpawner'
 import {
   createGameRenderer,
   parseRendererPreference,
@@ -201,6 +202,20 @@ function App() {
             loadSavedState()
         } else {
             resetGame()
+            // Give the opening control-booth scene an immediate goal: dock a
+            // starter ship and issue its first "light up the vessel" contract.
+            const starterType = 'container' as const
+            const ship = ShipSpawner.spawnShip(starterType)
+            const targetRigs = UPGRADE_TARGETS[starterType]
+            useGameStore.getState().setCraneContract({
+                id: `contract-${ship.id}`,
+                shipId: ship.id,
+                shipType: starterType,
+                shipName: ship.name ?? 'Container Vessel',
+                targetRigs,
+                reward: targetRigs * 150,
+                status: 'active',
+            })
         }
         
         // Small delay for smooth transition
