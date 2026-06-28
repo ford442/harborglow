@@ -102,6 +102,9 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
     const bpm = useGameStore((state) => state.bpm)
     const musicPulse = useMusicPulse(bpm)
+    // Completion glow pulses the menu border once the ship is fully upgraded and
+    // its music is playing. Hook must run unconditionally before any early return.
+    const glow = useCompletionGlow()
 
     useEffect(() => {
         setSelectedForQueue(new Set())
