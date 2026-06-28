@@ -8,6 +8,7 @@
         "build": "tsc && vite build && npm run build:wasm",
         "build:analyze": "tsc && vite build --mode analyze",
         "build:wasm": "cd cpp && ./build.sh",
+        "typecheck": "tsc --noEmit",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "test": "vitest run",
