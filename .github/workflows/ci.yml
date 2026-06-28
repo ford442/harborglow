@@ -1,0 +1,41 @@
+name: CI
+
+# Minimal type-check + test gate. Exists because UpgradeMenu.tsx broke the
+# production build on main two weeks running via ad-hoc commits that never ran
+# `tsc` (a stale local node_modules masked it both times). This blocks a broken
+# type-check from reaching main again.
+#
+# Deliberately omits the WebGPU/wasm build step (`npm run build:wasm`) — it
+# requires Emscripten and no-ops in environments without it, so it is not a
+# meaningful gate here.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
