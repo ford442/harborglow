@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { getCutawayPlan, DEFAULT_CUTAWAY_PLAN, oilTankerCutaway, cruiseCutaway } from './index'
+import {
+  getCutawayPlan,
+  DEFAULT_CUTAWAY_PLAN,
+  oilTankerCutaway,
+  cruiseCutaway,
+  containerCutaway,
+  bulkCutaway,
+  lngCutaway,
+  roroCutaway,
+  researchCutaway,
+  droneshipCutaway,
+  ferryCutaway,
+  trawlerCutaway,
+  horizonCutaway,
+} from './index'
 import { CutawayCue } from './types'
 import { ShipType } from '../../store/gameStoreTypes'
 
@@ -12,10 +26,27 @@ function assertWithinEnvelope(plan: CutawayCue[], label: string) {
   }
 }
 
+const ALL_SHIP_TYPES: ShipType[] = [
+  'cruise',
+  'container',
+  'tanker',
+  'bulk',
+  'lng',
+  'roro',
+  'research',
+  'droneship',
+  'ferry',
+  'trawler',
+  'horizon',
+]
+
 describe('getCutawayPlan', () => {
-  it('returns DEFAULT_CUTAWAY_PLAN for unauthored ship types', () => {
-    expect(getCutawayPlan('container')).toEqual(DEFAULT_CUTAWAY_PLAN)
-    expect(getCutawayPlan('lng')).toEqual(DEFAULT_CUTAWAY_PLAN)
+  it('returns a non-default authored plan for every ship type', () => {
+    for (const shipType of ALL_SHIP_TYPES) {
+      const plan = getCutawayPlan(shipType)
+      expect(plan, `${shipType} should resolve to an authored cutaway plan`).not.toBe(DEFAULT_CUTAWAY_PLAN)
+      expect(plan.length, `${shipType} plan should not be empty`).toBeGreaterThan(0)
+    }
   })
 
   it('returns authored tanker plan with hero and waterline shots', () => {
@@ -36,6 +67,15 @@ describe('CutawayPlan invariants', () => {
   const authored: Array<[ShipType, CutawayCue[]]> = [
     ['tanker', oilTankerCutaway],
     ['cruise', cruiseCutaway],
+    ['container', containerCutaway],
+    ['bulk', bulkCutaway],
+    ['lng', lngCutaway],
+    ['roro', roroCutaway],
+    ['research', researchCutaway],
+    ['droneship', droneshipCutaway],
+    ['ferry', ferryCutaway],
+    ['trawler', trawlerCutaway],
+    ['horizon', horizonCutaway],
   ]
 
   it('keeps DEFAULT_CUTAWAY_PLAN within the 32-beat envelope', () => {
@@ -43,7 +83,7 @@ describe('CutawayPlan invariants', () => {
   })
 
   for (const [type, plan] of authored) {
-    it(`keeps ${type} cues inside the 0..31 envelope`, () => {
+    it(`keeps ${type} cues inside the 0..32 envelope`, () => {
       assertWithinEnvelope(plan, type)
     })
 
