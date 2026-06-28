@@ -25,6 +25,7 @@ import {
   WaveHeightDebug,
   MissionHUD,
   CraneObjectiveHUD,
+  CraneWelcomeHandler,
   RewardAnimation,
   DockWalkHUD,
   hudContainerStyle,
@@ -92,6 +93,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <MissionHUD />
 
       {isCraneMode && <CraneObjectiveHUD />}
+      {isCraneMode && <CraneWelcomeHandler />}
 
       <RewardAnimation />
       

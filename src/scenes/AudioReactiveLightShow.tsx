@@ -3,6 +3,12 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore, type ShipType } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import {
+  computeRigMusicDrive,
+  rigVariationSeed,
+  type RigMusicState,
+} from './lightRigs/rigPolish'
+import { RigFlareAnchor, RigHousingShell, RigMicroGlint } from './lightRigs/RigPolishComponents'
 
 // =============================================================================
 // PHASE 8: AUDIO-REACTIVE LIGHT SHOW SYSTEM
@@ -14,13 +20,30 @@ interface AudioReactiveLightProps {
   type: 'led-strip' | 'spotlight' | 'laser' | 'strobe' | 'neon'
   color?: string
   shipType: ShipType
+  shipId: string
+  rigKey: string
 }
 
-// 8.1: Light Rigs driven by frequency bands
-function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: AudioReactiveLightProps) {
+const HOUSING_BY_TYPE: Record<
+  AudioReactiveLightProps['type'],
+  { w: number; h: number; d: number }
+> = {
+  'led-strip': { w: 4, h: 0.28, d: 0.38 },
+  spotlight: { w: 0.85, h: 0.85, d: 0.85 },
+  laser: { w: 0.35, h: 0.35, d: 0.55 },
+  strobe: { w: 0.55, h: 0.55, d: 0.55 },
+  neon: { w: 4.2, h: 0.22, d: 0.28 },
+}
+
+function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipId, rigKey }: AudioReactiveLightProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const lightRef = useRef<THREE.PointLight>(null)
+  const powerRef = useRef(0.5)
+  const musicStateRef = useRef<RigMusicState>({ afterglow: 0, prevBeat: false })
   const { audioData } = useAudioVisualSync()
+  const seed = rigVariationSeed(shipId, rigKey, type)
+  const housing = HOUSING_BY_TYPE[type]
+  const flareId = `show-${shipId}-${rigKey}`
   
   // Get frequency response based on light type
   const getFrequencyResponse = useCallback(() => {
@@ -84,23 +107,23 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: Aud
     return new THREE.Color().setHSL(hue, palette.s, palette.l)
   }, [shipType])
   
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!meshRef.current || !lightRef.current) return
-    
+
     const response = getFrequencyResponse()
     const baseColor = getShipColor(response.hueShift)
-    
-    // Update material emissive intensity based on audio
+    const drive = computeRigMusicDrive(response.intensity, musicStateRef.current, delta)
+    musicStateRef.current = drive.state
+    powerRef.current = drive.emissive
+
     const material = meshRef.current.material as THREE.MeshStandardMaterial
-    material.emissiveIntensity = response.intensity
+    material.emissiveIntensity = drive.emissive * (0.75 + seed * 0.2)
     material.emissive.copy(baseColor)
-    
-    // Update light intensity
-    lightRef.current.intensity = response.intensity * 2
+
+    lightRef.current.intensity = drive.light * 2
     lightRef.current.color.copy(baseColor)
-    
-    // Scale mesh slightly with bass for physical feedback
-    const scale = 1 + audioData.bass * 0.1
+
+    const scale = 1 + audioData.bass * 0.08 * drive.emissive
     meshRef.current.scale.setScalar(scale)
   })
   
@@ -125,21 +148,36 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType }: Aud
   
   return (
     <group position={position}>
-      <mesh ref={meshRef} geometry={geometry}>
+      <RigHousingShell
+        width={housing.w * (0.96 + seed * 0.06)}
+        height={housing.h}
+        depth={housing.d}
+        rimColor={color}
+        powerRef={powerRef}
+        bodyColor={`hsl(${210 + seed * 30}, 7%, ${12 + seed * 10}%)`}
+      />
+
+      <mesh ref={meshRef} geometry={geometry} position={[0, housing.h * 0.35, housing.d * 0.35]}>
         <meshStandardMaterial
           color={0x111111}
           emissive={color}
           emissiveIntensity={0.5}
           toneMapped={false}
+          roughness={0.2}
+          metalness={0.15}
         />
       </mesh>
-      
+
       <pointLight
         ref={lightRef}
         intensity={1}
         distance={type === 'laser' ? 50 : 20}
         color={color}
+        position={[0, housing.h * 0.5, 0]}
       />
+
+      <RigMicroGlint color="#ffffff" powerRef={powerRef} seed={seed} />
+      <RigFlareAnchor id={flareId} color={color} powerRef={powerRef} priority={60} />
     </group>
   )
 }
@@ -258,44 +296,58 @@ export default function AudioReactiveLightShow({ enabled = true }: AudioReactive
               position={[basePos[0] - 10, basePos[1] + 8, basePos[2] + 5]}
               type="led-strip"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="led-a"
             />
             <AudioReactiveLight
               position={[basePos[0] + 10, basePos[1] + 8, basePos[2] - 5]}
               type="led-strip"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="led-b"
             />
-            
+
             {/* Spotlights - respond to mids */}
             <AudioReactiveLight
               position={[basePos[0] - 12, basePos[1] + 12, basePos[2] + 8]}
               type="spotlight"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="spot-a"
             />
             <AudioReactiveLight
               position={[basePos[0] + 12, basePos[1] + 12, basePos[2] - 8]}
               type="spotlight"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="spot-b"
             />
-            
+
             {/* Lasers - respond to treble */}
             <AudioReactiveLight
               position={[basePos[0], basePos[1] + 15, basePos[2]]}
               type="laser"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="laser"
             />
-            
+
             {/* Strobes - flash on beat */}
             <AudioReactiveLight
               position={[basePos[0] + 5, basePos[1] + 10, basePos[2]]}
               type="strobe"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="strobe"
             />
-            
+
             {/* Neon tubes - pulse with envelope */}
             <AudioReactiveLight
               position={[basePos[0] - 5, basePos[1] + 6, basePos[2] + 3]}
               type="neon"
               shipType={ship.type}
+              shipId={ship.id}
+              rigKey="neon"
             />
             
             {/* Audio-reactive god rays */}

@@ -39,12 +39,14 @@ import FoamSystem from './FoamSystem'
 import { stormSystem } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { useCameraTransition } from '../hooks/useCameraTransition'
+import { useVisualPolishControls } from '../hooks/useVisualPolishControls'
 import GlobalIllumination from './GlobalIllumination'
 import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 import PostProcessing from './PostProcessing'
-import { VolumetricLightCone } from './VolumetricLighting'
+import LightFlareSystem from './LightFlareSystem'
+import { TankerFlareHeat } from './lightRigs'
 import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
 import WildlifeRenderer from './Wildlife'
 import SeaEvents from './SeaEvents'
@@ -104,6 +106,8 @@ interface MainSceneProps {
 // =============================================================================
 
 export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps = {}) {
+    useVisualPolishControls()
+
     // Store selectors
     const ships = useGameStore(s => s.ships)
     const currentShipId = useGameStore(s => s.currentShipId)
@@ -540,8 +544,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             {/* Effects */}
             <GlobalIllumination enabled={true} quality="high" />
             <AudioReactiveLightShow enabled={true} />
+            <TankerFlareHeat />
             <HolographicElements />
             <EnhancedWeather enabled={true} />
+            <LightFlareSystem />
             <PostProcessing enabled={true} audioData={audioData} />
 
             {/* Ships — visible in all modes so the glowing fleet coexists with the tug */}

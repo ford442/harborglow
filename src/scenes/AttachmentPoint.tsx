@@ -14,11 +14,13 @@ import {
   SHIP_TYPE_LIGHT_COLORS
 } from '../systems/attachmentSystem'
 import type { ShipType } from '../store/useGameStore'
+import { InstalledRigVisual } from './lightRigs/InstalledRigVisual'
 
 interface AttachmentPointVisualProps {
   position: [number, number, number]
   rotation: [number, number, number]
   partName: string
+  shipId: string
   shipType: ShipType
   state: AttachmentState
   rigType: RigType
@@ -294,6 +296,7 @@ export default function AttachmentPointVisual({
   position,
   rotation,
   partName,
+  shipId,
   shipType,
   state,
   rigType,
@@ -305,7 +308,6 @@ export default function AttachmentPointVisual({
   isSelectedUpgrade = false,
 }: AttachmentPointVisualProps) {
   const groupRef = useRef<THREE.Group>(null)
-  const lightRef = useRef<THREE.PointLight>(null)
   
   // Get colors
   const colors = useMemo(() => RIG_TYPE_COLORS[rigType], [rigType])
@@ -342,10 +344,6 @@ export default function AttachmentPointVisual({
       groupRef.current.position.y = position[1] + Math.sin(frameState.clock.elapsedTime * floatSpeed) * floatAmount
     }
     
-    // Pulse light intensity
-    if (lightRef.current && state === 'installed') {
-      lightRef.current.intensity = colors.intensity + Math.sin(frameState.clock.elapsedTime * 3) * 0.5
-    }
   })
   
   // Don't render if not visible
@@ -596,38 +594,13 @@ export default function AttachmentPointVisual({
       )}
       
       {state === 'installed' && (
-        <>
-          {/* Installed rig light */}
-          <mesh>
-            <sphereGeometry args={[0.12]} />
-            <meshStandardMaterial 
-              color={shipColor}
-              emissive={shipColor}
-              emissiveIntensity={0.5}
-            />
-          </mesh>
-          
-          {/* Point light */}
-          <pointLight
-            ref={lightRef}
-            color={shipColor}
-            intensity={colors.intensity}
-            distance={15}
-            decay={2}
-            position={[0, 0.3, 0]}
-          />
-          
-          {/* Subtle glow */}
-          <mesh position={[0, 0.3, 0]}>
-            <sphereGeometry args={[0.4]} />
-            <meshBasicMaterial 
-              color={shipColor}
-              transparent
-              opacity={0.15}
-              blending={THREE.AdditiveBlending}
-            />
-          </mesh>
-        </>
+        <InstalledRigVisual
+          rigType={rigType}
+          shipColor={shipColor}
+          shipId={shipId}
+          partName={partName}
+          baseIntensity={colors.intensity}
+        />
       )}
     </group>
   )

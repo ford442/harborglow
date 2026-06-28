@@ -3,6 +3,8 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { AudioAnalysisData } from '../systems/audioVisualSync'
+import { weatherSystem } from '../systems/weatherSystem'
+import { getLookDevSettings } from '../utils/lookDevControls'
 import { useControls } from 'leva'
 
 // =============================================================================
@@ -277,15 +279,19 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
       // PHASE 8: Audio-reactive bloom boost
       const audioBoost = audioData ? audioData.bass * 0.5 + audioData.envelope * 0.3 : 0
       const cinematicBloom = 1 + cinematicBoostRef.current * cinematicBloomBoost
-      bloomPassRef.current.strength = baseIntensity * baseRadiance * beatRef.current.intensity * (1 + audioBoost) * cinematicBloom
+      bloomPassRef.current.strength = baseIntensity * baseRadiance * beatRef.current.intensity * (1 + audioBoost) * cinematicBloom * (1 + getLookDevSettings().bloomExtra)
       
       // PHASE 8: Modulate bloom threshold with audio envelope
       if (audioData) {
         const baseThreshold = config.bloom.threshold
-        // Lower threshold during high energy = more bloom
-        bloomPassRef.current.threshold = baseThreshold - audioData.energy * 0.1 - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
+        const flareGuard = weatherSystem.getWeatherEffects().lensFlare ? 0.06 : 0
+        // Lower threshold during high energy = more bloom; lens flares add their own highlight pass
+        bloomPassRef.current.threshold =
+          baseThreshold + flareGuard - audioData.energy * 0.1 - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
       } else {
-        bloomPassRef.current.threshold = config.bloom.threshold - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
+        const flareGuard = weatherSystem.getWeatherEffects().lensFlare ? 0.06 : 0
+        bloomPassRef.current.threshold =
+          config.bloom.threshold + flareGuard - cinematicBoostRef.current * 0.06 - (baseRadiance - 1) * 0.04
       }
     }
     
@@ -293,6 +299,8 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     if (colorPassRef.current) {
       colorPassRef.current.uniforms.uTime.value = time
       colorPassRef.current.uniforms.uBeatPulse.value = beatRef.current.pulse
+      colorPassRef.current.uniforms.uFilmGrain.value =
+        config.filmGrain * getLookDevSettings().filmGrainScale
 
       // Night spectator cinematic push (temporary, smoothly blended).
       const lut = getTimeLUT()

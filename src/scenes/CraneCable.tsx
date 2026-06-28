@@ -7,6 +7,8 @@ import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useAudioData } from '../systems/audioVisualSync'
+import { getLookDevSettings } from '../utils/lookDevControls'
+import { useCraneCableMaterial, updateCraneCableUniforms } from './CraneMaterials'
 
 interface CraneCableProps {
   startPos: [number, number, number]  // Crane trolley/head position
@@ -93,7 +95,7 @@ export default function CraneCable({
   const audioData = useAudioData()
   const cableRef = useRef<THREE.Mesh>(null)
   const curveRef = useRef<THREE.CatmullRomCurve3 | null>(null)
-  const cableMatRef = useRef<THREE.MeshStandardMaterial>(null)
+  const cableMat = useCraneCableMaterial()
   const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
   const glowMeshRef = useRef<THREE.Mesh>(null)
 
@@ -110,15 +112,17 @@ export default function CraneCable({
     const start = new THREE.Vector3(...startPos)
     const end = new THREE.Vector3(...endPos)
     
-    // Calculate slack (inverse of tension)
-    const slack = Math.max(0, 1 - tension * 1.2)
+    // Calculate slack (inverse of tension) — twistlock pulls cable taut
+    const slack = twistlockEngaged
+      ? Math.max(0, 0.02 * (1 - tension))
+      : Math.max(0, 1 - tension * 1.2)
     
     // Generate points along cable
     const points = calculateCatenary(start, end, slack, 16)
     
     curveRef.current = new THREE.CatmullRomCurve3(points)
     return curveRef.current
-  }, [startPos, endPos, tension])
+  }, [startPos, endPos, tension, twistlockEngaged])
   
   // Update cable geometry each frame for sway animation
   useFrame((state, delta) => {
@@ -128,8 +132,9 @@ export default function CraneCable({
     const start = new THREE.Vector3(...startPos)
     const end = new THREE.Vector3(...endPos)
     
-    // Calculate base slack
-    const slack = Math.max(0, 1 - tension * 1.2)
+    const slack = twistlockEngaged
+      ? Math.max(0, 0.02 * (1 - tension))
+      : Math.max(0, 1 - tension * 1.2)
     
     // --- Framerate-independent sway decay ---
     // Inject energy when tension changes rapidly (player is moving)
@@ -182,10 +187,10 @@ export default function CraneCable({
     
     const newGeometry = new THREE.TubeGeometry(
       curveRef.current,
-      16,  // tubular segments
-      getCableThickness(tension),
-      6,   // radial segments
-      false // closed
+      20,
+      getCableThickness(tension) * (twistlockEngaged ? 0.92 : 1),
+      8,
+      false
     )
     
     cableRef.current.geometry = newGeometry
@@ -197,12 +202,18 @@ export default function CraneCable({
       const pulseThickness = getCableThickness(tension) * 1.5 * (1 + audioData.beatIntensity * 0.3)
       glowMeshRef.current.geometry = new THREE.TubeGeometry(
         curveRef.current,
-        16,
+        20,
         pulseThickness,
-        6,
+        8,
         false
       )
     }
+
+    updateCraneCableUniforms(cableMat, {
+      tension,
+      twistlockEngaged,
+      elapsed: time,
+    })
 
     // Dynamic cable color with audio reactivity
     const baseTensionColor = getTensionColor(tension)
@@ -224,21 +235,22 @@ export default function CraneCable({
     const tensionGlow = tension > 0.6 ? 0.22 : 0
     const guidanceGlow = nearAttachment ? 0.2 : 0
     const warmInstallGlow = Math.max(0, installBoost) * 0.65
-    const glow = (tensionGlow + guidanceGlow + warmInstallGlow) * nightScale * pulse
+    const glow = (tensionGlow + guidanceGlow + warmInstallGlow) * nightScale * pulse * getLookDevSettings().cableTensionHighlight
 
-    if (cableMatRef.current) {
+    if (cableMat) {
       if (warmInstallGlow > 0.05) {
-        cableMatRef.current.emissive.set('#ffb46a')
+        cableMat.emissive.set('#ffb46a')
       } else if (nearAttachment) {
-        cableMatRef.current.emissive.set('#66c8ff')
+        cableMat.emissive.set('#66c8ff')
       } else if (tension > 0.6) {
-        cableMatRef.current.emissive.set(tempColor1)
+        cableMat.emissive.copy(tempColor1)
       } else {
-        cableMatRef.current.emissive.set('#000000')
+        cableMat.emissive.set('#000000')
       }
-      cableMatRef.current.emissiveIntensity = glow
-      // Update visible cable tint with dynamic color
-      cableMatRef.current.color.copy(tempColor1)
+      cableMat.emissiveIntensity = glow
+      cableMat.color.copy(tempColor1)
+      cableMat.metalness = THREE.MathUtils.lerp(0.55, 0.88, tension + (twistlockEngaged ? 0.15 : 0))
+      cableMat.roughness = THREE.MathUtils.lerp(0.38, 0.18, tension * 0.8)
     }
     if (glowMatRef.current) {
       if (warmInstallGlow > 0.05) {
@@ -260,23 +272,16 @@ export default function CraneCable({
       {/* Main cable */}
       <mesh ref={cableRef}>
         <tubeGeometry
-          args={[curve, 16, cableThickness, 6, false]}
+          args={[curve, 20, cableThickness, 8, false]}
         />
-        <meshStandardMaterial
-          ref={cableMatRef}
-          color={cableColor}
-          metalness={0.6}
-          roughness={0.4}
-          emissive="#000000"
-          emissiveIntensity={0}
-        />
+        <primitive object={cableMat} attach="material" />
       </mesh>
       
       {/* Tension glow effect for high tension */}
       {(tension > 0.7 || nearAttachment || installBoost > 0.05) && (
         <mesh ref={glowMeshRef}>
           <tubeGeometry
-            args={[curve, 16, cableThickness * 1.5, 6, false]}
+            args={[curve, 20, cableThickness * 1.5, 8, false]}
           />
           <meshBasicMaterial
             ref={glowMatRef}

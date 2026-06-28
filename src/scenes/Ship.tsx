@@ -478,6 +478,7 @@ export default function ShipComponent({ ship }: ShipProps) {
                                 position={point.position}
                                 rotation={point.rotation}
                                 partName={point.partName}
+                                shipId={ship.id}
                                 shipType={ship.type}
                                 state={state}
                                 rigType={rigType}

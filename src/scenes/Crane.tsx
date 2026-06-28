@@ -9,15 +9,16 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import CraneDashboard from '../components/CraneDashboard'
 import CraneCable from './CraneCable'
+import { useCraneMaterial } from './CraneMaterials'
+import { CabinGlassPane, CraneLabels, CraneTowerRivets, SpreaderAssembly } from './CraneDetails'
 import { useGameStore } from '../store/useGameStore'
 import { lightingSystem } from '../systems/lightingSystem'
+import { getLookDevSettings } from '../utils/lookDevControls'
 
 export default function Crane() {
     const craneRef = useRef<THREE.Group>(null)
     const trolleyRef = useRef<THREE.Group>(null)
     const hookRef = useRef<THREE.Group>(null)
-    const cabinBodyMatRef = useRef<THREE.MeshStandardMaterial>(null)
-    const cabinWindowMatRef = useRef<THREE.MeshStandardMaterial>(null)
     const hookOrbMatRef = useRef<THREE.MeshBasicMaterial>(null)
     const towerSpotRef = useRef<THREE.SpotLight>(null)
     const hookSpotRef = useRef<THREE.SpotLight>(null)
@@ -25,7 +26,6 @@ export default function Crane() {
     const cabinWarmRef = useRef<THREE.PointLight>(null)
     const cabinCoolRef = useRef<THREE.PointLight>(null)
     const spreaderRimRefs = useRef<Array<THREE.PointLight | null>>([])
-    const safetyStripMatRefs = useRef<Array<THREE.MeshStandardMaterial | null>>([])
     
     // Get crane state from store
     const spreaderPos = useGameStore((state) => state.spreaderPos)
@@ -50,6 +50,10 @@ export default function Crane() {
             ]
         }).flat(),
     [])
+
+    const paintedSteelMat = useCraneMaterial('paintedSteel')
+    const structuralSteelMat = useCraneMaterial('structuralSteel')
+    const cautionStripeMat = useCraneMaterial('cautionStripe')
 
     const nearAttachmentDistance = useMemo(() => {
         let minDistance = Infinity
@@ -104,43 +108,42 @@ export default function Crane() {
         const installBoost = installAgeMs < 1600 ? 1 - (installAgeMs / 1600) : 0
         const loweredHookBoost = 1 + Math.max(0, (8 - spreaderPos.y) * 0.08)
         const sharedNight = lightIntensity * baseNight * pulseBoost
+        const lookDev = getLookDevSettings()
+        const sheen = lookDev.craneSheen
+        const wearRough = lookDev.craneWear
 
-        if (cabinBodyMatRef.current) {
-            cabinBodyMatRef.current.emissive.set('#ff9b30')
-            cabinBodyMatRef.current.emissiveIntensity = 0.18 * sharedNight
-        }
-        if (cabinWindowMatRef.current) {
-            cabinWindowMatRef.current.emissive.set('#ffc875')
-            cabinWindowMatRef.current.emissiveIntensity = 0.42 * sharedNight
+        if (paintedSteelMat) {
+            paintedSteelMat.emissive.set('#ff9b30')
+            paintedSteelMat.emissiveIntensity = 0.18 * sharedNight * sheen
+            paintedSteelMat.roughness = 0.6 * wearRough
         }
         if (hookOrbMatRef.current) {
             hookOrbMatRef.current.color.set('#ffe7ad')
         }
 
         if (cabinWarmRef.current) {
-            cabinWarmRef.current.intensity = 0.7 * sharedNight
+            cabinWarmRef.current.intensity = 0.7 * sharedNight * sheen
         }
         if (cabinCoolRef.current) {
-            cabinCoolRef.current.intensity = 0.35 * sharedNight
+            cabinCoolRef.current.intensity = 0.35 * sharedNight * sheen
         }
         if (towerSpotRef.current) {
-            towerSpotRef.current.intensity = 1.1 * sharedNight * (0.9 + beatPulse * 0.2)
+            towerSpotRef.current.intensity = 1.1 * sharedNight * sheen * (0.9 + beatPulse * 0.2)
         }
         if (hookSpotRef.current) {
-            hookSpotRef.current.intensity = (1.4 + installBoost * 1.1) * sharedNight * loweredHookBoost
+            hookSpotRef.current.intensity = (1.4 + installBoost * 1.1) * sharedNight * sheen * loweredHookBoost
         }
         if (hookFillRef.current) {
-            hookFillRef.current.intensity = (0.6 + installBoost * 0.7 + (nearAttachment ? 0.3 : 0)) * sharedNight
+            hookFillRef.current.intensity = (0.6 + installBoost * 0.7 + (nearAttachment ? 0.3 : 0)) * sharedNight * sheen
         }
         spreaderRimRefs.current.forEach((ref) => {
             if (!ref) return
-            ref.intensity = (0.45 + (nearAttachment ? 0.35 : 0) + installBoost * 0.5) * sharedNight
+            ref.intensity = (0.45 + (nearAttachment ? 0.35 : 0) + installBoost * 0.5) * sharedNight * sheen
         })
-        safetyStripMatRefs.current.forEach((mat) => {
-            if (!mat) return
-            mat.emissive.set('#ffb658')
-            mat.emissiveIntensity = (0.22 + beatPulse * 0.08) * sharedNight
-        })
+        if (cautionStripeMat) {
+            cautionStripeMat.emissive.set('#ffb658')
+            cautionStripeMat.emissiveIntensity = (0.22 + beatPulse * 0.08) * sharedNight * sheen
+        }
     })
 
     // Calculate tension normalized 0-1
@@ -165,9 +168,8 @@ export default function Crane() {
                 <CraneDashboard position={[1.5, 8.5, 0]} />
                 
                 {/* === CRANE BASE === */}
-                <mesh position={[0, -2, 0]} castShadow>
+                <mesh position={[0, -2, 0]} castShadow material={structuralSteelMat}>
                     <boxGeometry args={[4, 4, 4]} />
-                    <meshStandardMaterial color="#444444" metalness={0.5} roughness={0.6} />
                 </mesh>
                 
                 {/* Base detail - bolts */}
@@ -178,11 +180,13 @@ export default function Crane() {
                     </mesh>
                 ))}
 
+                <CraneLabels />
+
                 {/* === CRANE TOWER === */}
-                <mesh position={[0, 4, 0]} castShadow>
+                <mesh position={[0, 4, 0]} castShadow material={structuralSteelMat}>
                     <boxGeometry args={[2, 12, 2]} />
-                    <meshStandardMaterial color="#555555" metalness={0.4} />
                 </mesh>
+                <CraneTowerRivets />
                 
                 {/* Tower lattice pattern */}
                 <mesh position={[0, 4, 1]}>
@@ -207,35 +211,17 @@ export default function Crane() {
                 />
 
                 {/* === CRANE CABIN === */}
-                <mesh position={[1.5, 8, 0]} castShadow>
+                <mesh position={[1.5, 8, 0]} castShadow material={paintedSteelMat}>
                     <boxGeometry args={[2, 2.5, 2]} />
-                    <meshStandardMaterial
-                        ref={cabinBodyMatRef}
-                        color="#ffaa00"
-                        emissive="#000000"
-                        emissiveIntensity={0}
-                    />
                 </mesh>
-                {/* Cabin windows */}
-                <mesh position={[2.5, 8.5, 0]}>
-                    <boxGeometry args={[0.1, 1, 1.5]} />
-                    <meshStandardMaterial
-                        ref={cabinWindowMatRef}
-                        color="#1a1a2e"
-                        emissive="#000000"
-                        emissiveIntensity={0}
-                        metalness={0.9}
-                        roughness={0.1}
-                    />
-                </mesh>
+                <CabinGlassPane />
                 <pointLight ref={cabinWarmRef} position={[1.5, 8.4, 0]} intensity={0} color="#ffbe7a" distance={9} />
                 <pointLight ref={cabinCoolRef} position={[2.1, 8.5, 0.6]} intensity={0} color="#75bfff" distance={6} />
 
                 {/* === JIB (ARM) === */}
                 {/* Main jib */}
-                <mesh position={[12, 10, 0]} castShadow>
+                <mesh position={[12, 10, 0]} castShadow material={structuralSteelMat}>
                     <boxGeometry args={[24, 1.5, 2]} />
-                    <meshStandardMaterial color="#666666" metalness={0.5} />
                 </mesh>
                 
                 {/* Jib lattice pattern */}
@@ -246,33 +232,24 @@ export default function Crane() {
                     </mesh>
                 ))}
                 {safetyStripPositions.map((position, i) => (
-                    <mesh key={`jib-safety-${i}`} position={position}>
+                    <mesh key={`jib-safety-${i}`} position={position} material={cautionStripeMat}>
                         <boxGeometry args={[0.35, 0.08, 0.08]} />
-                        <meshStandardMaterial
-                            ref={(ref) => { safetyStripMatRefs.current[i] = ref }}
-                            color="#1f1f1f"
-                            emissive="#000000"
-                            emissiveIntensity={0}
-                        />
                     </mesh>
                 ))}
 
                 {/* Counter-jib */}
-                <mesh position={[-8, 10, 0]} castShadow>
+                <mesh position={[-8, 10, 0]} castShadow material={structuralSteelMat}>
                     <boxGeometry args={[12, 1.5, 2]} />
-                    <meshStandardMaterial color="#666666" metalness={0.5} />
                 </mesh>
 
                 {/* Counterweights */}
-                <mesh position={[-12, 9, 0]} castShadow>
+                <mesh position={[-12, 9, 0]} castShadow material={structuralSteelMat}>
                     <boxGeometry args={[3, 3, 2]} />
-                    <meshStandardMaterial color="#444444" />
                 </mesh>
 
                 {/* === TOWER TOP (Apex) === */}
-                <mesh position={[0, 10.5, 0]}>
+                <mesh position={[0, 10.5, 0]} material={paintedSteelMat}>
                     <coneGeometry args={[1, 2, 4]} />
-                    <meshStandardMaterial color="#ffaa00" />
                 </mesh>
 
                 {/* === SUPPORT CABLES === */}
@@ -290,9 +267,8 @@ export default function Crane() {
                 {/* === TROLLEY SYSTEM === */}
                 <group ref={trolleyRef} position={trolleyWorldPos}>
                     {/* Trolley body */}
-                    <mesh castShadow>
+                    <mesh castShadow material={paintedSteelMat}>
                         <boxGeometry args={[1.5, 0.8, 2.2]} />
-                        <meshStandardMaterial color="#ff6600" />
                     </mesh>
                     {/* Trolley wheels */}
                     <mesh position={[-0.5, -0.5, 1]} rotation={[Math.PI / 2, 0, 0]}>
@@ -333,48 +309,21 @@ export default function Crane() {
 
                     {/* === HOOK BLOCK === */}
                     <group ref={hookRef} position={[0, -4, 0]}>
-                        {/* Hook block */}
-                        <mesh castShadow>
-                            <boxGeometry args={[0.6, 0.8, 0.6]} />
-                            <meshStandardMaterial color="#ff6600" />
-                        </mesh>
-                        {/* The hook */}
-                        <mesh position={[0, -0.8, 0]}>
-                            <torusGeometry args={[0.3, 0.08, 8, 16, Math.PI]} />
-                            <meshStandardMaterial color="#333333" metalness={0.8} />
-                        </mesh>
-                        
-                        {/* Twistlock indicators */}
-                        <group position={[0, 0.6, 0]}>
-                            {/* Twistlock engaged indicator */}
-                            <mesh position={[-0.2, 0, 0]}>
-                                <boxGeometry args={[0.1, 0.1, 0.3]} />
-                                <meshBasicMaterial color={twistlockEngaged ? '#00ff00' : '#ff0000'} />
-                            </mesh>
-                            <mesh position={[0.2, 0, 0]}>
-                                <boxGeometry args={[0.1, 0.1, 0.3]} />
-                                <meshBasicMaterial color={twistlockEngaged ? '#00ff00' : '#ff0000'} />
-                            </mesh>
-                            {/* Glow effect when engaged */}
-                            {twistlockEngaged && (
-                                <>
-                                    <pointLight
-                                        position={[0, 0.3, 0]}
-                                        intensity={2}
-                                        color="#00ff00"
-                                        distance={3}
-                                    />
-                                    <mesh position={[0, 0.3, 0]}>
-                                        <sphereGeometry args={[0.2]} />
-                                        <meshBasicMaterial 
-                                            color="#00ff00" 
-                                            transparent 
-                                            opacity={0.3}
-                                        />
-                                    </mesh>
-                                </>
-                            )}
-                        </group>
+                        <SpreaderAssembly
+                            twistlockEngaged={twistlockEngaged}
+                            tension={normalizedTension}
+                            nearAttachment={nearAttachment}
+                        />
+
+                        {/* Twistlock engaged indicator lights */}
+                        {twistlockEngaged && (
+                            <pointLight
+                                position={[0, 0.3, 0]}
+                                intensity={2}
+                                color="#00ff00"
+                                distance={3}
+                            />
+                        )}
                         
                         {/* Light on hook for visibility */}
                         <pointLight 

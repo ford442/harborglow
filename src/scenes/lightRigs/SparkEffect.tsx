@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
+import { getLookDevSettings } from '../../utils/lookDevControls'
 
 interface SparkEffectProps {
   position: [number, number, number]
@@ -49,18 +50,22 @@ export function SparkEffect({ position, onComplete }: SparkEffectProps) {
   useFrame(() => {
     if (!particlesRef.current?.geometry?.attributes?.position) return
 
+    const density = getLookDevSettings().sparkDensity
     const posArray = particlesRef.current.geometry.attributes.position.array as Float32Array
 
     for (let i = 0; i < 20; i++) {
-      posArray[i * 3] += particles.velocities[i * 3]
-      posArray[i * 3 + 1] += particles.velocities[i * 3 + 1]
-      posArray[i * 3 + 2] += particles.velocities[i * 3 + 2]
+      posArray[i * 3] += particles.velocities[i * 3] * density
+      posArray[i * 3 + 1] += particles.velocities[i * 3 + 1] * density
+      posArray[i * 3 + 2] += particles.velocities[i * 3 + 2] * density
 
       // Gravity
       particles.velocities[i * 3 + 1] -= 0.005
     }
 
     particlesRef.current.geometry.attributes.position.needsUpdate = true
+    const mat = particlesRef.current.material as THREE.PointsMaterial
+    mat.size = 0.15 * density
+    mat.opacity = life * density
   })
 
   return (

@@ -23,6 +23,8 @@ http://localhost:5173/?renderer=webgpu
 
 The choice is also persisted to `localStorage` under the key `harborglow.renderer.preference` and synced into the URL on change.
 
+For live surface/flare/rig tuning see [LOOK_DEV.md](./LOOK_DEV.md) (**Visual Polish** Leva folder).
+
 ## Leva Debug UI
 
 In-game, open the Leva panel (bottom-right; click the title bar if collapsed). Look for the **"Renderer Backend"** folder:

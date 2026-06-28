@@ -2,6 +2,7 @@ import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { getLookDevSettings } from '../utils/lookDevControls'
 
 // =============================================================================
 // VOLUMETRIC LIGHTING SYSTEM - HarborGlow
@@ -473,6 +474,7 @@ export function VolumetricLightCone({
     if (meshRef.current) {
       const material = meshRef.current.material as THREE.ShaderMaterial
       material.uniforms.uTime.value = state.clock.elapsedTime
+      material.uniforms.uIntensity.value = intensity * getLookDevSettings().godRayDensity
     }
   })
   

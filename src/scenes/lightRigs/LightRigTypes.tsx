@@ -2,9 +2,16 @@ import { useRef, useMemo, useEffect, useState, type MutableRefObject } from 'rea
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../../store/useGameStore'
+import { getLookDevSettings } from '../../utils/lookDevControls'
 import { useShaderTime } from './LightRigAnimations'
 import { SparkEffect } from './SparkEffect'
 import { useBeatAlignedPowerOn } from './useBeatAlignedPowerOn'
+import {
+  computeRigMusicDrive,
+  rigVariationSeed,
+  type RigMusicState,
+} from './rigPolish'
+import { RigFlareAnchor, RigHousingShell, RigMicroGlint } from './RigPolishComponents'
 
 interface LightRigProps {
   position: [number, number, number]
@@ -21,21 +28,26 @@ interface LightRigProps {
 export function LEDStripArray({
   position,
   rotation = [0, 0, 0],
+  shipId,
   installed = false,
   onInstallComplete
 }: LightRigProps) {
   const groupRef = useRef<THREE.Group>(null)
   const ledsRef = useRef<THREE.InstancedMesh>(null)
   const glowRef = useRef<THREE.PointLight>(null)
+  const powerRef = useRef(0)
+  const musicStateRef = useRef<RigMusicState>({ afterglow: 0, prevBeat: false })
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
   const [sparks, setSparks] = useState<Array<{ id: number; pos: THREE.Vector3; time: number }>>([])
   const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 0.25, 0.95)
 
   const bpm = useGameStore(state => state.bpm)
   const time = useThree().clock.elapsedTime
+  const seed = rigVariationSeed(shipId, 'led-strip', position.join(','))
+  const flareId = `show-led-${shipId}-${position.join('-')}`
 
   const LED_COUNT = 24
-  const STRIP_LENGTH = 12
+  const STRIP_LENGTH = 12 + (seed - 0.5) * 0.6
 
   // Installation animation
   useEffect(() => {
@@ -67,8 +79,15 @@ export function LEDStripArray({
   }, [installed, installProgress, onInstallComplete, position])
 
   // Update LED colors based on music
-  useFrame(state => {
-    if (!ledsRef.current || !isPoweredOn) return
+  useFrame((state, delta) => {
+    if (!ledsRef.current) return
+
+    const power = isPoweredOn ? progressRef.current : 0
+    const drive = computeRigMusicDrive(power, musicStateRef.current, delta)
+    musicStateRef.current = drive.state
+    powerRef.current = drive.emissive
+
+    if (!isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
@@ -77,17 +96,26 @@ export function LEDStripArray({
     const dummy = new THREE.Object3D()
     const color = new THREE.Color()
 
+    const lookDev = getLookDevSettings()
+    const pulseAmt = lookDev.rigPulseAmount
+
     for (let i = 0; i < LED_COUNT; i++) {
-      // Position LED along strip
-      dummy.position.set((i / (LED_COUNT - 1) - 0.5) * STRIP_LENGTH, 0, 0)
+      const ledJitter = (seed + i * 0.037) % 1
+      dummy.position.set(
+        (i / (LED_COUNT - 1) - 0.5) * STRIP_LENGTH + (ledJitter - 0.5) * 0.04,
+        (ledJitter - 0.5) * 0.03,
+        (ledJitter - 0.5) * 0.02
+      )
       dummy.updateMatrix()
       ledsRef.current.setMatrixAt(i, dummy.matrix)
 
-      // Color based on position and beat - chasing pattern
       const ledPhase = (i / LED_COUNT + beatPhase) % 1
-      const hueBase = (time * 0.1) % 1
-      const hue = (hueBase + ledPhase * 0.3) % 1
-      const intensity = 0.5 + Math.sin(ledPhase * Math.PI * 2) * 0.5 * beatPhase
+      const hueBase = (time * 0.1 + lookDev.rigColorTempShift * 0.08 + drive.hueShift) % 1
+      const hue = (hueBase + ledPhase * 0.3 + (ledJitter - 0.5) * 0.04) % 1
+      const intensity =
+        drive.emissive *
+        (0.5 + Math.sin(ledPhase * Math.PI * 2) * 0.5 * beatPhase * pulseAmt) *
+        (0.88 + ledJitter * 0.18)
 
       color.setHSL(hue, 1, 0.5 * intensity)
       ledsRef.current.setColorAt(i, color)
@@ -99,7 +127,7 @@ export function LEDStripArray({
     }
 
     if (glowRef.current) {
-      glowRef.current.intensity = progressRef.current * 5
+      glowRef.current.intensity = drive.light * 5
     }
   })
 
@@ -133,10 +161,14 @@ export function LEDStripArray({
       )}
 
       {/* LED Strip Housing */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[STRIP_LENGTH, 0.3, 0.5]} />
-        <meshStandardMaterial color="#222" metalness={0.7} roughness={0.4} />
-      </mesh>
+      <RigHousingShell
+        width={STRIP_LENGTH}
+        height={0.3}
+        depth={0.5}
+        rimColor="#00ffff"
+        powerRef={powerRef}
+        bodyColor={`hsl(${200 + seed * 25}, 6%, ${14 + seed * 10}%)`}
+      />
 
       {/* Individual LEDs */}
       <instancedMesh
@@ -144,7 +176,7 @@ export function LEDStripArray({
         args={[undefined, undefined, LED_COUNT]}
         position={[0, 0.2, 0]}
       >
-        <boxGeometry args={[0.3, 0.15, 0.3]} />
+        <boxGeometry args={[0.28 + seed * 0.04, 0.14, 0.28 + seed * 0.03]} />
         <meshBasicMaterial toneMapped={false} />
       </instancedMesh>
 
@@ -159,12 +191,16 @@ export function LEDStripArray({
 
       {/* Power on glow effect */}
       {isPoweredOn && (
-        <pointLight
-          ref={glowRef}
-          intensity={0}
-          distance={10}
-          color="#00ffff"
-        />
+        <>
+          <pointLight
+            ref={glowRef}
+            intensity={0}
+            distance={10}
+            color="#00ffff"
+          />
+          <RigMicroGlint color="#aaffff" powerRef={powerRef} seed={seed} />
+          <RigFlareAnchor id={flareId} color="#00ffff" powerRef={powerRef} priority={64} />
+        </>
       )}
     </group>
   )
@@ -177,15 +213,20 @@ export function LEDStripArray({
 export function MovingHeadSpotlight({
   position,
   rotation = [0, 0, 0],
+  shipId,
   installed = false,
   onInstallComplete
 }: LightRigProps) {
   const headRef = useRef<THREE.Group>(null)
   const beamRef = useRef<THREE.Mesh>(null)
   const spotRef = useRef<THREE.SpotLight>(null)
+  const powerRef = useRef(0)
+  const musicStateRef = useRef<RigMusicState>({ afterglow: 0, prevBeat: false })
   const [installProgress, setInstallProgress] = useState(installed ? 1 : 0)
   const [sparks, setSparks] = useState<Array<{ id: number; pos: THREE.Vector3 }>>([])
   const { progressRef, isPoweredOn } = useBeatAlignedPowerOn(installProgress, installed, 0.5, 1.19)
+  const seed = rigVariationSeed(shipId, 'spot', position.join(','))
+  const flareId = `show-spot-${shipId}-${position.join('-')}`
 
   const bpm = useGameStore(state => state.bpm)
 
@@ -213,29 +254,32 @@ export function MovingHeadSpotlight({
   }, [installed, installProgress, onInstallComplete, position])
 
   // Moving head animation
-  useFrame(state => {
+  useFrame((state, delta) => {
+    const power = isPoweredOn ? progressRef.current : 0
+    const drive = computeRigMusicDrive(power, musicStateRef.current, delta)
+    musicStateRef.current = drive.state
+    powerRef.current = drive.emissive
+
     if (!headRef.current || !isPoweredOn) return
 
     const time = state.clock.elapsedTime
     const beatDuration = 60 / bpm
     const beatPhase = (time % beatDuration) / beatDuration
 
-    // Pan and tilt based on beat patterns
     const panSpeed = 0.5 + beatPhase * 2
     const tiltSpeed = 0.3
 
     headRef.current.rotation.y = Math.sin(time * panSpeed) * 0.8
     headRef.current.rotation.x = Math.sin(time * tiltSpeed) * 0.4 - 0.2
 
-    const power = progressRef.current
     if (beamRef.current) {
       const material = beamRef.current.material as THREE.ShaderMaterial
       if (material.uniforms?.uIntensity) {
-        material.uniforms.uIntensity.value = power
+        material.uniforms.uIntensity.value = drive.emissive * 1.35
       }
     }
     if (spotRef.current) {
-      spotRef.current.intensity = 10 * power
+      spotRef.current.intensity = 10 * drive.light
     }
   })
 
@@ -295,8 +339,16 @@ export function MovingHeadSpotlight({
         </mesh>
 
         {/* Lamp housing */}
-        <mesh>
-          <sphereGeometry args={[1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <RigHousingShell
+          width={1.6}
+          height={1.1}
+          depth={1.4}
+          rimColor="#ff88ff"
+          powerRef={powerRef}
+          bodyColor={`hsl(${280 + seed * 20}, 8%, ${16 + seed * 8}%)`}
+        />
+        <mesh position={[0, -0.15, 0]}>
+          <sphereGeometry args={[0.95, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color="#222" metalness={0.9} roughness={0.2} />
         </mesh>
 
@@ -352,15 +404,19 @@ export function MovingHeadSpotlight({
 
         {/* Actual light */}
         {isPoweredOn && (
-          <spotLight
-            ref={spotRef}
-            intensity={10}
-            distance={80}
-            angle={0.3}
-            penumbra={0.3}
-            color={beamColor}
-            target-position={[0, -20, 0]}
-          />
+          <>
+            <spotLight
+              ref={spotRef}
+              intensity={10}
+              distance={80}
+              angle={0.3}
+              penumbra={0.3}
+              color={beamColor}
+              target-position={[0, -20, 0]}
+            />
+            <RigMicroGlint color="#ffffff" powerRef={powerRef} seed={seed} />
+            <RigFlareAnchor id={flareId} color="#ff88ff" powerRef={powerRef} priority={66} />
+          </>
         )}
       </group>
 

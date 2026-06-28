@@ -12,8 +12,8 @@ import ProceduralShip from '../ProceduralShip';
 import { ShipSpawner } from '../../systems/shipSpawner';
 
 import { lightingSystem } from '../../systems/lightingSystem';
-const VolumetricLightCone = () => null;
-const buildGodRayMaterial = () => {}; const updateGodRay = () => {};
+import { VolumetricLightCone } from '../VolumetricLighting';
+import { buildGodRayMaterial, updateGodRay } from '../../shaders/lightShowNodes';
 const AtSeaShip = () => null; const ShipComponent = () => null;
 import { CameraMode } from '../../store/useGameStore';
 import { harborEvents } from '../../systems/dynamicEventSystem';
@@ -569,10 +569,10 @@ export function useLevaControls(config: LevaControlsConfig) {
         },
         'Weather': {
             value: weather,
-            options: ['clear', 'rain', 'fog', 'storm'],
+            options: ['clear', 'rain', 'fog', 'storm', 'golden_hour'],
             onChange: (w: string) => {
                 setWeather(w as any)
-                weatherSystem.forceWeather(w as any)
+                weatherSystem.forceWeather(w as WeatherType)
             }
         },
         'Cabin View': {
