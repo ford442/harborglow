@@ -18,6 +18,7 @@ Routine will mark picked items as "[in progress — YYYY-MM-DD]".
 - [x] Per-band light-show choreography (`claude_contributions.md` §1) — **done 2026-06-28**: all 11 ship-type bands now have hand-authored `LightCue[]` schedules in `src/systems/lightShows/` (cruise, container, tanker, bulk, lng, roro, research, droneship, ferry, trawler, horizon), all registered in `lightShowRegistry` with a `SHIP_BPM` table, plus `lightShows.test.ts`. LNG + Oil Tanker proof-of-concept landed 2026-06-15 (PR #95); remaining 9 authored via kimi-cli (codespace commit `f5034bc`). Carried 2026-06-14 → in-progress 2026-06-21 → confirmed landed 2026-06-28.
 - [x] Repo hygiene: `.playwright-mcp/*` debug artifacts + tracked `dist/*` files + `_legacy` ControlBooth forks + root `fix_*.cjs` codemods — done 2026-06-15 via issue #92 / PR #93 (Copilot). Confirmed clean at 2026-06-21 audit: `.playwright-mcp/` and `src/_legacy/` no longer exist, no tracked `dist/*` files, 6 codemods archived to `scripts/archive/`.
 - [in progress — 2026-06-28] Per-ship cinematic cutaway plans (`claude_contributions.md` §3): **engine + 2 ships landed** (codespace commit `21e1dfe`). `cinematicSystem.ts` now reads `getCutawayPlan(shipType)` from `src/systems/cutaways/` — `CutawayPlan` = `CutawayCue[]` (`beat`, `action`, optional `holdFor`), `CutawayAction` = `camera_mode | spectator_drone | climax | spotlight_pulse | hide_band_name`, with a `DEFAULT_CUTAWAY_PLAN` fallback and a `cutawayRegistry`. Only `tanker` (`oilTanker.ts`) + `cruise` (`cruise.ts`) authored so far; the other **9 ships fall back to the default**. Today's slice (kimi-cli): author the remaining 9 per-ship cutaway plans (container, bulk, lng, roro, research, droneship, ferry, trawler, horizon) within the 32-beat envelope, matched to each band's genre/BPM and using valid `CameraMode` ship shots (`ship-low`/`ship-aerial`/`ship-water`/`ship-rig`/etc.), registered in `cutawayRegistry` (`src/systems/cutaways/index.ts`). [originally spun into a Copilot issue 2026-06-21 — reassigned to kimi-cli now that light-shows are done and this is the sole open Idea]
+- [ ] Wildlife & Scenic Coastal Ecosystem system (season/weather/time-aware marine life + above-water fauna). Full technical data + phased graphical plan documented in weekly_plan.md §"Wildlife & Scenic Coastal Ecosystem". Priority after cinematic cutaways land.
 
 ## Backlog
 <!--
@@ -31,6 +32,106 @@ Routine maintains this automatically — you can add items too.
 - [ ] GLB model loader scaffold added but unwired: `useShipModel()` in `src/scenes/ProceduralShip.tsx` (from commit `bb3e993`) drafts a `.glb`-based attachment-point mapping for cruise/container/tanker, but it's dead code — never called, no `.glb` assets exist under `public/models/` (confirmed absent again 2026-06-28), `useGLTF` import unused. Either wire it in with real assets or strip the stub. Relates to the long-standing CLAUDE.md TODO ("Ship models are procedural primitives").
 - [ ] Persistent lint error: `createRenderer.ts:45` uses `@ts-ignore` where ESLint's `ban-ts-comment` wants `@ts-expect-error`, but swapping breaks `tsc` (TS2578 — directive unused in the current dep state). This is the **only** error in `npm run lint` (37 warnings otherwise), so the lint step exits 1. Revisit if a dep bump changes the underlying `tsc` behavior. (Documented 2026-06-21, confirmed still the case 2026-06-28.)
 - [ ] **SECURITY — decision needed from Noah**: PR #90 removed hardcoded credentials (SFTP password, deploy token) from HEAD, but they remain in this **public** repo's git history. K2/Kimi stress-test recommends: (1) rotate both credentials immediately regardless of anything else, (2) then decide whether to rewrite git history (`git-filter-repo`, force-push, GitHub support ticket to purge caches/old-PR refs — disruptive, invalidates all open PRs/clones) vs. accept the exposure as already-public and rely on rotation alone. This is a destructive, repo-wide operation requiring Noah's explicit go-ahead — not something to hand to an autonomous agent. **Still unresolved as of 2026-06-28 — no rotation evidence found, carrying forward a THIRD week. Noah: please action item (1) at minimum.**
+
+## Wildlife & Scenic Coastal Ecosystem (New Major Feature)
+
+**Status**: Research & Technical Data Phase — 2026-06-28  
+**Priority**: High (next major pillar after cinematic cutaways land)  
+**Goal**: Make scenic vistas and wildlife a core part of the HarborGlow experience. Players should feel they are operating a crane inside a living, breathing Northern California coastal ecosystem.
+
+### Core Principles
+- Wildlife must feel **alive and respectful** of real Pacific coast ecology (not cartoonish).
+- Behavior and spawning driven by **season + time of day + weather + storm intensity** (all already partially in the store).
+- **Music-reactive** where it makes sense (bioluminescence pulsing to the beat, fish schooling tighter during intense light shows).
+- Purely visual/immersive layer — does **not** change core crane/upgrade/music loop, only enhances satisfaction of watching the finished ship.
+- Performance-first: instanced + particle systems, heavy LOD/culling using existing quality preset system.
+
+### Technical Wildlife Data (Northern California Coast)
+
+#### Seasonal Profiles (Primary Driver)
+| Season     | Underwater Highlights                              | Surface / Above-Water Highlights                     | Visibility & Vibe Notes                     | Music Synergy                     |
+|------------|----------------------------------------------------|-------------------------------------------------------|---------------------------------------------|-----------------------------------|
+| **Spring** (Mar–May) | Gray whale northbound migration, increasing fish schools, early jelly blooms | Migratory seabirds returning, coastal wildflowers on hills (if terrain added) | Fresh marine layer, good whale sightings    | Hopeful, building energy          |
+| **Summer** (Jun–Aug) | Peak Moon Jelly + Sea Nettle blooms, dense anchovy/sardine schools | High dolphin & seabird activity, calm seas           | Classic clear CA days, maximal surface life | Vibrant, playful, peak glow       |
+| **Fall**   (Sep–Nov) | Gray whale southbound migration peak, lingering jellies | Golden coastal light, more whale breaches visible    | Warm ambers, dramatic silhouettes           | Warm, cinematic, emotional        |
+| **Winter** (Dec–Feb) | Clearer water on calm days, hardy fish deeper     | Stormier, hardy gulls/cormorants, occasional orcas   | Dramatic weather, stark beauty              | Moody, powerful, introspective    |
+
+#### Time-of-Day Modifiers
+- **Dawn / Dusk** — Highest marine mammal surface activity (breaches, spouts, dolphin pods)
+- **Day** — Best bird activity + surface fish schools visible
+- **Night** — Bioluminescence emphasis (jellyfish bells + plankton glow stronger). Many fish school deeper or become less active.
+
+#### Weather Modifiers (already partially wired)
+- **Calm / Clear** — Maximum wildlife activity & visibility
+- **Marine Layer / Fog** — Reduced long-distance sightings, beautiful volumetric god-ray moments
+- **Storm / Rain** — Birds shelter, fish go deeper, dramatic wave interactions (already have storm ripples). Whale spouts can still be dramatic in lightning.
+
+#### Prioritized Species List (Implementation Order)
+
+**Phase 1 — Foundation (Particles + Instanced)**
+1. **Moon Jellyfish** (`Aurelia aurita`) — Soft pulsing bell, gentle drift, subtle bioluminescence
+2. **Fish Schools** (Northern Anchovy / Pacific Sardine / Rockfish) — Classic schooling behavior, scale sparkle with caustics
+3. **Plankton / Bioluminescent particles** — Night-time glow layers
+
+**Phase 2 — Charismatic Megafauna**
+4. **Gray Whale** — Slow majestic passes, occasional breach or spout (iconic CA species)
+5. **Seabirds** (Western Gull, Brown Pelican, Double-crested Cormorant) — Flocks + occasional diving
+
+**Phase 3 — Medium Priority**
+6. Sea Nettle jellyfish (more colorful, stinging look but we keep it beautiful)
+7. Common / Bottlenose Dolphin pods
+8. Harbor Seal / California Sea Lion (surface or hauled on buoys if we add simple geometry)
+
+**Phase 4 — Later Polish**
+- Humpback whales (more acrobatic)
+- Orcas (rare, high-impact)
+- Rays, sea turtles, occasional shark silhouette
+- Coastal flora (if/when we expand land vistas): coastal sage, cypress, wildflowers, kelp beds near shore
+
+### Graphical Implementation Roadmap
+
+**Phase 1 (Immediate)**
+- New `src/systems/wildlifeSystem.ts` singleton (pattern like `WaveSystem`)
+- `WILDLIFE_PROFILES` data table in TypeScript (season/weather/time multipliers)
+- Basic instanced jellyfish + fish school system using existing `Water` caustics/god-rays
+- Spawning logic driven by current store values (`season`, `timeOfDay`, `weather`, `stormIntensity`)
+- Toggle + density slider in Leva
+
+**Phase 2**
+- Simple animated whale entity (sine-wave body + tail, or lightweight GLB)
+- Seabird flock system (instanced + simple flight paths)
+- Music pulse reactivity (bioluminescence intensity + school tightness)
+
+**Phase 3**
+- Camera-aware spawning (more activity when spectator drone or underwater cam is active)
+- Seasonal visual variants (slightly different jelly colors, whale barnacle coverage, etc.)
+- Optional: light rigs or ship glow subtly "attract" more wildlife (eco fantasy)
+
+**Phase 4 (Future)**
+- Expanded coastal terrain with flora (wildflowers, grasses) that also shift seasonally
+- Interaction hooks (crane movement or bright lights can cause temporary wildlife reactions)
+
+### Integration Points (Already Exist)
+- `useGameStore` — add `season`, `wildlifeDensity`, `enableMarineLife`
+- `useMusicPulse` hook (already used in Water)
+- `spectator` + `ship-water` camera modes
+- `UnderwaterEffects` + Deep Cam panel
+- Quality preset LOD system (already in Water.tsx)
+- Leva panel (easy to extend)
+
+### Success Metrics (Visual)
+- Player can sit in Underwater Deep Cam for 30–60 seconds and feel immersed in a living bay
+- Spectator drone orbits feel richer because wildlife occasionally enters frame
+- Different seasons/weather produce noticeably different "vibe" without changing the core ships
+
+**Next Immediate Actions**
+- [ ] Add `season` + `wildlifeDensity` + `enableMarineLife` to Zustand store
+- [ ] Create `src/systems/wildlifeSystem.ts` skeleton + data profiles
+- [ ] Wire basic Moon Jelly + fish school spawner into `MainScene.tsx`
+- [ ] Add Leva controls + toggle in HUD
+- [ ] First visual pass in Underwater cam (even if crude)
+
+This becomes the new flagship Idea once the remaining cinematic cutaways are finished.
 
 ## Research notes — multiview camera dashboard (2026-04-19)
 Architecture decision locked after running C-prompts:
