@@ -33,7 +33,7 @@ import { reputationSystem } from '../../systems/reputationSystem';
 const setCraneSoundVolume = () => {}; const setCraneSoundsEnabled = () => {}; const playBirdCall = () => {}; const playFoghorn = () => {}; const playShipHorn = () => {}; const playRadioChatter = () => {}; const playContainerImpact = () => {}; const playTwistlockEngage = () => {};
 import UnderwaterCamera from '../UnderwaterCamera';
 
-export interface LevaControlsConfig { [key: string]: any }
+export type LevaControlsConfig = Record<string, any>
 export interface ShipSchedulingConfig { [key: string]: any }
 export interface SpectatorCameraConfig { [key: string]: any }
 export interface DepartingShipsConfig { [key: string]: any }
@@ -448,6 +448,12 @@ interface LevaControlsConfig {
     underwaterIntensity: number
     setUnderwaterIntensity: (intensity: number) => void
     cabinViewMode: string
+    season: string
+    setSeason: (season: any) => void
+    wildlifeDensity: number
+    setWildlifeDensity: (density: number) => void
+    enableMarineLife: boolean
+    setEnableMarineLife: (enabled: boolean) => void
 }
 
 // Business pattern trigger export functions for Leva
@@ -486,7 +492,13 @@ export function useLevaControls(config: LevaControlsConfig) {
         setMultiviewMode,
         underwaterIntensity,
         setUnderwaterIntensity,
-        cabinViewMode
+        cabinViewMode,
+        season,
+        setSeason,
+        wildlifeDensity,
+        setWildlifeDensity,
+        enableMarineLife,
+        setEnableMarineLife
     } = config
 
     useControls({
@@ -588,6 +600,26 @@ export function useLevaControls(config: LevaControlsConfig) {
             max: 2,
             step: 0.1,
             onChange: setUnderwaterIntensity
+        },
+        // Marine Life folder
+        'Enable Marine Life': {
+            value: enableMarineLife,
+            folder: 'Marine Life',
+            onChange: setEnableMarineLife
+        },
+        'Wildlife Density': {
+            value: wildlifeDensity,
+            min: 0,
+            max: 1,
+            step: 0.05,
+            folder: 'Marine Life',
+            onChange: setWildlifeDensity
+        },
+        'Season': {
+            value: season,
+            options: ['spring', 'summer', 'fall', 'winter'],
+            folder: 'Marine Life',
+            onChange: setSeason
         },
         // Phase 9: Attachment System Controls
         'Show Attachments': {

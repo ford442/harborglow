@@ -61,6 +61,9 @@ export type GameState = {
   windDirection?: number;
   windStrength?: number;
   money?: number;
+  season?: 'spring' | 'summer' | 'fall' | 'winter';
+  wildlifeDensity?: number;
+  enableMarineLife?: boolean;
   // add more as needed
 };
 

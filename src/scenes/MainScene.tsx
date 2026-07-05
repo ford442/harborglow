@@ -49,6 +49,7 @@ import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
 import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
 import WildlifeRenderer from './Wildlife'
+import AmbientMarineLife from './AmbientMarineLife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
 import OnDockRail from './OnDockRail'
@@ -57,6 +58,7 @@ import UnderwaterCamera from './UnderwaterCamera'
 import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { wildlifeSystem } from '../systems/wildlifeSystem'
+import { ambientMarineLifeSystem } from '../systems/ambientMarineLifeSystem'
 import { seaEventsSystem } from '../systems/seaEventsSystem'
 import { harborEventSystem } from '../systems/eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../systems/dynamicEventSystem'
@@ -130,6 +132,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const tugboatDockedCount = useGameStore(s => s.tugboatDockedCount)
     const tugboatWinTriggered = useGameStore(s => s.tugboatWinTriggered)
     const tugboatCareerStats = useGameStore(s => s.tugboatCareerStats)
+    const season = useGameStore(s => s.season)
+    const wildlifeDensity = useGameStore(s => s.wildlifeDensity)
+    const enableMarineLife = useGameStore(s => s.enableMarineLife)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -143,6 +148,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const returnToDock = useGameStore(s => s.returnToDock)
     const setMultiviewMode = useGameStore(s => s.setMultiviewMode)
     const setUnderwaterIntensity = useGameStore(s => s.setUnderwaterIntensity)
+    const setSeason = useGameStore(s => s.setSeason)
+    const setWildlifeDensity = useGameStore(s => s.setWildlifeDensity)
+    const setEnableMarineLife = useGameStore(s => s.setEnableMarineLife)
     const setTugboatObjectives = useGameStore(s => s.setTugboatObjectives)
     const completeTugboatObjective = useGameStore(s => s.completeTugboatObjective)
     const triggerTugboatWin = useGameStore(s => s.triggerTugboatWin)
@@ -304,7 +312,13 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         setMultiviewMode,
         underwaterIntensity,
         setUnderwaterIntensity,
-        cabinViewMode
+        cabinViewMode,
+        season,
+        setSeason,
+        wildlifeDensity,
+        setWildlifeDensity,
+        enableMarineLife,
+        setEnableMarineLife
     })
 
     // Lighting calculations with enhanced California port atmosphere
@@ -405,6 +419,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         
         // Update wildlife and sea events
         wildlifeSystem.update(delta)
+        ambientMarineLifeSystem.update(delta, camera)
         seaEventsSystem.update(delta)
         
         // Update harbor business events
@@ -537,6 +552,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             
             {/* Wildlife and Sea Events */}
             <WildlifeRenderer />
+            <AmbientMarineLife />
             <SeaEvents />
             <UnderwaterEffects />
             <HarborAmbiance />

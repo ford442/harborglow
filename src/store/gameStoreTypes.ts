@@ -62,6 +62,7 @@ export type HarborEventType =
     | 'suspicious_vessel'    // Rare security event
     | 'clear'
 export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
+export type Season = 'spring' | 'summer' | 'fall' | 'winter'
 export type QualityPreset = 'low' | 'medium' | 'high'
 export type MultiviewMode = 'single' | 'quad'
 export type HarborType = 'norway' | 'singapore' | 'dubai' | 'rotterdam' | 'yokohama' | 'longbeach' | 'santos'
@@ -404,6 +405,10 @@ interface SerializableState {
     // Wildlife and sea events
     wildlife: WildlifeEntity[]
     activeSeaEvent: SeaEvent | null
+    // Ambient marine life layer
+    season: Season
+    wildlifeDensity: number
+    enableMarineLife: boolean
 
     // Harbor research-based events
     activeHarborEvents: HarborEvent[]
@@ -588,6 +593,10 @@ export interface GameState extends SerializableState {
     removeWildlife: (id: string) => void
     updateWildlife: (id: string, updates: Partial<WildlifeEntity>) => void
     setActiveSeaEvent: (event: SeaEvent | null) => void
+    // Ambient marine life layer setters
+    setSeason: (season: Season) => void
+    setWildlifeDensity: (density: number) => void
+    setEnableMarineLife: (enabled: boolean) => void
 
     // Harbor event actions (research-based events)
     activeHarborEvents: HarborEvent[]
@@ -640,6 +649,7 @@ export const defaultState: Omit<GameState, keyof {
     setInstallQueue: unknown; advanceInstallQueue: unknown; abortInstallQueue: unknown; pauseInstallQueue: unknown; resumeInstallQueue: unknown;
     setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
     setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
+    setSeason: unknown; setWildlifeDensity: unknown; setEnableMarineLife: unknown;
     pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
     recallPinnedViewportCamera: unknown; setFocusedViewport: unknown;
     addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
@@ -723,6 +733,9 @@ export const defaultState: Omit<GameState, keyof {
     focusedViewport: null,
     wildlife: [],
     activeSeaEvent: null,
+    season: 'summer' as Season,
+    wildlifeDensity: 0.6,
+    enableMarineLife: true,
     walkingPosition: [2, 0.2, 7],
     walkingVelocity: [0, 0, 0],
     walkingSpawnPoint: [2, 0.2, 7],
@@ -846,6 +859,9 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatUpgrades: state.tugboatUpgrades,
     waveParams: state.waveParams,
     money: state.money,
+    season: state.season,
+    wildlifeDensity: state.wildlifeDensity,
+    enableMarineLife: state.enableMarineLife,
 })
 
 export const scheduleSave = (state: GameState) => {

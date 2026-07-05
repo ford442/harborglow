@@ -233,6 +233,9 @@ export const createSlice1 = (set: any, get: any) => ({
             activeMission: null,
             craneContract: null,
             waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
+            season: 'summer',
+            wildlifeDensity: 0.6,
+            enableMarineLife: true,
         })
         console.log('🗑️ Game reset')
     },
@@ -323,6 +326,11 @@ export const createSlice1 = (set: any, get: any) => ({
                 windStrength: saved.windStrength ?? 0,
                 waveParams: saved.waveParams ?? { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
                 money: saved.money ?? 0,
+                season: (['spring', 'summer', 'fall', 'winter'] as const).includes((saved as StorageGameState & { season?: Season }).season as Season)
+                    ? ((saved as StorageGameState & { season?: Season }).season as Season)
+                    : 'summer',
+                wildlifeDensity: Math.max(0, Math.min(1, (saved as StorageGameState & { wildlifeDensity?: number }).wildlifeDensity ?? 0.6)),
+                enableMarineLife: (saved as StorageGameState & { enableMarineLife?: boolean }).enableMarineLife ?? true,
                 activeMission: null,
             })
             console.log('📂 Loaded from storage_manager')
@@ -419,6 +427,23 @@ export const createSlice1 = (set: any, get: any) => ({
         scheduleSave({ ...state, ...newState })
 
         console.log(`✅ Upgrade complete! ${shipName} is now v${nextVersion}`)
+    },
+
+    // Ambient marine life layer setters
+    setSeason: (season: Season) => {
+        set({ season })
+        scheduleSave({ ...get(), season })
+    },
+
+    setWildlifeDensity: (density: number) => {
+        const newDensity = Math.max(0, Math.min(1, density))
+        set({ wildlifeDensity: newDensity })
+        scheduleSave({ ...get(), wildlifeDensity: newDensity })
+    },
+
+    setEnableMarineLife: (enabled: boolean) => {
+        set({ enableMarineLife: enabled })
+        scheduleSave({ ...get(), enableMarineLife: enabled })
     },
 
     // Weather system
