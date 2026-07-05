@@ -4,8 +4,11 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { AudioAnalysisData } from '../systems/audioVisualSync'
 import { weatherSystem } from '../systems/weatherSystem'
+import { moonSystem } from '../systems/moonSystem'
 import { getLookDevSettings } from '../utils/lookDevControls'
 import { useControls } from 'leva'
+import { GodRaysShader } from '../shaders/GodRaysShader'
+import { getSunPosition } from './mainScene/MainSceneHelpers'
 
 // =============================================================================
 // POLISHED POST-PROCESSING STACK
@@ -55,6 +58,13 @@ const QUALITY_CONFIGS = {
     dof: true,
     ssao: true
   }
+}
+
+const GOD_RAYS_SAMPLES: Record<keyof typeof QUALITY_CONFIGS, number> = {
+  low: 0,
+  medium: 32,
+  high: 64,
+  cinema: 64,
 }
 
 // Refined LUTs for wet industrial harbor aesthetic
@@ -136,10 +146,22 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     'Night Spectator Boost': cinematicNightBoost,
     'Bloom Boost %': cinematicBloomBoost,
     'Color Lift': cinematicColorLift,
+    'God Rays': godRaysEnabled,
+    'God Rays Exposure': godRaysExposure,
+    'God Rays Decay': godRaysDecay,
+    'God Rays Density': godRaysDensity,
+    'God Rays Weight': godRaysWeight,
+    'God Rays Samples': godRaysSamplesLeva,
   } = useControls('Cinematic', {
     'Night Spectator Boost': { value: 1, min: 0, max: 2, step: 0.05 },
     'Bloom Boost %': { value: 0.32, min: 0, max: 0.8, step: 0.02 },
     'Color Lift': { value: 0.14, min: 0, max: 0.4, step: 0.02 },
+    'God Rays': { value: true },
+    'God Rays Exposure': { value: 0.35, min: 0, max: 1.5, step: 0.02 },
+    'God Rays Decay': { value: 0.96, min: 0.85, max: 0.99, step: 0.005 },
+    'God Rays Density': { value: 0.92, min: 0.3, max: 2.0, step: 0.02 },
+    'God Rays Weight': { value: 0.12, min: 0.02, max: 0.4, step: 0.01 },
+    'God Rays Samples': { value: 32, min: 8, max: 64, step: 8 },
   })
   
   // Check for light show activity
@@ -158,6 +180,10 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
   const composerRef = useRef<any>(null)
   const bloomPassRef = useRef<any>(null)
   const colorPassRef = useRef<any>(null)
+  const godRaysPassRef = useRef<any>(null)
+  const depthRenderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null)
+  const lightPos3DRef = useRef(new THREE.Vector3())
+  const projectedLightRef = useRef(new THREE.Vector3())
   
   // Initialize post-processing
   useEffect(() => {
@@ -182,11 +208,23 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
         
         if (!isMounted) return
         
-        composer = new EffectComposer(gl)
+        const depthRt = new THREE.WebGLRenderTarget(size.width, size.height, {
+          depthTexture: new THREE.DepthTexture(size.width, size.height),
+          type: THREE.HalfFloatType,
+        })
+        depthRenderTargetRef.current = depthRt
+
+        composer = new EffectComposer(gl, depthRt)
         composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         
         // Render pass
         composer.addPass(new RenderPass(scene, camera))
+        
+        // God rays (radial blur toward sun/moon, depth-occluded)
+        const godRaysPass = new ShaderPass(GodRaysShader)
+        godRaysPass.uniforms.tDepth.value = depthRt.depthTexture
+        composer.addPass(godRaysPass)
+        godRaysPassRef.current = godRaysPass
         
         // Bloom pass
         const bloomPass = new UnrealBloomPass(
@@ -222,6 +260,8 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     return () => {
       isMounted = false
       composer?.dispose()
+      depthRenderTargetRef.current?.dispose()
+      depthRenderTargetRef.current = null
     }
   }, [enabled, gl, scene, camera, size, config.bloom.intensity, config.bloom.threshold, config.ssao])
   
@@ -272,6 +312,41 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
       cinematicTargetBoost,
       0.08
     )
+
+    // God rays — project active celestial light to screen UV
+    if (godRaysPassRef.current) {
+      const qualitySamples = GOD_RAYS_SAMPLES[qualityPreset]
+      const passEnabled = qualitySamples > 0 && godRaysEnabled
+      godRaysPassRef.current.enabled = passEnabled
+
+      if (passEnabled) {
+        const [lx, ly, lz] = isNight
+          ? moonSystem.getState().position
+          : getSunPosition(timeOfDay)
+        lightPos3DRef.current.set(lx, ly, lz)
+        projectedLightRef.current.copy(lightPos3DRef.current).project(camera)
+
+        const p = projectedLightRef.current
+        const uv = godRaysPassRef.current.uniforms.uLightPos.value
+        uv.set((p.x + 1) / 2, (p.y + 1) / 2)
+
+        const behindCamera = p.z > 1
+        const offScreen = uv.x < -0.12 || uv.x > 1.12 || uv.y < -0.12 || uv.y > 1.12
+        const visible = !behindCamera && !offScreen
+
+        const u = godRaysPassRef.current.uniforms
+        u.uEnabled.value = visible ? 1 : 0
+        u.uExposure.value = visible ? godRaysExposure : 0
+        u.uDecay.value = godRaysDecay
+        u.uDensity.value = godRaysDensity
+        u.uWeight.value = visible ? godRaysWeight : 0
+        u.uSamples.value = Math.min(godRaysSamplesLeva, qualitySamples)
+
+        if (depthRenderTargetRef.current?.depthTexture) {
+          u.tDepth.value = depthRenderTargetRef.current.depthTexture
+        }
+      }
+    }
 
     // Update bloom
     if (bloomPassRef.current) {
