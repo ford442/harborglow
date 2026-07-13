@@ -677,6 +677,83 @@ export function useLevaControls(config: LevaControlsConfig) {
                 useGameStore.getState().setAttachmentSystemConfig({ showCable: value })
             }
         },
+        'Magnetic Enabled': {
+            value: true,
+            folder: 'Attachment System',
+            onChange: (value: boolean) => {
+                useGameStore.getState().setAttachmentSystemConfig({ magneticEnabled: value })
+            }
+        },
+        'Magnetic Strength': {
+            value: 4.0,
+            min: 0.5,
+            max: 12,
+            step: 0.25,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ magneticStrength: value })
+            }
+        },
+        'Magnetic Damping': {
+            value: 0.85,
+            min: 0.3,
+            max: 1.2,
+            step: 0.05,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ magneticDampingRatio: value })
+            }
+        },
+        'Magnetic Curve': {
+            value: 2.0,
+            min: 0.5,
+            max: 5,
+            step: 0.25,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ magneticCurve: value })
+            }
+        },
+        'Release Hysteresis': {
+            value: 1.5,
+            min: 1.0,
+            max: 2.5,
+            step: 0.1,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ releaseHysteresis: value })
+            }
+        },
+        'Settle Damping': {
+            value: 0.8,
+            min: 0.5,
+            max: 1.0,
+            step: 0.05,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ settleDampingMultiplier: value })
+            }
+        },
+        'Settle Duration (ms)': {
+            value: 1000,
+            min: 200,
+            max: 3000,
+            step: 100,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ settleDurationMs: value })
+            }
+        },
+        'Capture Velocity': {
+            value: 6.0,
+            min: 1,
+            max: 15,
+            step: 0.5,
+            folder: 'Attachment System',
+            onChange: (value: number) => {
+                useGameStore.getState().setAttachmentSystemConfig({ captureVelocity: value })
+            }
+        },
         // Moon System Controls
         'Moon Phase': {
             value: 'full_moon',

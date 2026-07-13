@@ -8,6 +8,7 @@ import { useGameStore } from '../store/useGameStore'
 import { weatherSystem, WeatherType } from './weatherSystem'
 import { moonSystem } from './moonSystem'
 import { timeSystem } from './timeSystem'
+import { calcMagneticFalloff, calcSettlingDamping, springStep } from '../utils/physicsMath'
 
 // =============================================================================
 // WEATHER-SWAY MAPPING
@@ -142,6 +143,16 @@ export interface SwayForces {
     playerDamping: THREE.Vector3
 }
 
+/** Subset of attachment config used by magnetic guidance & post-bind settling. */
+export interface MagneticGuidanceConfig {
+    magneticStrength: number
+    magneticDampingRatio: number
+    magneticCurve: number
+    snapRadius: number
+    settleDampingMultiplier: number
+    settleDurationMs: number
+}
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -201,6 +212,15 @@ class SwaySystem {
     // Feedback state
     private lastGustPeak: number = 0
     private gustWarningActive: boolean = false
+
+    // Post-bind settling
+    private settleTimer: number = 0
+    private settleDuration: number = 0
+    private settleDampingMultiplier: number = 1
+
+    // Magnetic guidance world-velocity overlay (m/s in sway plane)
+    private magneticVelX: number = 0
+    private magneticVelZ: number = 0
     
     constructor() {
         this.config = { ...DEFAULT_CONFIG }
@@ -458,7 +478,19 @@ class SwaySystem {
         // Convert per-frame damping to framerate-independent form.
         // dampingBase=0.98 was tuned at ~60fps; we preserve that feel
         // by raising to (dt * 60) so behaviour is identical at 30/60/120Hz.
-        const totalDamping = this.config.dampingBase * this.debugDampingMultiplier
+        let dampingBlend = 1
+        if (this.settleTimer > 0) {
+            const elapsed = this.settleDuration - this.settleTimer
+            dampingBlend = calcSettlingDamping(
+                elapsed,
+                this.settleDuration,
+                1,
+                this.settleDampingMultiplier,
+            )
+            this.settleTimer = Math.max(0, this.settleTimer - dt)
+        }
+
+        const totalDamping = this.config.dampingBase * this.debugDampingMultiplier * dampingBlend
         const dtDamping = Math.pow(Math.max(0.001, totalDamping), dt * 60)
         this.state.velocityX *= dtDamping
         this.state.velocityZ *= dtDamping
@@ -634,6 +666,99 @@ class SwaySystem {
     }
     
     // ========================================================================
+    // MAGNETIC GUIDANCE & POST-BIND SETTLING
+    // ========================================================================
+
+    /**
+     * Spring-based pull toward a target in the sway plane (world XZ meters).
+     * Writes into pendulum velocityX/velocityZ; input attenuates pull.
+     */
+    applyMagneticGuidance(
+        targetOffsetX: number,
+        targetOffsetZ: number,
+        dt: number,
+        config: MagneticGuidanceConfig,
+        inputMagnitude: number = 0,
+    ): { worldDeltaX: number; worldDeltaZ: number } {
+        const distance = Math.sqrt(targetOffsetX * targetOffsetX + targetOffsetZ * targetOffsetZ)
+        const falloff = calcMagneticFalloff(distance, config.snapRadius, config.magneticCurve)
+        const inputAttenuation = 1 - Math.min(1, Math.max(0, inputMagnitude))
+        const scale = falloff * inputAttenuation
+
+        if (scale <= 0) {
+            this.magneticVelX = 0
+            this.magneticVelZ = 0
+            return { worldDeltaX: 0, worldDeltaZ: 0 }
+        }
+
+        const effectiveLength = Math.max(1, this.config.cableLength)
+        const angOffsetX = targetOffsetX / effectiveLength
+        const angOffsetZ = targetOffsetZ / effectiveLength
+
+        const stepX = springStep(
+            angOffsetX,
+            this.state.velocityX,
+            config.magneticStrength,
+            config.magneticDampingRatio,
+            dt,
+        )
+        const stepZ = springStep(
+            angOffsetZ,
+            this.state.velocityZ,
+            config.magneticStrength,
+            config.magneticDampingRatio,
+            dt,
+        )
+
+        const accelX = stepX.acceleration * scale
+        const accelZ = stepZ.acceleration * scale
+        this.state.velocityX += accelX * dt
+        this.state.velocityZ += accelZ * dt
+
+        // World-space companion velocity for spreader position coupling
+        const worldStepX = springStep(
+            targetOffsetX,
+            this.magneticVelX,
+            config.magneticStrength,
+            config.magneticDampingRatio,
+            dt,
+        )
+        const worldStepZ = springStep(
+            targetOffsetZ,
+            this.magneticVelZ,
+            config.magneticStrength,
+            config.magneticDampingRatio,
+            dt,
+        )
+        this.magneticVelX = worldStepX.velocity * scale
+        this.magneticVelZ = worldStepZ.velocity * scale
+
+        return {
+            worldDeltaX: this.magneticVelX * dt,
+            worldDeltaZ: this.magneticVelZ * dt,
+        }
+    }
+
+    clearMagneticGuidance(): void {
+        this.magneticVelX = 0
+        this.magneticVelZ = 0
+    }
+
+    triggerSettling(config: Pick<MagneticGuidanceConfig, 'settleDurationMs' | 'settleDampingMultiplier'>): void {
+        this.settleDuration = Math.max(0.001, config.settleDurationMs / 1000)
+        this.settleTimer = this.settleDuration
+        this.settleDampingMultiplier = config.settleDampingMultiplier
+    }
+
+    isSettling(): boolean {
+        return this.settleTimer > 0
+    }
+
+    getCableLength(): number {
+        return this.config.cableLength
+    }
+
+    // ========================================================================
     // INSTALLATION PENALTY
     // ========================================================================
     
@@ -756,6 +881,10 @@ class SwaySystem {
         this.trolleyVelocity.set(0, 0, 0)
         this.shipRockPhase = 0
         this.skillStreak = 0
+        this.settleTimer = 0
+        this.settleDuration = 0
+        this.magneticVelX = 0
+        this.magneticVelZ = 0
         this.notifyListeners()
     }
 }

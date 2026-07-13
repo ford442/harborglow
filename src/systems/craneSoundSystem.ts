@@ -363,6 +363,28 @@ export async function playTwistlockDisengage() {
   lockSynth?.triggerAttackRelease('E3', '32n')
 }
 
+/** Heavier mechanical lock clunk on rig bind — distinct from twistlock engage. */
+export async function playInstallationLock() {
+  if (!config.enabled) return
+  await Tone.start()
+  initSynths()
+
+  const now = Tone.now()
+
+  // Low thud
+  lockSynth?.triggerAttackRelease('G1', '16n', now)
+
+  // Metal clank layered below the lighter twistlock cue
+  if (impactSynth) {
+    impactSynth.set({
+      envelope: { attack: 0.001, decay: 0.45, release: 0.25 },
+      harmonicity: 4.2,
+      resonance: 2800,
+    })
+    impactSynth.triggerAttackRelease('8n', now + 0.03)
+  }
+}
+
 export async function playSpreaderCollision() {
   if (!config.enabled) return
   await Tone.start()

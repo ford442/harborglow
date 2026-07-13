@@ -134,6 +134,15 @@ export function useScreenShake() {
       decay: 0.7,
     })
   }, [triggerShake])
+
+  // Brief punch when spreader locks onto an attachment point
+  const triggerLockShake = useCallback(() => {
+    triggerShake({
+      intensity: 0.22,
+      duration: 0.08,
+      decay: 0.75,
+    })
+  }, [triggerShake])
   
   // Trigger tension shake (when load is heavy)
   const triggerTensionShake = useCallback((tension: number) => {
@@ -180,6 +189,7 @@ export function useScreenShake() {
     triggerShake,
     triggerInstallationShake,
     triggerSnapShake,
+    triggerLockShake,
     triggerTensionShake,
     triggerCableSnapShake,
     stopShake,
