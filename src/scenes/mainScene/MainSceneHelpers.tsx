@@ -12,6 +12,7 @@ import ProceduralShip from '../ProceduralShip';
 import { ShipSpawner } from '../../systems/shipSpawner';
 
 import { lightingSystem } from '../../systems/lightingSystem';
+import { ambientMarineLifeSystem } from '../../systems/ambientMarineLifeSystem';
 import { VolumetricLightCone } from '../VolumetricLighting';
 import { buildGodRayMaterial, updateGodRay } from '../../shaders/lightShowNodes';
 const AtSeaShip = () => null; const ShipComponent = () => null;
@@ -614,6 +615,16 @@ export function useLevaControls(config: LevaControlsConfig) {
             step: 0.05,
             folder: 'Marine Life',
             onChange: setWildlifeDensity
+        },
+        'Beat Reactivity': {
+            value: ambientMarineLifeSystem.getBeatReactivity(),
+            min: 0,
+            max: 1,
+            step: 0.05,
+            folder: 'Marine Life',
+            onChange: (value: number) => {
+                ambientMarineLifeSystem.setBeatReactivity(value)
+            }
         },
         'Season': {
             value: season,

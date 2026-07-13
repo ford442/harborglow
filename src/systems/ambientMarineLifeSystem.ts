@@ -9,11 +9,16 @@ import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
 import {
     getAmbientCounts,
+    getBeatReactiveMultiplier,
     getCameraAwareMultiplier,
+    getFinaleConvergenceEnvelope,
+    getFishSchoolCohesionFactor,
     getLightAttractionMultiplier,
     type AmbientSpecies,
     WILDLIFE_PROFILES
 } from './wildlifeProfiles'
+import { getAudioAnalysisData, type AudioAnalysisData } from './audioVisualSync'
+import { lightingSystem } from './lightingSystem'
 
 export interface AmbientCreature {
     id: string
@@ -76,8 +81,46 @@ class AmbientMarineLifeSystem {
     private spawnAccumulator = 0
     private readonly SPAWN_INTERVAL = 1.5 // seconds between spawn/reconcile batches
 
+    private beatReactivity = 0.7
+
+    private finaleState: {
+        active: boolean
+        targetShipId: string | null
+        targetPosition: [number, number, number]
+        startTime: number
+        duration: number
+    } = {
+        active: false,
+        targetShipId: null,
+        targetPosition: [0, 0, 0],
+        startTime: 0,
+        duration: 10_000
+    }
+
     getState(): AmbientState {
         return this.state
+    }
+
+    setBeatReactivity(value: number) {
+        this.beatReactivity = Math.max(0, Math.min(1, value))
+    }
+
+    getBeatReactivity(): number {
+        return this.beatReactivity
+    }
+
+    triggerBioluminescentFinale(
+        shipId: string,
+        position: [number, number, number],
+        duration = 10_000
+    ) {
+        this.finaleState = {
+            active: true,
+            targetShipId: shipId,
+            targetPosition: [...position],
+            startTime: Date.now(),
+            duration
+        }
     }
 
     update(delta: number, camera?: THREE.Camera) {
@@ -106,6 +149,7 @@ class AmbientMarineLifeSystem {
         const cameraMultiplier = getCameraAwareMultiplier(cameraMode, focusedViewport)
         const lightMultiplier = getLightAttractionMultiplier(installedUpgrades, ships, musicPlaying)
         const distanceLodMultiplier = this.getDistanceLodMultiplier(camera)
+        const showActive = lightingSystem.isShowActive()
 
         const targetCounts = getAmbientCounts(
             season,
@@ -126,13 +170,27 @@ class AmbientMarineLifeSystem {
             targetCounts[species] = Math.min(boosted, WILDLIFE_PROFILES[species].maxCount)
         }
 
+        // Extra bloom of bioluminescent species during an active light-show
+        if (showActive) {
+            const bloomFactor = 1 + 0.2 * this.beatReactivity
+            targetCounts.moon_jellyfish = Math.min(
+                WILDLIFE_PROFILES.moon_jellyfish.maxCount,
+                Math.round(targetCounts.moon_jellyfish * bloomFactor)
+            )
+            targetCounts.night_plankton = Math.min(
+                WILDLIFE_PROFILES.night_plankton.maxCount,
+                Math.round(targetCounts.night_plankton * bloomFactor)
+            )
+        }
+
         this.spawnAccumulator += delta
         if (this.spawnAccumulator >= this.SPAWN_INTERVAL) {
             this.spawnAccumulator = 0
             this.reconcile(targetCounts, camera, cameraMode, focusedViewport)
         }
 
-        this.animate(delta, spreaderPos)
+        const audioData = getAudioAnalysisData()
+        this.animate(delta, spreaderPos, audioData, showActive)
     }
 
     private getDistanceLodMultiplier(camera?: THREE.Camera): number {
@@ -236,18 +294,66 @@ class AmbientMarineLifeSystem {
         }
     }
 
-    private animate(delta: number, spreaderPos: { x: number; y: number; z: number }) {
+    private animate(
+        delta: number,
+        spreaderPos: { x: number; y: number; z: number },
+        audioData: AudioAnalysisData,
+        showActive: boolean
+    ) {
         const time = Date.now() / 1000
         const disturbanceRadius = 15
         const disturbanceStrength = 2.5
         const decay = 1.5 * delta
+        const beatBoost = getBeatReactiveMultiplier(
+            audioData.beatPhase,
+            audioData.energy,
+            showActive,
+            this.beatReactivity
+        )
+        const fishCohesion = getFishSchoolCohesionFactor(
+            showActive,
+            audioData.energy,
+            this.beatReactivity
+        )
+
+        const finaleElapsed = this.finaleState.active
+            ? (Date.now() - this.finaleState.startTime) / 1000
+            : 0
+        const finaleEnvelope = this.finaleState.active
+            ? getFinaleConvergenceEnvelope(finaleElapsed, this.finaleState.duration / 1000)
+            : 0
+        if (this.finaleState.active && finaleEnvelope <= 0) {
+            this.finaleState.active = false
+            this.finaleState.targetShipId = null
+        }
+        const [finaleX, finaleY, finaleZ] = this.finaleState.targetPosition
+
+        // Pre-compute fish-school centroid for cohesion
+        const fishSchool = this.state.creatures.fish_school
+        let fishCentroidX = 0
+        let fishCentroidY = 0
+        let fishCentroidZ = 0
+        if (fishCohesion > 0 && fishSchool.length > 0) {
+            for (const c of fishSchool) {
+                fishCentroidX += c.position[0]
+                fishCentroidY += c.position[1]
+                fishCentroidZ += c.position[2]
+            }
+            fishCentroidX /= fishSchool.length
+            fishCentroidY /= fishSchool.length
+            fishCentroidZ /= fishSchool.length
+        }
 
         for (const species of Object.keys(this.state.creatures) as AmbientSpecies[]) {
             const creatures = this.state.creatures[species]
             const isAirborne = species === 'seabird_flock'
             const isWhale = species === 'gray_whale'
             const isKelp = species === 'kelp_bed'
+            const isFish = species === 'fish_school'
+            const isJelly = species === 'moon_jellyfish'
+            const isPlankton = species === 'night_plankton'
             const isDisturbable = DISTURBABLE_SPECIES.includes(species)
+            const attractedToFinale = (isJelly || isPlankton) && finaleEnvelope > 0
 
             for (const creature of creatures) {
                 // Interaction hook: crane spreader disturbs nearby underwater life
@@ -279,14 +385,36 @@ class AmbientMarineLifeSystem {
                 creature.driftVelocity[1] *= damping
 
                 // Gentle drift with per-creature phase
+                const cohesionDamp = isFish ? 1 - fishCohesion * 0.6 : 1
                 const baseSpeed = creature.speed * (1 + creature.disturbance * 2)
-                const driftX = Math.sin(time * baseSpeed * 0.3 + creature.phase) * 0.5 * delta
-                const driftZ = Math.cos(time * baseSpeed * 0.25 + creature.phase) * 0.5 * delta
+                const driftX = Math.sin(time * baseSpeed * 0.3 + creature.phase) * 0.5 * delta * cohesionDamp
+                const driftZ = Math.cos(time * baseSpeed * 0.25 + creature.phase) * 0.5 * delta * cohesionDamp
                 const driftY = Math.sin(time * baseSpeed * 0.5 + creature.phase) * 0.1 * delta
 
                 creature.position[0] += driftX + creature.driftVelocity[0] * delta
                 creature.position[2] += driftZ + creature.driftVelocity[1] * delta
                 creature.position[1] += driftY + (isKelp ? 0 : creature.disturbance * 0.5 * delta)
+
+                // Fish-school cohesion: tighten toward centroid during active shows
+                if (isFish && fishCohesion > 0) {
+                    creature.position[0] += (fishCentroidX - creature.position[0]) * fishCohesion * delta
+                    creature.position[1] += (fishCentroidY - creature.position[1]) * fishCohesion * delta * 0.3
+                    creature.position[2] += (fishCentroidZ - creature.position[2]) * fishCohesion * delta
+                }
+
+                // Bioluminescent Finale: jellies and plankton drift toward the finished ship
+                if (attractedToFinale) {
+                    const fdx = finaleX - creature.position[0]
+                    const fdy = finaleY - creature.position[1]
+                    const fdz = finaleZ - creature.position[2]
+                    const fdist = Math.sqrt(fdx * fdx + fdy * fdy + fdz * fdz)
+                    const attractionStrength = Math.min(1, finaleEnvelope * 0.7)
+                    if (fdist > 0.5) {
+                        creature.position[0] += (fdx / fdist) * attractionStrength * delta * 3
+                        creature.position[1] += (fdy / fdist) * attractionStrength * delta * 1.5
+                        creature.position[2] += (fdz / fdist) * attractionStrength * delta * 3
+                    }
+                }
 
                 // Wrap around horizontal bounds to keep schools in the harbor
                 if (creature.position[0] > DEFAULT_BOUNDS.xMax) creature.position[0] = DEFAULT_BOUNDS.xMin
@@ -346,6 +474,8 @@ class AmbientMarineLifeSystem {
             kelp_bed: 0
         }
         this.spawnAccumulator = 0
+        this.finaleState.active = false
+        this.finaleState.targetShipId = null
     }
 }
 

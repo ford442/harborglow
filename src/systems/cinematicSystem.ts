@@ -2,6 +2,7 @@ import { ShipType } from '../store/useGameStore'
 import { sequencerSystem } from './sequencerSystem'
 import { musicSystem } from './musicSystem'
 import { lightingSystem } from './lightingSystem'
+import { ambientMarineLifeSystem } from './ambientMarineLifeSystem'
 import { useGameStore } from '../store/useGameStore'
 import { getCutawayPlan } from './cutaways'
 import { CutawayAction } from './cutaways/types'
@@ -60,6 +61,12 @@ export function triggerUpgradeCinematic(shipType: ShipType, shipId: string): voi
   musicSystem.startMusic(shipType)
   lightingSystem.startHarborShow(shipId, shipType)
   useGameStore.getState().setMusicPlaying(shipId, true)
+
+  // Trigger the ambient bioluminescent finale: jellies + plankton converge on the ship
+  const ship = useGameStore.getState().ships.find((s) => s.id === shipId)
+  if (ship) {
+    ambientMarineLifeSystem.triggerBioluminescentFinale(shipId, ship.position)
+  }
 
   for (const cue of getCutawayPlan(shipType)) {
     sequencerSystem.schedule(cue.beat, () => {

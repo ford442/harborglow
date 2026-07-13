@@ -133,6 +133,8 @@ function Bird({
     const birdRef = useRef<THREE.Group>(null)
     const wingsRef = useRef<THREE.Group>(null)
     const bodyMats = useRef<Array<THREE.MeshStandardMaterial | null>>([])
+    const hadTargetRef = useRef(false)
+    const scatterUntilRef = useRef(0)
 
     useFrame((state) => {
         const bird = birdRef.current
@@ -148,29 +150,43 @@ function Bird({
             ? attractTarget
             : instance.center
 
+        // One-shot scatter when a show first starts, then let the existing gather logic pull them back
+        if (attractTarget && !hadTargetRef.current) {
+            scatterUntilRef.current = state.clock.elapsedTime + 0.7 + Math.random() * 0.3
+        }
+        hadTargetRef.current = !!attractTarget
+        const scatterRemaining = Math.max(0, scatterUntilRef.current - state.clock.elapsedTime)
+        const scatterStrength = scatterRemaining > 0 ? scatterRemaining / 1.0 : 0
+
         const centerBlend = attractTarget ? Math.min(0.75, 0.25 + nightBlend * 0.35 + (showActive ? 0.2 : 0)) : 0
         const cx = THREE.MathUtils.lerp(instance.center[0], targetCenter[0], centerBlend)
         const cy = THREE.MathUtils.lerp(instance.center[1], targetCenter[1] + 2.5, centerBlend)
         const cz = THREE.MathUtils.lerp(instance.center[2], targetCenter[2], centerBlend)
         const radius = instance.radius * (attractTarget ? 0.68 : 1)
 
+        // Scatter direction: away from the attract target, seeded by phase for variety
+        const scatterAngle = instance.phase
+        const scatterX = Math.cos(scatterAngle) * scatterStrength * 4
+        const scatterZ = Math.sin(scatterAngle) * scatterStrength * 4
+        const scatterY = scatterStrength * 1.5
+
         if (instance.behavior === 'soaring') {
-            bird.position.x = cx + Math.cos(t * speed) * radius
-            bird.position.y = cy + Math.sin(t * speed * 0.6) * instance.heightAmp
-            bird.position.z = cz + Math.sin(t * speed) * radius
+            bird.position.x = cx + Math.cos(t * speed) * radius + scatterX
+            bird.position.y = cy + Math.sin(t * speed * 0.6) * instance.heightAmp + scatterY
+            bird.position.z = cz + Math.sin(t * speed) * radius + scatterZ
             bird.rotation.y = -t * speed + Math.PI / 2
             bird.rotation.z = Math.cos(t * speed) * 0.18
         } else if (instance.behavior === 'diving') {
             const diveCycle = (t * speed * 1.2) % (Math.PI * 2)
-            bird.position.x = cx + Math.cos(diveCycle) * (radius * 0.45)
-            bird.position.z = cz + Math.sin(diveCycle * 0.7) * (radius * 0.6)
-            bird.position.y = Math.max(2.5, cy + 7 - Math.abs(Math.sin(diveCycle)) * 12)
+            bird.position.x = cx + Math.cos(diveCycle) * (radius * 0.45) + scatterX
+            bird.position.z = cz + Math.sin(diveCycle * 0.7) * (radius * 0.6) + scatterZ
+            bird.position.y = Math.max(2.5, cy + 7 - Math.abs(Math.sin(diveCycle)) * 12 + scatterY)
             bird.rotation.x = Math.sin(diveCycle) * 0.75
             bird.rotation.y = Math.atan2(Math.cos(diveCycle), -Math.sin(diveCycle))
         } else {
-            bird.position.x = cx + Math.cos(t * speed) * radius
-            bird.position.y = Math.max(5, cy + Math.sin(t * speed * 0.8) * instance.heightAmp)
-            bird.position.z = cz + Math.sin(t * speed) * radius
+            bird.position.x = cx + Math.cos(t * speed) * radius + scatterX
+            bird.position.y = Math.max(5, cy + Math.sin(t * speed * 0.8) * instance.heightAmp + scatterY)
+            bird.position.z = cz + Math.sin(t * speed) * radius + scatterZ
             bird.rotation.y = -t * speed + Math.PI / 2
             bird.rotation.z = Math.cos(t * speed) * 0.27
         }

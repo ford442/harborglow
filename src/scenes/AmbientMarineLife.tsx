@@ -10,9 +10,11 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore, type Season } from '../store/useGameStore'
 import { ambientMarineLifeSystem, type AmbientCreature } from '../systems/ambientMarineLifeSystem'
-import { useMusicPulse } from '../hooks/useMusicPulse'
+import { getAudioAnalysisData } from '../systems/audioVisualSync'
+import { lightingSystem } from '../systems/lightingSystem'
 import {
     WILDLIFE_PROFILES,
+    getBeatReactiveMultiplier,
     getSeasonalColor,
     type AmbientSpecies
 } from '../systems/wildlifeProfiles'
@@ -28,8 +30,7 @@ interface InstancedSpeciesProps {
     season: Season
     geometry: THREE.BufferGeometry
     material: THREE.Material
-    pulse: number
-    getScale?: (creature: AmbientCreature, baseScale: number, pulse: number, time: number) => [number, number, number]
+    getScale?: (creature: AmbientCreature, baseScale: number, beatBoost: number, time: number) => [number, number, number]
     getRotation?: (creature: AmbientCreature, time: number) => THREE.Euler
 }
 
@@ -38,7 +39,6 @@ function GenericInstancedSpecies({
     season,
     geometry,
     material,
-    pulse,
     getScale,
     getRotation
 }: InstancedSpeciesProps) {
@@ -49,6 +49,14 @@ function GenericInstancedSpecies({
         if (!meshRef.current) return
         const creatures = ambientMarineLifeSystem.getState().creatures[species]
         const time = state.clock.elapsedTime
+        const audioData = getAudioAnalysisData()
+        const showActive = lightingSystem.isShowActive()
+        const beatBoost = getBeatReactiveMultiplier(
+            audioData.beatPhase,
+            audioData.energy,
+            showActive,
+            ambientMarineLifeSystem.getBeatReactivity()
+        )
 
         for (let i = 0; i < creatures.length; i++) {
             const c = creatures[i]
@@ -62,7 +70,7 @@ function GenericInstancedSpecies({
 
             const baseScale = c.scale
             if (getScale) {
-                tempScale.set(...getScale(c, baseScale, pulse, time))
+                tempScale.set(...getScale(c, baseScale, beatBoost, time))
             } else {
                 tempScale.set(baseScale, baseScale, baseScale)
             }
@@ -71,10 +79,10 @@ function GenericInstancedSpecies({
             meshRef.current.setMatrixAt(i, tempMatrix)
 
             // Per-instance color: base seasonal tint with slight individual variation
-            // Disturbed creatures flash brighter
+            // Disturbed creatures flash brighter; beat reactivity adds a global pulse
             const variation = 0.92 + Math.sin(c.phase) * 0.08
             const disturbanceBoost = 1 + c.disturbance * 0.5
-            tempColor.copy(baseColor).multiplyScalar(variation * disturbanceBoost)
+            tempColor.copy(baseColor).multiplyScalar(variation * disturbanceBoost * beatBoost)
             meshRef.current.setColorAt(i, tempColor)
         }
 
@@ -98,8 +106,8 @@ function MoonJellyfishInstanced(props: Omit<InstancedSpeciesProps, 'getScale'>) 
     return (
         <GenericInstancedSpecies
             {...props}
-            getScale={(c, base, pulse, time) => {
-                const breathe = 1 + Math.sin(time * 1.5 + c.phase) * 0.15 * (1 + pulse * 0.3)
+            getScale={(c, base, beatBoost, time) => {
+                const breathe = 1 + Math.sin(time * 1.5 + c.phase) * 0.15 * beatBoost
                 const s = base * breathe
                 return [s, s * 0.6, s]
             }}
@@ -167,8 +175,8 @@ function KelpBedInstanced(props: Omit<InstancedSpeciesProps, 'getScale' | 'getRo
     return (
         <GenericInstancedSpecies
             {...props}
-            getScale={(c, base, pulse, time) => {
-                const sway = 1 + Math.sin(time * 0.8 + c.phase) * 0.08 * (1 + pulse * 0.2)
+            getScale={(c, base, beatBoost, time) => {
+                const sway = 1 + Math.sin(time * 0.8 + c.phase) * 0.08 * beatBoost
                 const height = base * 5 * (1 + c.disturbance * 0.3)
                 return [base * 0.25 * sway, height, base * 0.25]
             }}
@@ -180,8 +188,9 @@ function KelpBedInstanced(props: Omit<InstancedSpeciesProps, 'getScale' | 'getRo
     )
 }
 
-function NightPlanktonPoints({ species, season, pulse }: { species: AmbientSpecies; season: Season; pulse: number }) {
+function NightPlanktonPoints({ species, season }: { species: AmbientSpecies; season: Season }) {
     const pointsRef = useRef<THREE.Points>(null)
+    const baseColor = useMemo(() => new THREE.Color(getSeasonalColor(species, season)), [species, season])
     const geometry = useMemo(() => {
         const geo = new THREE.BufferGeometry()
         const positions = new Float32Array(WILDLIFE_PROFILES[species].maxCount * 3)
@@ -191,7 +200,7 @@ function NightPlanktonPoints({ species, season, pulse }: { species: AmbientSpeci
 
     const material = useMemo(() => {
         return new THREE.PointsMaterial({
-            color: getSeasonalColor(species, season),
+            color: baseColor,
             size: 0.35,
             transparent: true,
             opacity: 0.6,
@@ -199,13 +208,12 @@ function NightPlanktonPoints({ species, season, pulse }: { species: AmbientSpeci
             depthWrite: false,
             sizeAttenuation: true
         })
-    }, [species, season])
+    }, [baseColor])
 
-    useFrame((state) => {
+    useFrame(() => {
         if (!pointsRef.current) return
         const creatures = ambientMarineLifeSystem.getState().creatures[species]
         const positions = pointsRef.current.geometry.attributes.position.array as Float32Array
-        const time = state.clock.elapsedTime
 
         for (let i = 0; i < creatures.length; i++) {
             const c = creatures[i]
@@ -217,9 +225,17 @@ function NightPlanktonPoints({ species, season, pulse }: { species: AmbientSpeci
         pointsRef.current.geometry.setDrawRange(0, creatures.length)
         pointsRef.current.geometry.attributes.position.needsUpdate = true
 
-        const baseOpacity = 0.55
+        const audioData = getAudioAnalysisData()
+        const showActive = lightingSystem.isShowActive()
+        const beatBoost = getBeatReactiveMultiplier(
+            audioData.beatPhase,
+            audioData.energy,
+            showActive,
+            ambientMarineLifeSystem.getBeatReactivity()
+        )
         const mat = pointsRef.current.material as THREE.PointsMaterial
-        mat.opacity = baseOpacity + pulse * 0.2
+        mat.color.copy(baseColor).multiplyScalar(beatBoost)
+        mat.opacity = 0.55 + (beatBoost - 1) * 0.25
     })
 
     return (
@@ -230,8 +246,6 @@ function NightPlanktonPoints({ species, season, pulse }: { species: AmbientSpeci
 export default function AmbientMarineLife() {
     const enableMarineLife = useGameStore((s) => s.enableMarineLife)
     const season = useGameStore((s) => s.season)
-    const bpm = useGameStore((s) => s.bpm)
-    const pulse = useMusicPulse(bpm)
 
     const jellyfishGeometry = useMemo(() => new THREE.SphereGeometry(1, 16, 12), [])
 
@@ -299,37 +313,32 @@ export default function AmbientMarineLife() {
                 season={season}
                 geometry={jellyfishGeometry}
                 material={jellyfishMaterial}
-                pulse={pulse}
             />
             <FishSchoolInstanced
                 species="fish_school"
                 season={season}
                 geometry={fishGeometry}
                 material={fishMaterial}
-                pulse={pulse}
             />
             <GrayWhaleInstanced
                 species="gray_whale"
                 season={season}
                 geometry={whaleGeometry}
                 material={whaleMaterial}
-                pulse={pulse}
             />
             <SeabirdFlockInstanced
                 species="seabird_flock"
                 season={season}
                 geometry={seabirdGeometry}
                 material={seabirdMaterial}
-                pulse={pulse}
             />
             <KelpBedInstanced
                 species="kelp_bed"
                 season={season}
                 geometry={kelpGeometry}
                 material={kelpMaterial}
-                pulse={pulse}
             />
-            <NightPlanktonPoints species="night_plankton" season={season} pulse={pulse} />
+            <NightPlanktonPoints species="night_plankton" season={season} />
         </group>
     )
 }

@@ -12,6 +12,9 @@ import {
     getCameraAwareMultiplier,
     getSeasonalColor,
     getLightAttractionMultiplier,
+    getBeatReactiveMultiplier,
+    getFishSchoolCohesionFactor,
+    getFinaleConvergenceEnvelope,
     type AmbientSpecies,
     type Season,
     type TimeOfDay,
@@ -248,6 +251,94 @@ describe('wildlifeProfiles', () => {
             expect(QUALITY_LOD_MULTIPLIER.low).toBe(0.4)
             expect(QUALITY_LOD_MULTIPLIER.medium).toBe(0.7)
             expect(QUALITY_LOD_MULTIPLIER.high).toBe(1.0)
+        })
+    })
+
+    describe('getBeatReactiveMultiplier', () => {
+        it('returns neutral 1.0 when no show is active', () => {
+            expect(getBeatReactiveMultiplier(0.5, 0.8, false, 1)).toBe(1.0)
+        })
+
+        it('returns neutral 1.0 when reactivity is disabled', () => {
+            expect(getBeatReactiveMultiplier(1, 1, true, 0)).toBe(1.0)
+            expect(getBeatReactiveMultiplier(1, 1, true, -0.5)).toBe(1.0)
+        })
+
+        it('boosts intensity when a show is active and clamps to 1.8', () => {
+            const low = getBeatReactiveMultiplier(0, 0, true, 1)
+            const mid = getBeatReactiveMultiplier(0.5, 0.5, true, 1)
+            const max = getBeatReactiveMultiplier(1, 1, true, 1)
+            expect(low).toBeGreaterThan(1)
+            expect(mid).toBeGreaterThan(low)
+            expect(max).toBe(1.8)
+        })
+
+        it('scales linearly with reactivity', () => {
+            const zero = getBeatReactiveMultiplier(1, 1, true, 0)
+            const half = getBeatReactiveMultiplier(1, 1, true, 0.5)
+            const full = getBeatReactiveMultiplier(1, 1, true, 1)
+            expect(zero).toBe(1.0)
+            expect(half).toBeCloseTo(1.4, 5)
+            expect(full).toBe(1.8)
+        })
+
+        it('clamps reactivity above 1', () => {
+            expect(getBeatReactiveMultiplier(1, 1, true, 5)).toBe(1.8)
+        })
+    })
+
+    describe('getFishSchoolCohesionFactor', () => {
+        it('returns 0 when no show is active', () => {
+            expect(getFishSchoolCohesionFactor(false, 1, 1)).toBe(0)
+        })
+
+        it('returns 0 when reactivity is disabled', () => {
+            expect(getFishSchoolCohesionFactor(true, 1, 0)).toBe(0)
+        })
+
+        it('increases with energy during a show', () => {
+            const lowEnergy = getFishSchoolCohesionFactor(true, 0, 1)
+            const highEnergy = getFishSchoolCohesionFactor(true, 1, 1)
+            expect(lowEnergy).toBe(0.25)
+            expect(highEnergy).toBe(1)
+            expect(highEnergy).toBeGreaterThan(lowEnergy)
+        })
+
+        it('scales with reactivity and clamps at 1', () => {
+            expect(getFishSchoolCohesionFactor(true, 1, 0.5)).toBe(0.5)
+            expect(getFishSchoolCohesionFactor(true, 1, 2)).toBe(1)
+        })
+    })
+
+    describe('getFinaleConvergenceEnvelope', () => {
+        it('returns 0 outside the finale window', () => {
+            expect(getFinaleConvergenceEnvelope(-1, 10)).toBe(0)
+            expect(getFinaleConvergenceEnvelope(0, 10)).toBe(0)
+            expect(getFinaleConvergenceEnvelope(10, 10)).toBe(0)
+            expect(getFinaleConvergenceEnvelope(15, 10)).toBe(0)
+        })
+
+        it('ramps in during the attack portion', () => {
+            const atStart = getFinaleConvergenceEnvelope(0.01, 10)
+            const midAttack = getFinaleConvergenceEnvelope(0.75, 10)
+            expect(atStart).toBeGreaterThan(0)
+            expect(midAttack).toBeGreaterThan(atStart)
+            expect(getFinaleConvergenceEnvelope(1.5, 10)).toBe(1)
+        })
+
+        it('ramps out during the release portion', () => {
+            const beforeRelease = getFinaleConvergenceEnvelope(7.0, 10)
+            const midRelease = getFinaleConvergenceEnvelope(8.5, 10)
+            const endRelease = getFinaleConvergenceEnvelope(9.99, 10)
+            expect(beforeRelease).toBe(1)
+            expect(midRelease).toBeLessThan(beforeRelease)
+            expect(endRelease).toBeGreaterThan(0)
+            expect(endRelease).toBeLessThan(midRelease)
+        })
+
+        it('handles zero or negative duration safely', () => {
+            expect(getFinaleConvergenceEnvelope(1, 0)).toBe(0)
+            expect(getFinaleConvergenceEnvelope(1, -5)).toBe(0)
         })
     })
 })
