@@ -584,3 +584,20 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 ---
 
 *Last updated: May 2026 — based on direct codebase analysis of 145 source files.*
+
+## Cursor Cloud specific instructions
+
+Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `preview`) and are described above; this section only records non-obvious caveats found while setting up the environment.
+
+### Running the app / dev server
+- Dev server: `npm run dev` (Vite, `host: 0.0.0.0`, port `5173`). For agent/automated testing always open `http://localhost:5173/?renderer=webgl` — the default WebGPU path is hard to introspect from headless browsers, and `?renderer=webgl` skips the WebGPU renderer entirely (see the "Renderer Backends" section).
+- `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
+
+### Known blocker: dev game scene fails to load (pre-existing code bug)
+- The main menu loads and is fully interactive, but clicking **New Game / Training / Tugboat Captain** lazy-loads `MainScene`, which imports `src/scenes/mainScene/MainSceneHelpers.tsx`. In `npm run dev` this throws `[plugin:vite:react-babel] ... Identifier 'LevaControlsConfig' has already been declared. (434:10)`.
+- Root cause is a corrupted auto-modularization of that file: it declares `LevaControlsConfig` twice (an `export type` near the top and an `interface` lower down), imports `useControls`/`harborEvents` twice, and stubs runtime values (`const ShipComponent = () => null`, `const CAMERA_MODES = {}`, no-op sound fns). A `// @ts-nocheck` header hides all of this from `tsc`, and the esbuild-based production build tolerates the duplicates — but the strict Babel dev transform (`@vitejs/plugin-react`) does not. Because ships render through the stubbed `ShipComponent`, even a production build would show no ships.
+- This is an application-code bug, not an environment/dependency issue, and is out of scope for environment setup. Fixing full gameplay requires repairing `MainSceneHelpers.tsx` (dedupe `LevaControlsConfig`/imports and restore the real `ShipComponent`/`AtSeaShip` imports).
+
+### Other notes
+- `npm run lint` has one pre-existing error (`@typescript-eslint/ban-ts-comment` in `src/rendering/createRenderer.ts`) plus warnings; it exits non-zero independent of any setup work.
+- The `build:wasm` step (`cpp/build.sh`) self-skips when Emscripten (`em++`) is absent, so `npm run build` succeeds without the Emscripten SDK.
