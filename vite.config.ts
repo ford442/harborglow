@@ -79,5 +79,11 @@ export default defineConfig(({ mode }) => ({
             'tone',
         ],
         exclude: ['@react-three/rapier'], // Heavy, lazy load instead
+        // three's WebGPU modules (crawled via the lazy WebGPURenderer import) use
+        // top-level await, which the dev optimizer's default target rejects. Match
+        // the production build target so `vite dev` can prebundle them.
+        esbuildOptions: {
+            target: 'esnext',
+        },
     },
 }))
