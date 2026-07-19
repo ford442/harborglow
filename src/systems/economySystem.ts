@@ -3,7 +3,7 @@
 // Lightweight economy layer tied to crane + light-upgrade gameplay
 // =============================================================================
 
-import { useGameStore, ShipType, WeatherState } from '../store/useGameStore'
+import type { ShipType, WeatherState } from '../store/useGameStore'
 import { reputationSystem } from './reputationSystem'
 import { playSound } from './soundEffects'
 
@@ -246,11 +246,28 @@ export const SPECIALISTS: Specialist[] = [
 // ECONOMY SYSTEM CLASS
 // =============================================================================
 
+export function getUpgradeCost(upgradeId: string, currentLevel: number): number {
+  const upgrade = DOCK_UPGRADES.find(u => u.id === upgradeId)
+  if (!upgrade) return 0
+  const costMultiplier = 1 + (currentLevel * 0.5)
+  return Math.floor(upgrade.cost * costMultiplier)
+}
+
+export function getPortReputationTier(reputation: number): { name: string; color: string; badge: string } {
+  if (reputation >= 1000) return { name: 'Legendary', color: '#ffd700', badge: '🏆' }
+  if (reputation >= 750) return { name: 'Expert', color: '#ff4757', badge: '⭐' }
+  if (reputation >= 500) return { name: 'Veteran', color: '#ff9500', badge: '🏗️' }
+  if (reputation >= 250) return { name: 'Operator', color: '#00d4aa', badge: '⚓' }
+  if (reputation >= 100) return { name: 'Apprentice', color: '#4a9eff', badge: '🔧' }
+  return { name: 'Novice', color: '#888888', badge: '🌱' }
+}
+
 export class EconomySystem {
   private state: EconomyState = { ...DEFAULT_ECONOMY_STATE }
   private upgradeLevels: Map<string, number> = new Map()
   private consecutiveSuccesses: number = 0
   private listeners: Set<(state: EconomyState) => void> = new Set()
+  private purchaseInProgress = false
 
   constructor() {
     this.startShift()
@@ -447,55 +464,59 @@ export class EconomySystem {
   // ========================================================================
 
   purchaseUpgrade(upgradeId: string): boolean {
+    if (this.purchaseInProgress) return false
+
     const upgrade = DOCK_UPGRADES.find(u => u.id === upgradeId)
     if (!upgrade) return false
-    
+
     const currentLevel = this.getUpgradeLevel(upgradeId)
     if (currentLevel >= upgrade.maxLevel) return false
-    
-    // Calculate cost (increases with level)
-    const costMultiplier = 1 + (currentLevel * 0.5)
-    const cost = Math.floor(upgrade.cost * costMultiplier)
-    
+
+    const cost = getUpgradeCost(upgradeId, currentLevel)
     if (!this.canAfford(cost)) return false
-    
-    // Deduct credits
-    this.state.harborCredits -= cost
-    
-    // Apply upgrade
-    this.upgradeLevels.set(upgradeId, currentLevel + 1)
-    this.state.unlockedUpgrades.push(upgradeId)
-    
-    console.log(`🔧 Purchased ${upgrade.name} (Level ${currentLevel + 1}) for ${cost} HC`)
-    
-    this.notifyListeners()
-    return true
+
+    this.purchaseInProgress = true
+    try {
+      this.state.harborCredits -= cost
+      this.upgradeLevels.set(upgradeId, currentLevel + 1)
+      this.state.unlockedUpgrades.push(upgradeId)
+      playSound('installComplete')
+      console.log(`🔧 Purchased ${upgrade.name} (Level ${currentLevel + 1}) for ${cost} HC`)
+      this.notifyListeners()
+      return true
+    } finally {
+      this.purchaseInProgress = false
+    }
   }
 
   hireSpecialist(specialistId: string): boolean {
+    if (this.purchaseInProgress) return false
+
     const specialist = SPECIALISTS.find(s => s.id === specialistId)
     if (!specialist) return false
-    
+
     if (!this.canAfford(specialist.cost)) return false
-    
-    // Deduct credits
-    this.state.harborCredits -= specialist.cost
-    
-    // Add boost
-    const boost: ActiveBoost = {
-      id: `${specialistId}-${Date.now()}`,
-      type: specialist.boostType,
-      multiplier: specialist.multiplier,
-      expiresAt: Date.now() + (specialist.duration * 1000),
-      description: `${specialist.name}: ${specialist.description}`
+
+    this.purchaseInProgress = true
+    try {
+      this.state.harborCredits -= specialist.cost
+
+      const boost: ActiveBoost = {
+        id: `${specialistId}-${Date.now()}`,
+        type: specialist.boostType,
+        multiplier: specialist.multiplier,
+        expiresAt: Date.now() + (specialist.duration * 1000),
+        description: `${specialist.name}: ${specialist.description}`
+      }
+
+      this.state.activeBoosts.push(boost)
+      playSound('installComplete')
+      console.log(`👷 Hired ${specialist.name} for ${specialist.cost} HC`)
+      this.notifyListeners()
+      return true
+    } finally {
+      this.purchaseInProgress = false
     }
-    
-    this.state.activeBoosts.push(boost)
-    
-    console.log(`👷 Hired ${specialist.name} for ${specialist.cost} HC`)
-    
-    this.notifyListeners()
-    return true
   }
 
   // ========================================================================
@@ -612,6 +633,15 @@ export class EconomySystem {
 
   private notifyListeners(): void {
     this.listeners.forEach(listener => listener(this.getState()))
+    this.persistToStorage()
+  }
+
+  private persistToStorage(): void {
+    void import('../store/useGameStore').then(({ useGameStore }) => {
+      void import('../store/gameStoreTypes').then(({ scheduleSave }) => {
+        scheduleSave(useGameStore.getState())
+      })
+    })
   }
 
   // ========================================================================
@@ -667,6 +697,7 @@ export function useEconomySystem() {
     reputation: state.portReputation,
     canAfford: economySystem.canAfford.bind(economySystem),
     getUpgradeLevel: economySystem.getUpgradeLevel.bind(economySystem),
+    isUpgradeMaxed: economySystem.isUpgradeMaxed.bind(economySystem),
     purchaseUpgrade: economySystem.purchaseUpgrade.bind(economySystem),
     hireSpecialist: economySystem.hireSpecialist.bind(economySystem),
     getActiveBoosts: economySystem.getActiveBoosts.bind(economySystem),

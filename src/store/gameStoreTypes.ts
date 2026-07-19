@@ -18,6 +18,7 @@ import {
   isTugboatTrainingModule,
 } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
+import { economySystem } from '../systems/economySystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
 import type { WaveParams } from '../systems/WaveSystem'
 import { isCameraPresetId } from '../types/CameraPreset'
@@ -859,6 +860,7 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatUpgrades: state.tugboatUpgrades,
     waveParams: state.waveParams,
     money: state.money,
+    economyData: economySystem.serialize(),
     season: state.season,
     wildlifeDensity: state.wildlifeDensity,
     enableMarineLife: state.enableMarineLife,

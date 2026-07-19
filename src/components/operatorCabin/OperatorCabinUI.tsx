@@ -16,9 +16,10 @@ import * as styles from './styles';
 
 export interface OperatorCabinUIProps {
   onOpenTraining?: () => void
+  onOpenShop?: () => void
 }
 
-export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
+export function OperatorCabinUI({ onOpenTraining, onOpenShop }: OperatorCabinUIProps = {}) {
   const viewMode = useGameStore((state: any) => state.cabinViewMode)
   const setCabinViewMode = useGameStore((state: any) => state.setCabinViewMode)
   const currentShip = useGameStore((state: any) =>
@@ -139,7 +140,7 @@ export function OperatorCabinUI({ onOpenTraining }: OperatorCabinUIProps = {}) {
       )}
 
       {/* Operator Status Panel */}
-      <OperatorStatusPanel />
+      <OperatorStatusPanel onOpenShop={onOpenShop} />
 
       {/* Monitor Bezel Overlay Effect */}
       <div style={styles.bezelOverlayStyle}>
