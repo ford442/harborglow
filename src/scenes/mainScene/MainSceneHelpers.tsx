@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Ship, useGameStore, WeatherState } from '../../store/useGameStore';
 import { musicSystem } from '../../systems/musicSystem';
 import { useControls as useLeva, button } from 'leva';
-import { harborEvents, HarborEventType } from '../../systems/dynamicEventSystem';
 import { economySystem } from '../../systems/economySystem';
 import ProceduralShip from '../ProceduralShip';
 import { ShipSpawner } from '../../systems/shipSpawner';
@@ -15,13 +12,32 @@ import { lightingSystem } from '../../systems/lightingSystem';
 import { ambientMarineLifeSystem } from '../../systems/ambientMarineLifeSystem';
 import { VolumetricLightCone } from '../VolumetricLighting';
 import { buildGodRayMaterial, updateGodRay } from '../../shaders/lightShowNodes';
-const AtSeaShip = () => null; const ShipComponent = () => null;
+import ShipComponent from '../Ship';
 import { CameraMode } from '../../store/useGameStore';
-import { harborEvents } from '../../systems/dynamicEventSystem';
 import { useControls } from 'leva';
 import { ShipType } from '../../store/useGameStore';
 import { timeSystem, DayPhase } from '../../systems/timeSystem';
-const CAMERA_MODES = {};
+
+/** Mirrors the AtSeaShip shape tracked by MainScene's atSeaShipsRef. */
+export interface AtSeaShip {
+    shipId: string
+    returnTime: number
+    originalPosition: [number, number, number]
+}
+
+const CAMERA_MODES = [
+    'orbit',
+    'crane-cockpit',
+    'crane-shoulder',
+    'crane-top',
+    'ship-low',
+    'ship-aerial',
+    'ship-water',
+    'ship-rig',
+    'spectator',
+    'crane',
+    'booth'
+] as const;
 import { weatherSystem, WeatherType } from '../../systems/weatherSystem';
 import { moonSystem, MoonPhaseName } from '../../systems/moonSystem';
 import { trafficSystem } from '../../systems/trafficSystem';
@@ -31,13 +47,11 @@ import { waveSystem } from '../../systems/WaveSystem';
 import { trainingSystem, TrainingModuleId } from '../../systems/trainingSystem';
 import { dynamicEventSystem } from '../../systems/dynamicEventSystem';
 import { reputationSystem } from '../../systems/reputationSystem';
-const setCraneSoundVolume = () => {}; const setCraneSoundsEnabled = () => {}; const playBirdCall = () => {}; const playFoghorn = () => {}; const playShipHorn = () => {}; const playRadioChatter = () => {}; const playContainerImpact = () => {}; const playTwistlockEngage = () => {};
+import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTwistlockEngage } from '../../systems/craneSoundSystem';
+import { playBirdCall, playFoghorn, playShipHorn, playRadioChatter } from '../../systems/ambientSoundSystem';
+import { harborEventSystem } from '../../systems/eventSystem/HarborEventSystem';
 import UnderwaterCamera from '../UnderwaterCamera';
 
-export type LevaControlsConfig = Record<string, any>
-export interface ShipSchedulingConfig { [key: string]: any }
-export interface SpectatorCameraConfig { [key: string]: any }
-export interface DepartingShipsConfig { [key: string]: any }
 
 
 
@@ -432,7 +446,7 @@ export function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remaini
 // HOOKS
 // =============================================================================
 
-interface LevaControlsConfig {
+export interface LevaControlsConfig {
     currentShip?: Ship
     ships: Ship[]
     timeOfDay: number
@@ -1367,7 +1381,7 @@ export function useLevaControls(config: LevaControlsConfig) {
     })
 }
 
-interface ShipSchedulingConfig {
+export interface ShipSchedulingConfig {
     ships: Ship[]
     departingShips: Set<string>
     setDepartingShips: (ships: Set<string>) => void
@@ -1452,7 +1466,7 @@ export function getSunPosition(hour: number): [number, number, number] {
     ]
 }
 
-interface SpectatorCameraConfig {
+export interface SpectatorCameraConfig {
     spectatorState: { isActive: boolean; targetShipId: string | null }
     ships: Ship[]
     delta: number
@@ -1474,7 +1488,7 @@ export function updateSpectatorCamera(config: SpectatorCameraConfig) {
     }
 }
 
-interface DepartingShipsConfig {
+export interface DepartingShipsConfig {
     departingShips: Set<string>
     shipPositionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>
     delta: number
