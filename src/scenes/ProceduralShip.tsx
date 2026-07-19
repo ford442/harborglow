@@ -1,59 +1,13 @@
-import { useRef, useMemo, useEffect, useState } from 'react';
+import { useRef, useMemo, useEffect, useState, lazy, Suspense } from 'react';
 import * as THREE from 'three';
-import { useGLTF } from '@react-three/drei';
-
-export function useShipModel(type: string) {
-  let url = '';
-  switch(type) {
-    case 'cruise': url = '/models/cruise_liner.glb'; break;
-    case 'container': url = '/models/container_vessel.glb'; break;
-    case 'tanker': url = '/models/oil_tanker.glb'; break;
-    default: url = '/models/container_vessel.glb'; break;
-  }
-
-  // Try to load but gracefully handle if they don't exist by returning null for now.
-  // In a real environment with the files, this would be:
-  // const gltf = useGLTF(url);
-  // and we'd return the scene and attachment points mapped.
-
-  // Here is the drafted mapping for when the models are provided:
-  const attachmentPoints = useMemo(() => {
-    const points: THREE.Group[] = [];
-    // if (!gltf) return points;
-    // const scene = gltf.scene.clone();
-
-    // Draft mapping named nodes from Blender-exported GLB
-    const pointNames: Record<string, string[]> = {
-      cruise: ['balcony_1', 'balcony_2', 'funnel_top', 'stern_curtain', 'deck_rail_1'],
-      container: ['stack_1_top', 'stack_2_top', 'billboard_left', 'mast_array_1'],
-      tanker: ['flare_stack', 'hull_port_1', 'deck_rail_1']
-    };
-
-    const names = pointNames[type] || [];
-    names.forEach(name => {
-      // Draft:
-      // const point = scene.getObjectByName(name) as THREE.Group;
-      // if (point) {
-      //   points.push(point);
-      //   const helper = new THREE.Mesh(
-      //     new THREE.BoxGeometry(0.5, 0.5, 0.5),
-      //     new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3 })
-      //   );
-      //   helper.name = `light_rig_target_${name}`;
-      //   point.add(helper);
-      // }
-    });
-
-    return points;
-  }, [type]);
-
-  return { scene: null, attachmentPoints }; // Replace null with gltf.scene when ready
-}
-
 import { Environment } from '@react-three/drei';
+import { useShipModel } from '../hooks/useShipModel';
+
+const LazyGlbShipModel = lazy(() => import('../ships/GlbShipModel'));
 import { useFrame } from '@react-three/fiber';
 import { getBlueprint, BlueprintPart, Lod2Data } from '../types/ShipBlueprint';
 import { useGameStore } from '../store/useGameStore';
+import type { ShipType } from '../store/gameStoreTypes';
 
 interface ProceduralShipProps {
   blueprintId: string;
@@ -687,6 +641,46 @@ const Lod2Impostor = ({ lod2, color }: { lod2: Lod2Data; color: string }) => {
   );
 };
 
+// LOD0 procedural hull (fallback when GLB missing or still loading)
+const ProceduralShipBody = ({
+  blueprint,
+}: {
+  blueprint: NonNullable<ReturnType<typeof getBlueprint>>
+}) => {
+  const shipDefaults = {
+    metalness: blueprint.metalness ?? 0.6,
+    roughness: blueprint.roughness ?? 0.4,
+    envMapIntensity: 1.0,
+  }
+
+  const shipLength = blueprint.parts.find((p) => p.type === 'box')?.size[0] || 50
+  const shipWidth = blueprint.parts.find((p) => p.type === 'box')?.size[2] || 10
+
+  return (
+    <>
+      {blueprint.envMap ? (
+        <Environment files={`/envmaps/${blueprint.envMap}.hdr`} />
+      ) : (
+        <Environment preset="studio" />
+      )}
+      {blueprint.parts.map((part) => (
+        <PBRPart key={part.id} part={part} shipDefaults={shipDefaults} shipType={blueprint.id} />
+      ))}
+      {blueprint.id === 'cruise' && <CruiseLinerDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'container' && <ContainerVesselDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'tanker' && <OilTankerDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'bulk' && <BulkCarrierDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'lng' && <LNGDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'roro' && <RoRoDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'research' && <ResearchDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'droneship' && <DroneshipDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'ferry' && <FerryDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'trawler' && <TrawlerDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'horizon' && <HorizonDetails shipLength={shipLength} shipWidth={shipWidth} />}
+    </>
+  )
+}
+
 // Main Procedural Ship Component
 export const ProceduralShip = ({ 
   blueprintId, 
@@ -698,6 +692,7 @@ export const ProceduralShip = ({
 }: ProceduralShipProps) => {
   const groupRef = useRef<THREE.Group>(null);
   const blueprint = useMemo(() => getBlueprint(blueprintId), [blueprintId, version]);
+  const shipModel = useShipModel(blueprintId as ShipType);
   
   if (!blueprint) {
     console.error(`❌ Blueprint not found: ${blueprintId}`);
@@ -718,17 +713,7 @@ export const ProceduralShip = ({
     );
   }
 
-  const shipDefaults = {
-    metalness: blueprint.metalness ?? 0.6,
-    roughness: blueprint.roughness ?? 0.4,
-    envMapIntensity: 1.0
-  };
-
-  const shipLength = blueprint.parts.find(p => p.type === 'box')?.size[0] || 50;
-  const shipWidth = blueprint.parts.find(p => p.type === 'box')?.size[2] || 10;
-
-  console.log(`🚢 Enhanced PBR ship loaded: ${blueprint.name}`);
-  console.log(`   ID: ${blueprint.id}, Metalness: ${shipDefaults.metalness}, Roughness: ${shipDefaults.roughness}`);
+  const renderGlb = shipModel.useGlb && lod !== 2
 
   return (
     <group
@@ -737,25 +722,13 @@ export const ProceduralShip = ({
       rotation={rotation}
       scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
     >
-      {blueprint?.envMap ? (
-        <Environment files={`/envmaps/${blueprint.envMap}.hdr`} />
+      {renderGlb && shipModel.url ? (
+        <Suspense fallback={<ProceduralShipBody blueprint={blueprint} />}>
+          <LazyGlbShipModel shipType={blueprintId} url={shipModel.url} />
+        </Suspense>
       ) : (
-        <Environment preset="studio" />
+        <ProceduralShipBody blueprint={blueprint} />
       )}
-      {blueprint.parts.map((part) => (
-        <PBRPart key={part.id} part={part} shipDefaults={shipDefaults} shipType={blueprint.id} />
-      ))}
-      {blueprint.id === 'cruise' && <CruiseLinerDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'container' && <ContainerVesselDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'tanker' && <OilTankerDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'bulk' && <BulkCarrierDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'lng' && <LNGDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'roro' && <RoRoDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'research' && <ResearchDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'droneship' && <DroneshipDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'ferry' && <FerryDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'trawler' && <TrawlerDetails shipLength={shipLength} shipWidth={shipWidth} />}
-      {blueprint.id === 'horizon' && <HorizonDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {children}
     </group>
   );

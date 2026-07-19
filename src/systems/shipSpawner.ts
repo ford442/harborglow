@@ -1,5 +1,6 @@
 import { useGameStore, ShipType, Ship, AttachmentPoint } from '../store/useGameStore'
 import { getBlueprint } from '../types/ShipBlueprint'
+import { getShipModelAttachmentPose, isShipModelAvailable } from '../ships/shipModelCache'
 
 // Ship name generators
 const CRUISE_NAMES = [
@@ -95,14 +96,15 @@ export class ShipSpawner {
         const name = this.generateShipName(type)
         const id = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
 
-        // Generate attachment points from blueprint
+        // Generate attachment points from GLB nodes when cached, else blueprint parts
+        const useGlbAttachments = isShipModelAvailable(type)
         const attachmentPoints: AttachmentPoint[] = blueprint.attachmentPoints.map((pointId) => {
-            // Find the part in blueprint to get position
             const part = blueprint.parts.find(p => p.id === pointId)
+            const glbPose = useGlbAttachments ? getShipModelAttachmentPose(type, pointId) : undefined
             return {
-                position: part?.position || [0, 0, 0],
-                rotation: part?.rotation || [0, 0, 0],
-                partName: pointId
+                position: glbPose?.position ?? part?.position ?? [0, 0, 0],
+                rotation: glbPose?.rotation ?? part?.rotation ?? [0, 0, 0],
+                partName: pointId,
             }
         })
 

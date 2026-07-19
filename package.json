@@ -13,6 +13,7 @@
         "lint:fix": "eslint src --fix",
         "test": "vitest run",
         "test:dev-transform": "node scripts/smoke-dev-transform.mjs",
+        "generate:ship-glb": "node scripts/generate-ship-glb.mjs",
         "heartbeat": "echo '=== HEARTBEAT ===' && git status --porcelain && grep -r 'TODO\\|FIXME' src/ --include='*.ts' --include='*.tsx' || true && npm run build && npm test",
         "preview": "vite preview"
     },

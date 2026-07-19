@@ -10,6 +10,59 @@ Any AI (Jules, Gemini, Claude, Cursor, Copilot, etc.) can add new vessels to the
 4. Add your name to `contributor`
 5. Save and run `npm run heartbeat`
 
+### GLB hulls (priority fleet)
+
+Three ship types ship with optional GLB hulls in `public/models/`:
+
+| Ship type | GLB file | Fallback |
+|-----------|----------|----------|
+| `cruise` | `cruise_liner.glb` | Procedural blueprint |
+| `container` | `container_vessel.glb` | Procedural blueprint |
+| `tanker` | `oil_tanker.glb` | Procedural blueprint |
+
+If a GLB is missing or fails to load, HarborGlow keeps the procedural hull — no crash.
+
+Regenerate placeholder GLBs from blueprint JSON:
+
+```bash
+npm run generate:ship-glb
+```
+
+Optional Draco pass (requires `@gltf-transform/cli` globally):
+
+```bash
+./scripts/compress-ship-glb.sh public/models/cruise_liner.glb public/models/cruise_liner.glb
+```
+
+## GLB Authoring Contract (v1)
+
+See also `src/ships/shipModelContract.ts`.
+
+| Rule | Value |
+|------|--------|
+| Forward axis (bow) | **+Z** |
+| Up axis | **+Y** |
+| Units | 1 unit = 1 meter (before `blueprint.scale`) |
+| Origin | Waterline amidships (same as procedural blueprints) |
+| Attachment nodes | Empty/Object3D named **exactly** like `attachmentPoints` in `ships.json` (optional `attach_` prefix) |
+| Root node | `{shipId}_root` (e.g. `cruise_root`) |
+| Compression | Draco + Meshopt supported (`useGLTF(url, true, true)`) |
+
+### Blender export checklist
+
+1. Model in meters, bow facing **+Y Blender** → export with **+Z forward** (glTF default) or rotate −90° on Y so bow aligns with Three.js **+Z**.
+2. Add empties at each upgrade location; name them `stack1`, `funnel1`, etc. — must match `attachmentPoints` in the blueprint.
+3. Export as GLB to `public/models/{filename}` (see `src/ships/shipModelRegistry.ts`).
+4. Run `npm run generate:ship-glb` only for placeholder/dev assets; replace with authored meshes for trailers.
+5. Verify snap alignment in-game: spawn ship, toggle crane view, install a rig at each point.
+
+### Runtime pipeline
+
+- **Preload:** `preloadShipModels()` during the loading screen probes each URL, caches attachment poses, and warms `useGLTF.preload()`.
+- **LOD0:** `ProceduralShip` lazy-loads `GlbShipModel` when the cache reports the file exists.
+- **LOD2:** `Lod2Impostor` procedural impostor (unchanged) — keeps distant fleet cheap.
+- **Chunks:** GLB files live in `public/` (not the JS bundle). `GlbShipModel` is a separate lazy chunk from `MainScene`.
+
 ## The Vessel Blueprint Protocol (v1.0)
 
 ### Ship Structure

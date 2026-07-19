@@ -24,6 +24,7 @@ import TrainingMode from './components/TrainingMode'
 import WebGPUWarning from './components/WebGPUWarning'
 import TrainingHUD from './components/TrainingHUD'
 import { introMusicSystem } from './systems/introMusicSystem'
+import { preloadShipModels } from './ships/preloadShipModels'
 import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
@@ -168,26 +169,38 @@ function App() {
     const startGame = useCallback(async (loadSave: boolean) => {
         setScreen('loading')
         
-        // Define loading stages with realistic weights
+        // Weighted loading stages — ship GLB fetch uses real progress
         const stages = [
-            { weight: 15, label: 'Initializing harbor systems...', duration: 400 },
-            { weight: 25, label: 'Loading ship blueprints...', duration: 600 },
-            { weight: 20, label: 'Building 3D environment...', duration: 500 },
-            { weight: 15, label: 'Calibrating crane physics...', duration: 400 },
-            { weight: 15, label: 'Setting up audio systems...', duration: 300 },
-            { weight: 10, label: 'Building control booth...', duration: 300 },
+            { weight: 12, label: 'Initializing harbor systems...', duration: 300 },
+            { weight: 28, label: 'Loading ship models...', duration: 0, real: true as const },
+            { weight: 18, label: 'Building 3D environment...', duration: 450 },
+            { weight: 14, label: 'Calibrating crane physics...', duration: 350 },
+            { weight: 14, label: 'Setting up audio systems...', duration: 280 },
+            { weight: 14, label: 'Building control booth...', duration: 280 },
         ]
-        
+
         let currentProgress = 0
-        
+
         for (const stage of stages) {
             setLoadingStatus(stage.label)
-            
-            // Simulate progressive loading within each stage
+
+            if ('real' in stage && stage.real) {
+                await preloadShipModels({
+                    onProgress: ({ label, percent }) => {
+                        setLoadingStatus(label)
+                        const stageProgress = stage.weight * (percent / 100)
+                        setLoadingProgress(Math.min(95, currentProgress + stageProgress))
+                    },
+                })
+                currentProgress += stage.weight
+                setLoadingProgress(Math.min(95, currentProgress))
+                continue
+            }
+
             const steps = 5
             const stepDuration = stage.duration / steps
             const stepIncrement = stage.weight / steps
-            
+
             for (let i = 0; i < steps; i++) {
                 await new Promise(r => setTimeout(r, stepDuration))
                 currentProgress += stepIncrement
@@ -195,7 +208,6 @@ function App() {
             }
         }
 
-        // Final initialization
         setLoadingStatus('Finalizing...')
         
         if (loadSave) {
