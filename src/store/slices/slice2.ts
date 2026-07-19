@@ -24,7 +24,7 @@ import {
 } from '../gameStoreTypes';
 import type { AttachmentSystemConfig } from '../../systems/attachmentSystem';
 import type { TrainingModuleId, TrainingProgress } from '../../systems/trainingSystem';
-import { trainingSystem, isTugboatTrainingModule } from '../../systems/trainingSystem';
+import { trainingSystem, isTugboatTrainingModule, setupTrainingScenario } from '../../systems/trainingSystem';
 import type { AcousticNote } from '../../systems/commsSystem';
 import { reputationSystem } from '../../systems/reputationSystem';
 
@@ -112,6 +112,7 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
                     isNight: module.timeOfDay < 6 || module.timeOfDay > 18
                 })
             }
+            setupTrainingScenario(moduleId)
             console.log(`🎓 Started training: ${moduleId}`)
         }
     },
@@ -149,6 +150,9 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             : { operationMode: mode }
         set(patch)
         scheduleSave({ ...get(), ...patch })
+        if (get().gameMode === 'training') {
+            trainingSystem.recordOperationModeSwitch(mode)
+        }
         console.log(`🚤 Operation mode: ${mode}`)
     },
 

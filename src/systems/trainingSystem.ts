@@ -5,6 +5,13 @@
 
 import { useGameStore, ShipType, WeatherState } from '../store/useGameStore'
 import { reputationSystem } from './reputationSystem'
+import {
+  TrainingRuntimeState,
+  DEFAULT_TRAINING_RUNTIME,
+  evaluateCompletedObjectives,
+} from './trainingObjectiveEvaluator'
+import { ShipSpawner } from './shipSpawner'
+import { stormSystem } from './StormSystem'
 
 // =============================================================================
 // TRAINING MODULE TYPES
@@ -19,9 +26,9 @@ export type TrainingModuleId =
   | 'twin-screw-differential' // Tugboat Module 2: Differential thrust
   | 'acoustic-handshake' // Tugboat Module 3: Acoustic handshake protocol
   | 'storm-rescue'     // Tugboat Module 4: Controlled storm tow
-  | 'multi-crane'      // Module 5: Multi-Crane Coordination (planned)
-  | 'emergency'        // Module 6: Emergency Response (planned)
-  | 'light-show'       // Module 7: Advanced Light Show Install (planned)
+  | 'multi-crane'      // Module 5: Multi-Crane Coordination
+  | 'emergency'        // Module 6: Emergency Response
+  | 'light-show'       // Module 7: Advanced Light Show Install
 
 export const TUGBOAT_TRAINING_MODULE_IDS: TrainingModuleId[] = [
   'tugboat-basics',
@@ -356,12 +363,12 @@ export const TRAINING_MODULES: TrainingModule[] = [
   },
 
   // ============================================================================
-  // MODULE 5: Multi-Crane Coordination (PLANNED)
+  // MODULE 5: Multi-Crane Coordination
   // ============================================================================
   {
     id: 'multi-crane',
     title: 'Multi-Crane Coordination',
-    description: 'Coordinate with AI crane operators to install large light shows. Learn communication and timing.',
+    description: 'Coordinate with AI crane operators to install light rigs on two adjacent berths without interference.',
     difficulty: 4,
     estimatedTime: 15,
     shipType: 'cruise',
@@ -369,24 +376,32 @@ export const TRAINING_MODULES: TrainingModule[] = [
     timeOfDay: 18,
     prerequisites: ['night-ops'],
     objectives: [
-      { id: 'coordinate-1', title: 'Coordinate with Crane B', description: 'Sync operations with second crane' },
-      { id: 'dual-install', title: 'Dual Installation', description: 'Complete simultaneous installation' },
-      { id: 'no-interference', title: 'No Interference', description: 'Avoid crane-to-crane collisions' }
+      { id: 'coordinate-1', title: 'Coordinate with Crane B', description: 'Sync operations with the NPC crane on the adjacent berth' },
+      { id: 'dual-install', title: 'Dual Installation', description: 'Install rigs on both vessels within the time window' },
+      { id: 'no-interference', title: 'No Interference', description: 'Complete without crane collisions or ship contact damage' }
     ],
     rewards: {
       reputation: 250,
       unlocks: ['emergency-module', 'coordinator-badge']
     },
-    tutorial: []
+    tutorial: [
+      { id: 'multi-intro', title: 'Dual Berth Operations', message: 'Two cranes, two ships, one harbor. Crane B is on autopilot at the adjacent berth — stay aware of its swing radius.', voiceLine: 'training_multi_crane_intro' },
+      { id: 'multiview', title: 'Multiview Awareness', message: 'Open the multiview dashboard to watch both berths. Spatial awareness prevents costly collisions.', highlightElement: '.camera-feed', position: 'right' },
+      { id: 'queue-plan', title: 'Queue Planning', message: 'Install on your ship first, then coordinate timing so Crane B finishes its rig before you cross the shared zone.', position: 'left' },
+      { id: 'crane-b-sync', title: 'Crane B Channel', message: 'Acknowledge Crane B on the coordination channel. Watch for the cyan beacon on the adjacent vessel.', waitForAction: true, actionType: 'wait' },
+      { id: 'first-install', title: 'Your Berth First', message: 'Complete at least one installation on your assigned cruise liner.', waitForAction: true, actionType: 'install' },
+      { id: 'second-ship', title: 'Adjacent Berth', message: 'Move to the container vessel at the adjacent berth and install a rig without crossing into Crane B\'s path.', waitForAction: true, actionType: 'install' },
+      { id: 'complete', title: 'Coordination Complete', message: 'Clean dual-crane operations. You\'re cleared for emergency response training.', voiceLine: 'training_multi_crane_complete' }
+    ]
   },
 
   // ============================================================================
-  // MODULE 6: Emergency Response (PLANNED)
+  // MODULE 6: Emergency Response
   // ============================================================================
   {
     id: 'emergency',
     title: 'Emergency Response',
-    description: 'Handle crane emergencies: cable failures, power outages, and severe weather events.',
+    description: 'Handle crane emergencies during a storm: secure the load, switch to tugboat assist, then return to crane operations.',
     difficulty: 5,
     estimatedTime: 10,
     shipType: 'container',
@@ -394,24 +409,32 @@ export const TRAINING_MODULES: TrainingModule[] = [
     timeOfDay: 15,
     prerequisites: ['multi-crane'],
     objectives: [
-      { id: 'emergency-stop', title: 'Emergency Stop', description: 'Execute emergency procedures' },
-      { id: 'secure-load', title: 'Secure Load', description: 'Safely secure suspended load during failure' },
-      { id: 'evacuate', title: 'Safe Evacuation', description: 'Complete crew evacuation protocol' }
+      { id: 'emergency-stop', title: 'Emergency Stop', description: 'Engage emergency brake when the cable alarm triggers' },
+      { id: 'secure-load', title: 'Secure Load', description: 'Hold the spreader steady with sway below 20% for 5 seconds' },
+      { id: 'evacuate', title: 'Mode Switch Protocol', description: 'Switch to tugboat to stabilize the distressed vessel, then return to crane' }
     ],
     rewards: {
       reputation: 300,
       unlocks: ['light-show-module', 'emergency-responder-title']
     },
-    tutorial: []
+    tutorial: [
+      { id: 'emergency-intro', title: 'Emergency Alert', message: 'Storm intensity is rising and the cable tension alarm is active. Execute procedures calmly — panic costs lives.', voiceLine: 'training_emergency_intro' },
+      { id: 'e-stop', title: 'Emergency Brake', message: 'Press Space to engage the emergency brake immediately when the alarm sounds.', highlightElement: '.emergency-brake', waitForAction: true, actionType: 'wait' },
+      { id: 'secure', title: 'Secure the Load', message: 'With the brake engaged, hold position. Keep sway under 20% until the load is stable.', position: 'left', waitForAction: true, actionType: 'wait' },
+      { id: 'tugboat-switch', title: 'Tugboat Assist', message: 'Toggle to Tugboat Captain mode to stabilize the distressed container vessel alongside the berth.', position: 'bottom', waitForAction: true, actionType: 'move' },
+      { id: 'storm-manage', title: 'Storm Management', message: 'Watch storm intensity on the weather panel. Keep the vessel inside the safe zone until conditions ease.', highlightElement: '.weather-panel', position: 'right' },
+      { id: 'return-crane', title: 'Return to Crane', message: 'Switch back to crane mode and confirm the berth is secure before completing the module.', waitForAction: true, actionType: 'move' },
+      { id: 'complete', title: 'Crisis Resolved', message: 'Emergency protocols executed correctly. You\'re ready for the advanced light show install.', voiceLine: 'training_emergency_complete' }
+    ]
   },
 
   // ============================================================================
-  // MODULE 7: Advanced Light Show Install (PLANNED)
+  // MODULE 7: Advanced Light Show Install
   // ============================================================================
   {
     id: 'light-show',
     title: 'Advanced Light Show Install',
-    description: 'The ultimate test: Install a complete music-synchronized light show on a mega-cruise ship.',
+    description: 'The ultimate test: install a complete music-synchronized light show on a mega-cruise ship with sequence-sensitive rig types.',
     difficulty: 5,
     estimatedTime: 20,
     shipType: 'cruise',
@@ -419,15 +442,23 @@ export const TRAINING_MODULES: TrainingModule[] = [
     timeOfDay: 20,
     prerequisites: ['emergency'],
     objectives: [
-      { id: 'complete-show', title: 'Complete Installation', description: 'Install all 12 light rigs' },
-      { id: 'sync-test', title: 'Sync Test', description: 'Verify music synchronization' },
-      { id: 's-rank', title: 'S-Rank Performance', description: 'Achieve S-rank on final evaluation' }
+      { id: 'complete-show', title: 'Complete Installation', description: 'Install all light rigs on the cruise liner' },
+      { id: 'sync-test', title: 'Sync Test', description: 'Trigger the music sync test after all rigs are installed' },
+      { id: 's-rank', title: 'S-Rank Performance', description: 'Achieve S-rank: sway <15%, zero damage, accuracy ≥95%' }
     ],
     rewards: {
       reputation: 500,
       unlocks: ['master-operator-title', 'legendary-crane-skin', 'all-weather-unlocked']
     },
-    tutorial: []
+    tutorial: [
+      { id: 'lightshow-intro', title: 'The Grand Install', message: 'This is the capstone module. Every rig type matters — holographic, plasma, and matrix rigs must be installed in the recommended sequence.', voiceLine: 'training_lightshow_intro' },
+      { id: 'rig-sequence', title: 'Installation Sequence', message: 'Start with funnel rigs, then balcony matrices, then deck projectors. Out-of-order installs reduce your sync score.', highlightElement: '.attachment-point', position: 'left' },
+      { id: 'choreography', title: 'Choreography Preview', message: 'Each band has a unique light-show cue. Install cleanly to preserve timing headroom for the sync test.', position: 'right' },
+      { id: 'first-rig', title: 'First Rig', message: 'Install the funnel RGB matrix to begin the sequence.', waitForAction: true, actionType: 'install' },
+      { id: 'full-install', title: 'Complete the Show', message: 'Install every remaining rig on the cruise liner.', waitForAction: true, actionType: 'install' },
+      { id: 'sync', title: 'Sync Test', message: 'When all rigs are installed, the music sync test runs automatically. Watch the beat indicators.', waitForAction: true, actionType: 'wait' },
+      { id: 'complete', title: 'Master Operator', message: 'Outstanding. You\'ve earned Master Operator certification.', voiceLine: 'training_lightshow_complete' }
+    ]
   }
 ]
 
@@ -554,6 +585,18 @@ export const TRAINING_VOICE_LINES: Record<string, { text: string; tone: 'neutral
   // Module 4: Night Ops
   training_night_intro: { text: "Welcome to the night shift. Visibility is limited - trust your instruments.", tone: 'neutral' },
   training_night_complete: { text: "Outstanding work in challenging conditions. You're a true night operator.", tone: 'congratulatory' },
+
+  // Module 5: Multi-Crane
+  training_multi_crane_intro: { text: "Two cranes, two berths. Crane B is on autopilot — stay aware of its swing radius.", tone: 'neutral' },
+  training_multi_crane_complete: { text: "Clean dual-crane coordination. Emergency response training is now available.", tone: 'congratulatory' },
+
+  // Module 6: Emergency Response
+  training_emergency_intro: { text: "Storm intensity rising. Cable alarm active. Execute emergency procedures calmly.", tone: 'urgent' },
+  training_emergency_complete: { text: "Crisis resolved. You've earned emergency responder certification.", tone: 'congratulatory' },
+
+  // Module 7: Light Show
+  training_lightshow_intro: { text: "Capstone module. Install every rig in sequence, then pass the music sync test.", tone: 'neutral' },
+  training_lightshow_complete: { text: "Master Operator certified. The harbor is yours.", tone: 'congratulatory' },
   
   // General
   training_good_job: { text: "Good job. Keep it steady.", tone: 'encouraging' },
@@ -571,6 +614,8 @@ export const TRAINING_VOICE_LINES: Record<string, { text: string; tone: 'neutral
 export class TrainingSystem {
   private progress: TrainingProgress = { ...DEFAULT_TRAINING_PROGRESS }
   private listeners: Set<(progress: TrainingProgress) => void> = new Set()
+  private runtimeState: TrainingRuntimeState = { ...DEFAULT_TRAINING_RUNTIME, shipsWithInstalls: new Set() }
+  private runtimeListeners: Set<(runtime: TrainingRuntimeState) => void> = new Set()
   private currentMetrics: TrainingMetrics = {
     timeElapsed: 0,
     maxSway: 0,
@@ -618,6 +663,7 @@ export class TrainingSystem {
     this.progress.currentModule = moduleId
     this.progress.currentStep = 0
     this.progress.moduleStates[moduleId] = 'in-progress'
+    this.resetRuntimeState()
     
     // Reset metrics
     this.currentMetrics = {
@@ -626,7 +672,7 @@ export class TrainingSystem {
       totalDamage: 0,
       accuracyScore: 100,
       installationsCompleted: 0,
-      installationsTarget: module.objectives.filter(o => o.id.includes('install')).length || 3
+      installationsTarget: this.getInstallTargetForModule(module)
     }
     
     this.startTime = Date.now()
@@ -796,8 +842,116 @@ export class TrainingSystem {
     this.currentMetrics.totalDamage += damage
   }
 
-  recordInstallation(): void {
+  recordInstallation(shipId?: string): void {
     this.currentMetrics.installationsCompleted++
+    if (shipId) {
+      this.runtimeState.shipsWithInstalls.add(shipId)
+      if (!this.runtimeState.primaryShipId) {
+        this.runtimeState.primaryShipId = shipId
+      } else if (shipId !== this.runtimeState.primaryShipId) {
+        this.runtimeState.secondaryShipId = shipId
+      }
+    }
+    this.notifyRuntimeListeners()
+  }
+
+  recordEmergencyStop(): void {
+    this.runtimeState.emergencyStopExecuted = true
+    this.notifyRuntimeListeners()
+  }
+
+  recordLoadSecured(): void {
+    this.runtimeState.loadSecured = true
+    this.notifyRuntimeListeners()
+  }
+
+  recordCraneBCoordinated(): void {
+    this.runtimeState.craneBCoordinated = true
+    this.notifyRuntimeListeners()
+  }
+
+  recordOperationModeSwitch(mode: 'crane' | 'tugboat' | 'walking'): void {
+    if (mode === 'tugboat') {
+      this.runtimeState.operationModeSwitched = true
+    } else if (mode === 'crane' && this.runtimeState.operationModeSwitched) {
+      this.runtimeState.returnedToCrane = true
+    }
+    this.notifyRuntimeListeners()
+  }
+
+  recordSyncTestPassed(): void {
+    this.runtimeState.syncTestPassed = true
+    this.notifyRuntimeListeners()
+  }
+
+  recordCollision(): void {
+    this.runtimeState.craneCollisionCount++
+    this.notifyRuntimeListeners()
+  }
+
+  getRuntimeState(): TrainingRuntimeState {
+    return {
+      ...this.runtimeState,
+      shipsWithInstalls: new Set(this.runtimeState.shipsWithInstalls),
+    }
+  }
+
+  resetRuntimeState(): void {
+    this.runtimeState = { ...DEFAULT_TRAINING_RUNTIME, shipsWithInstalls: new Set() }
+    this.notifyRuntimeListeners()
+  }
+
+  setTrainingShipIds(primaryId: string, secondaryId?: string): void {
+    this.runtimeState.primaryShipId = primaryId
+    if (secondaryId) this.runtimeState.secondaryShipId = secondaryId
+    this.notifyRuntimeListeners()
+  }
+
+  getCompletedObjectiveIds(): string[] {
+    const moduleId = this.progress.currentModule
+    if (!moduleId) return []
+    const module = this.getModule(moduleId)
+    if (!module) return []
+
+    const store = useGameStore.getState()
+    const currentShip = store.ships.find(s => s.id === store.currentShipId)
+    const installedCount = currentShip
+      ? store.installedUpgrades.filter(u => u.shipId === currentShip.id).length
+      : this.currentMetrics.installationsCompleted
+
+    return evaluateCompletedObjectives(
+      moduleId,
+      module.objectives.map(o => o.id),
+      this.currentMetrics,
+      this.runtimeState,
+      {
+        operationMode: store.operationMode,
+        musicPlaying: store.currentShipId
+          ? store.musicPlaying.get(store.currentShipId) === true
+          : false,
+        installedCount,
+        installTarget: currentShip?.attachmentPoints.length ?? this.currentMetrics.installationsTarget,
+      },
+    )
+  }
+
+  private getInstallTargetForModule(module: TrainingModule): number {
+    if (module.id === 'light-show') return 6 // cruise attachment points
+    if (module.id === 'multi-crane') return 2
+    if (module.id === 'wind-sway') return 4
+    if (module.id === 'precision') return 3
+  if (module.id === 'night-ops') return 3
+    return module.objectives.filter(o => o.id.includes('install')).length || 3
+  }
+
+  subscribeRuntime(listener: (runtime: TrainingRuntimeState) => void): () => void {
+    this.runtimeListeners.add(listener)
+    return () => this.runtimeListeners.delete(listener)
+  }
+
+  private notifyRuntimeListeners(): void {
+    const snapshot = this.getRuntimeState()
+    this.runtimeListeners.forEach(listener => listener(snapshot))
   }
 
   getCurrentMetrics(): TrainingMetrics {
@@ -876,6 +1030,55 @@ export class TrainingSystem {
   }
 }
 
+// =============================================================================
+// TRAINING SCENARIO SETUP
+// =============================================================================
+
+/**
+ * Spawns ships and configures environment for a training module.
+ * Called from the game store when a module starts.
+ */
+export function setupTrainingScenario(moduleId: TrainingModuleId): void {
+  const module = TRAINING_MODULES.find(m => m.id === moduleId)
+  if (!module) return
+
+  const store = useGameStore.getState()
+
+  // Clear existing fleet for a clean training scenario
+  ;[...store.ships].forEach(ship => store.removeShip(ship.id))
+
+  trainingSystem.resetRuntimeState()
+
+  switch (moduleId) {
+  case 'multi-crane': {
+    const primary = ShipSpawner.spawnShip('cruise')
+    const secondary = ShipSpawner.spawnShip('container')
+    store.setCurrentShip(primary.id)
+    trainingSystem.setTrainingShipIds(primary.id, secondary.id)
+    break
+  }
+  case 'emergency': {
+    const ship = ShipSpawner.spawnShip('container')
+    store.setCurrentShip(ship.id)
+    stormSystem.start(180)
+    store.setWeather('storm')
+    break
+  }
+  case 'light-show': {
+    const ship = ShipSpawner.spawnShip('cruise')
+    store.setCurrentShip(ship.id)
+    break
+  }
+  default: {
+    const ship = ShipSpawner.spawnShip(module.shipType)
+    store.setCurrentShip(ship.id)
+    break
+  }
+  }
+
+  console.log(`[Training] Scenario ready for ${module.title}`)
+}
+
 // Export singleton
 export const trainingSystem = new TrainingSystem()
 
@@ -909,6 +1112,13 @@ export function useTrainingSystem() {
     reset: trainingSystem.reset.bind(trainingSystem),
     recordSway: trainingSystem.recordSway.bind(trainingSystem),
     recordDamage: trainingSystem.recordDamage.bind(trainingSystem),
-    recordInstallation: trainingSystem.recordInstallation.bind(trainingSystem)
+    recordInstallation: trainingSystem.recordInstallation.bind(trainingSystem),
+    recordEmergencyStop: trainingSystem.recordEmergencyStop.bind(trainingSystem),
+    recordLoadSecured: trainingSystem.recordLoadSecured.bind(trainingSystem),
+    recordCraneBCoordinated: trainingSystem.recordCraneBCoordinated.bind(trainingSystem),
+    recordOperationModeSwitch: trainingSystem.recordOperationModeSwitch.bind(trainingSystem),
+    recordSyncTestPassed: trainingSystem.recordSyncTestPassed.bind(trainingSystem),
+    getRuntimeState: trainingSystem.getRuntimeState.bind(trainingSystem),
+    getCompletedObjectiveIds: trainingSystem.getCompletedObjectiveIds.bind(trainingSystem),
   }
 }

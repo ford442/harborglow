@@ -291,7 +291,10 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         }
         if (operationMode === 'crane') {
             resetTugboatMode()
-            stormSystem.stop()
+            // Keep storm active for emergency training module
+            if (!(gameMode === 'training' && currentTrainingModule === 'emergency')) {
+                stormSystem.stop()
+            }
         }
     }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, gameMode, currentTrainingModule, setTugboatObjectives, resetTugboatMode])
 
@@ -434,8 +437,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         // Update wave system (drives shader + physics sync)
         waveSystem.update(delta)
 
-        // Update storm system in tugboat mode
-        if (operationMode === 'tugboat') {
+        // Update storm system in tugboat mode or emergency training
+        if (operationMode === 'tugboat' || (gameMode === 'training' && currentTrainingModule === 'emergency')) {
             stormSystem.update(delta)
             
             // Win condition check
