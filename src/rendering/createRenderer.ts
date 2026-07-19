@@ -42,7 +42,6 @@ export async function createGameRenderer(
 
   // WebGPU path (primary). Lazy import keeps the main bundle smaller until needed.
   // Use the examples/jsm path because three 0.160 package.json exports map does not expose "three/webgpu" directly.
-  // @ts-ignore - JSM modules often lack perfect .d.ts; runtime module exists (see three/examples/jsm/renderers/webgpu/WebGPURenderer.js)
   const mod = await import('three/examples/jsm/renderers/webgpu/WebGPURenderer.js');
   const WebGPURendererCtor = (mod as any).WebGPURenderer || (mod as any).default || (mod as any);
   const renderer = new WebGPURendererCtor({
