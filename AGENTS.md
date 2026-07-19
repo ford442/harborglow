@@ -465,7 +465,22 @@ been removed.
 
 ## GitHub Actions
 
+- `.github/workflows/ci.yml`: **Merge gates** on PRs and pushes to `main` — see [CI merge gates](#ci-merge-gates) below.
 - `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 20, installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
+
+### CI merge gates
+
+All steps in `.github/workflows/ci.yml` **block merge** when they fail (exit non-zero). Run locally before pushing:
+
+| Step | Command | What it catches |
+|------|---------|-----------------|
+| Type-check | `npm run typecheck` | Strict `tsc` errors across `src/` |
+| Lint | `npm run lint` | ESLint **errors** (e.g. banned `@ts-ignore`); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
+| Unit tests | `npm run test` | Vitest regressions in systems and store |
+| Dev-transform smoke | `npm run test:dev-transform` | Babel/`@vitejs/plugin-react` failures (duplicate declarations in `MainSceneHelpers.tsx`, etc.) that `tsc` and esbuild tolerate but break `npm run dev` |
+| Production build | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
+
+**Report-only / not in CI (yet):** Playwright visual smoke on `?renderer=webgl`, `npm audit` advisories.
 
 ## Security Considerations
 
@@ -593,11 +608,10 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `previ
 - Dev server: `npm run dev` (Vite, `host: 0.0.0.0`, port `5173`). For agent/automated testing always open `http://localhost:5173/?renderer=webgl` — the default WebGPU path is hard to introspect from headless browsers, and `?renderer=webgl` skips the WebGPU renderer entirely (see the "Renderer Backends" section).
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
-### Known blocker: dev game scene fails to load (pre-existing code bug)
-- The main menu loads and is fully interactive, but clicking **New Game / Training / Tugboat Captain** lazy-loads `MainScene`, which imports `src/scenes/mainScene/MainSceneHelpers.tsx`. In `npm run dev` this throws `[plugin:vite:react-babel] ... Identifier 'LevaControlsConfig' has already been declared. (434:10)`.
-- Root cause is a corrupted auto-modularization of that file: it declares `LevaControlsConfig` twice (an `export type` near the top and an `interface` lower down), imports `useControls`/`harborEvents` twice, and stubs runtime values (`const ShipComponent = () => null`, `const CAMERA_MODES = {}`, no-op sound fns). A `// @ts-nocheck` header hides all of this from `tsc`, and the esbuild-based production build tolerates the duplicates — but the strict Babel dev transform (`@vitejs/plugin-react`) does not. Because ships render through the stubbed `ShipComponent`, even a production build would show no ships.
-- This is an application-code bug, not an environment/dependency issue, and is out of scope for environment setup. Fixing full gameplay requires repairing `MainSceneHelpers.tsx` (dedupe `LevaControlsConfig`/imports and restore the real `ShipComponent`/`AtSeaShip` imports).
+### CI locally
+- Run the full merge gate matrix: `npm run typecheck && npm run lint && npm run test && npm run test:dev-transform && npm run build`.
+- `npm run test:dev-transform` starts a short-lived Vite dev server and fetches `MainSceneHelpers.tsx` + `MainScene.tsx` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses.
 
 ### Other notes
-- `npm run lint` has one pre-existing error (`@typescript-eslint/ban-ts-comment` in `src/rendering/createRenderer.ts`) plus warnings; it exits non-zero independent of any setup work.
+- `npm run lint` reports ~39 `react-refresh/only-export-components` warnings; only ESLint **errors** fail CI.
 - The `build:wasm` step (`cpp/build.sh`) self-skips when Emscripten (`em++`) is absent, so `npm run build` succeeds without the Emscripten SDK.

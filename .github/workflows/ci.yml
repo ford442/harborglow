@@ -1,13 +1,12 @@
 name: CI
 
-# Minimal type-check + test gate. Exists because UpgradeMenu.tsx broke the
-# production build on main two weeks running via ad-hoc commits that never ran
-# `tsc` (a stale local node_modules masked it both times). This blocks a broken
-# type-check from reaching main again.
+# Merge gates for HarborGlow. See AGENTS.md § "CI merge gates" for which steps
+# block merge vs report-only.
 #
-# Deliberately omits the WebGPU/wasm build step (`npm run build:wasm`) — it
-# requires Emscripten and no-ops in environments without it, so it is not a
-# meaningful gate here.
+# History: UpgradeMenu.tsx broke production on main for two weeks because commits
+# never ran `tsc`. The matrix below extends beyond typecheck to catch lint
+# policy violations, Vite/Babel dev-transform failures, and production bundle
+# regressions.
 
 on:
   pull_request:
@@ -16,7 +15,7 @@ on:
     branches: [main]
 
 jobs:
-  typecheck-and-test:
+  ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -37,8 +36,14 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Test
         run: npm run test
 
       - name: Dev-transform smoke (Babel pipeline)
         run: npm run test:dev-transform
+
+      - name: Production build
+        run: npm run build
