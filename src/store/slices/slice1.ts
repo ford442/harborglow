@@ -1,11 +1,28 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-import { GameState, defaultState, DEFAULT_STORE_DASHBOARD_PRESETS, createSalvageContracts, DEFAULT_HANDSHAKE_SEQUENCE, scheduleSave } from '../gameStoreTypes';
-import { clearSave, loadGameState } from '../../utils/storage_manager';
+import type { StateCreator } from 'zustand';
+import type { Slice1 } from '../sliceTypes';
+import {
+    type GameState,
+    type Ship,
+    type CameraMode,
+    type OperationMode,
+    type Season,
+    type WeatherState,
+    type QualityPreset,
+    type SalvageContract,
+    type TugboatState,
+    type TugboatUpgradeState,
+    type TugboatCareerStats,
+    defaultState,
+    DEFAULT_STORE_DASHBOARD_PRESETS,
+    createSalvageContracts,
+    DEFAULT_HANDSHAKE_SEQUENCE,
+    scheduleSave,
+} from '../gameStoreTypes';
+import { clearSave, loadGameState, type GameState as StorageGameState } from '../../utils/storage_manager';
 import { reputationSystem } from '../../systems/reputationSystem';
 import { isCameraPresetId } from '../../types/CameraPreset';
 
-export const createSlice1 = (set: any, get: any) => ({
+export const createSlice1: StateCreator<GameState, [], [], Slice1> = (set, get, _api) => ({
     ...defaultState,
 
     addShip: (ship) => set((state) => {

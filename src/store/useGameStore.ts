@@ -5,9 +5,9 @@ import { createSlice2 } from './slices/slice2';
 export * from './gameStoreTypes';
 import { Ship, Upgrade, ShipType } from './gameStoreTypes';
 
-export const useGameStore = create<GameState>((set, get) => ({
-    ...createSlice1(set, get),
-    ...createSlice2(set, get)
+export const useGameStore = create<GameState>((set, get, api) => ({
+    ...createSlice1(set, get, api),
+    ...createSlice2(set, get, api)
 }))
 
 // Subscribe to save on all state changes

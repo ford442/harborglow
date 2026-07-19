@@ -1,9 +1,34 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-// @ts-nocheck
-import { GameState, buildHandshakeSequence, scheduleSave, createSalvageContracts, getReputationTierMultiplier, TUG_TONS_BY_SHIP } from '../gameStoreTypes';
+import type { StateCreator } from 'zustand';
+import type { Slice2 } from '../sliceTypes';
+import {
+    type GameState,
+    type HarborType,
+    type CabinViewMode,
+    type GameMode,
+    type OperationMode,
+    type CameraMode,
+    type TugboatState,
+    type TugboatObjective,
+    type Mission,
+    type TugboatCareerStats,
+    type TugboatUpgradeId,
+    type TugboatUpgradeState,
+    type WaveParams,
+    type WeatherState,
+    buildHandshakeSequence,
+    scheduleSave,
+    createSalvageContracts,
+    getReputationTierMultiplier,
+    TUG_TONS_BY_SHIP,
+    DEFAULT_HANDSHAKE_SEQUENCE,
+} from '../gameStoreTypes';
+import type { AttachmentSystemConfig } from '../../systems/attachmentSystem';
+import type { TrainingModuleId, TrainingProgress } from '../../systems/trainingSystem';
+import { trainingSystem, isTugboatTrainingModule } from '../../systems/trainingSystem';
+import type { AcousticNote } from '../../systems/commsSystem';
 import { reputationSystem } from '../../systems/reputationSystem';
 
-export const createSlice2 = (set: any, get: any) => ({
+export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, _api) => ({
     removeWildlife: (id) => set((state) => ({
         wildlife: state.wildlife.filter(w => w.id !== id)
     })),
