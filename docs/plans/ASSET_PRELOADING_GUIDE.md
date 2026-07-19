@@ -4,6 +4,30 @@
 
 This guide covers how to preload assets and swap full 3D booth models per harbor using `useGLTF` and asset management.
 
+## Ship GLB preloading (implemented)
+
+Priority fleet hulls (`cruise`, `container`, `tanker`) use the pipeline in `src/ships/`:
+
+```tsx
+// App.tsx — real loading-screen progress
+import { preloadShipModels } from './ships/preloadShipModels'
+
+await preloadShipModels({
+  onProgress: ({ label, percent }) => {
+    setLoadingStatus(label)
+    setLoadingProgress(base + weight * (percent / 100))
+  },
+})
+```
+
+- **Probe:** `HEAD` (or ranged `GET`) on `public/models/*.glb`; missing files cache as unavailable.
+- **Decode:** Draco + Meshopt via `configureGltfLoader()` / `useGLTF(url, true, true)`.
+- **Preload:** `useGLTF.preload(url, true, true)` warms drei cache after `GLTFLoader` parses attachments.
+- **Fallback:** `ProceduralShip` renders blueprint geometry when GLB absent; `Lod2Impostor` unchanged at distance.
+- **Chunks:** `GlbShipModel` is lazy-imported from `ProceduralShip` (separate JS chunk); GLB binaries stay in `public/models/`.
+
+Authoring contract: `docs/plans/CONTRIBUTING_SHIPS.md` → **GLB Authoring Contract**.
+
 ## Current System (Procedural)
 
 Currently, the booth is procedural - materials change but geometry stays the same:
