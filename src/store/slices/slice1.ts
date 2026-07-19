@@ -20,6 +20,7 @@ import {
 } from '../gameStoreTypes';
 import { clearSave, loadGameState, type GameState as StorageGameState } from '../../utils/storage_manager';
 import { reputationSystem } from '../../systems/reputationSystem';
+import { economySystem } from '../../systems/economySystem';
 import { isCameraPresetId } from '../../types/CameraPreset';
 
 export const createSlice1: StateCreator<GameState, [], [], Slice1> = (set, get, _api) => ({
@@ -350,6 +351,9 @@ export const createSlice1: StateCreator<GameState, [], [], Slice1> = (set, get, 
                 enableMarineLife: (saved as StorageGameState & { enableMarineLife?: boolean }).enableMarineLife ?? true,
                 activeMission: null,
             })
+            if (saved.economyData) {
+                economySystem.deserialize(saved.economyData)
+            }
             console.log('📂 Loaded from storage_manager')
         }
     },

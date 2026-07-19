@@ -3,7 +3,7 @@
 // Displays reputation, tier progress, and unlocks
 // =============================================================================
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useReputationSystem, REPUTATION_TIERS, UNLOCKABLE_SHIPS, UNLOCKABLE_LIGHT_RIGS, UNLOCKABLE_TRAINING, UNLOCKABLE_HARBORS } from '../systems/reputationSystem'
 import { useGameStore } from '../store/useGameStore'
 
@@ -15,6 +15,12 @@ export default function ReputationPanel() {
   const { state, tierConfig, progress, isUnlocked } = useReputationSystem()
   const [activeTab, setActiveTab] = useState<'overview' | 'ships' | 'rigs' | 'training' | 'harbors'>('overview')
   const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    const handleExpand = () => setIsExpanded(true)
+    window.addEventListener('harborglow:expand-reputation', handleExpand)
+    return () => window.removeEventListener('harborglow:expand-reputation', handleExpand)
+  }, [])
 
   return (
     <div style={containerStyle}>

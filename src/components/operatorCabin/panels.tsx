@@ -8,7 +8,7 @@ import { drawCraneCabView, drawHookView, drawDroneView, drawUnderwaterView, draw
 import { moonSystem, MoonPhaseName, MOON_PHASES } from '../../systems/moonSystem';
 import { swaySystem, useSwaySystem } from '../../systems/swaySystem';
 import { weatherSystem, useWeatherSystem, WeatherType } from '../../systems/weatherSystem';
-import { useEconomySystem } from '../../systems/economySystem';
+import { useEconomySystem, getPortReputationTier } from '../../systems/economySystem';
 import { ShipSpawner } from '../../systems/shipSpawner';
 import { useCompletionGlow } from '../../hooks/useCompletionGlow';
 import * as styles from './styles';
@@ -218,18 +218,9 @@ export function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
 // ECONOMY METRICS COMPONENT
 // =============================================================================
 
-export function EconomyMetrics({ credits, reputation }: { credits: number; reputation: number }) {
-  // Calculate reputation tier color
-  const getRepColor = (rep: number) => {
-    if (rep >= 7500) return '#ffd700' // Legendary
-    if (rep >= 5000) return '#a855f7' // Expert
-    if (rep >= 3000) return '#ff4757' // Veteran
-    if (rep >= 1500) return '#ff9500' // Operator
-    if (rep >= 500) return '#4a9eff'  // Apprentice
-    return '#888888' // Novice
-  }
-
-  const repColor = getRepColor(reputation)
+export function EconomyMetrics({ credits, reputation, onOpenShop }: { credits: number; reputation: number; onOpenShop?: () => void }) {
+  const repTier = getPortReputationTier(reputation)
+  const repColor = repTier.color
   const repProgress = (reputation / 1000) * 100
 
   return (
@@ -238,6 +229,16 @@ export function EconomyMetrics({ credits, reputation }: { credits: number; reput
         <span style={styles.currencyIconStyle}>💰</span>
         <span style={styles.creditAmountStyle}>{credits.toLocaleString()}</span>
         <span style={styles.hcLabelStyle}>HC</span>
+        {onOpenShop && (
+          <button
+            type="button"
+            onClick={onOpenShop}
+            style={shopInlineButtonStyle}
+            title="Open Harbor Shop"
+          >
+            🏗️ Shop
+          </button>
+        )}
       </div>
 
       <div style={styles.reputationDisplayStyle}>
@@ -456,7 +457,7 @@ export function SpawnCTAButton({ onClick }: { onClick: () => void }) {
 // OPERATOR STATUS PANEL
 // =============================================================================
 
-export function OperatorStatusPanel() {
+export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void }) {
   const currentShip = useGameStore((state: any) =>
     state.ships.find((s: any) => s.id === state.currentShipId)
   )
@@ -545,7 +546,7 @@ export function OperatorStatusPanel() {
   return (
     <div style={styles.statusPanelStyle}>
       {/* Economy Metrics */}
-      <EconomyMetrics credits={credits} reputation={reputation} />
+      <EconomyMetrics credits={credits} reputation={reputation} onOpenShop={onOpenShop} />
 
       {/* Ship Info */}
       <div style={styles.statusHeaderStyle}>
@@ -721,6 +722,20 @@ const effectBadgeStyle = (color: string): React.CSSProperties => ({
   color,
   border: `1px solid ${color}40`
 })
+
+const shopInlineButtonStyle: React.CSSProperties = {
+  marginLeft: 'auto',
+  padding: '4px 10px',
+  fontSize: '10px',
+  fontWeight: 600,
+  color: '#ffd700',
+  background: 'rgba(255, 215, 0, 0.1)',
+  border: '1px solid rgba(255, 215, 0, 0.3)',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  minHeight: '32px',
+  pointerEvents: 'auto',
+}
 
 // =============================================================================
 // SWAY INDICATOR COMPONENT

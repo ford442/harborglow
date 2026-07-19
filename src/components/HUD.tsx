@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
 import LyricsDisplay from './LyricsDisplay'
@@ -11,6 +11,7 @@ import { injectDesignSystem } from './DesignSystem'
 import DynamicEventNotifier from './DynamicEventNotifier'
 import ReputationPanel from './ReputationPanel'
 import CreditFeedback from './CreditFeedback'
+import HarborShop, { HarborShopButton } from './HarborShop'
 import TugboatConsole from './TugboatConsole'
 import TugboatWelcomeHandler from './TugboatWelcomeHandler'
 import {
@@ -36,6 +37,8 @@ export interface HUDProps {
 }
 
 export default function HUD({ onOpenTraining }: HUDProps = {}) {
+  const [shopOpen, setShopOpen] = useState(false)
+
   useEffect(() => {
     injectDesignSystem()
   }, [])
@@ -78,7 +81,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   
   return (
     <div style={hudContainerStyle}>
-      {isCraneMode && <OperatorCabinUI onOpenTraining={onOpenTraining} />}
+      {isCraneMode && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
       
       {!isWalkingMode && <ModeToggle />}
       
@@ -115,6 +118,13 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       {!isWalkingMode && <DynamicEventNotifier />}
       
       {!isWalkingMode && <ReputationPanel />}
+
+      {isCraneMode && (
+        <div style={shopButtonContainerStyle}>
+          <HarborShopButton onClick={() => setShopOpen(true)} />
+        </div>
+      )}
+      <HarborShop isOpen={shopOpen} onClose={() => setShopOpen(false)} />
       
       {!isWalkingMode && <CreditFeedback />}
       
@@ -164,4 +174,12 @@ const keyHintStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.12)',
   fontFamily: '"JetBrains Mono", monospace',
   fontSize: '12px',
+}
+
+const shopButtonContainerStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '24px',
+  left: '24px',
+  zIndex: 105,
+  pointerEvents: 'auto',
 }
