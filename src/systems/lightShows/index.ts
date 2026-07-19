@@ -11,6 +11,7 @@ import { droneshipLightShow } from './droneship'
 import { ferryLightShow } from './ferry'
 import { trawlerLightShow } from './trawler'
 import { horizonLightShow } from './horizon'
+import { fireboatLightShow } from './fireboat'
 
 export type { LightCue, LightCuePattern, LightPattern } from './types'
 
@@ -26,6 +27,7 @@ export const SHIP_BPM: Record<ShipType, number> = {
   ferry: 115,
   trawler: 95,
   horizon: 100,
+  fireboat: 152,
 }
 
 export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
@@ -40,6 +42,7 @@ export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
   ferry: ferryLightShow,
   trawler: trawlerLightShow,
   horizon: horizonLightShow,
+  fireboat: fireboatLightShow,
 }
 
 export function getLightShow(shipType: ShipType): LightCue[] | undefined {

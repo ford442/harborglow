@@ -70,6 +70,17 @@ const HORIZON_NAMES = [
     'Trench Walker', 'Pressure Wave', 'Deepsea Atlas', 'Dark Water'
 ]
 
+const FIREBOAT_NAMES = [
+    'Rescue Pulse', 'Harbor Guardian', 'Flame Breaker', 'Aqua Shield',
+    'Red Alert', 'Foam Commander', 'Bay Responder', 'Crisis Runner',
+    'Fire Watch', 'Spray Force', 'Emergency One', 'Port Defender'
+]
+
+export interface SpawnShipOptions {
+    position?: [number, number, number]
+    name?: string
+}
+
 export class ShipSpawner {
     private static nameCounters: Record<ShipType, number> = {
         cruise: 0,
@@ -82,10 +93,11 @@ export class ShipSpawner {
         droneship: 0,
         ferry: 0,
         trawler: 0,
-        horizon: 0
+        horizon: 0,
+        fireboat: 0
     }
 
-    static spawnShip(type: ShipType): Ship {
+    static spawnShip(type: ShipType, options?: SpawnShipOptions): Ship {
         const addShip = useGameStore.getState().addShip
         const blueprint = getBlueprint(type)
         
@@ -93,7 +105,7 @@ export class ShipSpawner {
             throw new Error(`Blueprint not found for ship type: ${type}`)
         }
 
-        const name = this.generateShipName(type)
+        const name = options?.name ?? this.generateShipName(type)
         const id = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
 
         // Generate attachment points from GLB nodes when cached, else blueprint parts
@@ -111,7 +123,7 @@ export class ShipSpawner {
         // Find valid position with spacing based on ship type
         const existingShips = useGameStore.getState().ships
         const shipLength = this.getShipLength(type)
-        const position = this.findValidPosition(existingShips, shipLength)
+        const position = options?.position ?? this.findValidPosition(existingShips, shipLength)
 
         const ship: Ship = {
             id,
@@ -142,7 +154,8 @@ export class ShipSpawner {
             droneship: 9,   // ASDS ~90m
             ferry: 11,      // Island ferry ~55m
             trawler: 8,     // Fishing trawler ~40m
-            horizon: 14     // Deep-ocean research vessel ~70m
+            horizon: 14,     // Deep-ocean research vessel ~70m
+            fireboat: 7      // Harbor fireboat ~35m
         }
         return lengths[type]
     }
@@ -192,7 +205,8 @@ export class ShipSpawner {
             droneship: DRONESHIP_NAMES,
             ferry: FERRY_NAMES,
             trawler: TRAWLER_NAMES,
-            horizon: HORIZON_NAMES
+            horizon: HORIZON_NAMES,
+            fireboat: FIREBOAT_NAMES
         }
         
         const typeNames = names[type]
@@ -205,7 +219,7 @@ export class ShipSpawner {
     }
 
     static resetCounters() {
-        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0 }
+        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0 }
     }
 
     static getShipTypeInfo(type: ShipType) {
@@ -221,7 +235,8 @@ export class ShipSpawner {
             droneship: { name: 'Of Course I Still Love You', genre: 'Space Ambient / Electronic', bpm: 105, description: 'SpaceX ASDS - autonomous spaceport drone ship for booster recovery' },
             ferry: { name: 'Harbour Light', genre: 'Reggae / Calypso Fusion', bpm: 115, description: 'Island Hopper ferry with passenger and car decks' },
             trawler: { name: 'Saltwater', genre: 'Sea Shanty / Folk', bpm: 95, description: 'North Star fishing trawler with net gantry and fish hold' },
-            horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' }
+            horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' },
+            fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' }
         }
         return { ...info[type], modelName: blueprint?.name || type }
     }

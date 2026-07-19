@@ -53,6 +53,10 @@ const bandTracks: Map<ShipType, BandInfo> = new Map([
     ['horizon', {
         name: 'Deep Meridian',
         genre: 'Oceanic Ambient / Post-Rock'
+    }],
+    ['fireboat', {
+        name: 'Emergency Pulse',
+        genre: 'Industrial / Siren Techno'
     }]
 ])
 

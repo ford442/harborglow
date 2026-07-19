@@ -190,6 +190,12 @@ export const SHIP_COLORS = {
     secondary: '#55aaee',
     glow: '#3388cc80',
     gradient: 'linear-gradient(135deg, #3388cc, #55aaee)'
+  },
+  fireboat: {
+    primary: '#ff3333',
+    secondary: '#ff6666',
+    glow: '#ff333380',
+    gradient: 'linear-gradient(135deg, #ff3333, #3366ff)'
   }
 }
 

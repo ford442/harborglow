@@ -13,6 +13,7 @@ import {
   ferryCutaway,
   trawlerCutaway,
   horizonCutaway,
+  fireboatCutaway,
 } from './index'
 import { CutawayCue } from './types'
 import { ShipType } from '../../store/gameStoreTypes'
@@ -38,6 +39,7 @@ const ALL_SHIP_TYPES: ShipType[] = [
   'ferry',
   'trawler',
   'horizon',
+  'fireboat',
 ]
 
 describe('getCutawayPlan', () => {
@@ -76,6 +78,7 @@ describe('CutawayPlan invariants', () => {
     ['ferry', ferryCutaway],
     ['trawler', trawlerCutaway],
     ['horizon', horizonCutaway],
+    ['fireboat', fireboatCutaway],
   ]
 
   it('keeps DEFAULT_CUTAWAY_PLAN within the 32-beat envelope', () => {

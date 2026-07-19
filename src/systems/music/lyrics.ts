@@ -91,6 +91,15 @@ const lyricsMap: Map<ShipType, LyricEntry[]> = new Map([
         { time: '2:0', text: 'HarborGlow…' },
         { time: '4:0', text: 'Horizon calling…' },
     ]],
+
+    // Harbor Fireboat - "Rescue Pulse" - Emergency Siren Techno
+    ['fireboat', [
+        { time: '0:0', text: 'All units respond — fire on the water!' },
+        { time: '0:2', text: 'Monitors up, lights blazing…' },
+        { time: '1:0', text: 'HarborGlow!' },
+        { time: '2:0', text: 'Foam and fury, we hold the line!' },
+        { time: '3:0', text: 'Rescue Pulse — never fade!' },
+    ]],
 ])
 
 export const getLyrics = (shipType: ShipType): LyricEntry[] => {

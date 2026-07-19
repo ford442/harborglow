@@ -124,11 +124,12 @@ function ImpostorMesh({ type }: { type: ShipType }) {
       case 'ferry': return [12, 0.92, 4.8]
       case 'trawler': return [12, 1.2, 4.2]
       case 'horizon': return [12, 1.09, 3.49]
+      case 'fireboat': return [12, 1.1, 2.8]
     }
   }, [type])
   
-  const hasBridge = type === 'cruise' || type === 'ferry' || type === 'trawler' || type === 'roro'
-  const hasMast = type === 'research' || type === 'horizon' || type === 'droneship'
+  const hasBridge = type === 'cruise' || type === 'ferry' || type === 'trawler' || type === 'roro' || type === 'fireboat'
+  const hasMast = type === 'research' || type === 'horizon' || type === 'droneship' || type === 'fireboat'
   const [sx, sy, sz] = size as [number, number, number]
   
   return (

@@ -34,7 +34,7 @@ const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
 // TYPES - HarborGlow Game State
 // =============================================================================
 
-export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship' | 'ferry' | 'trawler' | 'horizon'
+export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship' | 'ferry' | 'trawler' | 'horizon' | 'fireboat'
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
@@ -241,6 +241,7 @@ const TUG_TONS_BY_SHIP: Record<ShipType, number> = {
     ferry: 65,
     trawler: 45,
     horizon: 90,
+    fireboat: 30,
 }
 
 function getReputationTierMultiplier(): number {
