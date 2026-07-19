@@ -331,3 +331,55 @@ export function getAmbientCounts(
     }
     return counts
 }
+
+/**
+ * Compute a beat-reactive intensity multiplier for instanced ambient species.
+ * Returns 1.0 when no show is playing or reactivity is disabled, otherwise a
+ * value in [1, 1.8] pulsing with beat phase and overall energy.
+ */
+export function getBeatReactiveMultiplier(
+    beatPhase: number,
+    energy: number,
+    showActive: boolean,
+    reactivity: number
+): number {
+    if (!showActive || reactivity <= 0) return 1.0
+    const clampedReactivity = Math.max(0, Math.min(1, reactivity))
+    const boost = (0.1 + energy * 0.3 + beatPhase * 0.4) * clampedReactivity
+    return Math.min(1.8, 1 + boost)
+}
+
+/**
+ * Compute how strongly fish schools should tighten toward their centroid while
+ * a light-show is playing. Returns 0..1; 0 means normal schooling, 1 means
+ * strong attraction to the group center.
+ */
+export function getFishSchoolCohesionFactor(
+    showActive: boolean,
+    energy: number,
+    reactivity: number
+): number {
+    if (!showActive || reactivity <= 0) return 0
+    const clampedReactivity = Math.max(0, Math.min(1, reactivity))
+    return Math.min(1, (0.25 + energy * 0.75) * clampedReactivity)
+}
+
+/**
+ * Ease-in / ease-out envelope for the Bioluminescent Finale convergence.
+ * Returns a value in [0, 1] that ramps up, holds, then ramps down over the
+ * given duration (in seconds).
+ */
+export function getFinaleConvergenceEnvelope(elapsed: number, duration: number): number {
+    if (duration <= 0 || elapsed <= 0) return 0
+    if (elapsed >= duration) return 0
+    const t = elapsed / duration
+    const attack = 0.15
+    const release = 0.30
+    if (t < attack) {
+        return t / attack
+    }
+    if (t > 1 - release) {
+        return (1 - t) / release
+    }
+    return 1
+}

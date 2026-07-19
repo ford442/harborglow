@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
+import { calcMagneticFalloff } from '../utils/physicsMath'
 
 // Attachment point states
 export type AttachmentState = 'available' | 'hovered' | 'snapping' | 'installing' | 'installed'
@@ -58,11 +59,19 @@ export const SHIP_TYPE_LIGHT_COLORS: Record<ShipType, string> = {
 export interface AttachmentSystemConfig {
   showPoints: boolean
   visibilityRange: number  // meters
-  snapStrength: number     // 0-1
+  snapStrength: number     // 0-1 (legacy UI weighting)
   snapRadius: number       // meters
   installDistance: number  // meters (how close crane needs to be)
   showCable: boolean       // show/hide crane cable
   bindDurationMs: number   // ms to interpolate spreader to anchor before install
+  magneticEnabled: boolean
+  magneticStrength: number       // Hz-style stiffness for spring form
+  magneticDampingRatio: number   // slightly underdamped = satisfying tug
+  magneticCurve: number          // falloff exponent
+  releaseHysteresis: number      // exit at snapRadius * this
+  settleDampingMultiplier: number
+  settleDurationMs: number
+  captureVelocity: number        // max m/s to allow bind
 }
 
 // Default configuration
@@ -74,6 +83,14 @@ export const DEFAULT_ATTACHMENT_CONFIG: AttachmentSystemConfig = {
   installDistance: 2,
   showCable: true,
   bindDurationMs: 150,
+  magneticEnabled: true,
+  magneticStrength: 4.0,
+  magneticDampingRatio: 0.85,
+  magneticCurve: 2.0,
+  releaseHysteresis: 1.5,
+  settleDampingMultiplier: 0.80,
+  settleDurationMs: 1000,
+  captureVelocity: 6.0,
 }
 
 // Active attachment point tracking
@@ -138,8 +155,8 @@ export function calculateAttachmentState(
     return { state: 'installed', distance, snapStrength: 0 }
   }
   
-  // Calculate snap strength (0-1 based on distance)
-  const snapStrength = Math.max(0, 1 - (distance / config.snapRadius))
+  // Calculate snap strength (0-1 based on proximity falloff)
+  const snapStrength = calcMagneticFalloff(distance, config.snapRadius, config.magneticCurve)
   
   // Determine state
   let state: AttachmentState = 'available'
@@ -372,7 +389,7 @@ export function useAttachmentSystem() {
   const [lastInstall, setLastInstall] = useState<InstallationEvent | null>(null)
   
   const state = useGameStore()
-  const config = DEFAULT_ATTACHMENT_CONFIG
+  const config = state.attachmentSystemConfig
   const cranePos = state.spreaderPos
   const twistlockEngaged = state.twistlockEngaged
   const ships = state.ships
