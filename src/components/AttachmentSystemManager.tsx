@@ -19,6 +19,7 @@ import { useScreenShake } from '../hooks/useScreenShake'
 import { playSound, playInstallationCelebration } from '../systems/soundEffects'
 import { playInstallationLock } from '../systems/craneSoundSystem'
 import { economySystem } from '../systems/economySystem'
+import { trainingSystem } from '../systems/trainingSystem'
 import { swaySystem } from '../systems/swaySystem'
 import ParticleBurst3D from './ParticleBurst3D'
 import MagicalInstallFlash from './MagicalInstallFlash'
@@ -329,6 +330,10 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     })
 
     window.dispatchEvent(new CustomEvent('showCreditFeedback', { detail: earnings }))
+
+    if (gameState.gameMode === 'training') {
+      trainingSystem.recordInstallation(event.shipId)
+    }
 
     setFeedbackData({
       shipId: event.shipId,

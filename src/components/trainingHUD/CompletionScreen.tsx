@@ -1,11 +1,9 @@
 import React from 'react';
-import { TrainingMetrics } from '../../systems/trainingSystem';
+import { TrainingMetrics, calculateRank, calculateScore, getRankColor, getRankDescription } from '../../systems/trainingSystem';
 import * as styles from './trainingHUDStyles';
-import { calculateRank, calculateScore, getRankColor } from './utils';
 
 export function CompletionScreen({ metrics, onComplete, onRetry }: { metrics: TrainingMetrics; onComplete: () => void; onRetry: () => void }) {
-  // Calculate rank based on final metrics
-  const rank = calculateRank(calculateScore(metrics))
+  const rank = calculateRank(metrics)
   const score = calculateScore(metrics)
 
   return (
@@ -20,6 +18,7 @@ export function CompletionScreen({ metrics, onComplete, onRetry }: { metrics: Tr
         </div>
         <h2 style={styles.completionTitleStyle}>Module Complete!</h2>
         <p style={styles.completionScoreStyle}>Score: {score.toLocaleString()}</p>
+        <p style={{ color: '#888', fontSize: '13px', margin: '0 0 16px' }}>{getRankDescription(rank)}</p>
 
         <div style={styles.completionStatsStyle}>
           <StatBox label="Time" value={`${Math.floor(metrics.timeElapsed / 60)}:${String(metrics.timeElapsed % 60).padStart(2, '0')}`} />

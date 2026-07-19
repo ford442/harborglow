@@ -124,7 +124,8 @@ export const UNLOCKABLE_TRAINING: Unlockable[] = [
   { id: 'wind-sway', type: 'training', name: 'Wind & Sway', description: 'Weather operations certification', reputationRequired: 800, icon: '💨', unlocked: false },
   { id: 'night-ops', type: 'training', name: 'Night Operations', description: 'Low visibility operations', reputationRequired: 1200, icon: '🌙', unlocked: false },
   { id: 'emergency', type: 'training', name: 'Emergency Response', description: 'Crisis management certification', reputationRequired: 2500, icon: '🚨', unlocked: false },
-  { id: 'multi-crane', type: 'training', name: 'Multi-Crane Coordination', description: 'Advanced coordination', reputationRequired: 4000, icon: '🏗️', unlocked: false }
+  { id: 'multi-crane', type: 'training', name: 'Multi-Crane Coordination', description: 'Advanced coordination', reputationRequired: 4000, icon: '🏗️', unlocked: false },
+  { id: 'light-show', type: 'training', name: 'Advanced Light Show Install', description: 'Master operator capstone', reputationRequired: 6000, icon: '✨', unlocked: false }
 ]
 
 // Harbor themes unlocked by reputation

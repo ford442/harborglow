@@ -5,9 +5,10 @@ import { TimerDisplay, ObjectiveCounter, TutorialPanel, ObjectivePanel, MetricsP
 // Provides subtle instruction, voice lines, and performance feedback during training
 // =============================================================================
 
-import { useState, useEffect, useCallback } from 'react'
-import { useTrainingSystem, TrainingStep, TrainingModuleId, TRAINING_MODULES, TrainingMetrics, getRankColor, calculateRank, calculateScore } from '../systems/trainingSystem'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTrainingSystem, TRAINING_MODULES, type TrainingModuleId } from '../systems/trainingSystem'
 import { useGameStore } from '../store/useGameStore'
+import { swaySystem } from '../systems/swaySystem'
 
 // =============================================================================
 // TRAINING HUD PROPS
@@ -30,7 +31,12 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     nextStep, 
     getCurrentMetrics,
     recordSway,
-    recordInstallation,
+    recordEmergencyStop,
+    recordLoadSecured,
+    recordCraneBCoordinated,
+    recordOperationModeSwitch,
+    recordSyncTestPassed,
+    getCompletedObjectiveIds,
     completeModule
   } = useTrainingSystem()
   
@@ -39,10 +45,18 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
   const [completedObjectives, setCompletedObjectives] = useState<string[]>([])
   const [showObjectivePopup, setShowObjectivePopup] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const prevOperationMode = useRef(useGameStore.getState().operationMode)
+  const secureHoldStart = useRef<number | null>(null)
+  const emergencyAlarmTriggered = useRef(false)
   
   const module = TRAINING_MODULES.find(m => m.id === moduleId)
   const currentStep = getCurrentStep()
   const metrics = getCurrentMetrics()
+
+  const operationMode = useGameStore(s => s.operationMode)
+  const currentShipId = useGameStore(s => s.currentShipId)
+  const installedUpgrades = useGameStore(s => s.installedUpgrades)
+  const musicPlaying = useGameStore(s => s.musicPlaying)
   
   // Timer
   useEffect(() => {
@@ -52,42 +66,104 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     return () => clearInterval(interval)
   }, [])
 
-  // Listen for objective completion (simulated - real implementation would hook into game events)
-  const checkObjectives = useCallback(() => {
-    if (!module) return
-    
-    module.objectives.forEach(obj => {
-      if (!completedObjectives.includes(obj.id)) {
-        // Simulate objective completion based on metrics
-        // In real implementation, this would be triggered by actual game events
-        if (obj.id === 'install-funnel' && metrics.installationsCompleted >= 1) {
-          completeObjective(obj.id)
-        } else if (obj.id === 'install-bridge' && metrics.installationsCompleted >= 2) {
-          completeObjective(obj.id)
-        } else if (obj.id === 'install-rails' && metrics.installationsCompleted >= 3) {
-          completeObjective(obj.id)
-        }
-      }
+  const completeObjective = useCallback((objectiveId: string) => {
+    setCompletedObjectives(prev => {
+      if (prev.includes(objectiveId)) return prev
+      return [...prev, objectiveId]
     })
-  }, [module, completedObjectives, metrics])
-
-  const completeObjective = (objectiveId: string) => {
-    setCompletedObjectives(prev => [...prev, objectiveId])
     setShowObjectivePopup(objectiveId)
     setTimeout(() => setShowObjectivePopup(null), 3000)
-  }
+  }, [])
 
-  // Track sway from game store
-  const gameStore = useGameStore()
+  // Poll objective completion from training system evaluator
   useEffect(() => {
-    // In real implementation, this would subscribe to sway system
-    // For now, placeholder
-    const swayInterval = setInterval(() => {
-      const simulatedSway = Math.random() * 0.3 // Placeholder
-      recordSway(simulatedSway)
+    if (!module) return
+    const interval = setInterval(() => {
+      const newlyComplete = getCompletedObjectiveIds()
+      newlyComplete.forEach(id => {
+        if (!completedObjectives.includes(id)) {
+          completeObjective(id)
+        }
+      })
     }, 500)
-    return () => clearInterval(swayInterval)
+    return () => clearInterval(interval)
+  }, [module, completedObjectives, getCompletedObjectiveIds, completeObjective])
+
+  // Track sway from sway system
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const sway = swaySystem.getState().magnitude
+      recordSway(sway)
+    }, 250)
+    return () => clearInterval(interval)
   }, [recordSway])
+
+  // Module 6: emergency alarm after 10s
+  useEffect(() => {
+    if (moduleId !== 'emergency') return
+    const timer = setTimeout(() => {
+      if (!emergencyAlarmTriggered.current) {
+        emergencyAlarmTriggered.current = true
+      }
+    }, 10000)
+    return () => clearTimeout(timer)
+  }, [moduleId])
+
+  // Module 6: secure load when sway held low after emergency stop
+  useEffect(() => {
+    if (moduleId !== 'emergency') return
+    const interval = setInterval(() => {
+      const completed = getCompletedObjectiveIds()
+      const sway = swaySystem.getState().magnitude
+      if (completed.includes('emergency-stop') && sway < 0.2) {
+        if (secureHoldStart.current === null) {
+          secureHoldStart.current = Date.now()
+        } else if (Date.now() - secureHoldStart.current >= 5000) {
+          recordLoadSecured()
+        }
+      } else {
+        secureHoldStart.current = null
+      }
+    }, 250)
+    return () => clearInterval(interval)
+  }, [moduleId, getCompletedObjectiveIds, recordLoadSecured])
+
+  // Track operation mode switches for emergency module
+  useEffect(() => {
+    if (operationMode !== prevOperationMode.current) {
+      recordOperationModeSwitch(operationMode)
+      prevOperationMode.current = operationMode
+    }
+  }, [operationMode, recordOperationModeSwitch])
+
+  // Module 5: acknowledge Crane B when multiview is active or after 30s
+  useEffect(() => {
+    if (moduleId !== 'multi-crane') return
+    const timer = setTimeout(() => recordCraneBCoordinated(), 30000)
+    return () => clearTimeout(timer)
+  }, [moduleId, recordCraneBCoordinated])
+
+  // Module 7: sync test when all rigs installed and music playing
+  useEffect(() => {
+    if (moduleId !== 'light-show' || !currentShipId) return
+    const installed = installedUpgrades.filter(u => u.shipId === currentShipId).length
+    const ship = useGameStore.getState().ships.find(s => s.id === currentShipId)
+    const target = ship?.attachmentPoints.length ?? 6
+    if (installed >= target && musicPlaying.get(currentShipId)) {
+      recordSyncTestPassed()
+    }
+  }, [moduleId, currentShipId, installedUpgrades, musicPlaying, recordSyncTestPassed])
+
+  // Emergency stop via Space key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && moduleId === 'emergency') {
+        recordEmergencyStop()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [moduleId, recordEmergencyStop])
 
   const handleSkipTutorial = () => {
     setShowTutorial(false)
@@ -98,14 +174,8 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
   }
 
   const handleComplete = () => {
-    const result = completeModule()
+    completeModule()
     onComplete()
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   if (!module) return null
@@ -146,7 +216,7 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
         <MetricsPanel metrics={metrics} />
 
         {/* Bottom Panel - Guidance */}
-        {showTutorial && currentStep && (
+        {showTutorial && currentStep && module.tutorial.length > 0 && (
           <TutorialPanel 
             step={currentStep}
             currentStep={progress.currentStep}
@@ -194,4 +264,3 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     </>
   )
 }
-
