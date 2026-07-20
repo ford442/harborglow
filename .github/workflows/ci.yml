@@ -15,6 +15,24 @@ on:
     branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      visual: ${{ steps.filter.outputs.visual }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            visual:
+              - 'src/scenes/**'
+              - 'src/rendering/**'
+              - 'src/shaders/**'
+              - 'e2e/**'
+              - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -47,3 +65,44 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  e2e-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [ci, changes]
+    if: github.event_name == 'push' || needs.changes.outputs.visual == 'true'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium (software WebGL)
+        run: npm run test:e2e:install
+
+      - name: Production build
+        run: npm run build
+
+      - name: Playwright visual smoke (WebGL2)
+        run: npm run test:e2e
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
