@@ -4,7 +4,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default tseslint.config(
   // Ignore build output and config files
-  { ignores: ['dist', '.eslintrc.json'] },
+  { ignores: ['dist'] },
 
   // TypeScript source files
   {
@@ -22,6 +22,15 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'warn',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      // Prevent @ts-nocheck from hiding duplicate declarations from tsc (see #114, #117).
+      '@typescript-eslint/ban-ts-comment': ['error', {
+        'ts-nocheck': true,
+        'ts-ignore': true,
+        'ts-expect-error': 'allow-with-description',
+        'ts-check': false,
+        minimumDescriptionLength: 10,
+      }],
+      '@typescript-eslint/no-redeclare': 'error',
     },
   }
 )

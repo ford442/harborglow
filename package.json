@@ -12,6 +12,8 @@
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "test": "vitest run",
+        "smoke:dev-transform": "node scripts/smoke-dev-transform.mjs",
+        "test:dev-transform": "npm run smoke:dev-transform",
         "test:e2e": "playwright test",
         "test:e2e:update": "playwright test --update-snapshots",
         "test:e2e:install": "playwright install chromium --with-deps",
