@@ -7,6 +7,7 @@ import { useGameStore, WildlifeEntity, Ship, ShipType } from '../../store/useGam
 import { wildlifeSystem } from '../wildlifeSystem'
 import { musicSystem } from '../musicSystem'
 import { weatherSystem } from '../weatherSystem'
+import { ShipSpawner } from '../shipSpawner'
 import { HarborEvent, HarborEventType, BusinessPattern, BusinessPatternType, PortOperations } from './types'
 import { EVENT_CONFIGS } from './eventConfigs'
 
@@ -414,6 +415,23 @@ export class HarborEventSystem {
         const ship = useGameStore.getState().ships.find(s => s.id === shipId)
         if (!ship) throw new Error('Ship not found')
 
+        const spawnedIds: string[] = []
+        const responseCount = Math.min(this.fireboatPositions.length, 3)
+        for (let i = 0; i < responseCount; i++) {
+            const offset = this.fireboatPositions[i]
+            const position: [number, number, number] = [
+                ship.position[0] + offset[0] * 0.25,
+                0,
+                ship.position[2] + offset[2] * 0.25,
+            ]
+            try {
+                const fireboat = ShipSpawner.spawnShip('fireboat', { position })
+                spawnedIds.push(fireboat.id)
+            } catch (err) {
+                console.warn('[HarborEventSystem] Failed to spawn response fireboat:', err)
+            }
+        }
+
         const event: HarborEvent = {
             id: `fireboats-${Date.now()}`,
             type: 'fireboat_response',
@@ -424,13 +442,14 @@ export class HarborEventSystem {
             position: ship.position,
             metadata: {
                 fireboatCount: 5,
+                spawnedFireboatIds: spawnedIds,
                 waterPressure: 'high',
                 foamDeployed: Math.random() > 0.5
             }
         }
 
         this.activeEvents.set(event.id, event)
-        console.log(`🚒 Fireboat response: 5 vessels deploying`)
+        console.log(`🚒 Fireboat response: ${spawnedIds.length} vessels deployed (${spawnedIds.join(', ')})`)
         
         return event
     }

@@ -533,6 +533,15 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, o
                         transition: 'box-shadow 0.08s ease-out',
                     }} />
                     <p style={subtitleStyle}>Harbor Operations Experience</p>
+                    <p style={{
+                        marginTop: '8px',
+                        fontSize: '12px',
+                        color: 'rgba(255, 80, 80, 0.75)',
+                        letterSpacing: '0.5px',
+                        fontStyle: 'italic',
+                    }}>
+                        🚒 New: Harbor Fire Response — deploy the Fireboat when emergencies call
+                    </p>
                 </div>
 
                 <nav style={navStyle}>

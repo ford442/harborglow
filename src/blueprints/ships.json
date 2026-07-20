@@ -375,6 +375,42 @@
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
       "notes": "Mid-size research vessel with distinctive A-frame crane aft, multibeam sonar dome at bow, and lab module amidships. Scientific orange/white finish."
+    },
+    {
+      "id": "fireboat",
+      "version": "1.0",
+      "name": "Harbor Fireboat \"Rescue Pulse\" v1.0",
+      "scale": 0.9,
+      "baseColor": "#cc1a1a",
+      "musicTheme": "emergency_pulse",
+      "lod2": {
+        "hull": { "width": 10, "height": 3, "length": 28 },
+        "profile": "tall",
+        "features": [
+          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": -8, "width": 6, "height": 4, "depth": 6 },
+          { "type": "water_cannon", "xOffset": -3, "yOffset": 0, "zOffset": 4, "width": 2, "height": 7, "depth": 2 },
+          { "type": "water_cannon", "xOffset": 3, "yOffset": 0, "zOffset": 4, "width": 2, "height": 7, "depth": 2 },
+          { "type": "mast", "xOffset": 0, "yOffset": 0, "zOffset": -6, "width": 1, "height": 9, "depth": 1 }
+        ]
+      },
+      "parts": [
+        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [10, 3, 28], "material": { "emissive": "#aa1515" } },
+        { "id": "deck", "type": "box", "position": [0, 1, 0], "rotation": [0, 0, 0], "size": [9, 0.4, 26] },
+        { "id": "bridge", "type": "box", "position": [0, 4, -8], "rotation": [0, 0, 0], "size": [7, 5, 6], "material": { "emissive": "#ffffff" } },
+        { "id": "waterCannonPort", "type": "cylinder", "position": [-3.5, 5, 4], "rotation": [0.3, 0, 0], "size": [0.6, 8, 0.6], "material": { "emissive": "#3366ff" } },
+        { "id": "waterCannonStbd", "type": "cylinder", "position": [3.5, 5, 4], "rotation": [0.3, 0, 0], "size": [0.6, 8, 0.6], "material": { "emissive": "#3366ff" } },
+        { "id": "sirenMast", "type": "cylinder", "position": [0, 9, -6], "rotation": [0, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#ff3333" } },
+        { "id": "sirenArray", "type": "box", "position": [0, 12, -6], "rotation": [0, 0, 0], "size": [2, 1, 2], "material": { "emissive": "#ff0000" } },
+        { "id": "foamDeck", "type": "box", "position": [0, 2.5, 10], "rotation": [0, 0, 0], "size": [4, 2, 3], "material": { "emissive": "#ffcc00" } },
+        { "id": "hullWash", "type": "box", "position": [0, -0.5, 0], "rotation": [0, 0, 0], "size": [9, 0.5, 22], "material": { "emissive": "#ff2222" } },
+        { "id": "hullStripeL", "type": "box", "position": [-4.8, 0, 0], "rotation": [0, 0, 0], "size": [0.3, 1.5, 24], "material": { "emissive": "#ffffff" } },
+        { "id": "hullStripeR", "type": "box", "position": [4.8, 0, 0], "rotation": [0, 0, 0], "size": [0.3, 1.5, 24], "material": { "emissive": "#ffffff" } },
+        { "id": "bow", "type": "cone", "position": [0, 0, 14], "rotation": [1.57, 0, 0], "size": [5, 6, 5] }
+      ],
+      "attachmentPoints": ["waterCannonPort", "waterCannonStbd", "bridge", "sirenMast", "hullWash", "foamDeck"],
+      "contributor": "Fleet Ecosystem Pipeline",
+      "added": "2026-07-19",
+      "notes": "Compact harbor fireboat with dual water monitors, siren mast array, and foam deck rigging. Responds to ship_fire events."
     }
   ]
 }

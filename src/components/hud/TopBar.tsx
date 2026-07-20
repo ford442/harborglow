@@ -104,6 +104,7 @@ export default function TopBar({ currentShip, ships }: TopBarProps) {
     ferry: '#00cc88',
     trawler: '#cc8833',
     horizon: '#3388cc',
+    fireboat: '#ff3333',
   }
   
   return (

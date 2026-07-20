@@ -21,7 +21,7 @@ class MusicSystem {
     }
 
     private initializeLyrics() {
-        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon']
+        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon', 'fireboat']
         shipTypes.forEach(shipType => {
             this.lyrics.set(shipType, getLyrics(shipType))
             this.currentLyricIndex.set(shipType, 0)
@@ -33,7 +33,7 @@ class MusicSystem {
         
         await Tone.start()
         
-        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon']
+        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon', 'fireboat']
         shipTypes.forEach(shipType => {
             const synthChain = createSynthChain(shipType)
             this.synthChains.set(shipType, synthChain)
@@ -46,7 +46,7 @@ class MusicSystem {
     private initializeTransports() {
         const bpmMap: Record<ShipType, number> = {
             cruise: 120, container: 128, tanker: 140, bulk: 135, lng: 118,
-            roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100
+            roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100, fireboat: 152
         }
 
         this.createCruiseTransport(bpmMap.cruise)
@@ -60,6 +60,7 @@ class MusicSystem {
         this.createFerryTransport(bpmMap.ferry)
         this.createTrawlerTransport(bpmMap.trawler)
         this.createHorizonTransport(bpmMap.horizon)
+        this.createFireboatTransport(bpmMap.fireboat)
     }
 
     private createCruiseTransport(bpm: number) {
@@ -146,6 +147,12 @@ class MusicSystem {
         const transport = Tone.getTransport()
         transport.bpm.value = bpm
         this.transports.set('horizon', transport)
+    }
+
+    private createFireboatTransport(bpm: number) {
+        const transport = Tone.getTransport()
+        transport.bpm.value = bpm
+        this.transports.set('fireboat', transport)
     }
 
     // =========================================================================

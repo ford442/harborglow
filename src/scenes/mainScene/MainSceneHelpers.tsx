@@ -376,7 +376,8 @@ export function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remaini
         droneship: 'Of Course I Still Love You',
         ferry: 'Harbour Light',
         trawler: 'Saltwater',
-        horizon: 'Meridian'
+        horizon: 'Meridian',
+        fireboat: 'Rescue Pulse'
     }
 
     const colors: Record<ShipType, string> = {
@@ -390,7 +391,8 @@ export function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remaini
         droneship: '#ffffff',
         ferry: '#00cc88',
         trawler: '#cc8833',
-        horizon: '#3388cc'
+        horizon: '#3388cc',
+        fireboat: '#ff3333'
     }
 
     return (

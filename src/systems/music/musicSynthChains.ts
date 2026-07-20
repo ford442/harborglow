@@ -445,6 +445,40 @@ export const createHorizonSynths = (): SynthChainConfig => {
     return { synths, effects }
 }
 
+// -------------------------------------------------------------------------
+// FIREBOAT - "Emergency Pulse"
+// -------------------------------------------------------------------------
+export const createFireboatSynths = (): SynthChainConfig => {
+    const effects: any[] = []
+    const synths: any[] = []
+
+    const reverb = new Tone.Reverb({ decay: 1.5, preDelay: 0.02, wet: 0.2 }).toDestination()
+    effects.push(reverb)
+
+    const sirenSynth = new Tone.MonoSynth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.001, decay: 0.1, sustain: 0.8, release: 0.15 }
+    }).connect(reverb)
+    sirenSynth.volume.value = -8
+    synths.push(sirenSynth)
+
+    const pulseBass = new Tone.MonoSynth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.001, decay: 0.15, sustain: 0.3, release: 0.2 }
+    }).connect(reverb)
+    pulseBass.volume.value = -10
+    synths.push(pulseBass)
+
+    const strobeSynth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'pulse', width: 0.2 },
+        envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.1 }
+    }).connect(reverb)
+    strobeSynth.volume.value = -14
+    synths.push(strobeSynth)
+
+    return { synths, effects }
+}
+
 // Factory function to create synth chains by ship type
 export const createSynthChain = (shipType: ShipType): SynthChainConfig => {
     const creators: Record<ShipType, () => SynthChainConfig> = {
@@ -459,6 +493,7 @@ export const createSynthChain = (shipType: ShipType): SynthChainConfig => {
         ferry: createFerrySynths,
         trawler: createTrawlerSynths,
         horizon: createHorizonSynths,
+        fireboat: createFireboatSynths,
     }
 
     const creator = creators[shipType]

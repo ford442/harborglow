@@ -70,7 +70,8 @@ const TRAFFIC_CONFIG = {
         droneship: 45,
         ferry: 30,       // Quick turnaround - passengers + vehicles
         trawler: 60,     // Offload catch + resupply
-        horizon: 90      // Research ops and equipment checks
+        horizon: 90,     // Research ops and equipment checks
+        fireboat: 20     // Quick emergency response turnaround
     } as Record<ShipType, number>,
     
     // Time pressure thresholds
@@ -99,7 +100,7 @@ const SCHEDULE_PREFERENCES: Record<DayPhase, ShipType[]> = {
     mid_morning: ['cruise', 'container', 'roro'],
     midday: ['cruise', 'container', 'roro', 'research'],
     golden_hour: ['cruise', 'droneship'],
-    night: ['tanker', 'lng', 'container']
+    night: ['tanker', 'lng', 'container', 'fireboat']
 }
 
 // =============================================================================
@@ -118,7 +119,8 @@ function generateShipName(type: ShipType): string {
         droneship: ['SpaceX', 'Blue', 'Rocket', 'Launch', 'Orbit'],
         ferry: ['Island', 'Harbour', 'Bay', 'Channel', 'Coastal'],
         trawler: ['North', 'Silver', 'Iron', 'Cold', 'Deep'],
-        horizon: ['Horizon', 'Abyss', 'Deep', 'Ocean', 'Trench']
+        horizon: ['Horizon', 'Abyss', 'Deep', 'Ocean', 'Trench'],
+        fireboat: ['Rescue', 'Guardian', 'Shield', 'Alert', 'Spray']
     }
     const suffixes = ['Star', 'Queen', 'Leader', 'Express', 'Glory', 'Venture', 'Pioneer']
     
@@ -143,7 +145,8 @@ function generateOriginDestination(type: ShipType): { origin: string; destinatio
         droneship: ['Cape Canaveral', 'Vandenberg', 'Kennedy', 'Canaveral', 'Kwajalein'],
         ferry: ['Victoria', 'Vancouver Island', 'Nanaimo', 'Horseshoe Bay', 'Swartz Bay'],
         trawler: ['Juneau', 'Kodiak', 'Dutch Harbor', 'Sitka', 'Ketchikan'],
-        horizon: ['Woods Hole', 'Scripps', 'Monterey Bay', 'Hawaii', 'South Pacific']
+        horizon: ['Woods Hole', 'Scripps', 'Monterey Bay', 'Hawaii', 'South Pacific'],
+        fireboat: ['Harbor Station', 'Fire Dock', 'Emergency Pier', 'Rescue Berth', 'Port Authority']
     }
     
     const possiblePorts = ports[type]
@@ -168,7 +171,8 @@ function generateCargoType(type: ShipType): string {
         droneship: ['Rocket Booster', 'Fairing Recovery', 'Satellite'],
         ferry: ['Passengers', 'Vehicles', 'Day Tourists'],
         trawler: ['Salmon', 'Halibut', 'Crab', 'Pollock'],
-        horizon: ['Scientific Equipment', 'Research Team', 'Core Samples', 'ROV Systems']
+        horizon: ['Scientific Equipment', 'Research Team', 'Core Samples', 'ROV Systems'],
+        fireboat: ['Emergency Crew', 'Fire Suppression Gear', 'Rescue Equipment', 'Foam Supply']
     }
     const options = cargos[type]
     return options[Math.floor(Math.random() * options.length)]
@@ -307,7 +311,7 @@ class TrafficSystem {
         const baseValue: Record<ShipType, number> = {
             cruise: 15, container: 10, tanker: 12, bulk: 8,
             lng: 14, roro: 8, research: 20, droneship: 25,
-            ferry: 8, trawler: 6, horizon: 18
+            ferry: 8, trawler: 6, horizon: 18, fireboat: 22
         }
         const priorityMult: Record<ShipPriority, number> = {
             normal: 1, priority: 1.5, vip: 2, emergency: 3

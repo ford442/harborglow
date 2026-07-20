@@ -11,6 +11,7 @@ import { droneshipCutaway } from './droneship'
 import { ferryCutaway } from './ferry'
 import { trawlerCutaway } from './trawler'
 import { horizonCutaway } from './horizon'
+import { fireboatCutaway } from './fireboat'
 
 export type { CutawayCue, CutawayAction, CutawayPlan } from './types'
 
@@ -33,6 +34,7 @@ export const cutawayRegistry: Partial<Record<ShipType, CutawayPlan>> = {
   ferry: ferryCutaway,
   trawler: trawlerCutaway,
   horizon: horizonCutaway,
+  fireboat: fireboatCutaway,
 }
 
 export function getCutawayPlan(shipType: ShipType): CutawayPlan {
@@ -50,3 +52,4 @@ export { droneshipCutaway } from './droneship'
 export { ferryCutaway } from './ferry'
 export { trawlerCutaway } from './trawler'
 export { horizonCutaway } from './horizon'
+export { fireboatCutaway } from './fireboat'

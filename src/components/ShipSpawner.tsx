@@ -82,6 +82,14 @@ const SHIP_TYPES: ShipTypeConfig[] = [
     description: 'Space ambient electronic',
     musicStyle: '"OCISLY"',
     icon: '🚀'
+  },
+  {
+    type: 'fireboat',
+    label: 'Harbor Fireboat',
+    shortLabel: 'Fireboat',
+    description: 'Emergency siren techno with water-cannon lights',
+    musicStyle: '"Rescue Pulse"',
+    icon: '🚒'
   }
 ]
 
@@ -116,7 +124,8 @@ export default function ShipSpawner() {
     droneship: ships.filter(s => s.type === 'droneship').length,
     ferry: ships.filter(s => s.type === 'ferry').length,
     trawler: ships.filter(s => s.type === 'trawler').length,
-    horizon: ships.filter(s => s.type === 'horizon').length
+    horizon: ships.filter(s => s.type === 'horizon').length,
+    fireboat: ships.filter(s => s.type === 'fireboat').length
   }
 
   return (
