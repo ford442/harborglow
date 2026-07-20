@@ -38,7 +38,8 @@ export const UPGRADE_TARGETS: Record<ShipType, number> = {
     droneship: 6,   // Space recovery drone ship - landing platform + thruster bays
     ferry: 4,       // Island Hopper ferry - passenger deck + car deck + nav lights
     trawler: 4,     // North Star trawler - wheelhouse + gantry + fish hold + mast
-    horizon: 4      // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
+    horizon: 4,     // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
+    fireboat: 6     // Harbor fireboat - dual monitors + siren mast + hull wash + foam deck
 }
 
 export const selectUpgradeProgress = (state: GameState, shipId: string): number => {

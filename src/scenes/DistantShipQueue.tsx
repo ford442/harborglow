@@ -62,7 +62,8 @@ function DistantShip({ position, type, scale, isNight }: DistantShipProps) {
             droneship: isNight ? '#0a0a0a' : '#3a3a3a',
             ferry: isNight ? '#0a1a15' : '#3a4a40',
             trawler: isNight ? '#151008' : '#454035',
-            horizon: isNight ? '#0a1015' : '#3a4045'
+            horizon: isNight ? '#0a1015' : '#3a4045',
+            fireboat: isNight ? '#1a0808' : '#4a3030'
         }
         return colors[type]
     }, [type, isNight])
@@ -87,6 +88,7 @@ function DistantShip({ position, type, scale, isNight }: DistantShipProps) {
             case 'ferry': return { length: 22, width: 5, height: 6 }
             case 'trawler': return { length: 14, width: 4, height: 4 }
             case 'horizon': return { length: 20, width: 5, height: 5 }
+            case 'fireboat': return { length: 12, width: 4, height: 4 }
         }
     }, [type])
     

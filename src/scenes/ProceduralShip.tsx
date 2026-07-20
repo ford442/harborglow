@@ -547,6 +547,33 @@ const HorizonDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWid
   </group>
 );
 
+const FireboatDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+  <group>
+    {[-1, 1].map((side) => (
+      <group key={side} position={[side * shipLength * 0.22, 4, shipWidth * 0.15]}>
+        <mesh rotation={[0.4, 0, 0]}>
+          <cylinderGeometry args={[0.15, 0.2, shipWidth * 0.35, 8]} />
+          <meshStandardMaterial color='#888899' metalness={0.7} />
+        </mesh>
+        <mesh position={[0, shipWidth * 0.12, shipWidth * 0.1]} rotation={[0.5, 0, 0]}>
+          <cylinderGeometry args={[0.08, 0.12, 1.2, 6]} />
+          <meshStandardMaterial color='#3366ff' emissive='#4488ff' emissiveIntensity={1.2} />
+        </mesh>
+      </group>
+    ))}
+    <mesh position={[0, 5.5, -shipWidth * 0.1]}>
+      <boxGeometry args={[0.8, 0.4, 0.8]} />
+      <meshStandardMaterial color='#ff0000' emissive='#ff2222' emissiveIntensity={2} />
+    </mesh>
+    {[-1, 1].map((side) => (
+      <mesh key={side} position={[side * shipLength * 0.38, 1.5, 0]}>
+        <boxGeometry args={[0.15, 0.8, shipLength * 0.5]} />
+        <meshStandardMaterial color='#ffffff' emissive='#ffffff' emissiveIntensity={0.4} />
+      </mesh>
+    ))}
+  </group>
+);
+
 // -------------------------------------------------------------------------
 // LOD2 Impostor — simplified distant geometry with per-type features
 // -------------------------------------------------------------------------
@@ -568,9 +595,11 @@ const FEATURE_COLORS: Record<string, string> = {
   passenger_deck: '#ece8dc',
   car_deck: '#2d4a2d',
   moonpool: '#1a4a6a',
+  water_cannon: '#3366ff',
+  siren: '#ff2222',
 };
 
-const GLOWING_FEATURES = new Set(['funnel', 'cellguides', 'aframe', 'helideck']);
+const GLOWING_FEATURES = new Set(['funnel', 'cellguides', 'aframe', 'helideck', 'water_cannon', 'siren']);
 
 const tintHullColor = (baseColor: string, profile: string): string => {
   const c = new THREE.Color(baseColor);
@@ -609,7 +638,7 @@ const Lod2Impostor = ({ lod2, color }: { lod2: Lod2Data; color: string }) => {
       {lod2.features.map((feature, i) => {
         const featureColor = FEATURE_COLORS[feature.type] ?? color;
         const isGlowing = GLOWING_FEATURES.has(feature.type);
-        const isCylinder = feature.type === 'funnel' || feature.type === 'tank';
+        const isCylinder = feature.type === 'funnel' || feature.type === 'tank' || feature.type === 'water_cannon';
         const isMast = feature.type === 'mast';
         const w = Math.min(feature.width, feature.depth);
 
@@ -677,6 +706,7 @@ const ProceduralShipBody = ({
       {blueprint.id === 'ferry' && <FerryDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {blueprint.id === 'trawler' && <TrawlerDetails shipLength={shipLength} shipWidth={shipWidth} />}
       {blueprint.id === 'horizon' && <HorizonDetails shipLength={shipLength} shipWidth={shipWidth} />}
+      {blueprint.id === 'fireboat' && <FireboatDetails shipLength={shipLength} shipWidth={shipWidth} />}
     </>
   )
 }

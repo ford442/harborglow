@@ -75,6 +75,10 @@ const UPGRADE_CATEGORIES: Record<ShipType, { name: string; icon: string; parts: 
     { name: 'Science', icon: '🔬', parts: ['labModule', 'sonarDome'] },
     { name: 'Ops', icon: '🚁', parts: ['aFrame', 'mastArray'] },
   ],
+  fireboat: [
+    { name: 'Monitors', icon: '💧', parts: ['waterCannonPort', 'waterCannonStbd'] },
+    { name: 'Emergency', icon: '🚒', parts: ['bridge', 'sirenMast', 'hullWash', 'foamDeck'] },
+  ],
 }
 
 export default function ShipStatusPanel({ ship }: ShipStatusPanelProps) {

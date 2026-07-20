@@ -53,6 +53,7 @@ export const SHIP_TYPE_LIGHT_COLORS: Record<ShipType, string> = {
   ferry: '#00ffcc',
   trawler: '#ffcc44',
   horizon: '#44aaff',
+  fireboat: '#ff4444',
 }
 
 // Attachment system configuration

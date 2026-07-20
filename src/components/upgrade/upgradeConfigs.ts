@@ -114,6 +114,14 @@ export const UPGRADE_CONFIGS: Record<ShipType, UpgradeOption[]> = {
         { partName: 'labModule', label: 'Lab Module', description: 'Research lab accent lighting' },
         { partName: 'mastArray', label: 'Mast Array', description: 'Science mast navigation lights' },
     ],
+    fireboat: [
+        { partName: 'waterCannonPort', label: 'Port Monitor', description: 'Port water cannon LED ring' },
+        { partName: 'waterCannonStbd', label: 'Starboard Monitor', description: 'Stbd water cannon LED ring' },
+        { partName: 'bridge', label: 'Bridge Nav Lights', description: 'Wheelhouse emergency nav array' },
+        { partName: 'sirenMast', label: 'Siren Mast', description: 'Rotating red/blue beacon rig' },
+        { partName: 'hullWash', label: 'Hull Wash', description: 'Red hull underwater wash lights' },
+        { partName: 'foamDeck', label: 'Foam Deck', description: 'Deck flood + foam system illumination' },
+    ],
 }
 
 export const shipTypeLabels: Record<ShipType, string> = {
@@ -128,6 +136,7 @@ export const shipTypeLabels: Record<ShipType, string> = {
     ferry: 'Island Hopper Ferry',
     trawler: 'North Star Trawler',
     horizon: 'Horizon Deep Research Vessel',
+    fireboat: 'Harbor Fireboat',
 }
 
 export const shipTypeColors: Record<ShipType, string> = {
@@ -142,4 +151,5 @@ export const shipTypeColors: Record<ShipType, string> = {
     ferry: '#00cc88',
     trawler: '#cc8833',
     horizon: '#3388cc',
+    fireboat: '#ff3333',
 }

@@ -81,7 +81,8 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
         droneship: '#34495e',
         ferry: '#00cc88',
         trawler: '#cc8833',
-        horizon: '#3388cc'
+        horizon: '#3388cc',
+        fireboat: '#ff3333'
     }
     const color = colors[type]
     
@@ -98,6 +99,7 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
             case 'ferry': return [5.5, 1.8, 1.6] as [number, number, number]
             case 'trawler': return [4, 1.5, 1.2] as [number, number, number]
             case 'horizon': return [6, 2, 1.5] as [number, number, number]
+            case 'fireboat': return [3.5, 1.8, 1.4] as [number, number, number]
         }
     }, [type])
     
@@ -379,7 +381,8 @@ export default function ShipComponent({ ship }: ShipProps) {
             droneship: 0.10,  // Barge is more stable
             ferry: 0.07,
             trawler: 0.09,
-            horizon: 0.06
+            horizon: 0.06,
+            fireboat: 0.08
         }
         const bobOffset = bobOffsets[ship.type]
         const sineBob = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset
