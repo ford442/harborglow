@@ -1,9 +1,14 @@
 /**
- * Smoke-test that MainSceneHelpers.tsx loads through the live Vite dev server
+ * Smoke-test that source modules load through the live Vite dev server
  * (@vitejs/plugin-react / Babel). Catches duplicate-declaration and other
  * parse errors that tsc + esbuild tolerate but break `npm run dev`.
+ *
+ * Uses a real `vite dev` process (not transformRequest) so the gate tracks
+ * the same pipeline as local development. When upgrading to Vite 8 + Oxc,
+ * re-validate this script against the new dev transform path.
  */
 import { spawn } from 'node:child_process'
+import { readdirSync, statSync } from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,15 +18,32 @@ const root = path.resolve(__dirname, '..')
 const PORT = 5174
 const HOST = '127.0.0.1'
 
-const MODULES = [
-  '/src/scenes/mainScene/MainSceneHelpers.tsx',
-  '/src/scenes/mainScene/nightLighting.tsx',
-  '/src/scenes/mainScene/levaControls.ts',
-  '/src/scenes/mainScene/shipFleet.tsx',
-  '/src/scenes/mainScene/spectatorCamera.tsx',
-  '/src/scenes/mainScene/underwaterEffects.tsx',
-  '/src/scenes/MainScene.tsx',
+const SOURCE_ROOTS = [
+  path.join(root, 'src/scenes'),
+  path.join(root, 'src/store'),
 ]
+
+const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx'])
+
+/** Recursively collect /src/... module URLs under scenes/ and store/. */
+function collectModuleUrls(dir) {
+  const urls = []
+  for (const entry of readdirSync(dir)) {
+    if (entry === '__tests__' || entry === 'node_modules') continue
+    const fullPath = path.join(dir, entry)
+    const stat = statSync(fullPath)
+    if (stat.isDirectory()) {
+      urls.push(...collectModuleUrls(fullPath))
+      continue
+    }
+    if (!SOURCE_EXTENSIONS.has(path.extname(entry))) continue
+    const rel = path.relative(root, fullPath).split(path.sep).join('/')
+    urls.push(`/${rel}`)
+  }
+  return urls.sort()
+}
+
+const MODULES = SOURCE_ROOTS.flatMap(collectModuleUrls)
 
 function waitForServer(url, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs
@@ -79,20 +101,24 @@ dev.stderr.on('data', (chunk) => {
 
 try {
   await waitForServer(`http://${HOST}:${PORT}/`)
+  console.log(`Dev-transform smoke: checking ${MODULES.length} modules under src/scenes and src/store`)
 
   for (const moduleId of MODULES) {
     const { status, body } = await fetchModule(moduleId)
     if (status !== 200) {
       failed = true
       console.error(`✗ dev transform failed: ${moduleId} (HTTP ${status})`)
-      if (body.includes('has already been declared')) {
+      if (body.includes('has already been declared') || body.includes('Multiple exports with the same name')) {
         console.error('  Duplicate identifier — Babel parse error')
       }
       const snippet = body.slice(0, 400).replace(/\n/g, '\n  ')
       console.error(`  ${snippet}`)
       continue
     }
-    if (body.includes('has already been declared')) {
+    if (
+      body.includes('has already been declared')
+      || body.includes('Multiple exports with the same name')
+    ) {
       failed = true
       console.error(`✗ dev transform failed: ${moduleId}`)
       console.error('  Response contains duplicate-declaration error')

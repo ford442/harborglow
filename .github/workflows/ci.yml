@@ -43,7 +43,7 @@ jobs:
         run: npm run test
 
       - name: Dev-transform smoke (Babel pipeline)
-        run: npm run test:dev-transform
+        run: npm run smoke:dev-transform
 
       - name: Production build
         run: npm run build

@@ -338,7 +338,7 @@ Root files:
 ├── tsconfig.node.json
 ├── tailwind.config.js
 ├── postcss.config.js
-├── .eslintrc.json
+├── eslint.config.js
 └── .gitignore
 ```
 
@@ -411,11 +411,14 @@ Root files:
 - `isolatedModules: true`
 
 ### ESLint Rules
+- Config: `eslint.config.js` (ESLint 9 flat config; `.eslintrc.json` removed)
 - Extends: `eslint:recommended`, `@typescript-eslint/recommended`, `react-hooks/recommended`
 - `@typescript-eslint/no-explicit-any`: **off**
 - `@typescript-eslint/no-unused-vars`: **off**
+- `@typescript-eslint/ban-ts-comment`: **error** — blocks `@ts-nocheck` and `@ts-ignore`; `@ts-expect-error` allowed only with a ≥10-char description (prevents hiding duplicate declarations from `tsc`, see #114)
+- `@typescript-eslint/no-redeclare`: **error**
 - `react-refresh/only-export-components`: **warn**
-- Ignores: `dist`, `.eslintrc.json`
+- Ignores: `dist`
 
 ### Recent Cleanup
 - Commit `3674266c` addressed React hook dependency arrays and converted mutable `let` declarations to immutable `const`s across several files (codemods now in `scripts/archive/`).
@@ -475,9 +478,9 @@ All steps in `.github/workflows/ci.yml` **block merge** when they fail (exit non
 | Step | Command | What it catches |
 |------|---------|-----------------|
 | Type-check | `npm run typecheck` | Strict `tsc` errors across `src/` |
-| Lint | `npm run lint` | ESLint **errors** (e.g. banned `@ts-ignore`); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
+| Lint | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | Unit tests | `npm run test` | Vitest regressions in systems and store |
-| Dev-transform smoke | `npm run test:dev-transform` | Babel/`@vitejs/plugin-react` failures (duplicate declarations in `MainSceneHelpers.tsx`, etc.) that `tsc` and esbuild tolerate but break `npm run dev` |
+| Dev-transform smoke | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | Production build | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
 
 **Report-only / not in CI (yet):** Playwright visual smoke on `?renderer=webgl`, `npm audit` advisories.
@@ -609,8 +612,8 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `previ
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
 ### CI locally
-- Run the full merge gate matrix: `npm run typecheck && npm run lint && npm run test && npm run test:dev-transform && npm run build`.
-- `npm run test:dev-transform` starts a short-lived Vite dev server and fetches `MainSceneHelpers.tsx` + `MainScene.tsx` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses.
+- Run the full merge gate matrix: `npm run typecheck && npm run lint && npm run test && npm run smoke:dev-transform && npm run build`.
+- `npm run smoke:dev-transform` boots a short-lived Vite dev server and fetches every module under `src/scenes/` and `src/store/` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses. `npm run test:dev-transform` is an alias.
 
 ### Other notes
 - `npm run lint` reports ~39 `react-refresh/only-export-components` warnings; only ESLint **errors** fail CI.
