@@ -2,3 +2,7 @@ node_modules
 emsdk
 dist
 .playwright-mcp/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

@@ -86,4 +86,8 @@ export default defineConfig(({ mode }) => ({
             target: 'esnext',
         },
     },
+    test: {
+        include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+        exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+    },
 }))

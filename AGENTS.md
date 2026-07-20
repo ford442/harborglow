@@ -91,6 +91,14 @@ npm run lint
 # Run ESLint with auto-fix
 npm run lint:fix
 
+# Playwright E2E + visual regression (WebGL2 / software rasterizer; build first)
+npm run build
+npm run test:e2e:install   # once per machine / CI image
+npm run test:e2e
+
+# Refresh visual baselines after intentional rendering changes
+npm run test:e2e:update
+
 # Smoke test: check git status, grep TODO/FIXME, then run build
 npm run heartbeat
 
@@ -441,6 +449,7 @@ Root files:
 9. Verify save/load persistence across page reloads.
 10. Test tugboat mode toggle and tugboat HUD.
 11. Verify moon phase display in time system.
+12. **Playwright E2E (local):** `npm run build && npm run test:e2e` — menu → New Game → WebGL canvas boot, harbor overview screenshot, wireframe (`G`) pixel diff. Uses `?renderer=webgl&wireframe=0` and SwiftShader in headless Chromium. CI job `e2e-visual` runs the same suite (with 2× retry on screenshot diffs) when PRs touch `src/scenes/`, `src/rendering/`, or `src/shaders/`.
 
 ## Deployment
 
@@ -479,8 +488,9 @@ All steps in `.github/workflows/ci.yml` **block merge** when they fail (exit non
 | Unit tests | `npm run test` | Vitest regressions in systems and store |
 | Dev-transform smoke | `npm run test:dev-transform` | Babel/`@vitejs/plugin-react` failures (duplicate declarations in `MainSceneHelpers.tsx`, etc.) that `tsc` and esbuild tolerate but break `npm run dev` |
 | Production build | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
+| E2E visual smoke | `npm run build && npm run test:e2e` | Playwright: menu boot, MainScene lazy-load (no `LevaControlsConfig` Babel errors), harbor overview screenshot, wireframe toggle. WebGL2 via `?renderer=webgl`; SwiftShader in CI. **Runs in job `e2e-visual`** (depends on `ci`, path-filtered on PRs). Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
 
-**Report-only / not in CI (yet):** Playwright visual smoke on `?renderer=webgl`, `npm audit` advisories.
+**Report-only / not in CI (yet):** `npm audit` advisories.
 
 ## Security Considerations
 
