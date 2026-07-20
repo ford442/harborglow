@@ -1,30 +1,39 @@
-/**
- * Thin compatibility barrel — implementation lives in sibling modules.
- * @see ./index.ts
- */
+// Barrel re-exports for mainScene helpers
 export type {
     AtSeaShip,
     LevaControlsConfig,
     ShipSchedulingConfig,
     SpectatorCameraConfig,
     DepartingShipsConfig,
-} from './index'
+} from './types'
 
 export {
     NightDockLights,
     NightVolumetricCones,
     WaterLightVolumes,
     SpectatorNightCinematicEffects,
-    ShipWrapper,
-    SpectatorOverlay,
+} from './nightLighting'
+
+export {
     triggerGeopoliticalEvent,
     triggerTariffEvent,
     triggerLaborAction,
     triggerPeakSeason,
     useLevaControls,
+} from './levaControls'
+
+export {
+    ShipWrapper,
     useShipScheduling,
+    animateDepartingShips,
+} from './shipFleet'
+
+export {
+    SpectatorOverlay,
+    updateSpectatorCamera,
+} from './spectatorCamera'
+
+export {
     UnderwaterEffects,
     getSunPosition,
-    updateSpectatorCamera,
-    animateDepartingShips,
-} from './index'
+} from './underwaterEffects'
