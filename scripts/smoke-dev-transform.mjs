@@ -15,6 +15,11 @@ const HOST = '127.0.0.1'
 
 const MODULES = [
   '/src/scenes/mainScene/MainSceneHelpers.tsx',
+  '/src/scenes/mainScene/nightLighting.tsx',
+  '/src/scenes/mainScene/levaControls.ts',
+  '/src/scenes/mainScene/shipFleet.tsx',
+  '/src/scenes/mainScene/spectatorCamera.tsx',
+  '/src/scenes/mainScene/underwaterEffects.tsx',
   '/src/scenes/MainScene.tsx',
 ]
 

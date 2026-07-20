@@ -19,3 +19,15 @@ These Node scripts were used during the Apr 2026 refactor (commit `3674266c`, PR
 | `fix_let_const.cjs` | Converted mutable `let` to `const` in UpgradeCelebration, ambientSoundSystem, craneSoundSystem, dynamicEventSystem, timeSystem. |
 | `fix_lightshow.cjs` | Patched useEffect dependency arrays in LightShow.tsx. |
 | `fix_lint.cjs` | Removed `--max-warnings=0` from the lint script in package.json (one-time unblock). |
+
+## Do not auto-split without dev-transform smoke
+
+The Apr 2026 auto-modularization of `MainSceneHelpers.tsx` duplicated types/imports and stubbed runtime values (`ShipComponent = () => null`), which **broke `npm run dev`** (Babel rejects duplicate declarations that `tsc` + esbuild tolerate). After splitting `src/scenes/mainScene/` into focused modules, always run:
+
+```bash
+npm run dev          # or scripts/smoke-dev-transform.mjs (CI)
+npm run build
+npm test
+```
+
+Never run blind codemods that split large TSX files without verifying the **Vite React/Babel dev transform** on every new module.
