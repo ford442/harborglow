@@ -5,6 +5,7 @@
 
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
 import { calcMagneticFalloff } from '../utils/physicsMath'
+import { swaySystem } from './swaySystem'
 
 // Attachment point states
 export type AttachmentState = 'available' | 'hovered' | 'snapping' | 'installing' | 'installed'
@@ -288,8 +289,16 @@ export function triggerInstallation(
   
   if (!ship) return
   
-  // Install the upgrade
-  state.installUpgrade(shipId, partName)
+  // Measured install quality for reputation. Time runs from the twistlock
+  // engaging (load picked) to this moment; sway is the live load magnitude.
+  // Either can be unavailable (e.g. an install with no preceding pick), in
+  // which case it is left undefined rather than guessed at.
+  const startedAt = state.installAttemptStartedAt
+  state.installUpgrade(shipId, partName, {
+    timeSeconds: startedAt !== null ? (Date.now() - startedAt) / 1000 : undefined,
+    swayPercent: swaySystem.getState().magnitude,
+    damage: 0,
+  })
   
   const event: InstallationEvent = {
     shipId,

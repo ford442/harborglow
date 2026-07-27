@@ -1,17 +1,45 @@
 import { create } from 'zustand';
-import { GameState } from './gameStoreTypes';
-import { createSlice1 } from './slices/slice1';
-import { createSlice2 } from './slices/slice2';
+import { GameState, defaultState, scheduleSave } from './gameStoreTypes';
+import {
+    createShipsSlice,
+    createCraneSlice,
+    createCameraSlice,
+    createEnvironmentSlice,
+    createEconomySlice,
+    createOpsSlice,
+    createSessionSlice,
+} from './slices';
 export * from './gameStoreTypes';
 import { Ship, Upgrade, ShipType } from './gameStoreTypes';
 
+/**
+ * Composition order (state first, then actions by domain).
+ *
+ * `defaultState` supplies every state field; each slice contributes only its
+ * own actions, and no action name is owned by two slices — `sliceTypes.ts`
+ * enforces that at compile time. Order is therefore not behaviourally
+ * significant, but is kept stable for readable diffs.
+ */
 export const useGameStore = create<GameState>((set, get, api) => ({
-    ...createSlice1(set, get, api),
-    ...createSlice2(set, get, api)
+    ...defaultState,
+    ...createShipsSlice(set, get, api),
+    ...createCraneSlice(set, get, api),
+    ...createCameraSlice(set, get, api),
+    ...createEnvironmentSlice(set, get, api),
+    ...createEconomySlice(set, get, api),
+    ...createOpsSlice(set, get, api),
+    ...createSessionSlice(set, get, api),
 }))
 
-// Subscribe to save on all state changes
-import { scheduleSave } from './gameStoreTypes';
+// -----------------------------------------------------------------------------
+// PERSISTENCE — single write path
+//
+// This subscription is the ONLY caller of scheduleSave. Actions just `set(...)`;
+// the debounced save picks up whatever the resulting state is. Do not add
+// scheduleSave calls inside slices — that path was redundant (the subscription
+// fires for every set) and made "what gets persisted" impossible to audit.
+// The serialized field list lives in `getSerializableState` (gameStoreTypes.ts).
+// -----------------------------------------------------------------------------
 useGameStore.subscribe((state) => {
     scheduleSave(state)
 })

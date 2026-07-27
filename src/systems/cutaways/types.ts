@@ -1,4 +1,4 @@
-import { CameraMode } from '../../store/types'
+import { CameraMode } from '../../store/gameStoreTypes'
 
 export type CutawayAction =
   | { type: 'camera_mode'; mode: CameraMode }
