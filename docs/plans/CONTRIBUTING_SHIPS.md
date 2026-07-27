@@ -34,6 +34,69 @@ Optional Draco pass (requires `@gltf-transform/cli` globally):
 ./scripts/compress-ship-glb.sh public/models/cruise_liner.glb public/models/cruise_liner.glb
 ```
 
+### Declaring a model on a blueprint (`ShipModelConfig`)
+
+A ship opts into a GLB hull from `ships.json` — no code change:
+
+```json
+{
+  "id": "cruise",
+  "model": {
+    "url": "./models/cruise_liner.glb",
+    "scale": 1,
+    "yOffset": 0,
+    "attachmentSocketMap": { "Empty_017": "funnel1" }
+  }
+}
+```
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| `url` | yes | Public path to a `.glb`/`.gltf`; must resolve from the app base |
+| `scale` | no (default `1`) | Multiplier **on top of** `blueprint.scale`, for models not authored in metres |
+| `yOffset` | no (default `0`) | Vertical nudge in metres when the export origin isn't at the waterline |
+| `attachmentSocketMap` | no | GLB node name → blueprint attachment id, for exports whose empties are named `Empty_001` etc. |
+
+Validation lives in `validateShipModelConfig()` (`src/types/ShipBlueprint.ts`). An
+invalid block is **never fatal**: it is logged once and the ship stays procedural.
+Blueprints with no `model` block fall back to the filename convention in
+`shipModelRegistry.ts` for the hero trio only.
+
+### Attachment points remain blueprint-owned
+
+`attachmentPoints` in `ships.json` stays the source of truth (metres, relative to
+ship origin). GLB empties are an *optional refinement*: when the model declares a
+matching node the loader reads its pose, otherwise the blueprint part position is
+used. Resolution order per attachment id:
+
+1. `attachmentSocketMap` entry pointing at that id
+2. node named exactly the id
+3. node named `attach_<id>`
+4. blueprint part position (always available)
+
+Verify visually with `G` (wireframe) plus the in-game attachment markers before
+calling a model done.
+
+### Emissive slots (night lighting)
+
+Meshes or materials whose name starts with `emissive_` or `glow_` are driven by
+the same night curve as procedural parts — their `emissiveIntensity` follows
+`isNight` and `lightIntensity`. Everything else keeps whatever the artist
+authored. Materials on these slots are cloned per ship instance, so two cruise
+liners can be lit independently. Keep the count small; each slot is an extra
+material.
+
+### Quality presets and failure handling
+
+- **`low` renders no GLB at all** — procedural hulls only. The same gate applies to
+  attachment poses in `shipSpawner`, so rigs never land on sockets from a hull
+  that isn't being drawn. `medium` and `high` use GLB at LOD0.
+- Models are still preloaded at `low` (so switching quality mid-session works),
+  they are just not rendered.
+- Loading is wrapped in `<Suspense>`; **failures** are wrapped in
+  `ShipModelBoundary`, which falls back to the procedural body for that one ship
+  and marks the model unavailable. One broken asset can never blank the harbor.
+
 ## GLB Authoring Contract (v1)
 
 See also `src/ships/shipModelContract.ts`.
@@ -62,6 +125,23 @@ See also `src/ships/shipModelContract.ts`.
 - **LOD0:** `ProceduralShip` lazy-loads `GlbShipModel` when the cache reports the file exists.
 - **LOD2:** `Lod2Impostor` procedural impostor (unchanged) — keeps distant fleet cheap.
 - **Chunks:** GLB files live in `public/` (not the JS bundle). `GlbShipModel` is a separate lazy chunk from `MainScene`.
+
+### Asset budget
+
+GLBs are fetched during the loading screen, so their weight is startup latency,
+not bundle size. Budget per hero hull:
+
+| Metric | Budget | Why |
+|--------|--------|-----|
+| Triangles (LOD0) | 15–40k cruise, 10–30k container/tanker | LOD1/LOD2 stay procedural, so LOD0 is the only authored cost |
+| File size (compressed) | **≤ 1.5 MB** per hull, ≤ 4 MB for the trio | Keeps the "Loading ship models…" stage ≈1s on a 20 Mbit link |
+| Materials | ≤ 8 per hull, ≤ 3 emissive slots | Each slot clones per ship instance |
+| Textures | ≤ 2× 2048² | Mid-range laptop GPU budget |
+
+Current placeholder assets are generated from the blueprints and total ~100 KB —
+authored heroes will be far larger, so re-check the budget when they land.
+Measure with `npm run models:inspect -- public/models/cruise_liner.glb`, and
+compress with `npm run models:compress` (Draco) before committing.
 
 ## The Vessel Blueprint Protocol (v1.0)
 

@@ -40,6 +40,24 @@ export interface BlueprintPart {
   receiveShadow?: boolean
 }
 
+/**
+ * Optional authored GLB hull for a ship type (LOD0 only).
+ *
+ * The blueprint stays the source of truth for attachment points, colliders and
+ * the LOD1/LOD2 silhouettes — the GLB only replaces the near-camera body.
+ * See `docs/plans/CONTRIBUTING_SHIPS.md` for the authoring contract.
+ */
+export interface ShipModelConfig {
+  /** Public URL, relative to the app base (e.g. `./models/cruise_liner.glb`). */
+  url: string
+  /** Multiplier applied on top of `blueprint.scale` to reconcile model units. */
+  scale?: number
+  /** Vertical nudge in metres, applied to the GLB root (origin should be waterline amidships). */
+  yOffset?: number
+  /** GLB node name → blueprint attachment point id, for models whose empties are named differently. */
+  attachmentSocketMap?: Record<string, string>
+}
+
 /** Vessel Blueprint - complete ship definition with PBR support */
 export interface ShipBlueprint {
   /** Ship type identifier (must be unique) */
@@ -76,6 +94,8 @@ export interface ShipBlueprint {
   musicTheme?: string
   /** LOD2 impostor geometry */
   lod2?: Lod2Data
+  /** Optional authored GLB hull for LOD0 (procedural parts remain the fallback) */
+  model?: ShipModelConfig
 }
 
 /** LOD2 feature definition */
@@ -159,5 +179,80 @@ export const getAvailableShipTypes = (): string[] =>
  */
 export const getShipCount = (): number =>
   SHIP_BLUEPRINTS.length
+
+// =============================================================================
+// GLB MODEL CONFIG
+// =============================================================================
+
+/**
+ * Validate a blueprint's optional `model` block.
+ * Returns human-readable problems; an empty array means the config is usable.
+ *
+ * Invalid configs are never fatal — callers drop the model and stay procedural.
+ */
+export const validateShipModelConfig = (
+  model: unknown,
+  shipId = 'unknown'
+): string[] => {
+  const errors: string[] = []
+  if (model === undefined || model === null) return errors
+
+  if (typeof model !== 'object' || Array.isArray(model)) {
+    return [`${shipId}: model must be an object`]
+  }
+
+  const cfg = model as Partial<ShipModelConfig>
+
+  if (typeof cfg.url !== 'string' || cfg.url.trim() === '') {
+    errors.push(`${shipId}: model.url must be a non-empty string`)
+  } else if (!cfg.url.toLowerCase().endsWith('.glb') && !cfg.url.toLowerCase().endsWith('.gltf')) {
+    errors.push(`${shipId}: model.url must point at a .glb or .gltf file (got "${cfg.url}")`)
+  }
+
+  if (cfg.scale !== undefined && (typeof cfg.scale !== 'number' || !(cfg.scale > 0))) {
+    errors.push(`${shipId}: model.scale must be a positive number`)
+  }
+
+  if (cfg.yOffset !== undefined && (typeof cfg.yOffset !== 'number' || !Number.isFinite(cfg.yOffset))) {
+    errors.push(`${shipId}: model.yOffset must be a finite number`)
+  }
+
+  if (cfg.attachmentSocketMap !== undefined) {
+    const map = cfg.attachmentSocketMap
+    if (typeof map !== 'object' || map === null || Array.isArray(map)) {
+      errors.push(`${shipId}: model.attachmentSocketMap must be an object`)
+    } else {
+      for (const [node, id] of Object.entries(map)) {
+        if (typeof id !== 'string' || id.trim() === '') {
+          errors.push(`${shipId}: attachmentSocketMap["${node}"] must map to an attachment id`)
+        }
+      }
+    }
+  }
+
+  return errors
+}
+
+/**
+ * Resolved model config for a ship type, or null when the blueprint has none
+ * (or declares an invalid one — in which case the problem is logged once and
+ * the ship stays procedural rather than breaking the harbor).
+ */
+export const getShipModelConfig = (id: string): ShipModelConfig | null => {
+  const blueprint = getBlueprint(id)
+  if (!blueprint?.model) return null
+
+  const errors = validateShipModelConfig(blueprint.model, id)
+  if (errors.length > 0) {
+    console.warn(`⚠️ Invalid model config, falling back to procedural:\n  ${errors.join('\n  ')}`)
+    return null
+  }
+
+  return blueprint.model
+}
+
+/** Blueprint ids that declare a valid GLB hull. */
+export const getBlueprintsWithModels = (): ShipBlueprint[] =>
+  SHIP_BLUEPRINTS.filter((b) => getShipModelConfig(b.id) !== null)
 
 console.log(`📋 Loaded ${getShipCount()} ships from standardized Vessel Blueprint Protocol v1.0`)

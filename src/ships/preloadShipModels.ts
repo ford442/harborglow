@@ -43,10 +43,14 @@ async function probeModelUrl(url: string): Promise<boolean> {
 }
 
 async function loadAndCacheShipModel(shipType: ShipType, url: string): Promise<void> {
-  const contract = getShipGlbContract(shipType as 'cruise' | 'container' | 'tanker')
+  const contract = getShipGlbContract(shipType)
   const loader = createConfiguredGltfLoader()
   const gltf = await loader.loadAsync(url)
-  const attachments = extractAttachmentPoints(gltf.scene, contract.attachmentNodeIds)
+  const attachments = extractAttachmentPoints(
+    gltf.scene,
+    contract.attachmentNodeIds,
+    contract.attachmentSocketMap,
+  )
 
   setShipModelCacheEntry(shipType, {
     available: true,
