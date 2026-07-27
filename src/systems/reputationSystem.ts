@@ -376,11 +376,18 @@ export class ReputationSystem {
     }
   }
 
-  recordInstallation(data: { 
+  /**
+   * Record a completed (or failed) crane installation.
+   *
+   * `timeSeconds` / `swayPercent` / `damage` are optional because not every
+   * caller measures them. Unmeasured runs award base completion only — no
+   * invented perfect-install bonus and no invented sway penalty.
+   */
+  recordInstallation(data: {
     success: boolean
-    timeSeconds: number
-    swayPercent: number
-    damage: number
+    timeSeconds?: number
+    swayPercent?: number
+    damage?: number
     targetTime?: number
   }): void {
     if (!data.success) {
@@ -395,27 +402,28 @@ export class ReputationSystem {
     let repGain = 25
 
     // Speed bonus
-    if (data.targetTime && data.timeSeconds < data.targetTime) {
+    if (data.targetTime && data.timeSeconds !== undefined && data.timeSeconds < data.targetTime) {
       const speedBonus = Math.floor((data.targetTime - data.timeSeconds) / 10)
       repGain += Math.min(15, speedBonus)
     }
 
-    // Perfect installation bonus
-    if (data.swayPercent < 0.1 && data.damage === 0) {
+    // Perfect installation bonus (measured runs only)
+    if (data.swayPercent !== undefined && data.swayPercent < 0.1 && (data.damage ?? 0) === 0) {
       repGain += 30
       this.state.stats.perfectInstallations++
     }
 
-    // Sway penalty (small)
-    if (data.swayPercent > 0.5) {
+    // Sway penalty (small; measured runs only)
+    if (data.swayPercent !== undefined && data.swayPercent > 0.5) {
       repGain -= 5
     }
 
-    this.addReputation(repGain, 'installation_complete', {
-      time: data.timeSeconds,
-      sway: data.swayPercent,
-      damage: data.damage
-    })
+    // Only report metrics that were actually measured.
+    const metadata: Record<string, number> = { damage: data.damage ?? 0 }
+    if (data.timeSeconds !== undefined) metadata.time = data.timeSeconds
+    if (data.swayPercent !== undefined) metadata.sway = data.swayPercent
+
+    this.addReputation(repGain, 'installation_complete', metadata)
   }
 
   recordShipDeparture(shipId: string, completionRate: number): void {

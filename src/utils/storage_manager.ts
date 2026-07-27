@@ -68,6 +68,16 @@ export type GameState = {
   // add more as needed
 };
 
+/**
+ * What lands here is decided by `getSerializableState()` in
+ * `src/store/gameStoreTypes.ts` — that projection is the authoritative list of
+ * persisted fields. Everything it omits (crane kinematics, camera transforms,
+ * live wildlife/events, in-flight missions and install queues) is ephemeral by
+ * design. See docs/STORE.md.
+ *
+ * Writes are always driven by the single save subscription in `useGameStore.ts`;
+ * nothing else should call `saveGameState` during normal play.
+ */
 const STORAGE_KEY = 'harborglow-save-v3';
 const VERSION = '3.0';
 
