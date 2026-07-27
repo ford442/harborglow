@@ -16,10 +16,18 @@ A lightweight economy layer that enhances progression while keeping the core cra
 ## Currencies
 
 ### Harbor Credits (HC)
-- **Purpose**: Primary spending currency
-- **Earned From**: Installations, ship completions, shift bonuses
-- **Spent On**: Dock upgrades, specialist hires, contract boosters
+- **Purpose**: The **only** player currency
+- **Lives in**: `harborCredits` on the Zustand store — a single wallet, persisted with the rest of the save
+- **Earned From**: Installations, ship completions, shift bonuses, crane contracts, tug objectives, mission rewards
+- **Spent On**: Dock upgrades, specialist hires, tugboat upgrades, salvage fees, mission penalties
 - **Visual**: Gold coin icon (💰), displayed in Operator Status Panel
+
+> **There is no second ledger.** Until save v4 the game had two: `money` on the
+> store (persisted, used by tug/salvage/mission flows) and
+> `economySystem.state.harborCredits` (in-memory, used by installs and the shop).
+> They have been merged. `economySystem` is now a *calculator and catalog* — it
+> decides how much an install is worth and what the shop sells, but never holds
+> a balance.
 
 ### Port Reputation (0-1000)
 - **Purpose**: Long-term progression metric
@@ -133,10 +141,24 @@ A lightweight economy layer that enhances progression while keeping the core cra
 ## Technical Implementation
 
 ### State Management
+
+The wallet is store state:
+
+```typescript
+// GameState (src/store/gameStoreTypes.ts)
+harborCredits: number
+unlockedShopItems: string[]
+
+addHarborCredits(amount: number, source?: string): void
+spendHarborCredits(amount: number, reason?: string): boolean  // false when short
+purchaseShopItem(itemId: string): boolean
+```
+
+`EconomyState` in `economySystem` keeps only effect/statistic state — no balance:
+
 ```typescript
 interface EconomyState {
-  harborCredits: number
-  lifetimeCredits: number
+  lifetimeCredits: number      // statistic, not a balance
   portReputation: number
   shiftPerformance: ShiftStats
   unlockedUpgrades: string[]
@@ -146,16 +168,26 @@ interface EconomyState {
 ```
 
 ### Key Methods
-- `recordInstallation(factors)` - Calculate and award installation earnings
-- `recordShipCompletion(shipType, completionRate)` - Award completion bonuses
-- `purchaseUpgrade(upgradeId)` - Buy permanent upgrades
-- `hireSpecialist(specialistId)` - Activate temporary boosts
-- `endShift()` - Calculate shift bonuses, reset shift stats
+- `recordInstallation(factors)` — calculates earnings, pays them into the store wallet
+- `recordShipCompletion(shipType, completionRate)` — completion bonuses, same wallet
+- `purchaseUpgrade(upgradeId)` / `hireSpecialist(specialistId)` — spend via `spendHarborCredits`
+- `endShift()` — shift bonuses, reset shift stats
+- `SHOP_CATALOG: ShopItem[]` — one typed surface over dock upgrades + specialists
+- `applyShopItemPurchase(item)` — applies effects *after* the store has taken payment
+
+Every spend path — shop, specialists, tugboat upgrades — goes through
+`spendHarborCredits`, which refuses rather than partially debiting. The one
+exception is the deprecated `deductMoney`, kept for a release: it clamps at zero
+for legacy callers that never checked affordability.
 
 ### Persistence
-- Serialized with existing save system
-- Stored in `storage_manager` alongside game state
-- Auto-saved on all credit/reputation changes
+- Wallet and unlocks are ordinary store fields, saved by the single save
+  subscription (see [STORE.md](../STORE.md))
+- Upgrade levels, boosts and shift stats ride along in `economyData`
+- **Save v4** (`harborglow-save-v4`). Loading a v3 save migrates it forward:
+  `harborCredits = money + economyData.state.harborCredits`, so credits that were
+  split across the two ledgers are summed rather than lost. See `migrateV3` in
+  `src/utils/storage_manager.ts`.
 
 ---
 

@@ -118,7 +118,8 @@ describe('core store actions', () => {
     expect(state.ships[0]?.name).toBe('Saved Ferry')
     expect(state.installedUpgrades).toHaveLength(1)
     expect(state.installedUpgrades[0]?.partName).toBe('nav-lights')
-    expect(state.money).toBe(500)
+    // v3-shaped payload: the money field still hydrates the unified wallet.
+    expect(state.harborCredits).toBe(500)
     expect(state.bpm).toBe(140)
   })
 

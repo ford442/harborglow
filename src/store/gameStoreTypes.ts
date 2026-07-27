@@ -443,8 +443,12 @@ interface SerializableState {
     isMoving: boolean
     heaterActive: boolean
     iceBuildup: number
-    // Economy
-    money: number
+    // Economy — Harbor Credits (HC) is the single player wallet.
+    // Every earn/spend path (installs, ship completion, crane contracts, tug
+    // objectives, salvage fees, missions, shop purchases) mutates this field.
+    harborCredits: number
+    /** Dock upgrades / specialists bought through purchaseShopItem. */
+    unlockedShopItems: string[]
     // Booth tier (1=standard, 3=arctic)
     boothTier: 1 | 2 | 3
     // Harbor/Booth theme
@@ -524,7 +528,15 @@ interface SerializableState {
     detachTowLine: () => void
     setTugSpectatorActive: (active: boolean) => void
     // Economy
+    /** Credit the wallet. `source` is for logging/telemetry only. */
+    addHarborCredits: (amount: number, source?: string) => void
+    /** Debit the wallet. Returns false and changes nothing when funds are short. */
+    spendHarborCredits: (amount: number, reason?: string) => boolean
+    /** Buy a dock upgrade or specialist from SHOP_CATALOG. Checks credits + reputation. */
+    purchaseShopItem: (itemId: string) => boolean
+    /** @deprecated Use addHarborCredits. Kept for one release. */
     addMoney: (amount: number) => void
+    /** @deprecated Use spendHarborCredits; this one clamps at zero instead of refusing. */
     deductMoney: (amount: number) => void
     // Mission system
     activeMission: Mission | null
@@ -813,7 +825,8 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
     windDirection: 0,
     windStrength: 0,
     rainDensity: 0.5,
-    money: 0,
+    harborCredits: 0,
+    unlockedShopItems: [],
     activeMission: null,
     craneContract: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
@@ -862,7 +875,8 @@ export const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatCareerStats: state.tugboatCareerStats,
     tugboatUpgrades: state.tugboatUpgrades,
     waveParams: state.waveParams,
-    money: state.money,
+    harborCredits: state.harborCredits,
+    unlockedShopItems: state.unlockedShopItems,
     economyData: economySystem.serialize(),
     season: state.season,
     wildlifeDensity: state.wildlifeDensity,

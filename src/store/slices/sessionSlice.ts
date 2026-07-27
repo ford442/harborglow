@@ -191,7 +191,10 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
                 windDirection: saved.windDirection ?? 0,
                 windStrength: saved.windStrength ?? 0,
                 waveParams: saved.waveParams ?? { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
-                money: saved.money ?? 0,
+                // v4 wallet, with the v3 field as a fallback for saves that
+                // reached us without going through migrateV3.
+                harborCredits: saved.harborCredits ?? saved.money ?? 0,
+                unlockedShopItems: saved.unlockedShopItems ?? [],
                 season: (['spring', 'summer', 'fall', 'winter'] as const).includes((saved as StorageGameState & { season?: Season }).season as Season)
                     ? ((saved as StorageGameState & { season?: Season }).season as Season)
                     : 'summer',

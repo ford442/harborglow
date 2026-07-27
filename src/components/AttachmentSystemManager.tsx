@@ -319,11 +319,15 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       triggerInstallationShake(ship.length)
     }
 
+    // Real operator performance, same measurements the reputation path uses:
+    // haul time from the twistlock engaging, live sway at the moment of install.
+    // (syncAccuracy has no measured source yet and stays a neutral estimate.)
+    const startedAt = gameState.installAttemptStartedAt
     const earnings = economySystem.recordInstallation({
       rigType: event.rigType,
-      timeSeconds: 25,
+      timeSeconds: startedAt !== null ? (Date.now() - startedAt) / 1000 : 25,
       targetTimeSeconds: 30,
-      swayPercent: 0.15,
+      swayPercent: swaySystem.getState().magnitude,
       syncAccuracy: 0.7,
       weather: gameState.weather,
       isEventActive: gameState.activeHarborEvents.length > 0,

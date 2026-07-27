@@ -105,6 +105,9 @@ export type EconomySlice = Pick<
     | 'refreshSalvageContracts'
     | 'acceptSalvageContract'
     | 'purchaseTugboatUpgrade'
+    | 'addHarborCredits'
+    | 'spendHarborCredits'
+    | 'purchaseShopItem'
     | 'addMoney'
     | 'deductMoney'
 >;

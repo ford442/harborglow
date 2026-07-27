@@ -189,7 +189,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
             cleanTows: state.tugboatCareerStats.cleanTows + (state.towLineSnapped ? 0 : 1),
             nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
         }
-        const newMoney = state.money + objectiveCreditReward
+        const newCredits = state.harborCredits + objectiveCreditReward
         const newReputation = state.reputation + objectiveRepReward
         reputationSystem.addReputation(
             objectiveRepReward,
@@ -200,7 +200,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
         return {
             tugboatObjectives: objectives,
             tugboatDockedCount: dockedCount,
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             tugboatCareerStats,
         }
@@ -259,9 +259,9 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
         set((state) => {
             const mission = state.activeMission
             const missionFailed = mission?.type === 'salvage' && mission.status === 'active'
-            const newMoney = missionFailed
-                ? Math.max(0, state.money - (mission.failurePenalty ?? 220))
-                : state.money
+            const newCredits = missionFailed
+                ? Math.max(0, state.harborCredits - (mission.failurePenalty ?? 220))
+                : state.harborCredits
             const newReputation = missionFailed
                 ? Math.max(0, state.reputation - 55)
                 : state.reputation
@@ -269,7 +269,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
                 towLineAttached: false,
                 activeTowedShipId: null,
                 towLineSnapped: true,
-                money: newMoney,
+                harborCredits: newCredits,
                 reputation: newReputation,
                 activeMission: missionFailed ? { ...mission!, status: 'failed' as const } : mission,
             }
@@ -301,7 +301,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
             ? Math.round(120 * tierBonus)
             : 0
         const totalReward = reward + searchlightBonus
-        const newMoney = state.money + totalReward
+        const newCredits = state.harborCredits + totalReward
         const salvageSuccessfulTows = mission.type === 'salvage'
             ? state.salvageSuccessfulTows + 1
             : state.salvageSuccessfulTows
@@ -331,7 +331,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
         )
         console.log(`💰 Mission complete! Earned $${totalReward}`)
         return {
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             salvageSuccessfulTows,
             tugboatCareerStats,
@@ -346,13 +346,13 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
         const appliedPenalty = mission.type === 'salvage'
             ? mission.failurePenalty ?? penalty
             : penalty
-        const newMoney = Math.max(0, state.money - appliedPenalty)
+        const newCredits = Math.max(0, state.harborCredits - appliedPenalty)
         const newReputation = mission.type === 'salvage'
             ? Math.max(0, state.reputation - 40)
             : state.reputation
         console.log(`❌ Mission failed. Penalty: $${appliedPenalty}`)
         return {
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             activeMission: { ...mission, status: 'failed' as const },
         }

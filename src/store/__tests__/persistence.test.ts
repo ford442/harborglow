@@ -64,7 +64,7 @@ describe('store persistence', () => {
     const store = useGameStore.getState()
     store.setSeason('winter')
     store.setWildlifeDensity(0.9)
-    store.addMoney(250)
+    store.addHarborCredits(250, 'test')
 
     // Three actions, one write: the subscription is the single save path.
     expect(saveGameState).not.toHaveBeenCalled()
@@ -72,21 +72,21 @@ describe('store persistence', () => {
     expect(saveGameState).toHaveBeenCalledTimes(1)
   })
 
-  it('round-trips season, wildlifeDensity and money through the save payload', () => {
+  it('round-trips season, wildlifeDensity and credits through the save payload', () => {
     const store = useGameStore.getState()
-    const startingMoney = useGameStore.getState().money
+    const startingCredits = useGameStore.getState().harborCredits
 
     store.setSeason('fall')
     store.setWildlifeDensity(0.25)
     store.setEnableMarineLife(false)
-    store.addMoney(500)
+    store.addHarborCredits(500, 'test')
 
     const saved = flushSave()
     expect(saved).toMatchObject({
       season: 'fall',
       wildlifeDensity: 0.25,
       enableMarineLife: false,
-      money: startingMoney + 500,
+      harborCredits: startingCredits + 500,
     })
   })
 
@@ -111,7 +111,7 @@ describe('store persistence', () => {
       craneUpgrades: [
         { shipId: 'restored-ship', partName: 'funnel1', installed: true, installedAt: 1 },
       ],
-      money: 4242,
+      harborCredits: 4242,
       season: 'winter',
       wildlifeDensity: 0.15,
       enableMarineLife: false,
@@ -122,7 +122,7 @@ describe('store persistence', () => {
     const state = useGameStore.getState()
     expect(state.ships.map((s) => s.id)).toEqual(['restored-ship'])
     expect(state.installedUpgrades).toHaveLength(1)
-    expect(state.money).toBe(4242)
+    expect(state.harborCredits).toBe(4242)
     expect(state.season).toBe('winter')
     expect(state.wildlifeDensity).toBe(0.15)
     expect(state.enableMarineLife).toBe(false)

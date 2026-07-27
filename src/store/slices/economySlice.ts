@@ -1,5 +1,8 @@
 // =============================================================================
-// ECONOMY SLICE — Money, reputation, salvage contracts, and tugboat upgrade purchases.
+// ECONOMY SLICE — Harbor Credits, reputation, salvage contracts, shop purchases.
+//
+// `harborCredits` is the one player wallet. economySystem calculates *how much*
+// is earned and owns the shop catalog; it does not hold a balance of its own.
 // =============================================================================
 
 import type { StateCreator } from 'zustand';
@@ -12,6 +15,7 @@ import {
     createSalvageContracts,
     buildHandshakeSequence,
 } from '../gameStoreTypes';
+import { SHOP_CATALOG, applyShopItemPurchase } from '../../systems/economySystem';
 
 export const createEconomySlice: StateCreator<GameState, [], [], EconomySlice> = (set, get, _api) => ({
     addReputation: (amount: number) => set((state) => {
@@ -34,7 +38,7 @@ export const createEconomySlice: StateCreator<GameState, [], [], EconomySlice> =
         const contract = state.salvageContracts.find((item) => item.id === contractId)
         if (!contract || state.activeMission?.status === 'active') return state
 
-        const updatedMoney = Math.max(0, state.money - contract.acceptedFee)
+        const updatedCredits = Math.max(0, state.harborCredits - contract.acceptedFee)
         const objectiveId = `salvage-objective-${contract.id}`
         const mission: Mission = {
             id: `salvage-mission-${contract.id}`,
@@ -76,7 +80,7 @@ export const createEconomySlice: StateCreator<GameState, [], [], EconomySlice> =
             .slice(0, 3)
 
         const nextState = {
-            money: updatedMoney,
+            harborCredits: updatedCredits,
             activeMission: mission,
             tugboatObjectives,
             tugboatDockedCount: 0,
@@ -107,28 +111,63 @@ export const createEconomySlice: StateCreator<GameState, [], [], EconomySlice> =
         if (!config) return false
         if (state.reputation < config.minReputation) return false
         if (config.minBoothTier && state.boothTier < config.minBoothTier) return false
-        if (config.cost > 0 && state.money < config.cost) return false
+        // Same afford/spend helper the shop uses — one wallet, one code path.
+        if (config.cost > 0 && !state.spendHarborCredits(config.cost, `tugboat_upgrade:${id}`)) {
+            return false
+        }
 
-        const patch = {
-            money: config.cost > 0 ? state.money - config.cost : state.money,
+        set((current) => ({
             tugboatUpgrades: {
-                ...state.tugboatUpgrades,
+                ...current.tugboatUpgrades,
                 [id]: true,
             },
-        }
-        set(patch)
+        }))
         return true
     },
 
-    addMoney: (amount: number) => set((state) => {
-        const newMoney = Math.max(0, state.money + amount)
-        const newState = { money: newMoney }
-        return newState
+    addHarborCredits: (amount: number, source?: string) => set((state) => {
+        if (!Number.isFinite(amount) || amount <= 0) return state
+        const harborCredits = state.harborCredits + amount
+        console.log(`💰 +${amount} HC${source ? ` (${source})` : ''} — total ${harborCredits}`)
+        return { harborCredits }
     }),
 
-    deductMoney: (amount: number) => set((state) => {
-        const newMoney = Math.max(0, state.money - amount)
-        const newState = { money: newMoney }
-        return newState
-    }),
+    spendHarborCredits: (amount: number, reason?: string) => {
+        if (!Number.isFinite(amount) || amount < 0) return false
+        const { harborCredits } = get()
+        if (harborCredits < amount) return false
+        set({ harborCredits: harborCredits - amount })
+        console.log(`🧾 -${amount} HC${reason ? ` (${reason})` : ''} — total ${harborCredits - amount}`)
+        return true
+    },
+
+    purchaseShopItem: (itemId: string) => {
+        const state = get()
+        const item = SHOP_CATALOG.find((i) => i.id === itemId)
+        if (!item) return false
+        if (item.minReputation !== undefined && state.reputation < item.minReputation) return false
+
+        const cost = item.cost
+        if (!state.spendHarborCredits(cost, `shop:${itemId}`)) return false
+
+        // Effects live in economySystem (upgrade levels, boosts); the unlock flag
+        // lives on the store so it is persisted with the wallet that paid for it.
+        applyShopItemPurchase(item)
+        set((current) => ({
+            unlockedShopItems: current.unlockedShopItems.includes(itemId)
+                ? current.unlockedShopItems
+                : [...current.unlockedShopItems, itemId],
+        }))
+        return true
+    },
+
+    /** @deprecated alias for addHarborCredits — remove after one release. */
+    addMoney: (amount: number) => {
+        get().addHarborCredits(amount, 'legacy:addMoney')
+    },
+
+    /** @deprecated clamping debit kept for callers that never checked affordability. */
+    deductMoney: (amount: number) => set((state) => ({
+        harborCredits: Math.max(0, state.harborCredits - amount),
+    })),
 });
