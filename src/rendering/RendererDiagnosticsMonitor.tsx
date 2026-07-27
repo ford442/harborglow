@@ -13,18 +13,25 @@ import {
   updateRendererDiagnostics,
 } from './rendererState';
 import { exposeRenderer } from './rendererConfig';
-import type { RendererPreference } from './types';
+import { readRendererCapabilities, type ConfigurableRenderer } from './rendererDefaults';
+import type { RendererContextOptions, RendererPreference } from './types';
 
 export interface RendererDiagnosticsMonitorProps {
   preference: RendererPreference;
+  /** Options requested when the renderer was created (App owns them). */
+  contextOptions?: RendererContextOptions | null;
 }
 
-export default function RendererDiagnosticsMonitor({ preference }: RendererDiagnosticsMonitorProps) {
+export default function RendererDiagnosticsMonitor({
+  preference,
+  contextOptions = null,
+}: RendererDiagnosticsMonitorProps) {
   const { gl } = useThree();
 
   useEffect(() => {
     const activeBackend = detectActiveBackend(gl as any);
     const displayName = getRendererDisplayName(preference, activeBackend);
+    const capabilities = readRendererCapabilities(gl as unknown as ConfigurableRenderer);
 
     updateRendererDiagnostics({
       preference,
@@ -32,12 +39,14 @@ export default function RendererDiagnosticsMonitor({ preference }: RendererDiagn
       rendererName: displayName,
       webgpuAvailable: isWebGpuNavigatorAvailable(),
       initialized: true,
+      contextOptions,
+      capabilities,
     });
 
     // Expose for external tooling / CI / agents (canvas may be obtained via gl.domElement)
     const canvas = (gl as any).domElement as HTMLCanvasElement | undefined;
-    exposeRenderer(canvas || null, preference, activeBackend);
-  }, [gl, preference]);
+    exposeRenderer(canvas || null, preference, activeBackend, { contextOptions, capabilities });
+  }, [gl, preference, contextOptions]);
 
   return null;
 }

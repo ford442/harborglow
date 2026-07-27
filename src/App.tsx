@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, Suspense, lazy } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy, type ComponentProps } from 'react'
 import { Canvas } from '@react-three/fiber'
+import type * as THREE from 'three'
 import { Physics } from '@react-three/rapier'
 import { KeyboardControls } from '@react-three/drei'
 import { Leva, useControls } from 'leva'
@@ -8,7 +9,11 @@ import { ShipSpawner } from './systems/shipSpawner'
 import {
   createGameRenderer,
   parseRendererPreference,
+  parseScreenshotMode,
   persistRendererPreference,
+  resolveContextOptions,
+  shadowMapTypeForQuality,
+  shadowQualityForPreset,
   RendererDiagnosticsMonitor,
   WireframeDebug,
   type RendererPreference,
@@ -29,6 +34,16 @@ import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
 const MainScene = lazy(() => import(/* webpackChunkName: "main-scene" */ './scenes/MainScene'))
+
+/**
+ * R3F 8's `gl` prop type predates async renderer factories, but the runtime awaits
+ * the returned promise — which WebGPURenderer requires (`await renderer.init()`).
+ * This is the single, documented seam where that gap is bridged.
+ */
+type CanvasGlProp = ComponentProps<typeof Canvas>['gl']
+const asGlProp = (
+  factory: (canvas: HTMLCanvasElement) => Promise<THREE.WebGLRenderer>
+): CanvasGlProp => factory as unknown as CanvasGlProp
 
 const WALKING_CONTROL_MAP = [
     { name: 'forward', keys: ['KeyW'] },
@@ -86,6 +101,36 @@ function App() {
       const raw = params.get('physicsDebug')
       return raw === '1' || raw === 'true'
     })
+
+    // Screenshot mode (?screenshot=1 / Playwright UA) forces preserveDrawingBuffer so
+    // canvas pixel reads return the last frame instead of a cleared buffer.
+    const [screenshotMode] = useState(() => parseScreenshotMode())
+    const qualityPreset = useGameStore(state => state.qualityPreset)
+    const shadowQuality = shadowQualityForPreset(qualityPreset)
+
+    // Fully-resolved context options: shared by the gl factory and the diagnostics monitor.
+    const contextOptions = useMemo(
+      () => resolveContextOptions({ preserveDrawingBuffer: screenshotMode }),
+      [screenshotMode]
+    )
+
+    // Keep R3F's post-creation shadow pass in sync with configureRendererDefaults.
+    const shadowConfig = useMemo(
+      () => ({ enabled: shadowQuality !== 'off', type: shadowMapTypeForQuality(shadowQuality) }),
+      [shadowQuality]
+    )
+
+    const glFactory = useMemo(
+      () =>
+        asGlProp((canvas: HTMLCanvasElement) =>
+          createGameRenderer(canvas, {
+            ...contextOptions,
+            preference: rendererPreference,
+            shadows: shadowQuality,
+          })
+        ),
+      [contextOptions, rendererPreference, shadowQuality]
+    )
 
     const handleRendererPreferenceChange = useCallback((next: RendererPreference) => {
       persistRendererPreference(next)
@@ -322,20 +367,10 @@ function App() {
         <ErrorBoundary>
             <Canvas
                 key={`renderer-${rendererPreference}`}
-                shadows
+                shadows={shadowConfig}
                 camera={{ position: [0, 2.5, 4.5], fov: 60 }}
                 dpr={[1, 2]} // Responsive pixel ratio
-                gl={
-                  // Async factory required for WebGPURenderer (R3F awaits the promise). Cast keeps tsc happy; runtime contract is supported.
-                  (async (canvas: HTMLCanvasElement) =>
-                    createGameRenderer(canvas, {
-                      preference: rendererPreference,
-                      antialias: true,
-                      powerPreference: 'high-performance',
-                      stencil: false,
-                      depth: true,
-                    })) as any
-                }
+                gl={glFactory}
                 style={{
                     position: 'absolute',
                     inset: 0,
@@ -363,7 +398,10 @@ function App() {
                             <MainScene harborTheme={harborTheme()} />
 
                             {/* Renderer-agnostic debug helpers (work on both WebGPU and WebGL2) */}
-                            <RendererDiagnosticsMonitor preference={rendererPreference} />
+                            <RendererDiagnosticsMonitor
+                              preference={rendererPreference}
+                              contextOptions={contextOptions}
+                            />
                             <WireframeDebug enabled={wireframeDebug} />
                             {/* physicsDebug flag is live (F key / URL / future Leva) — Rapier <Debug/> not exported in current @react-three/rapier; extend here with useRapier() + manual lines if needed for full collider viz. */}
                         </Physics>

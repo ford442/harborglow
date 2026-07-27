@@ -1,4 +1,4 @@
-import type { RendererPreference } from './types';
+import type { RendererCapabilities, RendererContextOptions, RendererPreference } from './types';
 
 const STORAGE_KEY = 'harborglow.renderer.preference';
 const VALID: RendererPreference[] = ['webgl', 'webgpu'];
@@ -43,16 +43,53 @@ export function persistRendererPreference(preference: RendererPreference): void 
 }
 
 /**
+ * Screenshot mode forces `preserveDrawingBuffer: true` so `canvas.toDataURL()` /
+ * Playwright pixel reads return the last rendered frame instead of a blank buffer.
+ *
+ * Enabled by `?screenshot=1`, `?preserveDrawingBuffer=1`, or a Playwright/headless UA.
+ */
+export function parseScreenshotMode(search = typeof window === 'undefined' ? '' : window.location.search): boolean {
+  const params = new URLSearchParams(search);
+  const truthy = (raw: string | null) => raw === '1' || raw === 'true';
+  if (truthy(params.get('screenshot')) || truthy(params.get('preserveDrawingBuffer'))) return true;
+
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent || '';
+    if (/Playwright|HeadlessChrome/i.test(ua)) return true;
+    if ((navigator as any).webdriver === true) return true;
+  }
+  return false;
+}
+
+export interface ExposeRendererDetails {
+  contextOptions?: RendererContextOptions | null;
+  capabilities?: RendererCapabilities | null;
+}
+
+/**
  * Apply canvas data attributes and window hints for Playwright / agents / debug.
  */
-export function exposeRenderer(canvas: HTMLCanvasElement | null, preference: RendererPreference, activeBackend: string): void {
+export function exposeRenderer(
+  canvas: HTMLCanvasElement | null,
+  preference: RendererPreference,
+  activeBackend: string,
+  details: ExposeRendererDetails = {}
+): void {
   if (typeof window !== 'undefined') {
     (window as any).currentRenderer = preference;
-    (window as any).harborglowRenderer = { preference, activeBackend };
+    (window as any).harborglowRenderer = {
+      preference,
+      activeBackend,
+      contextOptions: details.contextOptions ?? null,
+      capabilities: details.capabilities ?? null,
+    };
   }
   if (canvas) {
     canvas.dataset.renderer = preference;
     canvas.dataset.activeBackend = activeBackend;
     canvas.dataset.webglVersion = activeBackend.includes('webgl') ? '2' : '';
+    if (details.contextOptions) {
+      canvas.dataset.preserveDrawingBuffer = String(details.contextOptions.preserveDrawingBuffer);
+    }
   }
 }
