@@ -20,7 +20,7 @@ export const createCraneSlice: StateCreator<GameState, [], [], CraneSlice> = (se
         if (!contract || contract.status === 'completed') return {}
         const newState = {
             craneContract: { ...contract, status: 'completed' as const },
-            money: state.money + contract.reward,
+            harborCredits: state.harborCredits + contract.reward,
         }
         console.log(`📊 Crane contract complete — +${contract.reward} credits`)
         return newState

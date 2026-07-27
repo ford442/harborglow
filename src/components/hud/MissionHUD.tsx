@@ -72,7 +72,7 @@ function ProgressBar({
 
 export default function MissionHUD() {
   const activeMission = useGameStore((s) => s.activeMission)
-  const money = useGameStore((s) => s.money)
+  const harborCredits = useGameStore((s) => s.harborCredits)
   const tugboatState = useGameStore((s) => s.tugboatState)
 
   if (!activeMission || activeMission.status !== 'active') return null
@@ -130,7 +130,7 @@ export default function MissionHUD() {
             }}
           >
             <span style={{ fontSize: '12px', fontWeight: 700, color: '#00d4aa' }}>
-              ${money.toLocaleString()}
+              {harborCredits.toLocaleString()} HC
             </span>
           </div>
         </div>

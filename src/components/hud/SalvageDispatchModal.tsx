@@ -14,7 +14,7 @@ export default function SalvageDispatchModal() {
   const acceptSalvageContract = useGameStore((s) => s.acceptSalvageContract)
   const refreshSalvageContracts = useGameStore((s) => s.refreshSalvageContracts)
   const tugboatUpgrades = useGameStore((s) => s.tugboatUpgrades)
-  const money = useGameStore((s) => s.money)
+  const harborCredits = useGameStore((s) => s.harborCredits)
   const reputation = useGameStore((s) => s.reputation)
   const boothTier = useGameStore((s) => s.boothTier)
   const purchaseTugboatUpgrade = useGameStore((s) => s.purchaseTugboatUpgrade)
@@ -87,7 +87,7 @@ export default function SalvageDispatchModal() {
         <button onClick={refreshSalvageContracts} style={createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: false })}>
           Refresh Calls
         </button>
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)' }}>Bank ${money.toLocaleString()}</span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)' }}>Bank {harborCredits.toLocaleString()} HC</span>
       </div>
       <div style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
@@ -101,14 +101,14 @@ export default function SalvageDispatchModal() {
         </span>
         <button
           onClick={() => purchaseTugboatUpgrade('searchlight_rig')}
-          disabled={tugboatUpgrades.searchlight_rig || money < 600 || reputation < 550}
+          disabled={tugboatUpgrades.searchlight_rig || harborCredits < 600 || reputation < 550}
           style={{ ...createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: true }), opacity: tugboatUpgrades.searchlight_rig ? 0.7 : 1 }}
         >
           {tugboatUpgrades.searchlight_rig ? '✓ Searchlight Rig' : 'Buy Searchlight Rig ($600 / 550 rep)'}
         </button>
         <button
           onClick={() => purchaseTugboatUpgrade('dynamic_positioning_assist')}
-          disabled={tugboatUpgrades.dynamic_positioning_assist || money < 900 || reputation < 1100 || boothTier < 2}
+          disabled={tugboatUpgrades.dynamic_positioning_assist || harborCredits < 900 || reputation < 1100 || boothTier < 2}
           style={{ ...createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: true }), opacity: tugboatUpgrades.dynamic_positioning_assist ? 0.7 : 1 }}
         >
           {tugboatUpgrades.dynamic_positioning_assist

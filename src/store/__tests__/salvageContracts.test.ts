@@ -35,7 +35,7 @@ describe('salvage dispatch contracts', () => {
     expect(state.activeMission?.targetShipType).toBe(contract.vesselType)
     expect(state.handshakeComplete).toBe(false)
     expect(state.tugboatObjectives).toHaveLength(1)
-    expect(state.money).toBe(0)
+    expect(state.harborCredits).toBe(0)
   })
 
   it('unlocks heavy tow winch after repeated successful salvages', () => {
@@ -50,7 +50,7 @@ describe('salvage dispatch contracts', () => {
     const updated = useGameStore.getState()
     expect(updated.salvageSuccessfulTows).toBeGreaterThanOrEqual(2)
     expect(updated.tugboatUpgrades.heavy_tow_winch).toBe(true)
-    expect(updated.money).toBeGreaterThan(0)
+    expect(updated.harborCredits).toBeGreaterThan(0)
     expect(reputationSystem.getState().totalReputation).toBeGreaterThan(0)
   })
 
@@ -86,7 +86,7 @@ describe('salvage dispatch contracts', () => {
     const after = useGameStore.getState()
 
     expect(after.tugboatDockedCount).toBe(1)
-    expect(after.money).toBeGreaterThan(before.money)
+    expect(after.harborCredits).toBeGreaterThan(before.harborCredits)
     expect(after.reputation).toBeGreaterThan(before.reputation)
     expect(after.tugboatCareerStats.totalTonsAssisted).toBeGreaterThan(0)
   })
