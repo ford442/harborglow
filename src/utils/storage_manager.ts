@@ -60,6 +60,10 @@ export type GameState = {
   isStormActive?: boolean;
   windDirection?: number;
   windStrength?: number;
+  /** Single wallet (Harbor Credits) — v4+. */
+  harborCredits?: number;
+  unlockedShopItems?: string[];
+  /** @deprecated v3 wallet field; read only by the v3→v4 migration. */
   money?: number;
   economyData?: string;
   season?: 'spring' | 'summer' | 'fall' | 'winter';
@@ -68,8 +72,22 @@ export type GameState = {
   // add more as needed
 };
 
-const STORAGE_KEY = 'harborglow-save-v3';
-const VERSION = '3.0';
+/**
+ * What lands here is decided by `getSerializableState()` in
+ * `src/store/gameStoreTypes.ts` — that projection is the authoritative list of
+ * persisted fields. Everything it omits (crane kinematics, camera transforms,
+ * live wildlife/events, in-flight missions and install queues) is ephemeral by
+ * design. See docs/STORE.md.
+ *
+ * Writes are always driven by the single save subscription in `useGameStore.ts`;
+ * nothing else should call `saveGameState` during normal play.
+ */
+const STORAGE_KEY = 'harborglow-save-v4';
+const VERSION = '4.0';
+
+/** v3 saves are read once and migrated forward (money → harborCredits). */
+const LEGACY_V3_KEY = 'harborglow-save-v3';
+const LEGACY_V3_VERSION = '3.0';
 
 // STORAGE_MAP reserved for future cloud expansion
 // const STORAGE_MAP = { game: { key: STORAGE_KEY, version: VERSION } };
@@ -83,19 +101,64 @@ export const saveGameState = (state: GameState): void => {
   console.log('💾 Saved to storage_manager (v2)');
 };
 
+/**
+ * v3 → v4: the two ledgers became one. `money` was the persisted wallet and
+ * `economyData.state.harborCredits` was a second, in-memory one; the migrated
+ * balance is their sum so no player loses credits they had earned.
+ */
+export const migrateV3 = (parsed: GameState & { economyData?: string }): GameState => {
+  let legacyEconomyCredits = 0;
+  if (parsed.economyData) {
+    try {
+      const economy = JSON.parse(parsed.economyData);
+      const credits = economy?.state?.harborCredits;
+      if (typeof credits === 'number' && Number.isFinite(credits)) {
+        legacyEconomyCredits = credits;
+      }
+    } catch {
+      // Unreadable economy blob — fall back to the money field alone.
+    }
+  }
+
+  const migrated: GameState = {
+    ...parsed,
+    harborCredits: (parsed.money ?? 0) + legacyEconomyCredits,
+    unlockedShopItems: parsed.unlockedShopItems ?? [],
+  };
+  delete migrated.money;
+  console.log(`🔀 Migrated v3 save → v4 (${migrated.harborCredits} HC)`);
+  return migrated;
+};
+
 export const loadGameState = (): GameState | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed._meta?.version !== VERSION) {
-      console.warn('⚠️ Version mismatch — migrating later');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed._meta?.version !== VERSION) {
+        console.warn('⚠️ Version mismatch — migrating later');
+        return null;
+      }
+      return parsed;
+    } catch {
       return null;
     }
-    return parsed;
+  }
+
+  // No v4 save: try to bring a v3 one forward rather than dropping the player's
+  // progress on the floor.
+  const legacyRaw = localStorage.getItem(LEGACY_V3_KEY);
+  if (!legacyRaw) return null;
+  try {
+    const parsed = JSON.parse(legacyRaw);
+    if (parsed._meta?.version !== LEGACY_V3_VERSION) return null;
+    return migrateV3(parsed);
   } catch {
     return null;
   }
 };
 
-export const clearSave = () => localStorage.removeItem(STORAGE_KEY);
+export const clearSave = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(LEGACY_V3_KEY);
+};

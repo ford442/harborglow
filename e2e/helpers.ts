@@ -48,7 +48,9 @@ export async function bootGame(page: Page): Promise<Locator> {
     }
   })
 
-  await page.goto('/?renderer=webgl&wireframe=0')
+  // screenshot=1 forces preserveDrawingBuffer so canvas pixel reads return the last
+  // rendered frame rather than a cleared buffer (see docs/RENDERER.md).
+  await page.goto('/?renderer=webgl&wireframe=0&screenshot=1')
   await page.getByRole('button', { name: 'New Game' }).click()
 
   const canvas = page.locator('canvas[data-renderer="webgl"]')

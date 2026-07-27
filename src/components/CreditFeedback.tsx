@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { useEffect, useState, useCallback } from 'react'
-import { economySystem, InstallationEarnings } from '../systems/economySystem'
+import type { InstallationEarnings } from '../systems/economySystem'
 
 interface FloatingText {
   id: string
@@ -37,18 +37,10 @@ export default function CreditFeedback() {
   }, [])
 
   useEffect(() => {
-    // Hook into economy system
-    const originalRecord = economySystem.recordInstallation.bind(economySystem)
-    economySystem.recordInstallation = function(data) {
-      const earnings = originalRecord(data)
-      
-      // Show floating text
-      const event = new CustomEvent('showCreditFeedback', { detail: earnings })
-      window.dispatchEvent(event)
-      
-      return earnings
-    }
-
+    // Earn sites dispatch 'showCreditFeedback' themselves (see
+    // AttachmentSystemManager). This component used to monkey-patch
+    // economySystem.recordInstallation to dispatch a second copy of the same
+    // event, which double-fired the floating text on every install.
     const handleShowFeedback = (e: Event) => {
       const earnings = (e as CustomEvent).detail as InstallationEarnings
       showEarnings(earnings)

@@ -1,4 +1,6 @@
 export {
+  isEmissiveSlotName,
+  SHIP_EMISSIVE_SLOT_PREFIXES,
   SHIP_ATTACH_PREFIX,
   SHIP_MODEL_FORWARD_AXIS,
   SHIP_MODEL_UNIT_METERS,
@@ -12,12 +14,15 @@ export type {
   ShipModelAttachmentPose,
   ShipModelCacheEntry,
   ShipModelPreloadProgress,
+  ShipModelSettings,
 } from './shipModelContract'
 
 export {
   getShipGlbContract,
+  getShipModelSettings,
   getShipModelUrl,
   isGlbCapableShipType,
+  isPriorityGlbShipType,
   listGlbContracts,
   SHIP_MODEL_FILENAMES,
 } from './shipModelRegistry'
@@ -35,9 +40,12 @@ export {
   getShipModelAttachmentPose,
   getShipModelCacheEntry,
   isShipModelAvailable,
+  markShipModelUnavailable,
   setShipModelCacheEntry,
 } from './shipModelCache'
 
 export { extractAttachmentPoints } from './extractAttachmentPoints'
 export { preloadPriorityShipModels, preloadShipModel, preloadShipModels } from './preloadShipModels'
 export { default as GlbShipModel } from './GlbShipModel'
+export { collectEmissiveSlots } from './emissiveSlots'
+export { default as ShipModelBoundary } from './ShipModelBoundary'

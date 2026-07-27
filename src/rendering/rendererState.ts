@@ -11,6 +11,8 @@ const _diagnostics: RendererDiagnostics = {
   rendererName: 'WebGLRenderer',
   webgpuAvailable: false,
   initialized: false,
+  contextOptions: null,
+  capabilities: null,
 };
 
 type Listener = () => void;

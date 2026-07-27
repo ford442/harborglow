@@ -90,5 +90,15 @@ export default defineConfig(({ mode }) => ({
         include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
         exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
         setupFiles: ['./src/test/setup.ts'],
+        server: {
+            deps: {
+                // Tone 14's ESM build uses extensionless relative imports
+                // ("./core/Global"), which Node's ESM loader rejects. Inlining
+                // routes it through Vite's resolver — the same path the browser
+                // build already takes — so store suites that touch the game
+                // store (which imports Tone transitively) can load at all.
+                inline: ['tone'],
+            },
+        },
     },
 }))

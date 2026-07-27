@@ -3,7 +3,7 @@
 // Authoring spec for external 3D assets that replace procedural LOD0 hulls.
 // =============================================================================
 
-import type { ShipType } from '../store/gameStoreTypes'
+import type { QualityPreset, ShipType } from '../store/gameStoreTypes'
 
 /**
  * Coordinate system (matches Three.js + blueprint JSON):
@@ -20,6 +20,29 @@ export const SHIP_MODEL_UNIT_METERS = 1
 /** Prefix for optional attachment empties (both `stack1` and `attach_stack1` resolve). */
 export const SHIP_ATTACH_PREFIX = 'attach_'
 
+/**
+ * Mesh/material name prefixes that opt a GLB surface into night-emissive driving.
+ * Anything else keeps whatever the artist authored.
+ */
+export const SHIP_EMISSIVE_SLOT_PREFIXES = ['emissive_', 'glow_'] as const
+
+export function isEmissiveSlotName(name: string): boolean {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return SHIP_EMISSIVE_SLOT_PREFIXES.some((prefix) => lower.startsWith(prefix))
+}
+
+/**
+ * Quality presets that render GLB hulls. `low` stays fully procedural — the
+ * authored meshes are the biggest per-ship cost, and low-end machines get more
+ * out of the frame budget than out of the silhouette.
+ */
+export const GLB_ENABLED_QUALITY_PRESETS: readonly QualityPreset[] = ['medium', 'high']
+
+export function isGlbAllowedForQuality(preset: QualityPreset): boolean {
+  return GLB_ENABLED_QUALITY_PRESETS.includes(preset)
+}
+
 /** Root node name inside the GLB (informational for artists). */
 export const shipModelRootName = (shipType: ShipType) => `${shipType}_root`
 
@@ -29,6 +52,16 @@ export interface ShipGlbContract {
   filename: string
   /** Attachment node names — must match blueprint attachmentPoints IDs */
   attachmentNodeIds: readonly string[]
+  /** Optional GLB node name → blueprint attachment id overrides */
+  attachmentSocketMap: Record<string, string>
+}
+
+/** Resolved model settings (blueprint `model` block with defaults filled in). */
+export interface ShipModelSettings {
+  url: string
+  scale: number
+  yOffset: number
+  attachmentSocketMap: Record<string, string>
 }
 
 /**

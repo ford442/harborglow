@@ -1,93 +1,35 @@
+// =============================================================================
+// OPS SLICE — Operation mode (crane / tugboat / walking), missions, training, and comms.
+// =============================================================================
+
 import type { StateCreator } from 'zustand';
-import type { Slice2 } from '../sliceTypes';
+import type { OpsSlice } from '../sliceTypes';
 import {
     type GameState,
-    type HarborType,
-    type CabinViewMode,
-    type GameMode,
-    type OperationMode,
     type CameraMode,
+    type OperationMode,
+    type WeatherState,
     type TugboatState,
+    type TugboatUpgradeState,
+    type TugboatCareerStats,
+    type GameMode,
     type TugboatObjective,
     type Mission,
-    type TugboatCareerStats,
-    type TugboatUpgradeId,
-    type TugboatUpgradeState,
-    type WaveParams,
-    type WeatherState,
-    buildHandshakeSequence,
-    scheduleSave,
     createSalvageContracts,
+    DEFAULT_HANDSHAKE_SEQUENCE,
+    buildHandshakeSequence,
     getReputationTierMultiplier,
     TUG_TONS_BY_SHIP,
-    DEFAULT_HANDSHAKE_SEQUENCE,
 } from '../gameStoreTypes';
-import type { AttachmentSystemConfig } from '../../systems/attachmentSystem';
-import type { TrainingModuleId, TrainingProgress } from '../../systems/trainingSystem';
-import { trainingSystem, isTugboatTrainingModule, setupTrainingScenario } from '../../systems/trainingSystem';
-import type { AcousticNote } from '../../systems/commsSystem';
 import { reputationSystem } from '../../systems/reputationSystem';
+import type { TrainingModuleId } from '../../systems/trainingSystem';
+import type { TrainingProgress } from '../../systems/trainingSystem';
+import { trainingSystem } from '../../systems/trainingSystem';
+import { isTugboatTrainingModule } from '../../systems/trainingSystem';
+import { setupTrainingScenario } from '../../systems/trainingSystem';
+import type { AcousticNote } from '../../systems/commsSystem';
 
-export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, _api) => ({
-    removeWildlife: (id) => set((state) => ({
-        wildlife: state.wildlife.filter(w => w.id !== id)
-    })),
-
-    updateWildlife: (id, updates) => set((state) => ({
-        wildlife: state.wildlife.map(w =>
-            w.id === id ? { ...w, ...updates } : w
-        )
-    })),
-
-    setActiveSeaEvent: (event) => set({ activeSeaEvent: event }),
-
-    // Harbor event actions
-    addHarborEvent: (event) => set((state) => ({
-        activeHarborEvents: [...state.activeHarborEvents, event]
-    })),
-
-    removeHarborEvent: (id) => set((state) => ({
-        activeHarborEvents: state.activeHarborEvents.filter(e => e.id !== id)
-    })),
-
-    setEventEnabled: (type, enabled) => set((state) => ({
-        eventEnabledSettings: {
-            ...state.eventEnabledSettings,
-            [type]: enabled
-        }
-    })),
-
-    // Harbor theme
-    setCurrentHarbor: (harbor: HarborType) => {
-        set({ currentHarbor: harbor })
-        console.log(`⚓ Harbor switched to: ${harbor}`)
-    },
-
-    // Operator Cabin view mode
-    setCabinViewMode: (mode: CabinViewMode) => {
-        set({ cabinViewMode: mode })
-        console.log(`🎮 Cabin view mode: ${mode}`)
-    },
-
-    // Time system - update game time from timeSystem
-    setGameTime: (hour: number, minute: number) => {
-        const currentTime = get().gameTime
-        // Only update if time has changed to avoid re-renders
-        if (!currentTime || currentTime.hour !== hour || currentTime.minute !== minute) {
-            set({ gameTime: { hour, minute } })
-        }
-    },
-
-    // Attachment system configuration
-    setAttachmentSystemConfig: (config: Partial<AttachmentSystemConfig>) => {
-        set((state) => ({
-            attachmentSystemConfig: { ...state.attachmentSystemConfig, ...config }
-        }))
-    },
-
-    clearLastInstallation: () => set({ lastInstallation: null }),
-
-    // Training system
+export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, get, _api) => ({
     setGameMode: (mode: GameMode) => {
         set({ gameMode: mode })
         console.log(`🎓 Game mode: ${mode}`)
@@ -133,23 +75,12 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
     },
 
     // Traffic system - reputation management
-    addReputation: (amount: number) => set((state) => {
-        const newReputation = Math.max(0, state.reputation + amount)
-        if (amount > 0) {
-            console.log(`🏆 Reputation +${amount} (Total: ${newReputation})`)
-        } else if (amount < 0) {
-            console.log(`📉 Reputation ${amount} (Total: ${newReputation})`)
-        }
-        return { reputation: newReputation }
-    }),
 
-    // Tugboat mode actions
     setOperationMode: (mode: OperationMode) => {
         const patch = mode === 'tugboat'
             ? { operationMode: mode, salvageContracts: get().salvageContracts.length > 0 ? get().salvageContracts : createSalvageContracts() }
             : { operationMode: mode }
         set(patch)
-        scheduleSave({ ...get(), ...patch })
         if (get().gameMode === 'training') {
             trainingSystem.recordOperationModeSwitch(mode)
         }
@@ -168,7 +99,6 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             cameraMode: 'onFoot' as CameraMode,
         }
         set(patch)
-        scheduleSave({ ...get(), ...patch })
     },
 
     returnToCraneFromWalking: () => {
@@ -180,7 +110,6 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             cabinViewMode: state.walkingReturnCabinViewMode || 'multiview',
         }
         set(patch)
-        scheduleSave({ ...get(), ...patch })
     },
 
     updateWalkingState: (position, velocity) => {
@@ -208,76 +137,7 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
 
     markTugboatFirstTimeViewed: () => set((state) => {
         const patch = { tugboatFirstTimeViewed: true }
-        scheduleSave({ ...state, ...patch })
         return patch
-    }),
-
-    refreshSalvageContracts: () => set(() => ({
-        salvageContracts: createSalvageContracts(),
-    })),
-
-    acceptSalvageContract: (contractId: string) => set((state) => {
-        const contract = state.salvageContracts.find((item) => item.id === contractId)
-        if (!contract || state.activeMission?.status === 'active') return state
-
-        const updatedMoney = Math.max(0, state.money - contract.acceptedFee)
-        const objectiveId = `salvage-objective-${contract.id}`
-        const mission: Mission = {
-            id: `salvage-mission-${contract.id}`,
-            type: 'salvage',
-            targetShipType: contract.vesselType,
-            targetShipId: objectiveId,
-            timeLimit: contract.seaState === 'severe' ? 150 : 180,
-            timeRemaining: contract.seaState === 'severe' ? 150 : 180,
-            damage: 0,
-            maxDamage: 100,
-            reward: contract.rewardEstimate,
-            status: 'active',
-            berthCenter: contract.berthCenter,
-            berthRadius: contract.berthRadius,
-            distressPosition: contract.distressPosition,
-            factionLabel: contract.factionLabel,
-            vesselLabel: contract.vesselLabel,
-            briefing: contract.briefing,
-            acceptedFee: contract.acceptedFee,
-            reputationReward: contract.seaState === 'severe' ? 120 : contract.seaState === 'rough' ? 90 : 70,
-            failurePenalty: Math.max(180, Math.round(contract.rewardEstimate * 0.2)),
-        }
-
-        const seed = `${contract.id}|${contract.vesselLabel}|${contract.factionLabel}`
-        const handshakeTargetSequence = buildHandshakeSequence(seed)
-        const tugboatObjectives: TugboatObjective[] = [
-            {
-                id: objectiveId,
-                label: `${contract.vesselLabel} → Repair Berth`,
-                berthCenter: contract.berthCenter,
-                berthRadius: contract.berthRadius,
-                completed: false,
-                shipType: contract.vesselType,
-            },
-        ]
-
-        const replacementPool = createSalvageContracts().filter((item) => item.id !== contractId)
-        const salvageContracts = [...state.salvageContracts.filter((item) => item.id !== contractId), ...replacementPool]
-            .slice(0, 3)
-
-        const nextState = {
-            money: updatedMoney,
-            activeMission: mission,
-            tugboatObjectives,
-            tugboatDockedCount: 0,
-            tugboatWinTriggered: false,
-            handshakeTargetSequence,
-            handshakeInputSequence: [],
-            handshakeComplete: false,
-            towingUnlocked: false,
-            towLineAttached: false,
-            activeTowedShipId: null,
-            salvageContracts,
-        }
-        scheduleSave({ ...state, ...nextState })
-        console.log(`🛟 Salvage dispatch accepted: ${contract.vesselLabel}`)
-        return nextState
     }),
 
     submitAcousticNote: (note: AcousticNote) => set((state) => {
@@ -329,7 +189,7 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             cleanTows: state.tugboatCareerStats.cleanTows + (state.towLineSnapped ? 0 : 1),
             nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
         }
-        const newMoney = state.money + objectiveCreditReward
+        const newCredits = state.harborCredits + objectiveCreditReward
         const newReputation = state.reputation + objectiveRepReward
         reputationSystem.addReputation(
             objectiveRepReward,
@@ -337,43 +197,14 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             { tons: objectiveTons, night: isNightRescue ? 1 : 0 },
             { syncGameStore: false },
         )
-        scheduleSave({ ...state, money: newMoney, reputation: newReputation, tugboatCareerStats })
         return {
             tugboatObjectives: objectives,
             tugboatDockedCount: dockedCount,
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             tugboatCareerStats,
         }
     }),
-
-    purchaseTugboatUpgrade: (id: TugboatUpgradeId) => {
-        const state = get()
-        if (state.tugboatUpgrades[id]) return false
-
-        const upgradeConfig: Record<TugboatUpgradeId, { cost: number; minReputation: number; minBoothTier?: 1 | 2 | 3 }> = {
-            heavy_tow_winch: { cost: 0, minReputation: 0 },
-            cavitation_suppression_jets: { cost: 0, minReputation: 0 },
-            searchlight_rig: { cost: 600, minReputation: 550 },
-            dynamic_positioning_assist: { cost: 900, minReputation: 1100, minBoothTier: 2 },
-        }
-        const config = upgradeConfig[id]
-        if (!config) return false
-        if (state.reputation < config.minReputation) return false
-        if (config.minBoothTier && state.boothTier < config.minBoothTier) return false
-        if (config.cost > 0 && state.money < config.cost) return false
-
-        const patch = {
-            money: config.cost > 0 ? state.money - config.cost : state.money,
-            tugboatUpgrades: {
-                ...state.tugboatUpgrades,
-                [id]: true,
-            },
-        }
-        set(patch)
-        scheduleSave({ ...state, ...patch })
-        return true
-    },
 
     resetTugboatMode: () => {
         set({
@@ -428,18 +259,17 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
         set((state) => {
             const mission = state.activeMission
             const missionFailed = mission?.type === 'salvage' && mission.status === 'active'
-            const newMoney = missionFailed
-                ? Math.max(0, state.money - (mission.failurePenalty ?? 220))
-                : state.money
+            const newCredits = missionFailed
+                ? Math.max(0, state.harborCredits - (mission.failurePenalty ?? 220))
+                : state.harborCredits
             const newReputation = missionFailed
                 ? Math.max(0, state.reputation - 55)
                 : state.reputation
-            scheduleSave({ ...state, money: newMoney, reputation: newReputation })
             return {
                 towLineAttached: false,
                 activeTowedShipId: null,
                 towLineSnapped: true,
-                money: newMoney,
+                harborCredits: newCredits,
                 reputation: newReputation,
                 activeMission: missionFailed ? { ...mission!, status: 'failed' as const } : mission,
             }
@@ -447,44 +277,6 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
         console.log('💥 Tow line snapped!')
         setTimeout(() => set({ towLineSnapped: false }), 1200)
     },
-
-    setStormIntensity: (intensity: number) => {
-        set({ stormIntensity: Math.max(0, Math.min(1, intensity)) })
-    },
-
-    setStormTimeRemaining: (time: number) => {
-        set({ stormTimeRemaining: Math.max(0, time) })
-    },
-
-    setStormActive: (active: boolean) => {
-        set({ isStormActive: active })
-    },
-
-    setWindDirection: (direction: number) => {
-        set({ windDirection: direction })
-    },
-
-    setWindStrength: (strength: number) => {
-        set({ windStrength: Math.max(0, strength) })
-    },
-
-    setRainDensity: (density: number) => {
-        set({ rainDensity: Math.max(0, Math.min(1, density)) })
-    },
-
-    addMoney: (amount: number) => set((state) => {
-        const newMoney = Math.max(0, state.money + amount)
-        const newState = { money: newMoney }
-        scheduleSave({ ...state, ...newState })
-        return newState
-    }),
-
-    deductMoney: (amount: number) => set((state) => {
-        const newMoney = Math.max(0, state.money - amount)
-        const newState = { money: newMoney }
-        scheduleSave({ ...state, ...newState })
-        return newState
-    }),
 
     setActiveMission: (mission: Mission | null) => {
         set({ activeMission: mission })
@@ -509,7 +301,7 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             ? Math.round(120 * tierBonus)
             : 0
         const totalReward = reward + searchlightBonus
-        const newMoney = state.money + totalReward
+        const newCredits = state.harborCredits + totalReward
         const salvageSuccessfulTows = mission.type === 'salvage'
             ? state.salvageSuccessfulTows + 1
             : state.salvageSuccessfulTows
@@ -537,17 +329,9 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
             { reward: totalReward, cleanTow: mission.damage <= 10 ? 1 : 0, night: isNightRescue ? 1 : 0 },
             { syncGameStore: false },
         )
-        scheduleSave({
-            ...state,
-            money: newMoney,
-            salvageSuccessfulTows,
-            tugboatUpgrades,
-            reputation: newReputation,
-            tugboatCareerStats,
-        })
         console.log(`💰 Mission complete! Earned $${totalReward}`)
         return {
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             salvageSuccessfulTows,
             tugboatCareerStats,
@@ -562,14 +346,13 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
         const appliedPenalty = mission.type === 'salvage'
             ? mission.failurePenalty ?? penalty
             : penalty
-        const newMoney = Math.max(0, state.money - appliedPenalty)
+        const newCredits = Math.max(0, state.harborCredits - appliedPenalty)
         const newReputation = mission.type === 'salvage'
             ? Math.max(0, state.reputation - 40)
             : state.reputation
-        scheduleSave({ ...state, money: newMoney, reputation: newReputation })
         console.log(`❌ Mission failed. Penalty: $${appliedPenalty}`)
         return {
-            money: newMoney,
+            harborCredits: newCredits,
             reputation: newReputation,
             activeMission: { ...mission, status: 'failed' as const },
         }
@@ -579,11 +362,4 @@ export const createSlice2: StateCreator<GameState, [], [], Slice2> = (set, get, 
         set({ tugboatWinTriggered: true })
         console.log('🏆 Tugboat mission complete!')
     },
-
-    setTugSpectatorActive: (active: boolean) => set({ tugSpectatorActive: active }),
-
-    setWaveParams: (patch: Partial<WaveParams>) => set((state) => {
-        const newParams = { ...state.waveParams, ...patch }
-        return { waveParams: newParams }
-    })
 });

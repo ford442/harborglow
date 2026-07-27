@@ -360,6 +360,20 @@ export function createSalvageContracts(now = Date.now()): SalvageContract[] {
 }
 
 
+/**
+ * Measured quality of one crane installation, supplied by the gameplay caller
+ * that actually observed it. Omitted fields mean "not measured" — reputation
+ * awards base completion only rather than inventing a number.
+ */
+export interface InstallMetrics {
+    /** Seconds from twistlock engage (load picked) to install. */
+    timeSeconds?: number
+    /** Load sway magnitude at the moment of install, 0-1. */
+    swayPercent?: number
+    /** Damage caused during the install, if the caller tracks it. */
+    damage?: number
+}
+
 export interface Upgrade {
     shipId: string
     partName: string
@@ -396,6 +410,8 @@ interface SerializableState {
     qualityPreset: QualityPreset
     // Crane state
     twistlockEngaged: boolean
+    /** Ephemeral: Date.now() when the twistlock last engaged, for install timing. Not persisted. */
+    installAttemptStartedAt: number | null
     craneHeight: number
     craneRotation: number
     // Multiview system
@@ -427,8 +443,12 @@ interface SerializableState {
     isMoving: boolean
     heaterActive: boolean
     iceBuildup: number
-    // Economy
-    money: number
+    // Economy — Harbor Credits (HC) is the single player wallet.
+    // Every earn/spend path (installs, ship completion, crane contracts, tug
+    // objectives, salvage fees, missions, shop purchases) mutates this field.
+    harborCredits: number
+    /** Dock upgrades / specialists bought through purchaseShopItem. */
+    unlockedShopItems: string[]
     // Booth tier (1=standard, 3=arctic)
     boothTier: 1 | 2 | 3
     // Harbor/Booth theme
@@ -508,7 +528,15 @@ interface SerializableState {
     detachTowLine: () => void
     setTugSpectatorActive: (active: boolean) => void
     // Economy
+    /** Credit the wallet. `source` is for logging/telemetry only. */
+    addHarborCredits: (amount: number, source?: string) => void
+    /** Debit the wallet. Returns false and changes nothing when funds are short. */
+    spendHarborCredits: (amount: number, reason?: string) => boolean
+    /** Buy a dock upgrade or specialist from SHOP_CATALOG. Checks credits + reputation. */
+    purchaseShopItem: (itemId: string) => boolean
+    /** @deprecated Use addHarborCredits. Kept for one release. */
     addMoney: (amount: number) => void
+    /** @deprecated Use spendHarborCredits; this one clamps at zero instead of refusing. */
     deductMoney: (amount: number) => void
     // Mission system
     activeMission: Mission | null
@@ -543,7 +571,7 @@ export interface GameState extends SerializableState {
     addShip: (ship: Ship) => void
     removeShip: (shipId: string) => void
     setCurrentShip: (id: string | null) => void
-    installUpgrade: (shipId: string, partName: string) => void
+    installUpgrade: (shipId: string, partName: string, metrics?: InstallMetrics) => void
     uninstallUpgrade: (shipId: string, partName: string) => void
     setMusicPlaying: (shipId: string, playing: boolean) => void
     stopAllMusic: () => void
@@ -639,42 +667,17 @@ export interface GameState extends SerializableState {
     /** Signal a cable snap — sets towLineSnapped true, auto-clears after 1.2 s */
     signalTowLineSnap: () => void
 }
-export const defaultState: Omit<GameState, keyof {
-    addShip: unknown; removeShip: unknown; setCurrentShip: unknown;
-    installUpgrade: unknown; uninstallUpgrade: unknown; setMusicPlaying: unknown;
-    stopAllMusic: unknown; setBPM: unknown; setLyricsSize: unknown;
-    setLightIntensity: unknown; setSpectatorTarget: unknown; endSpectatorMode: unknown;
-    setTimeOfDay: unknown; setCameraMode: unknown; resetGame: unknown; loadSavedState: unknown;
-    scheduleDeparture: unknown; returnToDock: unknown; upgradeShipVersion: unknown; setWeather: unknown; setQualityPreset: unknown;
-    setSpreaderPos: unknown; setSpreaderRotation: unknown; setCableDepth: unknown; setLoadTension: unknown;
-    setTrolleyPosition: unknown; setWinchSpeed: unknown; setHighlightedUpgradePart: unknown; setPendingAutoInstall: unknown; setJoystickLeft: unknown; setJoystickRight: unknown;
-    setInstallQueue: unknown; advanceInstallQueue: unknown; abortInstallQueue: unknown; pauseInstallQueue: unknown; resumeInstallQueue: unknown;
-    setTwistlockEngaged: unknown; setHeaterActive: unknown; setIsMoving: unknown;
-    setMultiviewMode: unknown; setUnderwaterIntensity: unknown; setDashboardPreset: unknown;
-    setSeason: unknown; setWildlifeDensity: unknown; setEnableMarineLife: unknown;
-    pushViewportHistory: unknown; navigateViewportHistory: unknown; pinViewportCamera: unknown;
-    recallPinnedViewportCamera: unknown; setFocusedViewport: unknown;
-    addWildlife: unknown; removeWildlife: unknown; updateWildlife: unknown; setActiveSeaEvent: unknown;
-    beginWalkingFromCab: unknown; returnToCraneFromWalking: unknown; updateWalkingState: unknown;
-    addHarborEvent: unknown; removeHarborEvent: unknown; setEventEnabled: unknown;
-    setCurrentHarbor: unknown; setCabinViewMode: unknown; setGameTime: unknown;
-    setAttachmentSystemConfig: unknown; clearLastInstallation: unknown;
-    setGameMode: unknown; startTrainingModule: unknown; exitTrainingModule: unknown;
-    updateTrainingProgress: unknown; addReputation: unknown;
-    setOperationMode: unknown; updateTugboatState: unknown; setTugboatObjectives: unknown; markTugboatFirstTimeViewed: unknown;
-    refreshSalvageContracts: unknown; acceptSalvageContract: unknown;
-    submitAcousticNote: unknown; resetAcousticHandshake: unknown;
-    completeTugboatObjective: unknown; purchaseTugboatUpgrade: unknown; resetTugboatMode: unknown; setStormIntensity: unknown;
-    setStormTimeRemaining: unknown; triggerTugboatWin: unknown; setWaveParams: unknown;
-    setStormActive: unknown; setWindDirection: unknown; setWindStrength: unknown;
-    setRainDensity: unknown;
-    addMoney: unknown; deductMoney: unknown;
-    setActiveMission: unknown; updateMission: unknown;
-    completeMission: unknown; failMission: unknown;
-    setCraneContract: unknown; completeCraneContract: unknown;
-    attachTowLine: unknown; detachTowLine: unknown; signalTowLineSnap: unknown;
-    setTugSpectatorActive: unknown;
-}> = {
+/**
+ * Keys of GameState whose values are actions. Derived, not hand-listed: the old
+ * `Omit<GameState, keyof { addShip: unknown; ... }>` had to be edited by hand
+ * every time an action was added, and silently drifted when it wasn't.
+ */
+export type GameStateActionKey = {
+    [K in keyof GameState]-?: GameState[K] extends (...args: never[]) => unknown ? K : never
+}[keyof GameState];
+
+/** Initial value for every non-action field on GameState. */
+export const defaultState: Omit<GameState, GameStateActionKey> = {
     ships: [],
     craneUpgrades: [],
     installedUpgrades: [],
@@ -700,6 +703,7 @@ export const defaultState: Omit<GameState, keyof {
     weatherIntensity: 0.5,
     qualityPreset: 'high',
     twistlockEngaged: false,
+    installAttemptStartedAt: null,
     craneHeight: 15.5,
     craneRotation: 0.2,
     spreaderPos: { x: 0, y: 10, z: 0 },
@@ -821,7 +825,8 @@ export const defaultState: Omit<GameState, keyof {
     windDirection: 0,
     windStrength: 0,
     rainDensity: 0.5,
-    money: 0,
+    harborCredits: 0,
+    unlockedShopItems: [],
     activeMission: null,
     craneContract: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
@@ -834,7 +839,17 @@ export const defaultState: Omit<GameState, keyof {
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
-const getSerializableState = (state: GameState): StorageGameState => ({
+/**
+ * The persisted projection of the store — the authoritative answer to "what is
+ * saved?". Everything omitted here is ephemeral by design: crane kinematics
+ * (spreader pose, cable depth, tension, joysticks, twistlock, install timing),
+ * camera/viewport transforms, live wildlife and sea events, and any in-flight
+ * mission or install queue. Those are recomputed each frame or each session, and
+ * restoring them would resume a half-finished pick on load.
+ *
+ * Exported so tests can assert the shape without reaching through the debounce.
+ */
+export const getSerializableState = (state: GameState): StorageGameState => ({
     ships: state.ships,
     craneUpgrades: state.installedUpgrades,
     musicEnabled: state.musicEnabled,
@@ -860,7 +875,8 @@ const getSerializableState = (state: GameState): StorageGameState => ({
     tugboatCareerStats: state.tugboatCareerStats,
     tugboatUpgrades: state.tugboatUpgrades,
     waveParams: state.waveParams,
-    money: state.money,
+    harborCredits: state.harborCredits,
+    unlockedShopItems: state.unlockedShopItems,
     economyData: economySystem.serialize(),
     season: state.season,
     wildlifeDensity: state.wildlifeDensity,

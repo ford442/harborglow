@@ -61,10 +61,14 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - Handles Tone.js audio initialization on user gesture
    - Lazy-loads MainScene for code splitting
 
-2. **Game State** (`src/store/useGameStore.ts`)
-   - Single Zustand store for all game state
+2. **Game State** (`src/store/useGameStore.ts`) — see [docs/STORE.md](docs/STORE.md)
+   - Single Zustand store for all game state, composed from domain slices
+     (`slices/shipsSlice`, `craneSlice`, `cameraSlice`, `environmentSlice`,
+     `economySlice`, `opsSlice`, `sessionSlice`); `gameStoreTypes.ts` is the one
+     canonical type module and `sliceTypes.ts` enforces slice ownership at compile time
    - Manages ships, camera, UI modes, upgrades, weather, time/day cycles
-   - Handles save/load via `src/utils/storage_manager.ts`
+   - Handles save/load via `src/utils/storage_manager.ts`; **one** subscription in
+     `useGameStore.ts` owns `scheduleSave` — actions only call `set(...)`
    - Tracks booth tiers (affects harbor theme), reputation, training progress
    - Stores attachment system config and multiview/dashboard presets
 

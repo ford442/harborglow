@@ -2,6 +2,8 @@ import { useRef, useMemo, useEffect, useState, lazy, Suspense } from 'react';
 import * as THREE from 'three';
 import { Environment } from '@react-three/drei';
 import { useShipModel } from '../hooks/useShipModel';
+import { ShipModelBoundary } from '../ships/ShipModelBoundary';
+import { markShipModelUnavailable } from '../ships/shipModelCache';
 
 const LazyGlbShipModel = lazy(() => import('../ships/GlbShipModel'));
 import { useFrame } from '@react-three/fiber';
@@ -753,9 +755,22 @@ export const ProceduralShip = ({
       scale={[blueprint.scale, blueprint.scale, blueprint.scale]}
     >
       {renderGlb && shipModel.url ? (
-        <Suspense fallback={<ProceduralShipBody blueprint={blueprint} />}>
-          <LazyGlbShipModel shipType={blueprintId} url={shipModel.url} />
-        </Suspense>
+        // Suspense covers loading; the boundary covers a GLB that throws, so one
+        // bad asset degrades a single ship instead of blanking the harbor.
+        <ShipModelBoundary
+          shipType={blueprintId}
+          fallback={<ProceduralShipBody blueprint={blueprint} />}
+          onError={() => markShipModelUnavailable(blueprintId as ShipType)}
+        >
+          <Suspense fallback={<ProceduralShipBody blueprint={blueprint} />}>
+            <LazyGlbShipModel
+              shipType={blueprintId}
+              url={shipModel.url}
+              scale={shipModel.scale}
+              yOffset={shipModel.yOffset}
+            />
+          </Suspense>
+        </ShipModelBoundary>
       ) : (
         <ProceduralShipBody blueprint={blueprint} />
       )}

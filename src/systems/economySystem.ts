@@ -4,15 +4,26 @@
 // =============================================================================
 
 import type { ShipType, WeatherState } from '../store/useGameStore'
+import { useGameStore } from '../store/useGameStore'
 import { reputationSystem } from './reputationSystem'
 import { playSound } from './soundEffects'
+
+// -----------------------------------------------------------------------------
+// This module is a CALCULATOR + CATALOG, not a wallet.
+//
+// Harbor Credits live in exactly one place: `harborCredits` on the Zustand store,
+// which is what gets persisted. Everything here that used to hold or mutate a
+// balance now reads/writes the store, so earn paths and spend paths can never
+// drift apart again. Shift stats, upgrade levels and active boosts remain local
+// (they are session/effect state, serialized alongside the save).
+// -----------------------------------------------------------------------------
 
 // =============================================================================
 // CURRENCY TYPES
 // =============================================================================
 
 export interface EconomyState {
-  harborCredits: number
+  /** Lifetime earnings (statistic, not a balance — the balance is store.harborCredits). */
   lifetimeCredits: number
   portReputation: number // 0-1000 scale
   shiftPerformance: {
@@ -42,7 +53,6 @@ export type BoostType =
   | 'rare_ships'
 
 export const DEFAULT_ECONOMY_STATE: EconomyState = {
-  harborCredits: 0,
   lifetimeCredits: 0,
   portReputation: 0,
   shiftPerformance: {
@@ -253,6 +263,62 @@ export function getUpgradeCost(upgradeId: string, currentLevel: number): number 
   return Math.floor(upgrade.cost * costMultiplier)
 }
 
+// =============================================================================
+// SHOP CATALOG — one typed surface for every purchasable, so a shop UI does not
+// have to know whether an item is a dock upgrade or a specialist hire.
+// =============================================================================
+
+export type ShopItemCategory = 'dock_upgrade' | 'specialist'
+
+export interface ShopItem {
+  id: string
+  name: string
+  description: string
+  cost: number
+  category: ShopItemCategory
+  icon: string
+  /** Store reputation required to buy, when the item is gated. */
+  minReputation?: number
+  /** Dock upgrades only: how many times it can be bought. */
+  maxLevel?: number
+}
+
+export const SHOP_CATALOG: ShopItem[] = [
+  ...DOCK_UPGRADES.map((upgrade): ShopItem => ({
+    id: upgrade.id,
+    name: upgrade.name,
+    description: upgrade.description,
+    cost: upgrade.cost,
+    category: 'dock_upgrade',
+    icon: upgrade.icon,
+    maxLevel: upgrade.maxLevel,
+  })),
+  ...SPECIALISTS.map((specialist): ShopItem => ({
+    id: specialist.id,
+    name: specialist.name,
+    description: specialist.description,
+    cost: specialist.cost,
+    category: 'specialist',
+    icon: specialist.icon,
+  })),
+]
+
+export function getShopItem(itemId: string): ShopItem | undefined {
+  return SHOP_CATALOG.find((item) => item.id === itemId)
+}
+
+/**
+ * Applies a purchase's *effects* after the store has already taken payment.
+ * Split out so `purchaseShopItem` owns the money and this owns the mechanics.
+ */
+export function applyShopItemPurchase(item: ShopItem): void {
+  if (item.category === 'dock_upgrade') {
+    economySystem.applyDockUpgradeLevel(item.id)
+  } else {
+    economySystem.applySpecialistBoost(item.id)
+  }
+}
+
 export function getPortReputationTier(reputation: number): { name: string; color: string; badge: string } {
   if (reputation >= 1000) return { name: 'Legendary', color: '#ffd700', badge: '🏆' }
   if (reputation >= 750) return { name: 'Expert', color: '#ff4757', badge: '⭐' }
@@ -281,8 +347,9 @@ export class EconomySystem {
     return { ...this.state }
   }
 
+  /** Reads the single wallet on the store. */
   getCredits(): number {
-    return this.state.harborCredits
+    return useGameStore.getState().harborCredits
   }
 
   getReputation(): number {
@@ -300,7 +367,7 @@ export class EconomySystem {
   }
 
   canAfford(cost: number): boolean {
-    return this.state.harborCredits >= cost
+    return useGameStore.getState().harborCredits >= cost
   }
 
   getActiveBoosts(): ActiveBoost[] {
@@ -438,13 +505,17 @@ export class EconomySystem {
     }
   }
 
+  /** Credits are always awarded through the store action — no local balance. */
   private addCredits(amount: number, source: string): void {
     if (amount <= 0) return
-    
-    this.state.harborCredits += amount
+
     this.state.lifetimeCredits += amount
-    
-    console.log(`💰 +${amount} HC (${source}) - Total: ${this.state.harborCredits}`)
+    useGameStore.getState().addHarborCredits(amount, source)
+  }
+
+  /** Spends through the store; returns false (and buys nothing) when short. */
+  private spendCredits(amount: number, reason: string): boolean {
+    return useGameStore.getState().spendHarborCredits(amount, reason)
   }
 
   private addReputation(amount: number): void {
@@ -473,11 +544,10 @@ export class EconomySystem {
     if (currentLevel >= upgrade.maxLevel) return false
 
     const cost = getUpgradeCost(upgradeId, currentLevel)
-    if (!this.canAfford(cost)) return false
 
     this.purchaseInProgress = true
     try {
-      this.state.harborCredits -= cost
+      if (!this.spendCredits(cost, `dock_upgrade:${upgradeId}`)) return false
       this.upgradeLevels.set(upgradeId, currentLevel + 1)
       this.state.unlockedUpgrades.push(upgradeId)
       playSound('installComplete')
@@ -489,17 +559,44 @@ export class EconomySystem {
     }
   }
 
+  /** Effect half of a dock-upgrade purchase (payment happens in the store). */
+  applyDockUpgradeLevel(upgradeId: string): void {
+    const upgrade = DOCK_UPGRADES.find(u => u.id === upgradeId)
+    if (!upgrade) return
+    const currentLevel = this.getUpgradeLevel(upgradeId)
+    if (currentLevel >= upgrade.maxLevel) return
+
+    this.upgradeLevels.set(upgradeId, currentLevel + 1)
+    if (!this.state.unlockedUpgrades.includes(upgradeId)) {
+      this.state.unlockedUpgrades.push(upgradeId)
+    }
+    this.notifyListeners()
+  }
+
+  /** Effect half of a specialist hire (payment happens in the store). */
+  applySpecialistBoost(specialistId: string): void {
+    const specialist = SPECIALISTS.find(s => s.id === specialistId)
+    if (!specialist) return
+
+    this.state.activeBoosts.push({
+      id: `${specialistId}-${Date.now()}`,
+      type: specialist.boostType,
+      multiplier: specialist.multiplier,
+      expiresAt: Date.now() + (specialist.duration * 1000),
+      description: `${specialist.name}: ${specialist.description}`,
+    })
+    this.notifyListeners()
+  }
+
   hireSpecialist(specialistId: string): boolean {
     if (this.purchaseInProgress) return false
 
     const specialist = SPECIALISTS.find(s => s.id === specialistId)
     if (!specialist) return false
 
-    if (!this.canAfford(specialist.cost)) return false
-
     this.purchaseInProgress = true
     try {
-      this.state.harborCredits -= specialist.cost
+      if (!this.spendCredits(specialist.cost, `specialist:${specialistId}`)) return false
 
       const boost: ActiveBoost = {
         id: `${specialistId}-${Date.now()}`,
@@ -606,7 +703,11 @@ export class EconomySystem {
   deserialize(data: string): void {
     try {
       const parsed = JSON.parse(data)
-      this.state = { ...DEFAULT_ECONOMY_STATE, ...parsed.state }
+      // Strip any legacy `harborCredits` from pre-unification saves; the wallet
+      // is migrated into store.harborCredits by storage_manager instead.
+      const { harborCredits: _legacyWallet, ...savedState } = (parsed.state ?? {}) as Record<string, unknown>
+      void _legacyWallet
+      this.state = { ...DEFAULT_ECONOMY_STATE, ...(savedState as Partial<EconomyState>) }
       this.upgradeLevels = new Map(parsed.upgradeLevels || [])
       this.notifyListeners()
     } catch (e) {
@@ -648,8 +749,12 @@ export class EconomySystem {
   // DEBUG
   // ========================================================================
 
+  /** Debug/Leva helper — sets the store wallet directly. */
   setCredits(amount: number): void {
-    this.state.harborCredits = amount
+    const store = useGameStore.getState()
+    const delta = amount - store.harborCredits
+    if (delta > 0) store.addHarborCredits(delta, 'debug')
+    else if (delta < 0) store.spendHarborCredits(-delta, 'debug')
     this.notifyListeners()
   }
 
@@ -686,6 +791,9 @@ import { useState, useEffect } from 'react'
 
 export function useEconomySystem() {
   const [state, setState] = useState<EconomyState>(economySystem.getState())
+  // The wallet is store state, so it is read through a store selector — that is
+  // what makes shop panels re-render when credits change.
+  const credits = useGameStore((s) => s.harborCredits)
 
   useEffect(() => {
     return economySystem.subscribe(setState)
@@ -693,7 +801,7 @@ export function useEconomySystem() {
 
   return {
     state,
-    credits: state.harborCredits,
+    credits,
     reputation: state.portReputation,
     canAfford: economySystem.canAfford.bind(economySystem),
     getUpgradeLevel: economySystem.getUpgradeLevel.bind(economySystem),

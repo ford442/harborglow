@@ -6,7 +6,19 @@ import * as THREE from 'three'
 import type { ShipModelAttachmentPose } from './shipModelContract'
 import { SHIP_ATTACH_PREFIX } from './shipModelContract'
 
-function resolveAttachmentNode(root: THREE.Object3D, attachmentId: string): THREE.Object3D | null {
+function resolveAttachmentNode(
+  root: THREE.Object3D,
+  attachmentId: string,
+  /** GLB node name → blueprint attachment id (inverted lookup below). */
+  socketMap: Record<string, string> = {},
+): THREE.Object3D | null {
+  // An explicit socket map wins over name conventions.
+  for (const [nodeName, mappedId] of Object.entries(socketMap)) {
+    if (mappedId !== attachmentId) continue
+    const mapped = root.getObjectByName(nodeName)
+    if (mapped) return mapped
+  }
+
   const direct = root.getObjectByName(attachmentId)
   if (direct) return direct
 
@@ -25,11 +37,13 @@ function resolveAttachmentNode(root: THREE.Object3D, attachmentId: string): THRE
 
 /**
  * Read local-space attachment poses from a loaded GLTF scene.
- * Node names must match blueprint `attachmentPoints` ids (optional `attach_` prefix).
+ * Node names must match blueprint `attachmentPoints` ids (optional `attach_` prefix),
+ * or be listed in the blueprint's `model.attachmentSocketMap`.
  */
 export function extractAttachmentPoints(
   root: THREE.Object3D,
   attachmentIds: readonly string[],
+  socketMap: Record<string, string> = {},
 ): Record<string, ShipModelAttachmentPose> {
   const result: Record<string, ShipModelAttachmentPose> = {}
   const pos = new THREE.Vector3()
@@ -43,7 +57,7 @@ export function extractAttachmentPoints(
   rootInverse.copy(root.matrixWorld).invert()
 
   for (const id of attachmentIds) {
-    const node = resolveAttachmentNode(root, id)
+    const node = resolveAttachmentNode(root, id, socketMap)
     if (!node) continue
 
     node.updateWorldMatrix(true, false)
