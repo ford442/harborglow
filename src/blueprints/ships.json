@@ -26,6 +26,7 @@
         { "id": "funnel2", "type": "cylinder", "position": [5, 13, -10], "rotation": [0, 0, 0], "size": [2, 8, 2], "material": { "emissive": "#ffaa00" } },
         { "id": "bow", "type": "cone", "position": [0, -1, 38], "rotation": [1.57, 0, 0], "size": [8, 12, 8] }
       ],
+      "model": { "url": "./models/cruise_liner.glb", "scale": 1, "yOffset": 0 },
       "attachmentPoints": ["balcony0", "balcony1", "balcony5", "balcony6", "funnel1", "funnel2"],
       "contributor": "Grok + Kimi",
       "added": "2026-03-08",
@@ -63,6 +64,7 @@
         { "id": "stack5", "type": "box", "position": [-7, 4, 25], "rotation": [0, 0, 0], "size": [7, 5, 9], "material": { "emissive": "#ff00ff" } },
         { "id": "stack6", "type": "box", "position": [7, 6, 40], "rotation": [0, 0, 0], "size": [7, 8, 9], "material": { "emissive": "#00aaff" } }
       ],
+      "model": { "url": "./models/container_vessel.glb", "scale": 1, "yOffset": 0 },
       "attachmentPoints": ["stack1", "stack2", "stack3", "stack4", "stack5", "stack6", "crane1", "crane2", "mast"],
       "contributor": "Agent Swarm - Ship Designer",
       "added": "2026-03-08",
@@ -100,6 +102,7 @@
         { "id": "railingL", "type": "box", "position": [-10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } },
         { "id": "railingR", "type": "box", "position": [10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } }
       ],
+      "model": { "url": "./models/oil_tanker.glb", "scale": 1, "yOffset": 0 },
       "attachmentPoints": ["flareStack", "flareTip", "hatch1", "hatch2", "hatch3", "hatch4", "bridge", "railingL", "railingR"],
       "contributor": "Agent Swarm - Ship Designer",
       "added": "2026-03-08",

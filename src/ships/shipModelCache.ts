@@ -26,6 +26,19 @@ export function getShipModelAttachmentPose(
   return cache.get(shipType)?.attachments[attachmentId]
 }
 
+/**
+ * Mark a model as unusable after a runtime failure (bad parse, mid-session 404).
+ * Keeps the cached URL so diagnostics can still report what was attempted.
+ */
+export function markShipModelUnavailable(shipType: ShipType): void {
+  const existing = cache.get(shipType)
+  cache.set(shipType, {
+    available: false,
+    url: existing?.url ?? '',
+    attachments: existing?.attachments ?? {},
+  })
+}
+
 export function clearShipModelCache(): void {
   cache.clear()
 }
