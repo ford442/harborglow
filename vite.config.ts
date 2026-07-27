@@ -89,6 +89,7 @@ export default defineConfig(({ mode }) => ({
     test: {
         include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
         exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+        setupFiles: ['./src/test/setup.ts'],
         server: {
             deps: {
                 // Tone 14's ESM build uses extensionless relative imports
