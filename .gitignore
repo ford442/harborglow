@@ -6,3 +6,7 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+# Regenerated on demand — never commit
+stats.html
+.swarm-state.md
