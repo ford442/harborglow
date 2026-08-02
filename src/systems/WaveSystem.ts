@@ -6,6 +6,7 @@
 
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
+import { wasmDSP } from './wasmDSP'
 
 // -------------------------------------------------------------------------
 // TYPES
@@ -134,20 +135,57 @@ class WaveSystem {
     for (let i = 0; i < this.state.layers.length; i++) {
       const layer = this.state.layers[i]
       const amp = layer.amplitude * globalAmp * stormAmp
-      const freq = layer.frequency
-      const spd = layer.speed
+      const spd = layer.speed * this.state.params.speed
       const dirX = layer.direction[0]
       const dirZ = layer.direction[1]
-      const steep = layer.steepness
 
-      const dot = x * dirX + z * dirZ
-      const phase = dot * freq + time * spd
-
-      // Gerstner-style: combine vertical displacement with slight xz compression
-      height += amp * Math.sin(phase)
+      height += wasmDSP.waveHeight(
+        x, z, time, amp, layer.frequency, spd, dirX, dirZ,
+      )
     }
 
     return height
+  }
+
+  /**
+   * Batch water height for many (x, z) samples — uses dsp_wave_height_batch per
+   * layer when WASM is ready, otherwise pure JS.
+   */
+  getWaterHeightBatch(
+    xs: Float32Array | number[],
+    zs: Float32Array | number[],
+    time = this.state.time,
+    out?: Float32Array,
+  ): Float32Array {
+    const count = xs.length
+    if (count !== zs.length) {
+      throw new Error('getWaterHeightBatch: xs and zs must have equal length')
+    }
+
+    const outHeights = out ?? new Float32Array(count)
+    outHeights.fill(0)
+
+    const stormAmp = 1 + this.state.stormIntensity * 2.0
+    const globalAmp = this.state.params.amplitude
+    const layerScratch = wasmDSP.getBatchScratch(count)
+
+    for (let i = 0; i < this.state.layers.length; i++) {
+      const layer = this.state.layers[i]
+      const amp = layer.amplitude * globalAmp * stormAmp
+      const spd = layer.speed * this.state.params.speed
+
+      wasmDSP.waveHeightBatch(
+        xs, zs, time, amp, layer.frequency, spd,
+        layer.direction[0], layer.direction[1],
+        layerScratch,
+      )
+
+      for (let j = 0; j < count; j++) {
+        outHeights[j] += layerScratch[j]
+      }
+    }
+
+    return outHeights
   }
 
   /**

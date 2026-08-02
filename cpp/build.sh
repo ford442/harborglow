@@ -33,15 +33,6 @@ if ! command -v em++ &>/dev/null; then
   exit 0
 fi
 
-# ---------------------------------------------------------------------------
-# Check Emscripten
-# ---------------------------------------------------------------------------
-if ! command -v em++ &>/dev/null; then
-  echo "❌  em++ not found. Please activate the Emscripten SDK first:"
-  echo "    source /path/to/emsdk/emsdk_env.sh"
-  exit 1
-fi
-
 echo "🔧  em++ $(em++ --version | head -1)"
 
 # ---------------------------------------------------------------------------

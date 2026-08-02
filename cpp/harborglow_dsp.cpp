@@ -93,8 +93,10 @@ float dsp_wave_height(
         float x, float z, float time,
         float amp, float freq, float speed,
         float dirX, float dirZ) {
-    float phase = freq * (x * dirX + z * dirZ) - speed * time;
-    return amp * std::cos(phase);
+    // Match WaveSystem.ts / Water.tsx: sin(dot * freq + time * speed)
+    float dot = x * dirX + z * dirZ;
+    float phase = dot * freq + speed * time;
+    return amp * std::sin(phase);
 }
 
 // ---------------------------------------------------------------------------

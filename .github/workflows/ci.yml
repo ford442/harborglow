@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check committed WASM binary
+        run: npm run check:wasm
+
       - name: Type-check
         run: npm run typecheck
 

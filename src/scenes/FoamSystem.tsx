@@ -67,6 +67,11 @@ export default function FoamSystem() {
   const scanTimerRef = useRef(0)
   const lastTugboatPos = useRef<THREE.Vector3 | null>(null)
 
+  const gridCount = SPAWN_GRID_RES * SPAWN_GRID_RES
+  const crestXs = useMemo(() => new Float32Array(gridCount), [gridCount])
+  const crestZs = useMemo(() => new Float32Array(gridCount), [gridCount])
+  const crestHeights = useMemo(() => new Float32Array(gridCount), [gridCount])
+
   // Helper: spawn an instance
   const spawn = useCallback((pos: THREE.Vector3, type: 'crest' | 'wake', scaleBase = 1) => {
     const pool = poolRef.current
@@ -101,19 +106,26 @@ export default function FoamSystem() {
         const camZ = state.camera.position.z
         const step = SPAWN_GRID_SIZE / SPAWN_GRID_RES
 
+        let n = 0
         for (let ix = 0; ix < SPAWN_GRID_RES; ix++) {
           for (let iz = 0; iz < SPAWN_GRID_RES; iz++) {
-            const x = camX - SPAWN_GRID_SIZE * 0.5 + ix * step + (Math.random() - 0.5) * step
-            const z = camZ - SPAWN_GRID_SIZE * 0.5 + iz * step + (Math.random() - 0.5) * step
+            crestXs[n] = camX - SPAWN_GRID_SIZE * 0.5 + ix * step + (Math.random() - 0.5) * step
+            crestZs[n] = camZ - SPAWN_GRID_SIZE * 0.5 + iz * step + (Math.random() - 0.5) * step
+            n++
+          }
+        }
 
-            const h = waveSystem.getWaterHeight(x, z, time)
-            const foam = waveSystem.getFoamAmount(x, z, time)
+        waveSystem.getWaterHeightBatch(crestXs, crestZs, time, crestHeights)
 
-            // Spawn if foam is high enough
-            if (foam > 0.55 && Math.random() < foam * 0.4) {
-              const pos = new THREE.Vector3(x, h - 2.5 + 0.05, z)
-              spawn(pos, 'crest', 0.5 + foam * 0.8)
-            }
+        for (let i = 0; i < n; i++) {
+          const x = crestXs[i]
+          const z = crestZs[i]
+          const h = crestHeights[i]
+          const foam = waveSystem.getFoamAmount(x, z, time)
+
+          if (foam > 0.55 && Math.random() < foam * 0.4) {
+            const pos = new THREE.Vector3(x, h - 2.5 + 0.05, z)
+            spawn(pos, 'crest', 0.5 + foam * 0.8)
           }
         }
       }

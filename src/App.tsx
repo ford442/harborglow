@@ -30,6 +30,7 @@ import WebGPUWarning from './components/WebGPUWarning'
 import TrainingHUD from './components/TrainingHUD'
 import { introMusicSystem } from './systems/introMusicSystem'
 import { preloadShipModels } from './ships/preloadShipModels'
+import { wasmDSP } from './systems/wasmDSP'
 import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
@@ -213,10 +214,13 @@ function App() {
     // Real loading sequence with progress tracking
     const startGame = useCallback(async (loadSave: boolean) => {
         setScreen('loading')
-        
+        setLoadingStatus('Loading DSP modules...')
+        setLoadingProgress(2)
+        await wasmDSP.init()
+
         // Weighted loading stages — ship GLB fetch uses real progress
         const stages = [
-            { weight: 12, label: 'Initializing harbor systems...', duration: 300 },
+            { weight: 10, label: 'Initializing harbor systems...', duration: 300 },
             { weight: 28, label: 'Loading ship models...', duration: 0, real: true as const },
             { weight: 18, label: 'Building 3D environment...', duration: 450 },
             { weight: 14, label: 'Calibrating crane physics...', duration: 350 },
