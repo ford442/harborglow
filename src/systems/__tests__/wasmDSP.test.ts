@@ -136,10 +136,10 @@ describe('wasmDSP — wave height', () => {
     expect(wasmDSP.waveHeight(0, 0, 0, 0, 1, 1, 1, 0)).toBe(0)
   })
 
-  it('returns amp when phase=0 (cos(0)=1)', () => {
-    // phase = freq*(x*dirX + z*dirZ) - speed*time = 1*(0*1 + 0*0) - 1*0 = 0
+  it('returns amp*sin(π/2) when phase=π/2', () => {
     const amp = 2.5
-    expect(near(wasmDSP.waveHeight(0, 0, 0, amp, 1, 1, 1, 0), amp)).toBe(true)
+    // sin(π/2) = 1 at x=π/2, freq=1, dirX=1, z=0, time=0, speed=0
+    expect(near(wasmDSP.waveHeight(Math.PI / 2, 0, 0, amp, 1, 0, 1, 0), amp)).toBe(true)
   })
 
   it('wave height lies within [-amp, amp]', () => {
