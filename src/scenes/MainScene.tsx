@@ -10,16 +10,11 @@ import { TrainingModuleId, trainingSystem } from '../systems/trainingSystem'
 import { reputationSystem } from '../systems/reputationSystem'
 import { economySystem } from '../systems/economySystem'
 import { musicSystem } from '../systems/musicSystem'
-import { lightingSystem } from '../systems/lightingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
 import { weatherSystem, WeatherType } from '../systems/weatherSystem'
-import { swaySystem } from '../systems/swaySystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
-import { timeSystem, DayPhase, PHASES, getPhaseDescription } from '../systems/timeSystem'
-import { moonSystem, MOON_PHASES, MoonPhaseName, getPhaseGameplayEffects } from '../systems/moonSystem'
-import { trafficSystem } from '../systems/trafficSystem'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
 import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
@@ -37,7 +32,6 @@ import BaseHarborLighting from './BaseHarborLighting'
 import Water from './Water'
 import FoamSystem from './FoamSystem'
 import { stormSystem } from '../systems/StormSystem'
-import { waveSystem } from '../systems/WaveSystem'
 import { useCameraTransition } from '../hooks/useCameraTransition'
 import { useVisualPolishControls } from '../hooks/useVisualPolishControls'
 import GlobalIllumination from './GlobalIllumination'
@@ -57,13 +51,8 @@ import SeaBirds from './SeaBirds'
 import UnderwaterCamera from './UnderwaterCamera'
 import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
-import { wildlifeSystem } from '../systems/wildlifeSystem'
-import { ambientMarineLifeSystem } from '../systems/ambientMarineLifeSystem'
-import { seaEventsSystem } from '../systems/seaEventsSystem'
-import { harborEventSystem } from '../systems/eventSystem/HarborEventSystem'
-import { dynamicEventSystem } from '../systems/dynamicEventSystem'
-import { experimentalTechSystem } from '../systems/techSystem'
 import { setSceneCamera } from '../utils/sceneCamera'
+import { buildFrameContext, systemRegistry, useMainSceneSystemBootstrap } from '../systems/bootstrap'
 
 // =============================================================================
 // CONSTANTS
@@ -189,6 +178,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     useCinematicCamera(cameraHooksEnabled)
     useCameraTransition(cameraHooksEnabled)
     const { audioData } = useAudioVisualSync()
+
+    useMainSceneSystemBootstrap()
 
     // Tugboat mode: spawn objectives when entering tugboat mode
     useEffect(() => {
@@ -398,60 +389,38 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 
     // Animation frame updates
     useFrame((state, delta) => {
-        // Update time system (accelerated day/night cycle)
-        timeSystem.update(delta)
-        
-        // Update traffic system (ship scheduling and deadlines)
-        trafficSystem.update(delta)
-        
-        // Update lighting and weather (full update drives transitions + lightning)
-        const bpm = useGameStore.getState().bpm
-        lightingSystem.update(state.clock.elapsedTime, bpm)
-        weatherSystem.update(delta)
-        
-        // Update crane sway physics — driven by weather + trolley kinematics
         const trolleyPos = useGameStore.getState().trolleyPosition
         swayTrolleyVecRef.current.set(
             (trolleyPos - 0.5) * CRANE_JIB_SPAN,
             CRANE_TROLLEY_HEIGHT,
             0
         )
-        swaySystem.update(delta, swayTrolleyVecRef.current)
-        
-        // Tugboat helm camera is handled inside Tugboat.tsx (first-person)
-        
-        // Update wildlife and sea events
-        wildlifeSystem.update(delta)
-        ambientMarineLifeSystem.update(delta, camera)
-        seaEventsSystem.update(delta)
-        
-        // Update harbor business events
-        harborEventSystem.update(delta)
-        
-        // Update dynamic event system
-        dynamicEventSystem.update(delta)
-        
-        // Update experimental tech
-        experimentalTechSystem.update(delta)
 
-        // Update wave system (drives shader + physics sync)
-        waveSystem.update(delta)
+        systemRegistry.tick(
+            delta,
+            buildFrameContext({
+                state,
+                delta,
+                camera,
+                swayTrolleyPosition: swayTrolleyVecRef.current,
+            })
+        )
 
-        // Update storm system in tugboat mode or emergency training
-        if (operationMode === 'tugboat' || (gameMode === 'training' && currentTrainingModule === 'emergency')) {
-            stormSystem.update(delta)
-            
-            // Win condition check
-            if (tugboatObjectives.length > 0 && tugboatDockedCount >= tugboatObjectives.length && !tugboatWinTriggered) {
-                triggerTugboatWin()
-                triggerTugWinCinematic(tugboatCareerStats)
-                const firstCompleted = tugboatObjectives.find(o => o.completed)
-                if (firstCompleted) {
-                    triggerUpgradeCinematic(firstCompleted.shipType, 'tugboat-win')
-                }
+        // Tugboat win condition (gameplay, not a singleton system tick)
+        if (
+            operationMode === 'tugboat' &&
+            tugboatObjectives.length > 0 &&
+            tugboatDockedCount >= tugboatObjectives.length &&
+            !tugboatWinTriggered
+        ) {
+            triggerTugboatWin()
+            triggerTugWinCinematic(tugboatCareerStats)
+            const firstCompleted = tugboatObjectives.find(o => o.completed)
+            if (firstCompleted) {
+                triggerUpgradeCinematic(firstCompleted.shipType, 'tugboat-win')
             }
         }
-        
+
         // Spectator drone camera
         updateSpectatorCamera({
             spectatorState,

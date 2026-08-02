@@ -372,6 +372,11 @@ Root files:
 - `MusicSystem`, `LightingSystem`, `WeatherSystem`, `SwaySystem`, `TrainingSystem`, `EconomySystem`, `ReputationSystem`, `TrafficSystem`, `WildlifeSystem`, `SeaEventsSystem`, `HarborEventSystem`, `TimeSystem`, `MoonSystem`, etc. are ES6 classes or objects instantiated as module-level singletons.
 - Some systems expose React hooks (e.g., `useCameraTransition`, `useAudioVisualSync`) that subscribe to internal listeners.
 
+### System Bootstrap (living-harbor tick registry)
+- Per-frame singleton updates are **not** called directly from `MainScene` `useFrame`. They register in `src/systems/bootstrap/mainSceneSystems.ts` and tick via `systemRegistry.tick(...)`.
+- `useMainSceneSystemBootstrap()` (from `src/systems/bootstrap/modeLifecycle.ts`) runs `startAll` on mount, `stopAll` on unmount, and syncs group pause rules on operation/training/mission transitions.
+- **To add a new ambient system:** register it in `mainSceneSystems.ts` with an explicit `order` and `groups` entry; see [docs/systems/SYSTEM_BOOTSTRAP.md](docs/systems/SYSTEM_BOOTSTRAP.md) for the ordered table and pause rules.
+
 ### Audio Architecture
 - `MusicSystem` in `musicSystem.ts` is a singleton using Tone.js.
 - Each of the 8 ship types has its own synth/effect chain and `Tone.Transport` sequence.
