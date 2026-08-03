@@ -44,19 +44,25 @@ function GenericInstancedSpecies({
 }: InstancedSpeciesProps) {
     const meshRef = useRef<THREE.InstancedMesh>(null)
     const baseColor = useMemo(() => new THREE.Color(getSeasonalColor(species, season)), [species, season])
+    const qualityPreset = useGameStore((s) => s.qualityPreset)
 
     useFrame((state) => {
         if (!meshRef.current) return
         const creatures = ambientMarineLifeSystem.getState().creatures[species]
         const time = state.clock.elapsedTime
-        const audioData = getAudioAnalysisData()
-        const showActive = lightingSystem.isShowActive()
-        const beatBoost = getBeatReactiveMultiplier(
-            audioData.beatPhase,
-            audioData.energy,
-            showActive,
-            ambientMarineLifeSystem.getBeatReactivity()
-        )
+        // Skip beat pulse math on low — no extra GPU color thrash
+        const beatBoost =
+            qualityPreset === 'low'
+                ? 1
+                : (() => {
+                    const audioData = getAudioAnalysisData()
+                    return getBeatReactiveMultiplier(
+                        audioData.beatPhase,
+                        audioData.energy,
+                        lightingSystem.isShowActive(),
+                        ambientMarineLifeSystem.getBeatReactivity()
+                    )
+                })()
 
         for (let i = 0; i < creatures.length; i++) {
             const c = creatures[i]
@@ -119,8 +125,10 @@ function FishSchoolInstanced(props: Omit<InstancedSpeciesProps, 'getScale' | 'ge
     return (
         <GenericInstancedSpecies
             {...props}
-            getScale={(c) => {
-                const s = c.scale * 0.08
+            getScale={(c, _base, beatBoost) => {
+                // Slight pack-tightness: schools shrink visually when beat-reactive
+                const pack = 1 - Math.min(0.25, (beatBoost - 1) * 0.35)
+                const s = c.scale * 0.08 * pack
                 return [s, s * 0.4, s * 1.6]
             }}
             getRotation={(c, time) => {
@@ -190,6 +198,7 @@ function KelpBedInstanced(props: Omit<InstancedSpeciesProps, 'getScale' | 'getRo
 
 function NightPlanktonPoints({ species, season }: { species: AmbientSpecies; season: Season }) {
     const pointsRef = useRef<THREE.Points>(null)
+    const qualityPreset = useGameStore((s) => s.qualityPreset)
     const baseColor = useMemo(() => new THREE.Color(getSeasonalColor(species, season)), [species, season])
     const geometry = useMemo(() => {
         const geo = new THREE.BufferGeometry()
@@ -225,6 +234,13 @@ function NightPlanktonPoints({ species, season }: { species: AmbientSpecies; sea
         pointsRef.current.geometry.setDrawRange(0, creatures.length)
         pointsRef.current.geometry.attributes.position.needsUpdate = true
 
+        const mat = pointsRef.current.material as THREE.PointsMaterial
+        if (qualityPreset === 'low') {
+            mat.color.copy(baseColor)
+            mat.opacity = 0.55
+            return
+        }
+
         const audioData = getAudioAnalysisData()
         const showActive = lightingSystem.isShowActive()
         const beatBoost = getBeatReactiveMultiplier(
@@ -233,7 +249,6 @@ function NightPlanktonPoints({ species, season }: { species: AmbientSpecies; sea
             showActive,
             ambientMarineLifeSystem.getBeatReactivity()
         )
-        const mat = pointsRef.current.material as THREE.PointsMaterial
         mat.color.copy(baseColor).multiplyScalar(beatBoost)
         mat.opacity = 0.55 + (beatBoost - 1) * 0.25
     })

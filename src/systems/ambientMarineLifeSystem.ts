@@ -150,6 +150,9 @@ class AmbientMarineLifeSystem {
         const lightMultiplier = getLightAttractionMultiplier(installedUpgrades, ships, musicPlaying)
         const distanceLodMultiplier = this.getDistanceLodMultiplier(camera)
         const showActive = lightingSystem.isShowActive()
+        // Low quality: skip beat bloom / cohesion cost — density/LOD already reduced
+        const effectiveReactivity =
+            qualityPreset === 'low' ? 0 : this.beatReactivity
 
         const targetCounts = getAmbientCounts(
             season,
@@ -171,8 +174,8 @@ class AmbientMarineLifeSystem {
         }
 
         // Extra bloom of bioluminescent species during an active light-show
-        if (showActive) {
-            const bloomFactor = 1 + 0.2 * this.beatReactivity
+        if (showActive && effectiveReactivity > 0) {
+            const bloomFactor = 1 + 0.2 * effectiveReactivity
             targetCounts.moon_jellyfish = Math.min(
                 WILDLIFE_PROFILES.moon_jellyfish.maxCount,
                 Math.round(targetCounts.moon_jellyfish * bloomFactor)
@@ -190,7 +193,7 @@ class AmbientMarineLifeSystem {
         }
 
         const audioData = getAudioAnalysisData()
-        this.animate(delta, spreaderPos, audioData, showActive)
+        this.animate(delta, spreaderPos, audioData, showActive, effectiveReactivity)
     }
 
     private getDistanceLodMultiplier(camera?: THREE.Camera): number {
@@ -298,7 +301,8 @@ class AmbientMarineLifeSystem {
         delta: number,
         spreaderPos: { x: number; y: number; z: number },
         audioData: AudioAnalysisData,
-        showActive: boolean
+        showActive: boolean,
+        reactivity: number
     ) {
         const time = Date.now() / 1000
         const disturbanceRadius = 15
@@ -308,12 +312,12 @@ class AmbientMarineLifeSystem {
             audioData.beatPhase,
             audioData.energy,
             showActive,
-            this.beatReactivity
+            reactivity
         )
         const fishCohesion = getFishSchoolCohesionFactor(
             showActive,
             audioData.energy,
-            this.beatReactivity
+            reactivity
         )
 
         const finaleElapsed = this.finaleState.active
@@ -400,6 +404,12 @@ class AmbientMarineLifeSystem {
                     creature.position[0] += (fishCentroidX - creature.position[0]) * fishCohesion * delta
                     creature.position[1] += (fishCentroidY - creature.position[1]) * fishCohesion * delta * 0.3
                     creature.position[2] += (fishCentroidZ - creature.position[2]) * fishCohesion * delta
+                }
+
+                // Beat-synced vertical pulse for bioluminescent species
+                if ((isJelly || isPlankton) && beatBoost > 1) {
+                    creature.position[1] +=
+                        Math.sin(time * 4 + creature.phase) * (beatBoost - 1) * 0.4 * delta
                 }
 
                 // Bioluminescent Finale: jellies and plankton drift toward the finished ship

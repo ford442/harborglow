@@ -24,6 +24,7 @@ Lower `order` runs first. Gaps leave room for insertions.
 | 30 | `lighting` | `core` | Beat-synced dock lighting |
 | 40 | `weather` | `core` | Weather state machine |
 | 50 | `sway` | `crane` | Crane hook pendulum physics |
+| 55 | `crane-b` | `crane` | NPC Crane B for multi-crane training (`shouldTick` gated) |
 | 60 | `wildlife` | `ambient` | Whales, dolphins, sharks |
 | 70 | `ambient-marine-life` | `ambient` | Density-driven schools / particles |
 | 80 | `sea-events` | `ambient` | Milky seas, meteor shower, etc. |
