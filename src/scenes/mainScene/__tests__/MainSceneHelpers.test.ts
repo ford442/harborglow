@@ -17,7 +17,7 @@ function readModule(name: string): string {
  */
 describe('MainSceneHelpers module integrity', () => {
   const moduleFiles = readdirSync(mainSceneDir).filter(
-    (f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && f !== 'index.ts'
+    (f: string) => (f.endsWith('.ts') || f.endsWith('.tsx')) && f !== 'index.ts'
   )
 
   it('has no @ts-nocheck in any mainScene module', () => {

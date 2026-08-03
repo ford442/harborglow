@@ -10,6 +10,7 @@
         "build:wasm": "cd cpp && ./build.sh",
         "check:wasm": "node scripts/check-wasm.mjs",
         "typecheck": "tsc --noEmit",
+        "typecheck:tests": "tsc --noEmit -p tsconfig.vitest.json",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "test": "vitest run",
@@ -41,6 +42,7 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.52.0",
+        "@types/node": "^20.19.43",
         "@types/react": "^18.2.43",
         "@types/react-dom": "^18.2.17",
         "@vitejs/plugin-react": "^4.2.1",

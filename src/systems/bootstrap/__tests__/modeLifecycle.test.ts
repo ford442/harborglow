@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import type { Mission } from '../../../store/gameStoreTypes'
 import { systemRegistry } from '../SystemRegistry'
 import {
     ensureMainSceneSystemsRegistered,
@@ -63,7 +64,14 @@ describe('syncSystemModeLifecycle', () => {
                 status: 'active',
                 timeLimit: 300,
                 maxDamage: 0.5,
-            },
+                targetShipType: 'tanker',
+                targetShipId: 'ship-1',
+                timeRemaining: 300,
+                damage: 0,
+                reward: 100,
+                berthCenter: [0, 0, 0],
+                berthRadius: 10,
+            } satisfies Mission,
         })
 
         expect(systemRegistry.isGroupPaused('harbor-events')).toBe(true)

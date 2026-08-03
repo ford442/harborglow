@@ -16,11 +16,9 @@ import {
     getFishSchoolCohesionFactor,
     getFinaleConvergenceEnvelope,
     type AmbientSpecies,
-    type Season,
     type TimeOfDay,
-    type WeatherState,
-    type QualityPreset
 } from '../wildlifeProfiles'
+import type { Season, WeatherState, QualityPreset } from '../../store/gameStoreTypes'
 
 describe('wildlifeProfiles', () => {
     describe('getTimeOfDay', () => {
@@ -213,7 +211,7 @@ describe('wildlifeProfiles', () => {
                 modelName: 'cruise',
                 position: [0, 0, 0] as [number, number, number],
                 length: 100,
-                attachmentPoints: [{ position: [0, 0, 0], rotation: [0, 0, 0], partName: 'p1' }]
+                attachmentPoints: [{ position: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], partName: 'p1' }]
             }
             expect(getLightAttractionMultiplier([], [ship], new Map())).toBe(1.0)
         })
@@ -225,7 +223,7 @@ describe('wildlifeProfiles', () => {
                 modelName: 'cruise',
                 position: [0, 0, 0] as [number, number, number],
                 length: 100,
-                attachmentPoints: [{ position: [0, 0, 0], rotation: [0, 0, 0], partName: 'p1' }]
+                attachmentPoints: [{ position: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], partName: 'p1' }]
             }
             const musicPlaying = new Map([['ship-1', true]])
             const installedUpgrades = [{ shipId: 'ship-1', partName: 'p1', installed: true }]
@@ -239,7 +237,7 @@ describe('wildlifeProfiles', () => {
                 modelName: 'cruise',
                 position: [0, 0, 0] as [number, number, number],
                 length: 100,
-                attachmentPoints: [{ position: [0, 0, 0], rotation: [0, 0, 0], partName: 'p1' }]
+                attachmentPoints: [{ position: [0, 0, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number], partName: 'p1' }]
             }
             const installedUpgrades = [{ shipId: 'ship-1', partName: 'p1', installed: true }]
             expect(getLightAttractionMultiplier(installedUpgrades, [ship], new Map())).toBe(1.0)

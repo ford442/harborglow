@@ -487,16 +487,24 @@ been removed.
 
 ### CI merge gates
 
-All steps in `.github/workflows/ci.yml` **block merge** when they fail (exit non-zero). Run locally before pushing:
+Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml`. Each gate reports independently so a red unit-test job does not skip dev-transform smoke or the production build. Job `gate-summary` aggregates all gate results and is the single required status check for PR merges.
 
-| Step | Command | What it catches |
+| Job | Command | What it catches |
 |------|---------|-----------------|
-| Type-check | `npm run typecheck` | Strict `tsc` errors across `src/` |
-| Lint | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
-| Unit tests | `npm run test` | Vitest regressions in systems and store |
-| Dev-transform smoke | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
-| Production build | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
-| E2E visual smoke | `npm run build && npm run test:e2e` | Playwright: menu boot, MainScene lazy-load (no `LevaControlsConfig` Babel errors), harbor overview screenshot, wireframe toggle. WebGL2 via `?renderer=webgl`; SwiftShader in CI. **Runs in job `e2e-visual`** (depends on `ci`, path-filtered on PRs). Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
+| `gate-wasm` | `npm run check:wasm` | Drift between committed `public/cpp/*.wasm` and source |
+| `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
+| `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
+| `gate-test` | `npm run test` | Vitest regressions in systems and store |
+| `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
+| `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
+| `gate-summary` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
+| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot, MainScene lazy-load (no `LevaControlsConfig` Babel errors), harbor overview screenshot, wireframe toggle. WebGL2 via `?renderer=webgl`; SwiftShader in CI. **Path-filtered on PRs** (runs on push to `main` or when visual paths change). Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
+
+Run locally before pushing:
+
+```bash
+npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build
+```
 
 **Report-only / not in CI (yet):** `npm audit` advisories.
 
@@ -627,7 +635,7 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `previ
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
 ### CI locally
-- Run the full merge gate matrix: `npm run typecheck && npm run lint && npm run test && npm run smoke:dev-transform && npm run build`.
+- Run the full merge gate matrix: `npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build`.
 - `npm run smoke:dev-transform` boots a short-lived Vite dev server and fetches every module under `src/scenes/` and `src/store/` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses. `npm run test:dev-transform` is an alias.
 
 ### Other notes
