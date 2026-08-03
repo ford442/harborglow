@@ -31,7 +31,9 @@ function GlbShipModelInner({ url, scale, yOffset }: { url: string; scale: number
   }, [scene])
 
   // Same night curve the procedural body uses, so a GLB hull and its procedural
-  // neighbours read as the same harbor at the same hour.
+  // neighbours read as the same harbor at the same hour. MeshStandardMaterial is
+  // the shared scene-graph material both WebGL and WebGPU renderers consume —
+  // keep emissive slots on MeshStandardMaterial (no MeshBasic / custom shaders).
   useMemo(() => {
     const intensity = (isNight ? 0.3 : 0.07) * lightIntensity
     for (const material of emissiveSlots) {

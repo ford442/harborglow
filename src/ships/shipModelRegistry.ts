@@ -6,7 +6,7 @@
 // not declared one, so adding a hero model stays a JSON-only change.
 // =============================================================================
 
-import { getBlueprint, getShipModelConfig } from '../types/ShipBlueprint'
+import { getBlueprint, getShipModelConfig, SHIP_BLUEPRINTS } from '../types/ShipBlueprint'
 import type { ShipType } from '../store/gameStoreTypes'
 import {
   PRIORITY_GLB_SHIP_TYPES,
@@ -17,17 +17,19 @@ import {
 
 const MODEL_BASE = './models'
 
-/** Filename convention: snake_case matching legacy TODO list */
-export const SHIP_MODEL_FILENAMES: Record<PriorityGlbShipType, string> = {
+/** Filename convention: snake_case matching legacy TODO list + stretch fleet */
+export const SHIP_MODEL_FILENAMES: Record<string, string> = {
   cruise: 'cruise_liner.glb',
   container: 'container_vessel.glb',
   tanker: 'oil_tanker.glb',
+  fireboat: 'fireboat.glb',
+  lng: 'lng_carrier.glb',
 }
 
 /**
  * Fully-resolved model settings for a ship type, or null when it has no GLB.
- * Blueprint `model` wins; otherwise the filename convention covers the priority
- * trio. An invalid blueprint config resolves to null, i.e. procedural.
+ * Blueprint `model` wins; otherwise the filename convention covers known hulls.
+ * An invalid blueprint config resolves to null, i.e. procedural.
  */
 export function getShipModelSettings(shipType: ShipType): ShipModelSettings | null {
   const config = getShipModelConfig(shipType)
@@ -40,7 +42,7 @@ export function getShipModelSettings(shipType: ShipType): ShipModelSettings | nu
     }
   }
 
-  const filename = (SHIP_MODEL_FILENAMES as Partial<Record<ShipType, string>>)[shipType]
+  const filename = SHIP_MODEL_FILENAMES[shipType]
   if (!filename) return null
   return {
     url: `${MODEL_BASE}/${filename}`,
@@ -59,7 +61,7 @@ export function isGlbCapableShipType(shipType: ShipType): boolean {
   return getShipModelSettings(shipType) !== null
 }
 
-/** True only for the hero trio that is preloaded during the loading screen. */
+/** True for the original hero trio (convention fallback filenames). */
 export function isPriorityGlbShipType(shipType: ShipType): shipType is PriorityGlbShipType {
   return (PRIORITY_GLB_SHIP_TYPES as readonly string[]).includes(shipType)
 }
@@ -75,6 +77,25 @@ export function getShipGlbContract(shipType: ShipType): ShipGlbContract {
   }
 }
 
+/**
+ * All ship types with a resolvable GLB (blueprint `model` or filename convention).
+ * Loading screen preloads every contract so stretch hulls (fireboat, LNG) warm too.
+ */
+export function listGlbCapableShipTypes(): ShipType[] {
+  const ids = new Set<ShipType>()
+  for (const bp of SHIP_BLUEPRINTS) {
+    const id = bp.id as ShipType
+    if (getShipModelSettings(id)) ids.add(id)
+  }
+  for (const id of Object.keys(SHIP_MODEL_FILENAMES) as ShipType[]) {
+    if (getShipModelSettings(id)) ids.add(id)
+  }
+  // Stable order: priority heroes first, then the rest alphabetically.
+  const priority = PRIORITY_GLB_SHIP_TYPES.filter((t) => ids.has(t))
+  const rest = [...ids].filter((t) => !priority.includes(t as PriorityGlbShipType)).sort()
+  return [...priority, ...rest]
+}
+
 export function listGlbContracts(): ShipGlbContract[] {
-  return PRIORITY_GLB_SHIP_TYPES.map((shipType) => getShipGlbContract(shipType))
+  return listGlbCapableShipTypes().map((shipType) => getShipGlbContract(shipType))
 }

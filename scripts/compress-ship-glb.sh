@@ -1,16 +1,42 @@
 #!/usr/bin/env bash
-# Optional Draco compression for ship GLBs (requires @gltf-transform/cli).
-# Usage: ./scripts/compress-ship-glb.sh [input.glb] [output.glb]
+# Compress ship GLBs with Draco via @gltf-transform/cli (npx).
+# Uses `draco` only — NOT `optimize` — so Empty_HP_* hardpoints and
+# `{shipId}_root` hierarchy survive. Meshopt remains supported at runtime.
+#
+# Usage:
+#   ./scripts/compress-ship-glb.sh                         # all public/models/*.glb
+#   ./scripts/compress-ship-glb.sh public/models/foo.glb   # one file (in-place)
+#   ./scripts/compress-ship-glb.sh in.glb out.glb          # explicit out path
 set -euo pipefail
 
-INPUT="${1:-public/models/cruise_liner.glb}"
-OUTPUT="${2:-${INPUT%.glb}.draco.glb}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
-if ! command -v gltf-transform >/dev/null 2>&1; then
-  echo "gltf-transform not installed. Run: npm i -g @gltf-transform/cli"
-  echo "Skipping compression — using uncompressed GLB at $INPUT"
-  exit 0
+run_compress() {
+  local input="$1"
+  local output="$2"
+  local tmp
+  tmp="$(mktemp "${output}.XXXXXX.glb")"
+
+  echo "Compressing $input → $output"
+  npx --yes @gltf-transform/cli draco "$input" "$tmp" --method edgebreaker
+
+  mv "$tmp" "$output"
+  echo "  $(du -h "$output" | cut -f1)  $output"
+}
+
+if [[ $# -eq 0 ]]; then
+  shopt -s nullglob
+  files=(public/models/*.glb)
+  if [[ ${#files[@]} -eq 0 ]]; then
+    echo "No GLBs in public/models/"
+    exit 0
+  fi
+  for f in "${files[@]}"; do
+    run_compress "$f" "$f"
+  done
+elif [[ $# -eq 1 ]]; then
+  run_compress "$1" "$1"
+else
+  run_compress "$1" "$2"
 fi
-
-gltf-transform draco "$INPUT" "$OUTPUT" --method edgebreaker
-echo "Compressed $INPUT -> $OUTPUT ($(du -h "$OUTPUT" | cut -f1))"

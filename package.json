@@ -20,6 +20,8 @@
         "test:e2e:update": "playwright test --update-snapshots",
         "test:e2e:install": "playwright install chromium --with-deps",
         "generate:ship-glb": "node scripts/generate-ship-glb.mjs",
+        "models:author": "node scripts/author-hero-glb.mjs",
+        "models:verify": "node scripts/verify-ship-glb.mjs",
         "models:compress": "./scripts/compress-ship-glb.sh",
         "models:inspect": "npx --yes @gltf-transform/cli inspect",
         "models:optimize": "npx --yes @gltf-transform/cli optimize",

@@ -19,7 +19,13 @@ test.describe('Ship GLB pipeline', () => {
 
     const files = [...requested].map((u) => u.split('/').pop())
     expect(files).toEqual(
-      expect.arrayContaining(['cruise_liner.glb', 'container_vessel.glb', 'oil_tanker.glb']),
+      expect.arrayContaining([
+        'cruise_liner.glb',
+        'container_vessel.glb',
+        'oil_tanker.glb',
+        'fireboat.glb',
+        'lng_carrier.glb',
+      ]),
     )
   })
 

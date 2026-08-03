@@ -3,6 +3,9 @@
  * Generate placeholder GLB hulls for priority ship types from ships.json blueprints.
  * Output: public/models/{cruise_liner,container_vessel,oil_tanker}.glb
  *
+ * DEV ONLY — these are box dumps. For authored/retopo heroes use:
+ *   npm run models:author
+ *
  * Usage: node scripts/generate-ship-glb.mjs
  */
 
