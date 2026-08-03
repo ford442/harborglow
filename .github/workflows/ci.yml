@@ -4,7 +4,7 @@ name: CI
 # block merge vs report-only.
 #
 # Gates run in parallel jobs so smoke + production build always report even when
-# unit tests fail. Job `gate-summary` aggregates results for a single required
+# unit tests fail. Job `merge-gate` aggregates results for a single required
 # status check on PRs.
 
 on:
@@ -12,6 +12,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -161,8 +165,11 @@ jobs:
       - name: Production build
         run: npm run build
 
-  gate-summary:
+  merge-gate:
+    name: merge-gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs:
       - gate-wasm
       - gate-typecheck
