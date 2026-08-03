@@ -9,17 +9,25 @@ import { useGLTF } from '@react-three/drei'
 /** CDN path for Draco WASM decoders (matches three-stdlib / drei defaults). */
 export const DRACO_DECODER_PATH = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
 
-let loaderConfigured = false
+let sharedDraco: DRACOLoader | null = null
 let dreiConfigured = false
 
-export function configureGltfLoader(loader: GLTFLoader): GLTFLoader {
-  if (!loaderConfigured) {
-    const draco = new DRACOLoader()
-    draco.setDecoderPath(DRACO_DECODER_PATH)
-    loader.setDRACOLoader(draco)
-    loader.setMeshoptDecoder(MeshoptDecoder)
-    loaderConfigured = true
+function getSharedDracoLoader(): DRACOLoader {
+  if (!sharedDraco) {
+    sharedDraco = new DRACOLoader()
+    sharedDraco.setDecoderPath(DRACO_DECODER_PATH)
   }
+  return sharedDraco
+}
+
+/**
+ * Attach Draco + Meshopt to a GLTFLoader instance.
+ * Must run on every new loader — a previous bug only configured the first
+ * instance, so Draco-compressed hero hulls #2+ failed to preload.
+ */
+export function configureGltfLoader(loader: GLTFLoader): GLTFLoader {
+  loader.setDRACOLoader(getSharedDracoLoader())
+  loader.setMeshoptDecoder(MeshoptDecoder)
   return loader
 }
 

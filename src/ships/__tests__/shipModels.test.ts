@@ -219,3 +219,17 @@ describe('emissive slot naming', () => {
     expect((mesh.material as THREE.MeshStandardMaterial).type).toBe('MeshStandardMaterial')
   })
 })
+
+describe('configureGltfLoader', () => {
+  it('attaches Draco + Meshopt to every new GLTFLoader instance', async () => {
+    const { createConfiguredGltfLoader } = await import('../configureGltfLoader')
+    const a = createConfiguredGltfLoader()
+    const b = createConfiguredGltfLoader()
+    // three-stdlib stores these on the loader; absence caused "No DRACOLoader instance".
+    expect((a as unknown as { dracoLoader: unknown }).dracoLoader).toBeTruthy()
+    expect((b as unknown as { dracoLoader: unknown }).dracoLoader).toBeTruthy()
+    expect((a as unknown as { dracoLoader: unknown }).dracoLoader).toBe(
+      (b as unknown as { dracoLoader: unknown }).dracoLoader,
+    )
+  })
+})
