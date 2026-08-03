@@ -185,6 +185,27 @@ Before bumping past r160, re-verify in this order: `@react-three/fiber` 8.x peer
 `three/webgpu` and drop the constructor shim. Track it as its own PR — it is not a
 drive-by change.
 
+**Architecture decision (epic #165):** HarborGlow keeps a **hybrid dual-path** —
+GLSL remains the WebGL / Playwright reference; TSL and optional WGSL compute are
+progressive enhancements on a real WebGPU device after the three bump. See
+[ADR 0001](./adr/0001-webgpu-tsl-vs-glsl-first.md) and the Phase A–C child-issue
+specs in [WEBGPU_TSL_FFT_CHILD_ISSUES.md](./plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md).
+
+### Bundle budget (`vendor-3d`)
+
+Manual chunk `vendor-3d` (three + R3F + drei + rapier + postprocessing) is the
+graphics soft ceiling:
+
+| Metric | Budget |
+|--------|--------|
+| Soft ceiling (gzip) | **~1.1 MB** (Apr 2026 measure ≈ 1,096 kB) |
+| Review gate | PRs that push gzip past **~1.25 MB** need a measured fidelity/frame-time win or are rejected |
+| New engines (e.g. Babylon) | **Default no** — evaluate only under ADR 0001 Phase D with before/after gzip |
+
+Implementation PRs under epic #165 must report before/after `vendor-3d` gzip
+(`npm run build` / `build:analyze`). Prefer `three/tsl` / `three/webgpu` subpaths
+over alternate runtimes.
+
 ## Visual Parity Expectations
 
 - **Ships, crane, attachment points, light rigs, particles, AudioReactiveLightShow, spectator drone, water, weather, time-of-day lighting, moon, wildlife, etc.** — should look extremely close. Differences will mainly be:
@@ -224,6 +245,7 @@ When porting a graphics feature:
   - `window.currentRenderer`
   - `window.harborglowRenderer` — `{ preference, activeBackend, contextOptions, capabilities }`
     where `capabilities` is `{ maxTextureSize, maxAnisotropy, preserveDrawingBuffer, adapterInfo }`
+    (Phase A of epic #165 extends this with `computeShaders` / `float32Filterable`)
   - `<canvas>.dataset.renderer`, `.dataset.activeBackend`, `.dataset.preserveDrawingBuffer`
 - Combine with `&wireframe=1` or `&physicsDebug=1` for geometry/physics verification frames.
 - The Leva panel can be collapsed/hidden in CI (it does not affect rendering).
@@ -252,6 +274,7 @@ When adding a new shader effect, keep a GLSL version that the WebGL2 path exerci
 
 ---
 
-Last updated: 2026-07 (context/pipeline hygiene pass: shared `configureRendererDefaults`,
-documented option matrix, capability diagnostics, screenshot mode).
-Originally implemented 2026-06 (following following the established pattern from Watershed, power_gen, mod-player, Tetris_WebGPU, and pachinball).
+Last updated: 2026-08 (ADR 0001 hybrid TSL/GLSL dual-path + vendor-3d bundle budget;
+context/pipeline hygiene: shared `configureRendererDefaults`, option matrix,
+capability diagnostics, screenshot mode).
+Originally implemented 2026-06 (following the established pattern from Watershed, power_gen, mod-player, Tetris_WebGPU, and pachinball).
