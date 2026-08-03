@@ -9,23 +9,31 @@ import {
   setShipModelCacheEntry,
 } from '../shipModelCache'
 import {
+  getShipGlbContract,
   getShipModelSettings,
   getShipModelUrl,
   isGlbCapableShipType,
+  listGlbCapableShipTypes,
   listGlbContracts,
 } from '../shipModelRegistry'
 import { isEmissiveSlotName, isGlbAllowedForQuality, SHIP_ATTACH_PREFIX } from '../shipModelContract'
 import { getShipModelConfig, validateShipModelConfig } from '../../types/ShipBlueprint'
+import { collectEmissiveSlots } from '../emissiveSlots'
 
 describe('shipModelRegistry', () => {
-  it('lists three priority GLB contracts', () => {
+  it('lists priority heroes first among all GLB-capable contracts', () => {
     const contracts = listGlbContracts()
-    expect(contracts).toHaveLength(3)
-    expect(contracts.map((c) => c.shipType)).toEqual(['cruise', 'container', 'tanker'])
+    expect(contracts.map((c) => c.shipType).slice(0, 3)).toEqual(['cruise', 'container', 'tanker'])
+    expect(listGlbCapableShipTypes()).toEqual(
+      expect.arrayContaining(['cruise', 'container', 'tanker', 'fireboat', 'lng']),
+    )
+    expect(contracts.length).toBeGreaterThanOrEqual(5)
   })
 
   it('maps ship types to public model URLs', () => {
     expect(getShipModelUrl('cruise')).toBe('./models/cruise_liner.glb')
+    expect(getShipModelUrl('fireboat')).toBe('./models/fireboat.glb')
+    expect(getShipModelUrl('lng')).toBe('./models/lng_carrier.glb')
     expect(getShipModelUrl('bulk')).toBeNull()
   })
 })
@@ -74,15 +82,33 @@ describe('ShipModelConfig on blueprints', () => {
     expect(getShipModelConfig('tanker')?.url).toBe('./models/oil_tanker.glb')
   })
 
+  it('resolves stretch fleet model configs', () => {
+    expect(getShipModelConfig('fireboat')?.url).toBe('./models/fireboat.glb')
+    expect(getShipModelConfig('lng')?.url).toBe('./models/lng_carrier.glb')
+  })
+
   it('returns null for blueprints without a model block', () => {
     expect(getShipModelConfig('bulk')).toBeNull()
     expect(getShipModelSettings('bulk')).toBeNull()
     expect(isGlbCapableShipType('bulk')).toBe(false)
   })
 
-  it('fills defaults for scale and yOffset', () => {
+  it('fills defaults for scale and yOffset and exposes authored socket maps', () => {
     const settings = getShipModelSettings('cruise')
-    expect(settings).toMatchObject({ scale: 1, yOffset: 0, attachmentSocketMap: {} })
+    expect(settings?.scale).toBe(1)
+    expect(settings?.yOffset).toBe(0)
+    expect(settings?.attachmentSocketMap.Empty_HP_05).toBe('funnel1')
+    expect(Object.keys(settings?.attachmentSocketMap ?? {}).length).toBe(6)
+  })
+
+  it('maps every attachment id for each GLB-capable blueprint via socket map', () => {
+    for (const shipType of listGlbCapableShipTypes()) {
+      const contract = getShipGlbContract(shipType)
+      const mappedIds = new Set(Object.values(contract.attachmentSocketMap))
+      for (const id of contract.attachmentNodeIds) {
+        expect(mappedIds.has(id), `${shipType} missing socket for ${id}`).toBe(true)
+      }
+    }
   })
 })
 
@@ -175,5 +201,21 @@ describe('emissive slot naming', () => {
     expect(isEmissiveSlotName('Glow_Funnel')).toBe(true)
     expect(isEmissiveSlotName('hull')).toBe(false)
     expect(isEmissiveSlotName('')).toBe(false)
+  })
+
+  it('clones MeshStandardMaterial slots used by both WebGL and WebGPU paths', () => {
+    const root = new THREE.Group()
+    const original = new THREE.MeshStandardMaterial({ name: 'emissive_windows', emissive: 0xffaa00 })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), original)
+    mesh.name = 'emissive_windows'
+    root.add(mesh)
+
+    const slots = collectEmissiveSlots(root)
+    expect(slots).toHaveLength(1)
+    expect(slots[0]).toBeInstanceOf(THREE.MeshStandardMaterial)
+    expect(slots[0]).not.toBe(original)
+    expect(mesh.material).toBe(slots[0])
+    // Shared scene graph: same material type both renderers consume via GlbShipModel.
+    expect((mesh.material as THREE.MeshStandardMaterial).type).toBe('MeshStandardMaterial')
   })
 })

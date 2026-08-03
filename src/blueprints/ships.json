@@ -9,28 +9,220 @@
       "scale": 1.8,
       "baseColor": "#0a2540",
       "lod2": {
-        "hull": { "width": 18, "height": 6, "length": 80 },
+        "hull": {
+          "width": 18,
+          "height": 6,
+          "length": 80
+        },
         "profile": "stepped",
         "features": [
-          { "type": "superstructure", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 12, "height": 8, "depth": 40 },
-          { "type": "funnel", "xOffset": 0, "yOffset": 8, "zOffset": -10, "width": 4, "height": 4, "depth": 4 }
+          {
+            "type": "superstructure",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -5,
+            "width": 12,
+            "height": 8,
+            "depth": 40
+          },
+          {
+            "type": "funnel",
+            "xOffset": 0,
+            "yOffset": 8,
+            "zOffset": -10,
+            "width": 4,
+            "height": 4,
+            "depth": 4
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [18, 6, 80], "material": { "emissive": "#112244" } },
-        { "id": "deck1", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [16, 3, 70] },
-        { "id": "deck2", "type": "box", "position": [0, 5, 0], "rotation": [0, 0, 0], "size": [14, 3, 60] },
-        { "id": "deck3", "type": "box", "position": [0, 8, 0], "rotation": [0, 0, 0], "size": [12, 3, 50] },
-        { "id": "bridge", "type": "box", "position": [0, 11, -18], "rotation": [0, 0, 0], "size": [10, 6, 12] },
-        { "id": "funnel1", "type": "cylinder", "position": [-5, 13, -10], "rotation": [0, 0, 0], "size": [2, 8, 2], "material": { "emissive": "#ffaa00" } },
-        { "id": "funnel2", "type": "cylinder", "position": [5, 13, -10], "rotation": [0, 0, 0], "size": [2, 8, 2], "material": { "emissive": "#ffaa00" } },
-        { "id": "bow", "type": "cone", "position": [0, -1, 38], "rotation": [1.57, 0, 0], "size": [8, 12, 8] }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            18,
+            6,
+            80
+          ],
+          "material": {
+            "emissive": "#112244"
+          }
+        },
+        {
+          "id": "deck1",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            3,
+            70
+          ]
+        },
+        {
+          "id": "deck2",
+          "type": "box",
+          "position": [
+            0,
+            5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            3,
+            60
+          ]
+        },
+        {
+          "id": "deck3",
+          "type": "box",
+          "position": [
+            0,
+            8,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            3,
+            50
+          ]
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            11,
+            -18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            6,
+            12
+          ]
+        },
+        {
+          "id": "funnel1",
+          "type": "cylinder",
+          "position": [
+            -5,
+            13,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            8,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "funnel2",
+          "type": "cylinder",
+          "position": [
+            5,
+            13,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            8,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "bow",
+          "type": "cone",
+          "position": [
+            0,
+            -1,
+            38
+          ],
+          "rotation": [
+            1.57,
+            0,
+            0
+          ],
+          "size": [
+            8,
+            12,
+            8
+          ]
+        }
       ],
-      "model": { "url": "./models/cruise_liner.glb", "scale": 1, "yOffset": 0 },
-      "attachmentPoints": ["balcony0", "balcony1", "balcony5", "balcony6", "funnel1", "funnel2"],
+      "model": {
+        "url": "./models/cruise_liner.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "balcony0",
+          "Empty_HP_02": "balcony1",
+          "Empty_HP_03": "balcony5",
+          "Empty_HP_04": "balcony6",
+          "Empty_HP_05": "funnel1",
+          "Empty_HP_06": "funnel2"
+        }
+      },
+      "attachmentPoints": [
+        "balcony0",
+        "balcony1",
+        "balcony5",
+        "balcony6",
+        "funnel1",
+        "funnel2"
+      ],
       "contributor": "Grok + Kimi",
       "added": "2026-03-08",
-      "notes": "Multi-deck with glowing balconies — perfect for LED light shows"
+      "notes": "Multi-deck with glowing balconies \u2014 perfect for LED light shows"
     },
     {
       "id": "container",
@@ -39,33 +231,411 @@
       "scale": 1.6,
       "baseColor": "#1a1a2e",
       "lod2": {
-        "hull": { "width": 24, "height": 5, "length": 110 },
+        "hull": {
+          "width": 24,
+          "height": 5,
+          "length": 110
+        },
         "profile": "flat",
         "features": [
-          { "type": "cellguides", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 22, "height": 10, "depth": 90 },
-          { "type": "bridge", "xOffset": -8, "yOffset": 0, "zOffset": 30, "width": 8, "height": 6, "depth": 10 }
+          {
+            "type": "cellguides",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 0,
+            "width": 22,
+            "height": 10,
+            "depth": 90
+          },
+          {
+            "type": "bridge",
+            "xOffset": -8,
+            "yOffset": 0,
+            "zOffset": 30,
+            "width": 8,
+            "height": 6,
+            "depth": 10
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [24, 5, 110], "material": { "emissive": "#0a0a1a" } },
-        { "id": "deck", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [23, 0.5, 108] },
-        { "id": "bridge", "type": "box", "position": [-8, 8, 30], "rotation": [0, 0, 0], "size": [10, 10, 14], "material": { "emissive": "#2a2a3e" } },
-        { "id": "mast", "type": "cylinder", "position": [-8, 15, 30], "rotation": [0, 0, 0], "size": [0.5, 6, 0.5], "material": { "emissive": "#ff0000" } },
-        { "id": "crane1", "type": "box", "position": [-10, 6, -25], "rotation": [0, 0, 0], "size": [1.5, 12, 1.5], "material": { "emissive": "#ff8800" } },
-        { "id": "crane1arm", "type": "box", "position": [-5, 11, -25], "rotation": [0, 0, 0], "size": [10, 0.8, 0.8], "material": { "emissive": "#ffaa00" } },
-        { "id": "crane2", "type": "box", "position": [10, 6, -15], "rotation": [0, 0, 0], "size": [1.5, 12, 1.5], "material": { "emissive": "#ff8800" } },
-        { "id": "crane2arm", "type": "box", "position": [5, 11, -15], "rotation": [0, 0, 0], "size": [10, 0.8, 0.8], "material": { "emissive": "#ffaa00" } },
-        { "id": "ledStripL", "type": "box", "position": [-11, 3, 0], "rotation": [0, 0, 0], "size": [0.3, 0.3, 100], "material": { "emissive": "#00ffff" } },
-        { "id": "ledStripR", "type": "box", "position": [11, 3, 0], "rotation": [0, 0, 0], "size": [0.3, 0.3, 100], "material": { "emissive": "#00ffff" } },
-        { "id": "stack1", "type": "box", "position": [-7, 5, -35], "rotation": [0, 0, 0], "size": [7, 7, 9], "material": { "emissive": "#00ff88" } },
-        { "id": "stack2", "type": "box", "position": [7, 4, -20], "rotation": [0, 0, 0], "size": [7, 5, 9], "material": { "emissive": "#ff6b6b" } },
-        { "id": "stack3", "type": "box", "position": [-7, 6, -5], "rotation": [0, 0, 0], "size": [7, 9, 9], "material": { "emissive": "#4ecdc4" } },
-        { "id": "stack4", "type": "box", "position": [7, 5, 10], "rotation": [0, 0, 0], "size": [7, 7, 9], "material": { "emissive": "#ffe66d" } },
-        { "id": "stack5", "type": "box", "position": [-7, 4, 25], "rotation": [0, 0, 0], "size": [7, 5, 9], "material": { "emissive": "#ff00ff" } },
-        { "id": "stack6", "type": "box", "position": [7, 6, 40], "rotation": [0, 0, 0], "size": [7, 8, 9], "material": { "emissive": "#00aaff" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            24,
+            5,
+            110
+          ],
+          "material": {
+            "emissive": "#0a0a1a"
+          }
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            23,
+            0.5,
+            108
+          ]
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            -8,
+            8,
+            30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            10,
+            14
+          ],
+          "material": {
+            "emissive": "#2a2a3e"
+          }
+        },
+        {
+          "id": "mast",
+          "type": "cylinder",
+          "position": [
+            -8,
+            15,
+            30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            6,
+            0.5
+          ],
+          "material": {
+            "emissive": "#ff0000"
+          }
+        },
+        {
+          "id": "crane1",
+          "type": "box",
+          "position": [
+            -10,
+            6,
+            -25
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.5,
+            12,
+            1.5
+          ],
+          "material": {
+            "emissive": "#ff8800"
+          }
+        },
+        {
+          "id": "crane1arm",
+          "type": "box",
+          "position": [
+            -5,
+            11,
+            -25
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            0.8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "crane2",
+          "type": "box",
+          "position": [
+            10,
+            6,
+            -15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.5,
+            12,
+            1.5
+          ],
+          "material": {
+            "emissive": "#ff8800"
+          }
+        },
+        {
+          "id": "crane2arm",
+          "type": "box",
+          "position": [
+            5,
+            11,
+            -15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            0.8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "ledStripL",
+          "type": "box",
+          "position": [
+            -11,
+            3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            0.3,
+            100
+          ],
+          "material": {
+            "emissive": "#00ffff"
+          }
+        },
+        {
+          "id": "ledStripR",
+          "type": "box",
+          "position": [
+            11,
+            3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            0.3,
+            100
+          ],
+          "material": {
+            "emissive": "#00ffff"
+          }
+        },
+        {
+          "id": "stack1",
+          "type": "box",
+          "position": [
+            -7,
+            5,
+            -35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            7,
+            9
+          ],
+          "material": {
+            "emissive": "#00ff88"
+          }
+        },
+        {
+          "id": "stack2",
+          "type": "box",
+          "position": [
+            7,
+            4,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            5,
+            9
+          ],
+          "material": {
+            "emissive": "#ff6b6b"
+          }
+        },
+        {
+          "id": "stack3",
+          "type": "box",
+          "position": [
+            -7,
+            6,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            9,
+            9
+          ],
+          "material": {
+            "emissive": "#4ecdc4"
+          }
+        },
+        {
+          "id": "stack4",
+          "type": "box",
+          "position": [
+            7,
+            5,
+            10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            7,
+            9
+          ],
+          "material": {
+            "emissive": "#ffe66d"
+          }
+        },
+        {
+          "id": "stack5",
+          "type": "box",
+          "position": [
+            -7,
+            4,
+            25
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            5,
+            9
+          ],
+          "material": {
+            "emissive": "#ff00ff"
+          }
+        },
+        {
+          "id": "stack6",
+          "type": "box",
+          "position": [
+            7,
+            6,
+            40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            8,
+            9
+          ],
+          "material": {
+            "emissive": "#00aaff"
+          }
+        }
       ],
-      "model": { "url": "./models/container_vessel.glb", "scale": 1, "yOffset": 0 },
-      "attachmentPoints": ["stack1", "stack2", "stack3", "stack4", "stack5", "stack6", "crane1", "crane2", "mast"],
+      "model": {
+        "url": "./models/container_vessel.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "stack1",
+          "Empty_HP_02": "stack2",
+          "Empty_HP_03": "stack3",
+          "Empty_HP_04": "stack4",
+          "Empty_HP_05": "stack5",
+          "Empty_HP_06": "stack6",
+          "Empty_HP_07": "crane1",
+          "Empty_HP_08": "crane2",
+          "Empty_HP_09": "mast"
+        }
+      },
+      "attachmentPoints": [
+        "stack1",
+        "stack2",
+        "stack3",
+        "stack4",
+        "stack5",
+        "stack6",
+        "crane1",
+        "crane2",
+        "mast"
+      ],
       "contributor": "Agent Swarm - Ship Designer",
       "added": "2026-03-08",
       "notes": "Mega container ship with LED deck strips and 6 colorful container stacks"
@@ -77,33 +647,393 @@
       "scale": 1.4,
       "baseColor": "#0f0f1a",
       "lod2": {
-        "hull": { "width": 22, "height": 10, "length": 130 },
+        "hull": {
+          "width": 22,
+          "height": 10,
+          "length": 130
+        },
         "profile": "flat",
         "features": [
-          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": 40, "width": 12, "height": 8, "depth": 16 },
-          { "type": "pipeline", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 2, "height": 1.5, "depth": 100 }
+          {
+            "type": "bridge",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 40,
+            "width": 12,
+            "height": 8,
+            "depth": 16
+          },
+          {
+            "type": "pipeline",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 0,
+            "width": 2,
+            "height": 1.5,
+            "depth": 100
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [22, 10, 130], "material": { "emissive": "#0a0a12" } },
-        { "id": "bulbousBow", "type": "cone", "position": [0, -2, 65], "rotation": [1.57, 0, 0], "size": [12, 20, 12] },
-        { "id": "deck", "type": "box", "position": [0, 2.5, 0], "rotation": [0, 0, 0], "size": [21, 0.5, 128] },
-        { "id": "superstructure", "type": "box", "position": [0, 10, 40], "rotation": [0, 0, 0], "size": [16, 12, 24], "material": { "emissive": "#1a1a2e" } },
-        { "id": "bridge", "type": "box", "position": [0, 16, 42], "rotation": [0, 0, 0], "size": [12, 8, 10] },
-        { "id": "flareStack", "type": "cylinder", "position": [-7, 20, 35], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ff2200" } },
-        { "id": "flareTip", "type": "cone", "position": [-7, 28, 35], "rotation": [0, 0, 0], "size": [3, 6, 3], "material": { "emissive": "#ff8800" } },
-        { "id": "pipe1", "type": "cylinder", "position": [5, 5, -10], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
-        { "id": "pipe2", "type": "cylinder", "position": [5, 5, 10], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
-        { "id": "pipe3", "type": "cylinder", "position": [-5, 5, 0], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#444455" } },
-        { "id": "hatch1", "type": "box", "position": [0, 3, -30], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
-        { "id": "hatch2", "type": "box", "position": [0, 3, -5], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
-        { "id": "hatch3", "type": "box", "position": [0, 3, 20], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
-        { "id": "hatch4", "type": "box", "position": [0, 3, 45], "rotation": [0, 0, 0], "size": [14, 0.8, 18] },
-        { "id": "railingL", "type": "box", "position": [-10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } },
-        { "id": "railingR", "type": "box", "position": [10, 4, 0], "rotation": [0, 0, 0], "size": [0.3, 1, 120], "material": { "emissive": "#666677" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            22,
+            10,
+            130
+          ],
+          "material": {
+            "emissive": "#0a0a12"
+          }
+        },
+        {
+          "id": "bulbousBow",
+          "type": "cone",
+          "position": [
+            0,
+            -2,
+            65
+          ],
+          "rotation": [
+            1.57,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            20,
+            12
+          ]
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            2.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            21,
+            0.5,
+            128
+          ]
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            0,
+            10,
+            40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            12,
+            24
+          ],
+          "material": {
+            "emissive": "#1a1a2e"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            16,
+            42
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            8,
+            10
+          ]
+        },
+        {
+          "id": "flareStack",
+          "type": "cylinder",
+          "position": [
+            -7,
+            20,
+            35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            16,
+            2
+          ],
+          "material": {
+            "emissive": "#ff2200"
+          }
+        },
+        {
+          "id": "flareTip",
+          "type": "cone",
+          "position": [
+            -7,
+            28,
+            35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            6,
+            3
+          ],
+          "material": {
+            "emissive": "#ff8800"
+          }
+        },
+        {
+          "id": "pipe1",
+          "type": "cylinder",
+          "position": [
+            5,
+            5,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#444455"
+          }
+        },
+        {
+          "id": "pipe2",
+          "type": "cylinder",
+          "position": [
+            5,
+            5,
+            10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#444455"
+          }
+        },
+        {
+          "id": "pipe3",
+          "type": "cylinder",
+          "position": [
+            -5,
+            5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#444455"
+          }
+        },
+        {
+          "id": "hatch1",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            -30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            0.8,
+            18
+          ]
+        },
+        {
+          "id": "hatch2",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            0.8,
+            18
+          ]
+        },
+        {
+          "id": "hatch3",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            0.8,
+            18
+          ]
+        },
+        {
+          "id": "hatch4",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            45
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            0.8,
+            18
+          ]
+        },
+        {
+          "id": "railingL",
+          "type": "box",
+          "position": [
+            -10,
+            4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1,
+            120
+          ],
+          "material": {
+            "emissive": "#666677"
+          }
+        },
+        {
+          "id": "railingR",
+          "type": "box",
+          "position": [
+            10,
+            4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1,
+            120
+          ],
+          "material": {
+            "emissive": "#666677"
+          }
+        }
       ],
-      "model": { "url": "./models/oil_tanker.glb", "scale": 1, "yOffset": 0 },
-      "attachmentPoints": ["flareStack", "flareTip", "hatch1", "hatch2", "hatch3", "hatch4", "bridge", "railingL", "railingR"],
+      "model": {
+        "url": "./models/oil_tanker.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "flareStack",
+          "Empty_HP_02": "flareTip",
+          "Empty_HP_03": "hatch1",
+          "Empty_HP_04": "hatch2",
+          "Empty_HP_05": "hatch3",
+          "Empty_HP_06": "hatch4",
+          "Empty_HP_07": "bridge",
+          "Empty_HP_08": "railingL",
+          "Empty_HP_09": "railingR"
+        }
+      },
+      "attachmentPoints": [
+        "flareStack",
+        "flareTip",
+        "hatch1",
+        "hatch2",
+        "hatch3",
+        "hatch4",
+        "bridge",
+        "railingL",
+        "railingR"
+      ],
       "contributor": "Agent Swarm - Ship Designer",
       "added": "2026-03-08",
       "notes": "VLCC supertanker with bulbous bow, flare stack, pipe arrays and deck railings"
@@ -115,31 +1045,374 @@
       "scale": 1.9,
       "baseColor": "#2d3436",
       "lod2": {
-        "hull": { "width": 46, "height": 14, "length": 145 },
+        "hull": {
+          "width": 46,
+          "height": 14,
+          "length": 145
+        },
         "profile": "flat",
         "features": [
-          { "type": "hatches", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 36, "height": 3, "depth": 120 },
-          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": -55, "width": 30, "height": 8, "depth": 12 }
+          {
+            "type": "hatches",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 0,
+            "width": 36,
+            "height": 3,
+            "depth": 120
+          },
+          {
+            "type": "bridge",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -55,
+            "width": 30,
+            "height": 8,
+            "depth": 12
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -4, 0], "rotation": [0, 0, 0], "size": [46, 14, 145], "material": { "emissive": "#1a1f21", "roughness": 0.8 } },
-        { "id": "bulbousBow", "type": "cone", "position": [0, -2, 72], "rotation": [1.57, 0, 0], "size": [16, 25, 16], "material": { "roughness": 0.7 } },
-        { "id": "forecastle", "type": "box", "position": [0, 4, -60], "rotation": [0, 0, 0], "size": [40, 6, 20], "material": { "emissive": "#252b2d" } },
-        { "id": "deck", "type": "box", "position": [0, 3.5, 0], "rotation": [0, 0, 0], "size": [44, 0.5, 140], "material": { "roughness": 0.9 } },
-        { "id": "hatch1", "type": "box", "position": [0, 4.5, -40], "rotation": [0, 0, 0], "size": [36, 2, 20], "material": { "emissive": "#3d4446" } },
-        { "id": "hatch2", "type": "box", "position": [0, 4.5, -12], "rotation": [0, 0, 0], "size": [36, 2, 20], "material": { "emissive": "#3d4446" } },
-        { "id": "hatch3", "type": "box", "position": [0, 4.5, 16], "rotation": [0, 0, 0], "size": [36, 2, 20], "material": { "emissive": "#3d4446" } },
-        { "id": "hatch4", "type": "box", "position": [0, 4.5, 44], "rotation": [0, 0, 0], "size": [36, 2, 20], "material": { "emissive": "#3d4446" } },
-        { "id": "superstructure", "type": "box", "position": [0, 12, -55], "rotation": [0, 0, 0], "size": [38, 14, 16], "material": { "emissive": "#2a3032" } },
-        { "id": "bridge", "type": "box", "position": [0, 20, -58], "rotation": [0, 0, 0], "size": [30, 8, 10] },
-        { "id": "funnel", "type": "cylinder", "position": [-12, 22, -52], "rotation": [0, 0, 0], "size": [3, 10, 3], "material": { "emissive": "#ff4400" } },
-        { "id": "crane1", "type": "box", "position": [-20, 10, -35], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ffaa00" } },
-        { "id": "crane2", "type": "box", "position": [20, 10, -7], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ffaa00" } },
-        { "id": "crane3", "type": "box", "position": [-20, 10, 21], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ffaa00" } },
-        { "id": "crane4", "type": "box", "position": [20, 10, 49], "rotation": [0, 0, 0], "size": [2, 16, 2], "material": { "emissive": "#ffaa00" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            46,
+            14,
+            145
+          ],
+          "material": {
+            "emissive": "#1a1f21",
+            "roughness": 0.8
+          }
+        },
+        {
+          "id": "bulbousBow",
+          "type": "cone",
+          "position": [
+            0,
+            -2,
+            72
+          ],
+          "rotation": [
+            1.57,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            25,
+            16
+          ],
+          "material": {
+            "roughness": 0.7
+          }
+        },
+        {
+          "id": "forecastle",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            -60
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            40,
+            6,
+            20
+          ],
+          "material": {
+            "emissive": "#252b2d"
+          }
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            3.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            44,
+            0.5,
+            140
+          ],
+          "material": {
+            "roughness": 0.9
+          }
+        },
+        {
+          "id": "hatch1",
+          "type": "box",
+          "position": [
+            0,
+            4.5,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            36,
+            2,
+            20
+          ],
+          "material": {
+            "emissive": "#3d4446"
+          }
+        },
+        {
+          "id": "hatch2",
+          "type": "box",
+          "position": [
+            0,
+            4.5,
+            -12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            36,
+            2,
+            20
+          ],
+          "material": {
+            "emissive": "#3d4446"
+          }
+        },
+        {
+          "id": "hatch3",
+          "type": "box",
+          "position": [
+            0,
+            4.5,
+            16
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            36,
+            2,
+            20
+          ],
+          "material": {
+            "emissive": "#3d4446"
+          }
+        },
+        {
+          "id": "hatch4",
+          "type": "box",
+          "position": [
+            0,
+            4.5,
+            44
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            36,
+            2,
+            20
+          ],
+          "material": {
+            "emissive": "#3d4446"
+          }
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            0,
+            12,
+            -55
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            38,
+            14,
+            16
+          ],
+          "material": {
+            "emissive": "#2a3032"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            20,
+            -58
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            30,
+            8,
+            10
+          ]
+        },
+        {
+          "id": "funnel",
+          "type": "cylinder",
+          "position": [
+            -12,
+            22,
+            -52
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            10,
+            3
+          ],
+          "material": {
+            "emissive": "#ff4400"
+          }
+        },
+        {
+          "id": "crane1",
+          "type": "box",
+          "position": [
+            -20,
+            10,
+            -35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            16,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "crane2",
+          "type": "box",
+          "position": [
+            20,
+            10,
+            -7
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            16,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "crane3",
+          "type": "box",
+          "position": [
+            -20,
+            10,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            16,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "crane4",
+          "type": "box",
+          "position": [
+            20,
+            10,
+            49
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            16,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        }
       ],
-      "attachmentPoints": ["hatch1", "hatch2", "hatch3", "hatch4", "crane1", "crane2", "crane3", "crane4", "funnel"],
+      "attachmentPoints": [
+        "hatch1",
+        "hatch2",
+        "hatch3",
+        "hatch4",
+        "crane1",
+        "crane2",
+        "crane3",
+        "crane4",
+        "funnel"
+      ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
       "notes": "Capesize bulk carrier (170,000 DWT, 290m LOA) with 9 cargo holds, 4 deck cranes. Transports iron ore, coal, grain. Too large for Panama Canal - routes via Cape Horn or Cape of Good Hope."
@@ -151,34 +1424,386 @@
       "scale": 2.0,
       "baseColor": "#1e3a5f",
       "lod2": {
-        "hull": { "width": 55, "height": 12, "length": 172 },
+        "hull": {
+          "width": 55,
+          "height": 12,
+          "length": 172
+        },
         "profile": "tall",
         "features": [
-          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": -55, "width": 48, "height": 14, "depth": 40 },
-          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 48, "height": 14, "depth": 40 },
-          { "type": "tank", "xOffset": 0, "yOffset": 0, "zOffset": 45, "width": 48, "height": 14, "depth": 40 }
+          {
+            "type": "tank",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -55,
+            "width": 48,
+            "height": 14,
+            "depth": 40
+          },
+          {
+            "type": "tank",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -5,
+            "width": 48,
+            "height": 14,
+            "depth": 40
+          },
+          {
+            "type": "tank",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 45,
+            "width": 48,
+            "height": 14,
+            "depth": 40
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [55, 12, 172], "material": { "emissive": "#0f1d2f", "metalness": 0.6 } },
-        { "id": "membraneTank1", "type": "box", "position": [0, 6, -55], "rotation": [0, 0, 0], "size": [48, 14, 45], "material": { "emissive": "#00aaff", "roughness": 0.3 } },
-        { "id": "membraneTank2", "type": "box", "position": [0, 6, -5], "rotation": [0, 0, 0], "size": [48, 14, 45], "material": { "emissive": "#0088cc", "roughness": 0.3 } },
-        { "id": "membraneTank3", "type": "box", "position": [0, 6, 45], "rotation": [0, 0, 0], "size": [48, 14, 45], "material": { "emissive": "#006699", "roughness": 0.3 } },
-        { "id": "membraneTank4", "type": "box", "position": [0, 6, 95], "rotation": [0, 0, 0], "size": [48, 14, 35], "material": { "emissive": "#004466", "roughness": 0.3 } },
-        { "id": "tankBarrier1", "type": "box", "position": [0, 6, -30], "rotation": [0, 0, 0], "size": [50, 14, 2], "material": { "emissive": "#ff6600" } },
-        { "id": "tankBarrier2", "type": "box", "position": [0, 6, 20], "rotation": [0, 0, 0], "size": [50, 14, 2], "material": { "emissive": "#ff6600" } },
-        { "id": "tankBarrier3", "type": "box", "position": [0, 6, 70], "rotation": [0, 0, 0], "size": [50, 14, 2], "material": { "emissive": "#ff6600" } },
-        { "id": "superstructure", "type": "box", "position": [-18, 14, 65], "rotation": [0, 0, 0], "size": [20, 16, 24], "material": { "emissive": "#2a4060" } },
-        { "id": "bridge", "type": "box", "position": [-18, 24, 70], "rotation": [0, 0, 0], "size": [18, 10, 14] },
-        { "id": "mast", "type": "cylinder", "position": [-18, 30, 60], "rotation": [0, 0, 0], "size": [0.8, 8, 0.8], "material": { "emissive": "#ff0000" } },
-        { "id": "loadingArm1", "type": "cylinder", "position": [28, 10, 85], "rotation": [0, 0, 1.57], "size": [1, 12, 1], "material": { "emissive": "#silver" } },
-        { "id": "loadingArm2", "type": "cylinder", "position": [-28, 10, 85], "rotation": [0, 0, 1.57], "size": [1, 12, 1], "material": { "emissive": "#silver" } },
-        { "id": "reliquefaction", "type": "box", "position": [15, 8, 65], "rotation": [0, 0, 0], "size": [8, 6, 10], "material": { "emissive": "#4488ff" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            55,
+            12,
+            172
+          ],
+          "material": {
+            "emissive": "#0f1d2f",
+            "metalness": 0.6
+          }
+        },
+        {
+          "id": "membraneTank1",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            -55
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            48,
+            14,
+            45
+          ],
+          "material": {
+            "emissive": "#00aaff",
+            "roughness": 0.3
+          }
+        },
+        {
+          "id": "membraneTank2",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            48,
+            14,
+            45
+          ],
+          "material": {
+            "emissive": "#0088cc",
+            "roughness": 0.3
+          }
+        },
+        {
+          "id": "membraneTank3",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            45
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            48,
+            14,
+            45
+          ],
+          "material": {
+            "emissive": "#006699",
+            "roughness": 0.3
+          }
+        },
+        {
+          "id": "membraneTank4",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            95
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            48,
+            14,
+            35
+          ],
+          "material": {
+            "emissive": "#004466",
+            "roughness": 0.3
+          }
+        },
+        {
+          "id": "tankBarrier1",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            -30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            50,
+            14,
+            2
+          ],
+          "material": {
+            "emissive": "#ff6600"
+          }
+        },
+        {
+          "id": "tankBarrier2",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            50,
+            14,
+            2
+          ],
+          "material": {
+            "emissive": "#ff6600"
+          }
+        },
+        {
+          "id": "tankBarrier3",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            70
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            50,
+            14,
+            2
+          ],
+          "material": {
+            "emissive": "#ff6600"
+          }
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            -18,
+            14,
+            65
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            16,
+            24
+          ],
+          "material": {
+            "emissive": "#2a4060"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            -18,
+            24,
+            70
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            18,
+            10,
+            14
+          ]
+        },
+        {
+          "id": "mast",
+          "type": "cylinder",
+          "position": [
+            -18,
+            30,
+            60
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            8,
+            0.8
+          ],
+          "material": {
+            "emissive": "#ff0000"
+          }
+        },
+        {
+          "id": "loadingArm1",
+          "type": "cylinder",
+          "position": [
+            28,
+            10,
+            85
+          ],
+          "rotation": [
+            0,
+            0,
+            1.57
+          ],
+          "size": [
+            1,
+            12,
+            1
+          ],
+          "material": {
+            "emissive": "#silver"
+          }
+        },
+        {
+          "id": "loadingArm2",
+          "type": "cylinder",
+          "position": [
+            -28,
+            10,
+            85
+          ],
+          "rotation": [
+            0,
+            0,
+            1.57
+          ],
+          "size": [
+            1,
+            12,
+            1
+          ],
+          "material": {
+            "emissive": "#silver"
+          }
+        },
+        {
+          "id": "reliquefaction",
+          "type": "box",
+          "position": [
+            15,
+            8,
+            65
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            8,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#4488ff"
+          }
+        }
       ],
-      "attachmentPoints": ["membraneTank1", "membraneTank2", "membraneTank3", "membraneTank4", "superstructure", "mast", "loadingArm1", "loadingArm2", "reliquefaction", "tankBarrier1"],
+      "attachmentPoints": [
+        "membraneTank1",
+        "membraneTank2",
+        "membraneTank3",
+        "membraneTank4",
+        "superstructure",
+        "mast",
+        "loadingArm1",
+        "loadingArm2",
+        "reliquefaction",
+        "tankBarrier1"
+      ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "Q-Max LNG carrier (266,000 m³, 345m LOA) with GTT membrane tanks. Carries liquefied natural gas at -163°C. Features reliquefaction plant and cryogenic loading arms."
+      "notes": "Q-Max LNG carrier (266,000 m\u00b3, 345m LOA) with GTT membrane tanks. Carries liquefied natural gas at -163\u00b0C. Features reliquefaction plant and cryogenic loading arms.",
+      "model": {
+        "url": "./models/lng_carrier.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "membraneTank1",
+          "Empty_HP_02": "membraneTank2",
+          "Empty_HP_03": "membraneTank3",
+          "Empty_HP_04": "membraneTank4",
+          "Empty_HP_05": "superstructure",
+          "Empty_HP_06": "mast",
+          "Empty_HP_07": "loadingArm1",
+          "Empty_HP_08": "loadingArm2",
+          "Empty_HP_09": "reliquefaction",
+          "Empty_HP_10": "tankBarrier1"
+        }
+      }
     },
     {
       "id": "roro",
@@ -187,29 +1812,328 @@
       "scale": 1.5,
       "baseColor": "#2980b9",
       "lod2": {
-        "hull": { "width": 32, "height": 8, "length": 95 },
+        "hull": {
+          "width": 32,
+          "height": 8,
+          "length": 95
+        },
         "profile": "flat",
         "features": [
-          { "type": "superstructure", "xOffset": 0, "yOffset": 0, "zOffset": -25, "width": 28, "height": 14, "depth": 18 },
-          { "type": "ramp", "xOffset": 0, "yOffset": -2, "zOffset": 47, "width": 20, "height": 2, "depth": 10 }
+          {
+            "type": "superstructure",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -25,
+            "width": 28,
+            "height": 14,
+            "depth": 18
+          },
+          {
+            "type": "ramp",
+            "xOffset": 0,
+            "yOffset": -2,
+            "zOffset": 47,
+            "width": 20,
+            "height": 2,
+            "depth": 10
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [32, 8, 95], "material": { "emissive": "#1a5276" } },
-        { "id": "vehicleDeck1", "type": "box", "position": [0, 3, 5], "rotation": [0, 0, 0], "size": [30, 0.5, 80], "material": { "emissive": "#2874a6" } },
-        { "id": "vehicleDeck2", "type": "box", "position": [0, 7, 5], "rotation": [0, 0, 0], "size": [30, 0.5, 70], "material": { "emissive": "#2874a6" } },
-        { "id": "superstructure", "type": "box", "position": [0, 14, -25], "rotation": [0, 0, 0], "size": [28, 14, 22], "material": { "emissive": "#3498db" } },
-        { "id": "bridge", "type": "box", "position": [0, 22, -32], "rotation": [0, 0, 0], "size": [24, 8, 8] },
-        { "id": "sternRamp", "type": "box", "position": [0, 1, 47], "rotation": [0.3, 0, 0], "size": [20, 0.8, 12], "material": { "emissive": "#f1c40f" } },
-        { "id": "bowVisor", "type": "box", "position": [0, 4, -47], "rotation": [0, 0, 0], "size": [18, 6, 2], "material": { "emissive": "#e67e22" } },
-        { "id": "funnel", "type": "cylinder", "position": [-10, 22, -20], "rotation": [0, 0, 0], "size": [2.5, 10, 2.5], "material": { "emissive": "#e74c3c" } },
-        { "id": "lifeboat1", "type": "box", "position": [-14, 12, -10], "rotation": [0, 0, 0], "size": [3, 2, 8], "material": { "emissive": "#ff6b6b" } },
-        { "id": "lifeboat2", "type": "box", "position": [14, 12, -10], "rotation": [0, 0, 0], "size": [3, 2, 8], "material": { "emissive": "#ff6b6b" } },
-        { "id": "sideDoorL", "type": "box", "position": [-16, 5, 15], "rotation": [0, 0, 0], "size": [1, 6, 10], "material": { "emissive": "#f39c12" } },
-        { "id": "sideDoorR", "type": "box", "position": [16, 5, 15], "rotation": [0, 0, 0], "size": [1, 6, 10], "material": { "emissive": "#f39c12" } },
-        { "id": "mast", "type": "cylinder", "position": [10, 24, -30], "rotation": [0, 0, 0], "size": [0.6, 6, 0.6], "material": { "emissive": "#ffffff" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            32,
+            8,
+            95
+          ],
+          "material": {
+            "emissive": "#1a5276"
+          }
+        },
+        {
+          "id": "vehicleDeck1",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            30,
+            0.5,
+            80
+          ],
+          "material": {
+            "emissive": "#2874a6"
+          }
+        },
+        {
+          "id": "vehicleDeck2",
+          "type": "box",
+          "position": [
+            0,
+            7,
+            5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            30,
+            0.5,
+            70
+          ],
+          "material": {
+            "emissive": "#2874a6"
+          }
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            0,
+            14,
+            -25
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            28,
+            14,
+            22
+          ],
+          "material": {
+            "emissive": "#3498db"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            22,
+            -32
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            24,
+            8,
+            8
+          ]
+        },
+        {
+          "id": "sternRamp",
+          "type": "box",
+          "position": [
+            0,
+            1,
+            47
+          ],
+          "rotation": [
+            0.3,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            0.8,
+            12
+          ],
+          "material": {
+            "emissive": "#f1c40f"
+          }
+        },
+        {
+          "id": "bowVisor",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            -47
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            18,
+            6,
+            2
+          ],
+          "material": {
+            "emissive": "#e67e22"
+          }
+        },
+        {
+          "id": "funnel",
+          "type": "cylinder",
+          "position": [
+            -10,
+            22,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2.5,
+            10,
+            2.5
+          ],
+          "material": {
+            "emissive": "#e74c3c"
+          }
+        },
+        {
+          "id": "lifeboat1",
+          "type": "box",
+          "position": [
+            -14,
+            12,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            2,
+            8
+          ],
+          "material": {
+            "emissive": "#ff6b6b"
+          }
+        },
+        {
+          "id": "lifeboat2",
+          "type": "box",
+          "position": [
+            14,
+            12,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            2,
+            8
+          ],
+          "material": {
+            "emissive": "#ff6b6b"
+          }
+        },
+        {
+          "id": "sideDoorL",
+          "type": "box",
+          "position": [
+            -16,
+            5,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "sideDoorR",
+          "type": "box",
+          "position": [
+            16,
+            5,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "mast",
+          "type": "cylinder",
+          "position": [
+            10,
+            24,
+            -30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            6,
+            0.6
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        }
       ],
-      "attachmentPoints": ["sternRamp", "bowVisor", "superstructure", "lifeboat1", "lifeboat2", "sideDoorL", "sideDoorR", "mast"],
+      "attachmentPoints": [
+        "sternRamp",
+        "bowVisor",
+        "superstructure",
+        "lifeboat1",
+        "lifeboat2",
+        "sideDoorL",
+        "sideDoorR",
+        "mast"
+      ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
       "notes": "Roll-on/Roll-off ferry with vehicle decks, stern ramp, and bow visor. Designed for rapid loading/unloading of trucks, cars, and trailers. Multiple entry points including side doors."
@@ -221,31 +2145,374 @@
       "scale": 1.3,
       "baseColor": "#8e44ad",
       "lod2": {
-        "hull": { "width": 18, "height": 6, "length": 75 },
+        "hull": {
+          "width": 18,
+          "height": 6,
+          "length": 75
+        },
         "profile": "stepped",
         "features": [
-          { "type": "aframe", "xOffset": 0, "yOffset": 0, "zOffset": 25, "width": 14, "height": 6, "depth": 8 },
-          { "type": "helideck", "xOffset": 0, "yOffset": 0, "zOffset": -5, "width": 12, "height": 1, "depth": 12 }
+          {
+            "type": "aframe",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 25,
+            "width": 14,
+            "height": 6,
+            "depth": 8
+          },
+          {
+            "type": "helideck",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -5,
+            "width": 12,
+            "height": 1,
+            "depth": 12
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [18, 6, 75], "material": { "emissive": "#6c3483", "metalness": 0.4 } },
-        { "id": "iceBelt", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [19, 3, 76], "material": { "emissive": "#5d6d7e", "roughness": 0.5 } },
-        { "id": "mainDeck", "type": "box", "position": [0, 3, 0], "rotation": [0, 0, 0], "size": [17, 0.5, 72], "material": { "roughness": 0.8 } },
-        { "id": "superstructure", "type": "box", "position": [0, 9, -20], "rotation": [0, 0, 0], "size": [16, 10, 18], "material": { "emissive": "#7d3c98" } },
-        { "id": "bridge", "type": "box", "position": [0, 15, -24], "rotation": [0, 0, 0], "size": [14, 6, 8] },
-        { "id": "aFrame", "type": "box", "position": [0, 12, 25], "rotation": [0.4, 0, 0], "size": [14, 1, 12], "material": { "emissive": "#f1c40f" } },
-        { "id": "aFrameSupport1", "type": "cylinder", "position": [-6, 8, 20], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
-        { "id": "aFrameSupport2", "type": "cylinder", "position": [6, 8, 20], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
-        { "id": "sonarDome", "type": "box", "position": [0, -4, 30], "rotation": [0, 0, 0], "size": [8, 2, 6], "material": { "emissive": "#00ff88" } },
-        { "id": "radarMast", "type": "cylinder", "position": [0, 18, -20], "rotation": [0, 0, 0], "size": [0.8, 12, 0.8], "material": { "emissive": "#ecf0f1" } },
-        { "id": "radarDish", "type": "cone", "position": [0, 24, -20], "rotation": [3.14, 0, 0], "size": [4, 3, 4], "material": { "emissive": "#3498db" } },
-        { "id": "crane", "type": "cylinder", "position": [-7, 10, 10], "rotation": [0, 0, 0], "size": [1, 14, 1], "material": { "emissive": "#e67e22" } },
-        { "id": "laboratory", "type": "box", "position": [6, 7, 5], "rotation": [0, 0, 0], "size": [6, 6, 10], "material": { "emissive": "#9b59b6" } },
-        { "id": "heliDeck", "type": "box", "position": [0, 14, -5], "rotation": [0, 0, 0], "size": [12, 0.5, 12], "material": { "emissive": "#2ecc71", "roughness": 0.7 } },
-        { "id": "moonPool", "type": "box", "position": [0, 2, 35], "rotation": [0, 0, 0], "size": [4, 1, 6], "material": { "emissive": "#1abc9c" } }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            18,
+            6,
+            75
+          ],
+          "material": {
+            "emissive": "#6c3483",
+            "metalness": 0.4
+          }
+        },
+        {
+          "id": "iceBelt",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            19,
+            3,
+            76
+          ],
+          "material": {
+            "emissive": "#5d6d7e",
+            "roughness": 0.5
+          }
+        },
+        {
+          "id": "mainDeck",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            17,
+            0.5,
+            72
+          ],
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            0,
+            9,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            10,
+            18
+          ],
+          "material": {
+            "emissive": "#7d3c98"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            15,
+            -24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            6,
+            8
+          ]
+        },
+        {
+          "id": "aFrame",
+          "type": "box",
+          "position": [
+            0,
+            12,
+            25
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            1,
+            12
+          ],
+          "material": {
+            "emissive": "#f1c40f"
+          }
+        },
+        {
+          "id": "aFrameSupport1",
+          "type": "cylinder",
+          "position": [
+            -6,
+            8,
+            20
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            10,
+            0.5
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "aFrameSupport2",
+          "type": "cylinder",
+          "position": [
+            6,
+            8,
+            20
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            10,
+            0.5
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "sonarDome",
+          "type": "box",
+          "position": [
+            0,
+            -4,
+            30
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            8,
+            2,
+            6
+          ],
+          "material": {
+            "emissive": "#00ff88"
+          }
+        },
+        {
+          "id": "radarMast",
+          "type": "cylinder",
+          "position": [
+            0,
+            18,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            12,
+            0.8
+          ],
+          "material": {
+            "emissive": "#ecf0f1"
+          }
+        },
+        {
+          "id": "radarDish",
+          "type": "cone",
+          "position": [
+            0,
+            24,
+            -20
+          ],
+          "rotation": [
+            3.14,
+            0,
+            0
+          ],
+          "size": [
+            4,
+            3,
+            4
+          ],
+          "material": {
+            "emissive": "#3498db"
+          }
+        },
+        {
+          "id": "crane",
+          "type": "cylinder",
+          "position": [
+            -7,
+            10,
+            10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            14,
+            1
+          ],
+          "material": {
+            "emissive": "#e67e22"
+          }
+        },
+        {
+          "id": "laboratory",
+          "type": "box",
+          "position": [
+            6,
+            7,
+            5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            6,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#9b59b6"
+          }
+        },
+        {
+          "id": "heliDeck",
+          "type": "box",
+          "position": [
+            0,
+            14,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            0.5,
+            12
+          ],
+          "material": {
+            "emissive": "#2ecc71",
+            "roughness": 0.7
+          }
+        },
+        {
+          "id": "moonPool",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            4,
+            1,
+            6
+          ],
+          "material": {
+            "emissive": "#1abc9c"
+          }
+        }
       ],
-      "attachmentPoints": ["aFrame", "sonarDome", "radarDish", "crane", "laboratory", "heliDeck", "moonPool"],
+      "attachmentPoints": [
+        "aFrame",
+        "sonarDome",
+        "radarDish",
+        "crane",
+        "laboratory",
+        "heliDeck",
+        "moonPool"
+      ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
       "notes": "Ice-strengthened research vessel with A-frame crane, multibeam sonar dome, moon pool for submersibles, laboratory spaces, and helicopter deck. PC6 ice class notation."
@@ -257,30 +2524,355 @@
       "scale": 1.0,
       "baseColor": "#2c3e50",
       "lod2": {
-        "hull": { "width": 46, "height": 6, "length": 90 },
+        "hull": {
+          "width": 46,
+          "height": 6,
+          "length": 90
+        },
         "profile": "barge",
         "features": [
-          { "type": "pad", "xOffset": -15, "yOffset": 0, "zOffset": -15, "width": 8, "height": 0.5, "depth": 8 },
-          { "type": "pad", "xOffset": 15, "yOffset": 0, "zOffset": 15, "width": 8, "height": 0.5, "depth": 8 }
+          {
+            "type": "pad",
+            "xOffset": -15,
+            "yOffset": 0,
+            "zOffset": -15,
+            "width": 8,
+            "height": 0.5,
+            "depth": 8
+          },
+          {
+            "type": "pad",
+            "xOffset": 15,
+            "yOffset": 0,
+            "zOffset": 15,
+            "width": 8,
+            "height": 0.5,
+            "depth": 8
+          }
         ]
       },
       "parts": [
-        { "id": "bargeHull", "type": "box", "position": [0, -3, 0], "rotation": [0, 0, 0], "size": [46, 6, 90], "material": { "emissive": "#1c2833", "roughness": 0.9 } },
-        { "id": "landingDeck", "type": "box", "position": [0, 0.3, 0], "rotation": [0, 0, 0], "size": [46, 0.5, 90], "material": { "emissive": "#34495e", "roughness": 0.8 } },
-        { "id": "landingCircle", "type": "cylinder", "position": [0, 0.4, 0], "rotation": [0, 0, 0], "size": [15, 0.1, 15], "material": { "emissive": "#ffffff" } },
-        { "id": "xMark", "type": "box", "position": [0, 0.5, 0], "rotation": [0, 0.785, 0], "size": [20, 0.1, 4], "material": { "emissive": "#e74c3c" } },
-        { "id": "xMark2", "type": "box", "position": [0, 0.5, 0], "rotation": [0, -0.785, 0], "size": [20, 0.1, 4], "material": { "emissive": "#e74c3c" } },
-        { "id": "thruster1", "type": "cylinder", "position": [-20, -4, -40], "rotation": [0, 0, 0], "size": [3, 8, 3], "material": { "emissive": "#7f8c8d" } },
-        { "id": "thruster2", "type": "cylinder", "position": [20, -4, -40], "rotation": [0, 0, 0], "size": [3, 8, 3], "material": { "emissive": "#7f8c8d" } },
-        { "id": "thruster3", "type": "cylinder", "position": [-20, -4, 40], "rotation": [0, 0, 0], "size": [3, 8, 3], "material": { "emissive": "#7f8c8d" } },
-        { "id": "thruster4", "type": "cylinder", "position": [20, -4, 40], "rotation": [0, 0, 0], "size": [3, 8, 3], "material": { "emissive": "#7f8c8d" } },
-        { "id": "equipmentContainer", "type": "box", "position": [0, 4, -35], "rotation": [0, 0, 0], "size": [20, 6, 10], "material": { "emissive": "#5d6d7e" } },
-        { "id": "blastWall", "type": "box", "position": [0, 5, -28], "rotation": [0, 0, 0], "size": [20, 8, 1], "material": { "emissive": "#95a5a6" } },
-        { "id": "starlinkDish", "type": "cone", "position": [-8, 8, -35], "rotation": [3.14, 0, 0], "size": [2, 1.5, 2], "material": { "emissive": "#3498db" } },
-        { "id": "cameras", "type": "box", "position": [8, 8, -35], "rotation": [0, 0, 0], "size": [2, 1, 2], "material": { "emissive": "#e74c3c" } },
-        { "id": "octagrabber", "type": "box", "position": [0, 0.8, 0], "rotation": [0, 0, 0], "size": [8, 1, 8], "material": { "emissive": "#f39c12" } }
+        {
+          "id": "bargeHull",
+          "type": "box",
+          "position": [
+            0,
+            -3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            46,
+            6,
+            90
+          ],
+          "material": {
+            "emissive": "#1c2833",
+            "roughness": 0.9
+          }
+        },
+        {
+          "id": "landingDeck",
+          "type": "box",
+          "position": [
+            0,
+            0.3,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            46,
+            0.5,
+            90
+          ],
+          "material": {
+            "emissive": "#34495e",
+            "roughness": 0.8
+          }
+        },
+        {
+          "id": "landingCircle",
+          "type": "cylinder",
+          "position": [
+            0,
+            0.4,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            15,
+            0.1,
+            15
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "xMark",
+          "type": "box",
+          "position": [
+            0,
+            0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0.785,
+            0
+          ],
+          "size": [
+            20,
+            0.1,
+            4
+          ],
+          "material": {
+            "emissive": "#e74c3c"
+          }
+        },
+        {
+          "id": "xMark2",
+          "type": "box",
+          "position": [
+            0,
+            0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            -0.785,
+            0
+          ],
+          "size": [
+            20,
+            0.1,
+            4
+          ],
+          "material": {
+            "emissive": "#e74c3c"
+          }
+        },
+        {
+          "id": "thruster1",
+          "type": "cylinder",
+          "position": [
+            -20,
+            -4,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            8,
+            3
+          ],
+          "material": {
+            "emissive": "#7f8c8d"
+          }
+        },
+        {
+          "id": "thruster2",
+          "type": "cylinder",
+          "position": [
+            20,
+            -4,
+            -40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            8,
+            3
+          ],
+          "material": {
+            "emissive": "#7f8c8d"
+          }
+        },
+        {
+          "id": "thruster3",
+          "type": "cylinder",
+          "position": [
+            -20,
+            -4,
+            40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            8,
+            3
+          ],
+          "material": {
+            "emissive": "#7f8c8d"
+          }
+        },
+        {
+          "id": "thruster4",
+          "type": "cylinder",
+          "position": [
+            20,
+            -4,
+            40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            8,
+            3
+          ],
+          "material": {
+            "emissive": "#7f8c8d"
+          }
+        },
+        {
+          "id": "equipmentContainer",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            -35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#5d6d7e"
+          }
+        },
+        {
+          "id": "blastWall",
+          "type": "box",
+          "position": [
+            0,
+            5,
+            -28
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            8,
+            1
+          ],
+          "material": {
+            "emissive": "#95a5a6"
+          }
+        },
+        {
+          "id": "starlinkDish",
+          "type": "cone",
+          "position": [
+            -8,
+            8,
+            -35
+          ],
+          "rotation": [
+            3.14,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            1.5,
+            2
+          ],
+          "material": {
+            "emissive": "#3498db"
+          }
+        },
+        {
+          "id": "cameras",
+          "type": "box",
+          "position": [
+            8,
+            8,
+            -35
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            1,
+            2
+          ],
+          "material": {
+            "emissive": "#e74c3c"
+          }
+        },
+        {
+          "id": "octagrabber",
+          "type": "box",
+          "position": [
+            0,
+            0.8,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            8,
+            1,
+            8
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        }
       ],
-      "attachmentPoints": ["thruster1", "thruster2", "thruster3", "thruster4", "equipmentContainer", "starlinkDish", "cameras", "octagrabber"],
+      "attachmentPoints": [
+        "thruster1",
+        "thruster2",
+        "thruster3",
+        "thruster4",
+        "equipmentContainer",
+        "starlinkDish",
+        "cameras",
+        "octagrabber"
+      ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
       "notes": "SpaceX Autonomous Spaceport Drone Ship (ASDS) based on Marmac 304 barge. 90m x 46m with 4 azimuth thrusters for station-keeping within 3m accuracy. Used for Falcon 9 booster landings at sea. Features Octagrabber robot for securing boosters."
@@ -293,25 +2885,211 @@
       "baseColor": "#d0e4f0",
       "musicTheme": "harbor_commute",
       "lod2": {
-        "hull": { "width": 26, "height": 5, "length": 65 },
+        "hull": {
+          "width": 26,
+          "height": 5,
+          "length": 65
+        },
         "profile": "stepped",
         "features": [
-          { "type": "passenger_deck", "xOffset": 0, "yOffset": 0, "zOffset": -6, "width": 22, "height": 5, "depth": 30 },
-          { "type": "car_deck", "xOffset": 0, "yOffset": 0, "zOffset": 20, "width": 22, "height": 1, "depth": 20 },
-          { "type": "funnel", "xOffset": -9, "yOffset": 5, "zOffset": -5, "width": 4, "height": 6, "depth": 4 }
+          {
+            "type": "passenger_deck",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -6,
+            "width": 22,
+            "height": 5,
+            "depth": 30
+          },
+          {
+            "type": "car_deck",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 20,
+            "width": 22,
+            "height": 1,
+            "depth": 20
+          },
+          {
+            "type": "funnel",
+            "xOffset": -9,
+            "yOffset": 5,
+            "zOffset": -5,
+            "width": 4,
+            "height": 6,
+            "depth": 4
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -2, 0], "rotation": [0, 0, 0], "size": [26, 5, 65], "material": { "emissive": "#a0c4d0" } },
-        { "id": "bowRamp", "type": "box", "position": [0, 0, -32], "rotation": [0.2, 0, 0], "size": [20, 1, 10], "material": { "emissive": "#b0d4e0" } },
-        { "id": "passengerDeck", "type": "box", "position": [0, 3, -6], "rotation": [0, 0, 0], "size": [24, 4, 32] },
-        { "id": "carDeck", "type": "box", "position": [0, 2, 20], "rotation": [0, 0, 0], "size": [24, 0.5, 22] },
-        { "id": "bridge", "type": "box", "position": [0, 7, -22], "rotation": [0, 0, 0], "size": [12, 5, 8] },
-        { "id": "funnel", "type": "cylinder", "position": [-9, 12, -5], "rotation": [0, 0, 0], "size": [3, 10, 3], "material": { "emissive": "#ff6600" } },
-        { "id": "windowStripL", "type": "box", "position": [-11, 4, -6], "rotation": [0, 0, 0], "size": [0.3, 1.5, 28] },
-        { "id": "windowStripR", "type": "box", "position": [11, 4, -6], "rotation": [0, 0, 0], "size": [0.3, 1.5, 28] }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            26,
+            5,
+            65
+          ],
+          "material": {
+            "emissive": "#a0c4d0"
+          }
+        },
+        {
+          "id": "bowRamp",
+          "type": "box",
+          "position": [
+            0,
+            0,
+            -32
+          ],
+          "rotation": [
+            0.2,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            1,
+            10
+          ],
+          "material": {
+            "emissive": "#b0d4e0"
+          }
+        },
+        {
+          "id": "passengerDeck",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            -6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            24,
+            4,
+            32
+          ]
+        },
+        {
+          "id": "carDeck",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            24,
+            0.5,
+            22
+          ]
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            7,
+            -22
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            5,
+            8
+          ]
+        },
+        {
+          "id": "funnel",
+          "type": "cylinder",
+          "position": [
+            -9,
+            12,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            3,
+            10,
+            3
+          ],
+          "material": {
+            "emissive": "#ff6600"
+          }
+        },
+        {
+          "id": "windowStripL",
+          "type": "box",
+          "position": [
+            -11,
+            4,
+            -6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1.5,
+            28
+          ]
+        },
+        {
+          "id": "windowStripR",
+          "type": "box",
+          "position": [
+            11,
+            4,
+            -6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1.5,
+            28
+          ]
+        }
       ],
-      "attachmentPoints": ["bowRamp", "passengerDeck", "bridge", "funnel"],
+      "attachmentPoints": [
+        "bowRamp",
+        "passengerDeck",
+        "bridge",
+        "funnel"
+      ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
       "notes": "Wide shallow ferry with enclosed passenger saloon, open car deck aft, and bow ramp suggestion. Perfect for harbor commute lighting."
@@ -324,25 +3102,233 @@
       "baseColor": "#4a5568",
       "musicTheme": "open_sea_folk",
       "lod2": {
-        "hull": { "width": 14, "height": 4, "length": 40 },
+        "hull": {
+          "width": 14,
+          "height": 4,
+          "length": 40
+        },
         "profile": "tall",
         "features": [
-          { "type": "mast", "xOffset": 0, "yOffset": 0, "zOffset": -12, "width": 1, "height": 10, "depth": 1 },
-          { "type": "gantry", "xOffset": 0, "yOffset": 0, "zOffset": 12, "width": 10, "height": 3, "depth": 2 }
+          {
+            "type": "mast",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -12,
+            "width": 1,
+            "height": 10,
+            "depth": 1
+          },
+          {
+            "type": "gantry",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 12,
+            "width": 10,
+            "height": 3,
+            "depth": 2
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [14, 4, 40], "material": { "emissive": "#3a4558" } },
-        { "id": "wheelhouse", "type": "box", "position": [0, 4, -12], "rotation": [0, 0, 0], "size": [10, 6, 10], "material": { "emissive": "#5a6578" } },
-        { "id": "deck", "type": "box", "position": [0, 1.5, 3], "rotation": [0, 0, 0], "size": [13, 0.5, 30] },
-        { "id": "netGantry", "type": "box", "position": [0, 6, 12], "rotation": [0.8, 0, 0], "size": [1, 1, 14], "material": { "emissive": "#ff8800" } },
-        { "id": "netPipe1", "type": "cylinder", "position": [-5, 3, 10], "rotation": [0.5, 0, 0], "size": [0.3, 8, 0.3], "material": { "emissive": "#666677" } },
-        { "id": "netPipe2", "type": "cylinder", "position": [5, 3, 10], "rotation": [0.5, 0, 0], "size": [0.3, 8, 0.3], "material": { "emissive": "#666677" } },
-        { "id": "masthead", "type": "cylinder", "position": [0, 10, -12], "rotation": [0, 0, 0], "size": [0.4, 10, 0.4], "material": { "emissive": "#ffffff" } },
-        { "id": "fishHold", "type": "box", "position": [0, 3, 8], "rotation": [0, 0, 0], "size": [10, 3, 8], "material": { "emissive": "#2a3548" } },
-        { "id": "bow", "type": "cone", "position": [0, 0, 20], "rotation": [1.57, 0, 0], "size": [6, 8, 6] }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            4,
+            40
+          ],
+          "material": {
+            "emissive": "#3a4558"
+          }
+        },
+        {
+          "id": "wheelhouse",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            -12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            6,
+            10
+          ],
+          "material": {
+            "emissive": "#5a6578"
+          }
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            1.5,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            13,
+            0.5,
+            30
+          ]
+        },
+        {
+          "id": "netGantry",
+          "type": "box",
+          "position": [
+            0,
+            6,
+            12
+          ],
+          "rotation": [
+            0.8,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            14
+          ],
+          "material": {
+            "emissive": "#ff8800"
+          }
+        },
+        {
+          "id": "netPipe1",
+          "type": "cylinder",
+          "position": [
+            -5,
+            3,
+            10
+          ],
+          "rotation": [
+            0.5,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            8,
+            0.3
+          ],
+          "material": {
+            "emissive": "#666677"
+          }
+        },
+        {
+          "id": "netPipe2",
+          "type": "cylinder",
+          "position": [
+            5,
+            3,
+            10
+          ],
+          "rotation": [
+            0.5,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            8,
+            0.3
+          ],
+          "material": {
+            "emissive": "#666677"
+          }
+        },
+        {
+          "id": "masthead",
+          "type": "cylinder",
+          "position": [
+            0,
+            10,
+            -12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.4,
+            10,
+            0.4
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "fishHold",
+          "type": "box",
+          "position": [
+            0,
+            3,
+            8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            3,
+            8
+          ],
+          "material": {
+            "emissive": "#2a3548"
+          }
+        },
+        {
+          "id": "bow",
+          "type": "cone",
+          "position": [
+            0,
+            0,
+            20
+          ],
+          "rotation": [
+            1.57,
+            0,
+            0
+          ],
+          "size": [
+            6,
+            8,
+            6
+          ]
+        }
       ],
-      "attachmentPoints": ["masthead", "deck", "netGantry", "fishHold"],
+      "attachmentPoints": [
+        "masthead",
+        "deck",
+        "netGantry",
+        "fishHold"
+      ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
       "notes": "Low-profile workboat with prominent wheelhouse forward, boom/gantry aft, and pipe geometry implying nets. Weathered steel finish."
@@ -355,26 +3341,242 @@
       "baseColor": "#f97316",
       "musicTheme": "deep_ocean_ambient",
       "lod2": {
-        "hull": { "width": 16, "height": 5, "length": 55 },
+        "hull": {
+          "width": 16,
+          "height": 5,
+          "length": 55
+        },
         "profile": "stepped",
         "features": [
-          { "type": "moonpool", "xOffset": 0, "yOffset": 0, "zOffset": 0, "width": 8, "height": 3, "depth": 6 },
-          { "type": "aframe", "xOffset": 0, "yOffset": 0, "zOffset": -18, "width": 12, "height": 5, "depth": 8 },
-          { "type": "helideck", "xOffset": 0, "yOffset": 0, "zOffset": 18, "width": 10, "height": 1, "depth": 10 }
+          {
+            "type": "moonpool",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 0,
+            "width": 8,
+            "height": 3,
+            "depth": 6
+          },
+          {
+            "type": "aframe",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -18,
+            "width": 12,
+            "height": 5,
+            "depth": 8
+          },
+          {
+            "type": "helideck",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": 18,
+            "width": 10,
+            "height": 1,
+            "depth": 10
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [16, 5, 55], "material": { "emissive": "#d65a0f" } },
-        { "id": "sonarDome", "type": "box", "position": [0, -3, 24], "rotation": [0, 0, 0], "size": [6, 2, 5], "material": { "emissive": "#00ff88" } },
-        { "id": "aFrame", "type": "box", "position": [0, 10, -18], "rotation": [0.4, 0, 0], "size": [12, 1, 10], "material": { "emissive": "#f1c40f" } },
-        { "id": "aFrameSupport1", "type": "cylinder", "position": [-5, 6, -18], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
-        { "id": "aFrameSupport2", "type": "cylinder", "position": [5, 6, -18], "rotation": [0.4, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#f39c12" } },
-        { "id": "labModule", "type": "box", "position": [0, 4, 5], "rotation": [0, 0, 0], "size": [8, 5, 10], "material": { "emissive": "#9b59b6" } },
-        { "id": "bridge", "type": "box", "position": [0, 8, 18], "rotation": [0, 0, 0], "size": [10, 5, 8] },
-        { "id": "mastArray", "type": "cylinder", "position": [0, 14, 18], "rotation": [0, 0, 0], "size": [0.6, 12, 0.6], "material": { "emissive": "#ffffff" } },
-        { "id": "deck", "type": "box", "position": [0, 2, 0], "rotation": [0, 0, 0], "size": [15, 0.5, 50] }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            5,
+            55
+          ],
+          "material": {
+            "emissive": "#d65a0f"
+          }
+        },
+        {
+          "id": "sonarDome",
+          "type": "box",
+          "position": [
+            0,
+            -3,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            6,
+            2,
+            5
+          ],
+          "material": {
+            "emissive": "#00ff88"
+          }
+        },
+        {
+          "id": "aFrame",
+          "type": "box",
+          "position": [
+            0,
+            10,
+            -18
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            1,
+            10
+          ],
+          "material": {
+            "emissive": "#f1c40f"
+          }
+        },
+        {
+          "id": "aFrameSupport1",
+          "type": "cylinder",
+          "position": [
+            -5,
+            6,
+            -18
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            10,
+            0.5
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "aFrameSupport2",
+          "type": "cylinder",
+          "position": [
+            5,
+            6,
+            -18
+          ],
+          "rotation": [
+            0.4,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            10,
+            0.5
+          ],
+          "material": {
+            "emissive": "#f39c12"
+          }
+        },
+        {
+          "id": "labModule",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            8,
+            5,
+            10
+          ],
+          "material": {
+            "emissive": "#9b59b6"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            8,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            5,
+            8
+          ]
+        },
+        {
+          "id": "mastArray",
+          "type": "cylinder",
+          "position": [
+            0,
+            14,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            12,
+            0.6
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            15,
+            0.5,
+            50
+          ]
+        }
       ],
-      "attachmentPoints": ["sonarDome", "aFrame", "labModule", "mastArray"],
+      "attachmentPoints": [
+        "sonarDome",
+        "aFrame",
+        "labModule",
+        "mastArray"
+      ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
       "notes": "Mid-size research vessel with distinctive A-frame crane aft, multibeam sonar dome at bow, and lab module amidships. Scientific orange/white finish."
@@ -387,33 +3589,335 @@
       "baseColor": "#cc1a1a",
       "musicTheme": "emergency_pulse",
       "lod2": {
-        "hull": { "width": 10, "height": 3, "length": 28 },
+        "hull": {
+          "width": 10,
+          "height": 3,
+          "length": 28
+        },
         "profile": "tall",
         "features": [
-          { "type": "bridge", "xOffset": 0, "yOffset": 0, "zOffset": -8, "width": 6, "height": 4, "depth": 6 },
-          { "type": "water_cannon", "xOffset": -3, "yOffset": 0, "zOffset": 4, "width": 2, "height": 7, "depth": 2 },
-          { "type": "water_cannon", "xOffset": 3, "yOffset": 0, "zOffset": 4, "width": 2, "height": 7, "depth": 2 },
-          { "type": "mast", "xOffset": 0, "yOffset": 0, "zOffset": -6, "width": 1, "height": 9, "depth": 1 }
+          {
+            "type": "bridge",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -8,
+            "width": 6,
+            "height": 4,
+            "depth": 6
+          },
+          {
+            "type": "water_cannon",
+            "xOffset": -3,
+            "yOffset": 0,
+            "zOffset": 4,
+            "width": 2,
+            "height": 7,
+            "depth": 2
+          },
+          {
+            "type": "water_cannon",
+            "xOffset": 3,
+            "yOffset": 0,
+            "zOffset": 4,
+            "width": 2,
+            "height": 7,
+            "depth": 2
+          },
+          {
+            "type": "mast",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -6,
+            "width": 1,
+            "height": 9,
+            "depth": 1
+          }
         ]
       },
       "parts": [
-        { "id": "hull", "type": "box", "position": [0, -1, 0], "rotation": [0, 0, 0], "size": [10, 3, 28], "material": { "emissive": "#aa1515" } },
-        { "id": "deck", "type": "box", "position": [0, 1, 0], "rotation": [0, 0, 0], "size": [9, 0.4, 26] },
-        { "id": "bridge", "type": "box", "position": [0, 4, -8], "rotation": [0, 0, 0], "size": [7, 5, 6], "material": { "emissive": "#ffffff" } },
-        { "id": "waterCannonPort", "type": "cylinder", "position": [-3.5, 5, 4], "rotation": [0.3, 0, 0], "size": [0.6, 8, 0.6], "material": { "emissive": "#3366ff" } },
-        { "id": "waterCannonStbd", "type": "cylinder", "position": [3.5, 5, 4], "rotation": [0.3, 0, 0], "size": [0.6, 8, 0.6], "material": { "emissive": "#3366ff" } },
-        { "id": "sirenMast", "type": "cylinder", "position": [0, 9, -6], "rotation": [0, 0, 0], "size": [0.5, 10, 0.5], "material": { "emissive": "#ff3333" } },
-        { "id": "sirenArray", "type": "box", "position": [0, 12, -6], "rotation": [0, 0, 0], "size": [2, 1, 2], "material": { "emissive": "#ff0000" } },
-        { "id": "foamDeck", "type": "box", "position": [0, 2.5, 10], "rotation": [0, 0, 0], "size": [4, 2, 3], "material": { "emissive": "#ffcc00" } },
-        { "id": "hullWash", "type": "box", "position": [0, -0.5, 0], "rotation": [0, 0, 0], "size": [9, 0.5, 22], "material": { "emissive": "#ff2222" } },
-        { "id": "hullStripeL", "type": "box", "position": [-4.8, 0, 0], "rotation": [0, 0, 0], "size": [0.3, 1.5, 24], "material": { "emissive": "#ffffff" } },
-        { "id": "hullStripeR", "type": "box", "position": [4.8, 0, 0], "rotation": [0, 0, 0], "size": [0.3, 1.5, 24], "material": { "emissive": "#ffffff" } },
-        { "id": "bow", "type": "cone", "position": [0, 0, 14], "rotation": [1.57, 0, 0], "size": [5, 6, 5] }
+        {
+          "id": "hull",
+          "type": "box",
+          "position": [
+            0,
+            -1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10,
+            3,
+            28
+          ],
+          "material": {
+            "emissive": "#aa1515"
+          }
+        },
+        {
+          "id": "deck",
+          "type": "box",
+          "position": [
+            0,
+            1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            9,
+            0.4,
+            26
+          ]
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            -8
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            5,
+            6
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "waterCannonPort",
+          "type": "cylinder",
+          "position": [
+            -3.5,
+            5,
+            4
+          ],
+          "rotation": [
+            0.3,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            8,
+            0.6
+          ],
+          "material": {
+            "emissive": "#3366ff"
+          }
+        },
+        {
+          "id": "waterCannonStbd",
+          "type": "cylinder",
+          "position": [
+            3.5,
+            5,
+            4
+          ],
+          "rotation": [
+            0.3,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            8,
+            0.6
+          ],
+          "material": {
+            "emissive": "#3366ff"
+          }
+        },
+        {
+          "id": "sirenMast",
+          "type": "cylinder",
+          "position": [
+            0,
+            9,
+            -6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            10,
+            0.5
+          ],
+          "material": {
+            "emissive": "#ff3333"
+          }
+        },
+        {
+          "id": "sirenArray",
+          "type": "box",
+          "position": [
+            0,
+            12,
+            -6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            1,
+            2
+          ],
+          "material": {
+            "emissive": "#ff0000"
+          }
+        },
+        {
+          "id": "foamDeck",
+          "type": "box",
+          "position": [
+            0,
+            2.5,
+            10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            4,
+            2,
+            3
+          ],
+          "material": {
+            "emissive": "#ffcc00"
+          }
+        },
+        {
+          "id": "hullWash",
+          "type": "box",
+          "position": [
+            0,
+            -0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            9,
+            0.5,
+            22
+          ],
+          "material": {
+            "emissive": "#ff2222"
+          }
+        },
+        {
+          "id": "hullStripeL",
+          "type": "box",
+          "position": [
+            -4.8,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1.5,
+            24
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "hullStripeR",
+          "type": "box",
+          "position": [
+            4.8,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            1.5,
+            24
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "bow",
+          "type": "cone",
+          "position": [
+            0,
+            0,
+            14
+          ],
+          "rotation": [
+            1.57,
+            0,
+            0
+          ],
+          "size": [
+            5,
+            6,
+            5
+          ]
+        }
       ],
-      "attachmentPoints": ["waterCannonPort", "waterCannonStbd", "bridge", "sirenMast", "hullWash", "foamDeck"],
+      "attachmentPoints": [
+        "waterCannonPort",
+        "waterCannonStbd",
+        "bridge",
+        "sirenMast",
+        "hullWash",
+        "foamDeck"
+      ],
       "contributor": "Fleet Ecosystem Pipeline",
       "added": "2026-07-19",
-      "notes": "Compact harbor fireboat with dual water monitors, siren mast array, and foam deck rigging. Responds to ship_fire events."
+      "notes": "Compact harbor fireboat with dual water monitors, siren mast array, and foam deck rigging. Responds to ship_fire events.",
+      "model": {
+        "url": "./models/fireboat.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "waterCannonPort",
+          "Empty_HP_02": "waterCannonStbd",
+          "Empty_HP_03": "bridge",
+          "Empty_HP_04": "sirenMast",
+          "Empty_HP_05": "hullWash",
+          "Empty_HP_06": "foamDeck"
+        }
+      }
     }
   ]
 }

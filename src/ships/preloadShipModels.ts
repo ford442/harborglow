@@ -71,8 +71,9 @@ function markUnavailable(shipType: ShipType, url: string): void {
 }
 
 /**
- * Probe and preload priority ship GLBs. Missing files are cached as unavailable
- * so runtime never throws on 404 — ProceduralShip keeps rendering.
+ * Probe and preload every GLB-capable ship (heroes + stretch fleet). Missing
+ * files are cached as unavailable so runtime never throws on 404 —
+ * ProceduralShip keeps rendering.
  */
 export async function preloadShipModels(options: PreloadShipModelsOptions = {}): Promise<void> {
   configureDreiGltf()

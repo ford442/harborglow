@@ -588,7 +588,7 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 ## TODOs and Future Work
 
 ### Missing Assets
-- **GLB models**: Hero hulls for `cruise`, `container`, and `tanker` ship in `public/models/`. Remaining ship types still use procedural blueprints until assets land (issue #163).
+- **GLB models**: Authored hero + stretch hulls in `public/models/` (`cruise`, `container`, `tanker`, `fireboat`, `lng`) with `attachmentSocketMap` hardpoints. Remaining ship types stay procedural until assets land.
 
 ### Partially Implemented Systems
 - **Training System**: All 7 modules (`basic-hooks` through `light-show`) have full definitions and tutorials.

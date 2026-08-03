@@ -10,28 +10,39 @@ Any AI (Jules, Gemini, Claude, Cursor, Copilot, etc.) can add new vessels to the
 4. Add your name to `contributor`
 5. Save and run `npm run heartbeat`
 
-### GLB hulls (priority fleet)
+### GLB hulls (authored fleet)
 
-Three ship types ship with optional GLB hulls in `public/models/`:
+Hero + stretch hulls ship as retopo'd GLBs in `public/models/`:
 
 | Ship type | GLB file | Fallback |
 |-----------|----------|----------|
 | `cruise` | `cruise_liner.glb` | Procedural blueprint |
 | `container` | `container_vessel.glb` | Procedural blueprint |
 | `tanker` | `oil_tanker.glb` | Procedural blueprint |
+| `fireboat` | `fireboat.glb` | Procedural blueprint |
+| `lng` | `lng_carrier.glb` | Procedural blueprint |
 
 If a GLB is missing or fails to load, HarborGlow keeps the procedural hull — no crash.
 
-Regenerate placeholder GLBs from blueprint JSON:
+**Author / regenerate** retopo'd heroes (lofted hulls, emissive slots, `Empty_HP_*` hardpoints):
+
+```bash
+npm run models:author
+node scripts/verify-ship-glb.mjs
+```
+
+Placeholder box dumps (dev only — do **not** commit over authored heroes):
 
 ```bash
 npm run generate:ship-glb
 ```
 
-Optional Draco pass (requires `@gltf-transform/cli` globally):
+Compress before committing (`gltf-transform draco` only — preserves `Empty_HP_*` hierarchy; do not run `optimize`/`flatten`):
 
 ```bash
-./scripts/compress-ship-glb.sh public/models/cruise_liner.glb public/models/cruise_liner.glb
+npm run models:compress
+# or one file:
+./scripts/compress-ship-glb.sh public/models/cruise_liner.glb
 ```
 
 ### Declaring a model on a blueprint (`ShipModelConfig`)
@@ -45,7 +56,10 @@ A ship opts into a GLB hull from `ships.json` — no code change:
     "url": "./models/cruise_liner.glb",
     "scale": 1,
     "yOffset": 0,
-    "attachmentSocketMap": { "Empty_017": "funnel1" }
+    "attachmentSocketMap": {
+      "Empty_HP_01": "balcony0",
+      "Empty_HP_05": "funnel1"
+    }
   }
 }
 ```
@@ -55,12 +69,12 @@ A ship opts into a GLB hull from `ships.json` — no code change:
 | `url` | yes | Public path to a `.glb`/`.gltf`; must resolve from the app base |
 | `scale` | no (default `1`) | Multiplier **on top of** `blueprint.scale`, for models not authored in metres |
 | `yOffset` | no (default `0`) | Vertical nudge in metres when the export origin isn't at the waterline |
-| `attachmentSocketMap` | no | GLB node name → blueprint attachment id, for exports whose empties are named `Empty_001` etc. |
+| `attachmentSocketMap` | **yes for authored hulls** | GLB node name → blueprint attachment id (`Empty_HP_*` → `funnel1`, etc.) |
 
 Validation lives in `validateShipModelConfig()` (`src/types/ShipBlueprint.ts`). An
 invalid block is **never fatal**: it is logged once and the ship stays procedural.
 Blueprints with no `model` block fall back to the filename convention in
-`shipModelRegistry.ts` for the hero trio only.
+`shipModelRegistry.ts` for known hulls only.
 
 ### Attachment points remain blueprint-owned
 
@@ -74,8 +88,10 @@ used. Resolution order per attachment id:
 3. node named `attach_<id>`
 4. blueprint part position (always available)
 
-Verify visually with `G` (wireframe) plus the in-game attachment markers before
-calling a model done.
+Authored heroes **must** populate `attachmentSocketMap` for every
+`attachmentPoints` id — do not rely on convention guesses. Verify with
+`node scripts/verify-ship-glb.mjs`, then visually with `G` (wireframe) plus the
+in-game attachment markers before calling a model done.
 
 ### Emissive slots (night lighting)
 
@@ -85,6 +101,11 @@ the same night curve as procedural parts — their `emissiveIntensity` follows
 authored. Materials on these slots are cloned per ship instance, so two cruise
 liners can be lit independently. Keep the count small; each slot is an extra
 material.
+
+**Renderer parity:** use `MeshStandardMaterial` only (no custom shaders /
+`MeshBasicMaterial` emissives). The shared scene graph is rendered by both
+`?renderer=webgl` and `?renderer=webgpu` — tune materials on WebGL first, then
+confirm on WebGPU.
 
 ### Quality presets and failure handling
 
@@ -105,19 +126,40 @@ See also `src/ships/shipModelContract.ts`.
 |------|--------|
 | Forward axis (bow) | **+Z** |
 | Up axis | **+Y** |
+| Starboard | **+X** |
 | Units | 1 unit = 1 meter (before `blueprint.scale`) |
 | Origin | Waterline amidships (same as procedural blueprints) |
-| Attachment nodes | Empty/Object3D named **exactly** like `attachmentPoints` in `ships.json` (optional `attach_` prefix) |
-| Root node | `{shipId}_root` (e.g. `cruise_root`) |
+| Root node | `{shipId}_root` (e.g. `cruise_root`, `fireboat_root`) |
+| Hardpoints | Empty/`Object3D` nodes named `Empty_HP_01`… (or `attach_<id>`) |
+| Socket map | Every `attachmentPoints` id listed in `model.attachmentSocketMap` |
+| Emissive slots | Mesh/material names `emissive_*` or `glow_*` |
+| Materials | `MeshStandardMaterial` (WebGL + WebGPU parity) |
 | Compression | Draco + Meshopt supported (`useGLTF(url, true, true)`) |
+
+### Hardpoint naming
+
+Prefer artist-style empties (`Empty_HP_01`) over matching blueprint ids directly.
+Map them explicitly in `ships.json` so spreader snap points match authored deck
+hardpoints — not convention fallbacks.
 
 ### Blender export checklist
 
 1. Model in meters, bow facing **+Y Blender** → export with **+Z forward** (glTF default) or rotate −90° on Y so bow aligns with Three.js **+Z**.
-2. Add empties at each upgrade location; name them `stack1`, `funnel1`, etc. — must match `attachmentPoints` in the blueprint.
-3. Export as GLB to `public/models/{filename}` (see `src/ships/shipModelRegistry.ts`).
-4. Run `npm run generate:ship-glb` only for placeholder/dev assets; replace with authored meshes for trailers.
-5. Verify snap alignment in-game: spawn ship, toggle crane view, install a rig at each point.
+2. Origin at waterline amidships; apply scale/rotation before export (`Ctrl+A`).
+3. Add empties at each upgrade hardpoint; name them `Empty_HP_01`… and record the map in `ships.json`.
+4. Name night-lit meshes `emissive_windows`, `glow_funnel`, etc.
+5. Root the hierarchy under `{shipId}_root`.
+6. Export as GLB to `public/models/{filename}` (see `src/ships/shipModelRegistry.ts`).
+7. Run `npm run models:compress`, then `node scripts/verify-ship-glb.mjs`.
+8. Verify snap alignment in-game: `?renderer=webgl` spawn ship → crane install; repeat with `?renderer=webgpu`.
+
+### Regenerating retopo placeholders from code
+
+When Blender assets are not available, `npm run models:author` builds lofted /
+beveled retopo meshes that satisfy the contract (hardpoints, emissives, budgets).
+Treat those as interim authored content — replace with hand-sculpted GLBs when art
+lands, keeping the same root/hardpoint/socket-map names. Do **not** overwrite with
+`npm run generate:ship-glb` (box placeholders).
 
 ### Runtime pipeline
 
@@ -133,13 +175,11 @@ not bundle size. Budget per hero hull:
 
 | Metric | Budget | Why |
 |--------|--------|-----|
-| Triangles (LOD0) | 15–40k cruise, 10–30k container/tanker | LOD1/LOD2 stay procedural, so LOD0 is the only authored cost |
-| File size (compressed) | **≤ 1.5 MB** per hull, ≤ 4 MB for the trio | Keeps the "Loading ship models…" stage ≈1s on a 20 Mbit link |
-| Materials | ≤ 8 per hull, ≤ 3 emissive slots | Each slot clones per ship instance |
+| Triangles (LOD0) | 8–40k cruise, 8–30k container/tanker, 3–25k fireboat | LOD1/LOD2 stay procedural, so LOD0 is the only authored cost |
+| File size (compressed) | **≤ 1.5 MB** per hull, ≤ 5 MB for the full authored set | Keeps the "Loading ship models…" stage short on a 20 Mbit link |
+| Materials | ≤ 8 per hull, ≤ 3 named emissive *families* (many panes may share) | Each unique slot clones per ship instance |
 | Textures | ≤ 2× 2048² | Mid-range laptop GPU budget |
 
-Current placeholder assets are generated from the blueprints and total ~100 KB —
-authored heroes will be far larger, so re-check the budget when they land.
 Measure with `npm run models:inspect -- public/models/cruise_liner.glb`, and
 compress with `npm run models:compress` (Draco) before committing.
 
@@ -222,7 +262,9 @@ Add to src/blueprints/ships.json. Contributor: "Claude".
 ```bash
 npm run lint:fix      # Check for errors
 npm run heartbeat     # Build and verify
-npm run dev           # View at http://localhost:5173/
+npm run models:author # (re)build authored GLBs if hulls changed
+node scripts/verify-ship-glb.mjs
+npm run dev           # View at http://localhost:5173/?renderer=webgl
 ```
 
 Look for in console:
@@ -233,9 +275,11 @@ Look for in console:
 
 | Ship | Contributor | Notes |
 |------|-------------|-------|
-| Cruise Liner "Aurora Glow" v1.0 | Grok + Kimi | Multi-deck with balconies |
-| Container Vessel "Neon Stack" v1.0 | Grok + Kimi | Colorful containers with dock cranes |
-| Oil Tanker "Flame Runner" v1.0 | Grok + Kimi | VLCC with iconic flare stack |
+| Cruise Liner "Aurora Glow" v1.0 | Grok + Kimi | Multi-deck with balconies + authored GLB |
+| Container Vessel "Neon Stack" v1.0 | Grok + Kimi | Colorful containers with dock cranes + authored GLB |
+| Oil Tanker "Flame Runner" v1.0 | Grok + Kimi | VLCC with iconic flare stack + authored GLB |
+| Harbor Fireboat "Rescue Pulse" v1.0 | Fleet Ecosystem | Dual monitors + authored GLB |
+| Q-Max LNG "Cryo Titan" v1.0 | Scientific Research Team | Membrane tanks + authored GLB |
 
 ### Ship Details
 

@@ -23,6 +23,7 @@ export {
   getShipModelUrl,
   isGlbCapableShipType,
   isPriorityGlbShipType,
+  listGlbCapableShipTypes,
   listGlbContracts,
   SHIP_MODEL_FILENAMES,
 } from './shipModelRegistry'
