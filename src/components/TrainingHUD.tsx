@@ -136,11 +136,16 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     }
   }, [operationMode, recordOperationModeSwitch])
 
-  // Module 5: acknowledge Crane B when multiview is active or after 30s
+  // Module 5: accessibility fallback ack (C key / HUD) — primary path is zone clear via Crane B
   useEffect(() => {
     if (moduleId !== 'multi-crane') return
-    const timer = setTimeout(() => recordCraneBCoordinated(), 30000)
-    return () => clearTimeout(timer)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyC' && !e.repeat) {
+        recordCraneBCoordinated()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [moduleId, recordCraneBCoordinated])
 
   // Module 7: sync test when all rigs installed and music playing
@@ -178,6 +183,9 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     onComplete()
   }
 
+  const needsCraneBAck =
+    moduleId === 'multi-crane' && !completedObjectives.includes('coordinate-1')
+
   if (!module) return null
 
   return (
@@ -197,6 +205,16 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
           </div>
           
           <div style={styles.rightControlsStyle}>
+            {needsCraneBAck && (
+              <button
+                type="button"
+                style={styles.pauseButtonStyle}
+                onClick={() => recordCraneBCoordinated()}
+                title="Accessibility: acknowledge Crane B channel (or press C). Prefer clearing the shared zone while Crane B swings."
+              >
+                Ack B [C]
+              </button>
+            )}
             <button style={styles.pauseButtonStyle} onClick={() => setShowPauseMenu(true)}>
               ⏸️
             </button>

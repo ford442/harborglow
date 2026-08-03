@@ -388,9 +388,9 @@ export const TRAINING_MODULES: TrainingModule[] = [
       { id: 'multi-intro', title: 'Dual Berth Operations', message: 'Two cranes, two ships, one harbor. Crane B is on autopilot at the adjacent berth — stay aware of its swing radius.', voiceLine: 'training_multi_crane_intro' },
       { id: 'multiview', title: 'Multiview Awareness', message: 'Open the multiview dashboard to watch both berths. Spatial awareness prevents costly collisions.', highlightElement: '.camera-feed', position: 'right' },
       { id: 'queue-plan', title: 'Queue Planning', message: 'Install on your ship first, then coordinate timing so Crane B finishes its rig before you cross the shared zone.', position: 'left' },
-      { id: 'crane-b-sync', title: 'Crane B Channel', message: 'Acknowledge Crane B on the coordination channel. Watch for the cyan beacon on the adjacent vessel.', waitForAction: true, actionType: 'wait' },
-      { id: 'first-install', title: 'Your Berth First', message: 'Complete at least one installation on your assigned cruise liner.', waitForAction: true, actionType: 'install' },
-      { id: 'second-ship', title: 'Adjacent Berth', message: 'Move to the container vessel at the adjacent berth and install a rig without crossing into Crane B\'s path.', waitForAction: true, actionType: 'install' },
+      { id: 'crane-b-sync', title: 'Crane B Channel', message: 'Clear the shared zone (cyan/red deck band) while Crane B swings — or press C / Ack B as an accessibility fallback. Watch the cyan beacon on Crane B.', waitForAction: true, actionType: 'wait' },
+      { id: 'first-install', title: 'Your Berth First', message: 'Complete at least one installation on your assigned cruise liner while Crane B works the adjacent berth.', waitForAction: true, actionType: 'install' },
+      { id: 'second-ship', title: 'Adjacent Berth', message: 'Confirm both vessels have a light rig. Crane B installs on the container automatically once coordinated — or install there yourself without crossing its path.', waitForAction: true, actionType: 'install' },
       { id: 'complete', title: 'Coordination Complete', message: 'Clean dual-crane operations. You\'re cleared for emergency response training.', voiceLine: 'training_multi_crane_complete' }
     ]
   },
@@ -1051,8 +1051,9 @@ export function setupTrainingScenario(moduleId: TrainingModuleId): void {
 
   switch (moduleId) {
   case 'multi-crane': {
-    const primary = ShipSpawner.spawnShip('cruise')
-    const secondary = ShipSpawner.spawnShip('container')
+    // Pin adjacent berths under Crane A (origin) and Crane B (x≈30)
+    const primary = ShipSpawner.spawnShip('cruise', { position: [-5, 0, 2] })
+    const secondary = ShipSpawner.spawnShip('container', { position: [30, 0, 2] })
     store.setCurrentShip(primary.id)
     trainingSystem.setTrainingShipIds(primary.id, secondary.id)
     break

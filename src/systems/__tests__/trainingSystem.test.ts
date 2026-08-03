@@ -200,6 +200,22 @@ describe('evaluateCompletedObjectives — modules 5-7', () => {
     expect(completed).toContain('dual-install')
   })
 
+  it('multi-crane: coordinate-1 fails without Crane B acknowledgment', () => {
+    const runtime = {
+      ...DEFAULT_TRAINING_RUNTIME,
+      shipsWithInstalls: new Set(['ship-a', 'ship-b']),
+      craneBCoordinated: false,
+    }
+    const completed = evaluateCompletedObjectives(
+      'multi-crane',
+      ['coordinate-1', 'dual-install', 'no-interference'],
+      { ...perfectMetrics, installationsCompleted: 2 },
+      runtime,
+    )
+    expect(completed).not.toContain('coordinate-1')
+    expect(completed).toContain('dual-install')
+  })
+
   it('emergency: requires stop, secure, and mode switch protocol', () => {
     const runtime = {
       ...DEFAULT_TRAINING_RUNTIME,

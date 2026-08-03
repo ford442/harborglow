@@ -7,6 +7,7 @@ import { trafficSystem } from '../trafficSystem'
 import { lightingSystem } from '../lightingSystem'
 import { weatherSystem } from '../weatherSystem'
 import { swaySystem } from '../swaySystem'
+import { craneBSystem } from '../craneBSystem'
 import { wildlifeSystem } from '../wildlifeSystem'
 import { ambientMarineLifeSystem } from '../ambientMarineLifeSystem'
 import { seaEventsSystem } from '../seaEventsSystem'
@@ -29,6 +30,7 @@ import type { FrameContext } from './types'
 //   30    lighting            core
 //   40    weather             core
 //   50    sway                crane
+//   55    crane-b             crane   (multi-crane training NPC)
 //   60    wildlife            ambient
 //   70    ambient-marine-life ambient
 //   80    sea-events          ambient
@@ -79,6 +81,21 @@ export function ensureMainSceneSystemsRegistered(): void {
         order: 50,
         groups: ['crane'],
         update: (dt, ctx) => swaySystem.update(dt, ctx.swayTrolleyPosition),
+    })
+
+    systemRegistry.register({
+        id: 'crane-b',
+        order: 55,
+        groups: ['crane'],
+        update: (dt) => craneBSystem.update(dt),
+        start: () => {
+            // Deferred — start() is called when multi-crane scenario mounts
+        },
+        stop: () => craneBSystem.stop(),
+        shouldTick: () => {
+            const { gameMode, currentTrainingModule } = useGameStore.getState()
+            return gameMode === 'training' && currentTrainingModule === 'multi-crane'
+        },
     })
 
     systemRegistry.register({

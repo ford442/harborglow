@@ -12,6 +12,10 @@ import {
 
 export default function HotkeyHints() {
   const operationMode = useGameStore((s) => s.operationMode)
+  const gameMode = useGameStore((s) => s.gameMode)
+  const currentTrainingModule = useGameStore((s) => s.currentTrainingModule)
+  const multiCraneTraining =
+    gameMode === 'training' && currentTrainingModule === 'multi-crane'
 
   if (operationMode === 'tugboat') {
     return (
@@ -85,6 +89,12 @@ export default function HotkeyHints() {
         <kbd style={hotkeyKbdStyle}>WASD</kbd>
         <span style={hotkeyTextStyle}>Move</span>
       </div>
+      {multiCraneTraining && (
+        <div style={hotkeyHintStyle}>
+          <kbd style={hotkeyKbdStyle}>C</kbd>
+          <span style={hotkeyTextStyle}>Ack Crane B</span>
+        </div>
+      )}
     </div>
   )
 }

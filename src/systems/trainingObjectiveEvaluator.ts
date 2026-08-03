@@ -115,7 +115,8 @@ export function isObjectiveComplete(ctx: ObjectiveEvaluationContext): boolean {
   case 'multi-crane':
     switch (objectiveId) {
     case 'coordinate-1':
-      return runtime.craneBCoordinated || runtime.shipsWithInstalls.size >= 1
+      // Requires real coordination (zone clear or accessibility ack) — not installs alone
+      return runtime.craneBCoordinated
     case 'dual-install':
       return runtime.shipsWithInstalls.size >= 2 || metrics.installationsCompleted >= 2
     case 'no-interference':

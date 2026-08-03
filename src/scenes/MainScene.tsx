@@ -22,6 +22,7 @@ import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTw
 
 import ShipComponent from './Ship'
 import Crane from './Crane'
+import CraneB from './CraneB'
 import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
 import DistressedShip from './DistressedShip'
@@ -509,6 +510,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             
             {/* Crane or Tugboat depending on mode */}
             {(operationMode === 'crane' || cameraMode === 'onFoot') && <Crane />}
+            {gameMode === 'training' && currentTrainingModule === 'multi-crane' && (
+                <CraneB />
+            )}
             {operationMode === 'tugboat' && <Tugboat />}
             {cameraMode === 'onFoot' && <Player />}
             <DockWalkEnvironment isNight={isNight} />

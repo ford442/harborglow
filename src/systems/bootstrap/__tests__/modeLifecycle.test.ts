@@ -94,6 +94,7 @@ describe('ensureMainSceneSystemsRegistered', () => {
             'lighting',
             'weather',
             'sway',
+            'crane-b',
             'wildlife',
             'ambient-marine-life',
             'sea-events',
@@ -109,6 +110,6 @@ describe('ensureMainSceneSystemsRegistered', () => {
         ensureMainSceneSystemsRegistered()
         ensureMainSceneSystemsRegistered()
 
-        expect(systemRegistry.getRegisteredIds()).toHaveLength(13)
+        expect(systemRegistry.getRegisteredIds()).toHaveLength(14)
     })
 })
