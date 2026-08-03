@@ -207,7 +207,7 @@ describe('evaluateCompletedObjectives — modules 5-7', () => {
       loadSecured: true,
       operationModeSwitched: true,
       returnedToCrane: true,
-      shipsWithInstalls: new Set(),
+      shipsWithInstalls: new Set<string>(),
     }
     const ids = ['emergency-stop', 'secure-load', 'evacuate']
     const completed = evaluateCompletedObjectives('emergency', ids, perfectMetrics, runtime)
@@ -215,7 +215,7 @@ describe('evaluateCompletedObjectives — modules 5-7', () => {
   })
 
   it('light-show: requires full install, sync, and S-rank', () => {
-    const runtime = { ...DEFAULT_TRAINING_RUNTIME, syncTestPassed: true, shipsWithInstalls: new Set() }
+    const runtime = { ...DEFAULT_TRAINING_RUNTIME, syncTestPassed: true, shipsWithInstalls: new Set<string>() }
     const completed = evaluateCompletedObjectives(
       'light-show',
       ['complete-show', 'sync-test', 's-rank'],

@@ -1,12 +1,11 @@
 name: CI
 
-# Merge gates for HarborGlow. See AGENTS.md § "CI merge gates" for which steps
+# Merge gates for HarborGlow. See AGENTS.md § "CI merge gates" for which jobs
 # block merge vs report-only.
 #
-# History: UpgradeMenu.tsx broke production on main for two weeks because commits
-# never ran `tsc`. The matrix below extends beyond typecheck to catch lint
-# policy violations, Vite/Babel dev-transform failures, and production bundle
-# regressions.
+# Gates run in parallel jobs so smoke + production build always report even when
+# unit tests fail. Job `gate-summary` aggregates results for a single required
+# status check on PRs.
 
 on:
   pull_request:
@@ -33,9 +32,9 @@ jobs:
               - 'playwright.config.ts'
               - '.github/workflows/ci.yml'
 
-  ci:
+  gate-wasm:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -54,25 +53,152 @@ jobs:
       - name: Check committed WASM binary
         run: npm run check:wasm
 
-      - name: Type-check
+  gate-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check application
         run: npm run typecheck
+
+      - name: Type-check tests
+        run: npm run typecheck:tests
+
+  gate-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Lint
         run: npm run lint
 
+  gate-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Test
         run: npm run test
+
+  gate-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Dev-transform smoke (Babel pipeline)
         run: npm run smoke:dev-transform
 
+  gate-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Production build
         run: npm run build
+
+  gate-summary:
+    runs-on: ubuntu-latest
+    needs:
+      - gate-wasm
+      - gate-typecheck
+      - gate-lint
+      - gate-test
+      - gate-smoke
+      - gate-build
+    if: always()
+    steps:
+      - name: Require all merge gates
+        env:
+          GATE_WASM: ${{ needs.gate-wasm.result }}
+          GATE_TYPECHECK: ${{ needs.gate-typecheck.result }}
+          GATE_LINT: ${{ needs.gate-lint.result }}
+          GATE_TEST: ${{ needs.gate-test.result }}
+          GATE_SMOKE: ${{ needs.gate-smoke.result }}
+          GATE_BUILD: ${{ needs.gate-build.result }}
+        run: |
+          failed=0
+          for label in GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD; do
+            result="${!label}"
+            echo "$label: $result"
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more CI merge gates failed."
+            exit 1
+          fi
+          echo "All CI merge gates passed."
 
   e2e-visual:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [ci, changes]
+    needs: [changes]
     if: github.event_name == 'push' || needs.changes.outputs.visual == 'true'
     permissions:
       contents: read

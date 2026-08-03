@@ -14,17 +14,21 @@ function makeCtx(overrides: Partial<FrameContext> = {}): FrameContext {
     }
 }
 
+import type { Mock } from 'vitest'
+
+type StubSystem = SystemTick & { update: Mock<(dt: number, ctx: FrameContext) => void> }
+
 function stubSystem(
     id: string,
     order: number,
     extra: Partial<SystemTick> = {}
-): SystemTick & { update: ReturnType<typeof vi.fn> } {
+): StubSystem {
     return {
         id,
         order,
         update: vi.fn(),
         ...extra,
-    }
+    } as StubSystem
 }
 
 describe('SystemRegistry', () => {
