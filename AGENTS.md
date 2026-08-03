@@ -206,51 +206,40 @@ src/
 │       ├── WireframeDebug.tsx
 │       ├── RendererDiagnosticsMonitor.tsx
 │       └── index.ts
-├── scenes/                  # R3F 3D scene components (~37 files)
+├── scenes/                  # R3F 3D scene components
 │   ├── AttachmentPoint.tsx
 │   ├── AudioReactiveLightShow.tsx
 │   ├── ControlBooth.tsx
-│   ├── ControlBoothExample.tsx
-│   ├── ControlBoothIntegration.tsx
-│   ├── ControlBoothOptimized.tsx
-│   ├── ControlBoothSwappable.tsx
-│   ├── ControlBoothWithMonitorSystem.tsx
 │   ├── Crane.tsx
 │   ├── CraneCable.tsx
 │   ├── DistressedShip.tsx
 │   ├── DistantShipQueue.tsx
 │   ├── Dock.tsx
-│   ├── EnhancedWeather.tsx
-│   ├── ExperimentalTech.tsx
-│   ├── FFTOcean.tsx
 │   ├── FoamSystem.tsx
 │   ├── GlobalIllumination.tsx
 │   ├── HolographicUI.tsx
-│   ├── InteractiveWater.tsx
-│   ├── LightShow.tsx
-│   ├── MainScene.tsx        # Scene composition, lazy-loaded (~1602 lines)
-│   ├── MonitorMinimalExample.tsx
-│   ├── MonitorSystem.tsx
+│   ├── LightFlareSystem.tsx
+│   ├── MainScene.tsx        # Scene composition (lazy-loaded)
 │   ├── MultiviewSystem.tsx
 │   ├── OnDockRail.tsx
-│   ├── PBRWater.tsx
-│   ├── ParticleSystem.tsx
 │   ├── PostProcessing.tsx
 │   ├── ProceduralShip.tsx   # Blueprint-driven procedural ships
 │   ├── SeaBirds.tsx
 │   ├── SeaEvents.tsx
-│   ├── Ship.tsx             # Ship rendering (procedural + fallback)
-│   ├── ShipMaterials.tsx
+│   ├── Ship.tsx             # Ship rendering (procedural + GLB fallback)
 │   ├── Tugboat.tsx
 │   ├── TugboatTargetShip.tsx
 │   ├── UnderwaterCamera.tsx
-│   ├── UpgradeCelebration.tsx
 │   ├── VolumetricLighting.tsx
-│   ├── Water.tsx
+│   ├── Water.tsx            # **Sole water authority** (Gerstner + WaveSystem + quality tiers)
 │   └── Wildlife.tsx
-├── store/                   # State management
-│   ├── useGameStore.ts      # Monolithic Zustand store (~1184 lines)
-│   └── harborThemes.ts      # Theme definitions
+│   # Archived parallel stacks → scripts/archive/scenes/ (FFTOcean, PBRWater, InteractiveWater, ExperimentalTech, MonitorMinimalExample)
+├── store/                   # State management (domain slices — see docs/STORE.md)
+│   ├── useGameStore.ts      # create() + composition + selectors + save subscription (~85 lines)
+│   ├── gameStoreTypes.ts    # canonical GameState types + defaultState + persistence projection
+│   ├── sliceTypes.ts        # compile-time slice ownership guard
+│   ├── harborThemes.ts      # static theme tables
+│   └── slices/              # ships, crane, camera, environment, economy, ops, session
 ├── systems/                 # Game logic singletons (~34 files)
 │   ├── StormSystem.ts
 │   ├── WaveSystem.ts
@@ -305,10 +294,12 @@ src/
 └── index.css                # Global styles + crane dashboard CSS
 
 public/
-├── models/                  # GLB model files (currently empty)
-│   └── .gitkeep
-├── audio/                   # Audio assets
-├── models/                  # 3D model assets
+├── models/                  # Hero GLB hulls (cruise/container/tanker) + procedural fallback for other types
+│   ├── cruise_liner.glb
+│   ├── container_vessel.glb
+│   └── oil_tanker.glb
+├── audio/                   # Audio assets (intro MP3s, etc.)
+├── wasm/                    # C++→WASM DSP binaries (when built)
 └── vite.svg
 
 docs/
@@ -353,11 +344,12 @@ Root files:
 ## Code Organization Patterns
 
 ### State Management (Zustand)
-- All game state lives in `useGameStore.ts` (~1184 lines).
-- Store includes: ships, upgrades, crane kinematics, camera modes, weather, wildlife, harbor events, training progress, reputation, economy, booth tier, time of day, sea events, operation mode (crane/tugboat), tugboat state, wave params, wind state, and attachment system config.
-- Actions are defined inline inside the store.
+- Game state is composed from **domain slices** in `src/store/slices/`; see [docs/STORE.md](docs/STORE.md).
+- `useGameStore.ts` (~85 lines) wires slices together and owns the **one** `subscribe → scheduleSave` path.
+- `gameStoreTypes.ts` is the single canonical type module; `sliceTypes.ts` enforces action ownership at compile time.
+- Store includes: ships, upgrades, crane kinematics, camera modes, weather, wildlife, harbor events, training progress, reputation, **Harbor Credits wallet** (`harborCredits`), booth tier, time of day, sea events, operation mode (crane/tugboat), tugboat state, wave params, wind state, and attachment system config.
 - Auto-persistence to `localStorage` via `storage_manager.ts` with a debounced save triggered by `.subscribe()`.
-- Save data includes a version string (`harborglow-save-v3`) for basic compatibility checks.
+- Save data version: `harborglow-save-v4` (v3 saves migrate `money` → `harborCredits`).
 - Derived-state selectors (`selectCurrentShip`, `selectShipUpgrades`, `selectUpgradeProgress`, `selectIsShipFullyUpgraded`) are exported as plain functions.
 
 ### 3D Component Patterns
@@ -439,11 +431,11 @@ Root files:
 
 ## Testing Strategy
 
-**Vitest** is configured (`npm test`) with smoke tests for core systems (e.g. `sequencerSystem`).
+**Vitest** is configured (`npm test`) with store, system, and integration smoke tests.
 
 ### Smoke Test
 - `npm run heartbeat` runs `git status`, a TODO/FIXME grep, `npm run build`, and `npm test`.
-- Recent heartbeat runs: build succeeds (~1760 modules), 95/95 Vitest tests pass, 0 TODO/FIXME in `src/`.
+- Recent heartbeat runs: build succeeds (~1760 modules), **338/338** Vitest tests pass (25 files), 0 TODO/FIXME in `src/`.
 
 ### Manual Testing Checklist
 1. Spawn each ship type and verify unique appearance.
@@ -596,15 +588,13 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 ## TODOs and Future Work
 
 ### Missing Assets
-- **GLB models** are not present in `/public/models/`. The code falls back to procedural primitives. Planned models:
-  - `cruise_liner.glb`
-  - `container_vessel.glb`
-  - `oil_tanker.glb`
+- **GLB models**: Hero hulls for `cruise`, `container`, and `tanker` ship in `public/models/`. Remaining ship types still use procedural blueprints until assets land (issue #163).
 
 ### Partially Implemented Systems
-- **Training System**: Modules 1–4 have full definitions and tutorials; modules 5–7 (`multi-crane`, `emergency`, `light-show`) are marked **(planned)** with empty tutorials.
-- **Economy System**: Documented in `docs/systems/ECONOMY_SYSTEM.md` (Harbor Credits, shop, specialists), but the full shop UI and purchase flow are not yet wired into the main HUD.
+- **Training System**: All 7 modules (`basic-hooks` through `light-show`) have full definitions and tutorials.
+- **Economy System**: Harbor Credits wallet + `HarborShop` UI are wired; specialist purchases documented in `docs/systems/ECONOMY_SYSTEM.md`.
 - **TSL Shaders**: `lightShowNodes.ts` has a placeholder fallback to `MeshStandardMaterial`; true WebGPU TSL nodes are commented out.
+- **Experimental port tech**: `experimentalTechSystem` ticks in the bootstrap registry; 3D renderer archived to `scripts/archive/scenes/ExperimentalTech.tsx` until booth-tier visuals ship.
 
 ### Future Ideas (from README / docs)
 - Multiplayer crane battles
@@ -624,7 +614,7 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 
 ---
 
-*Last updated: May 2026 — based on direct codebase analysis of 145 source files.*
+*Last updated: Aug 2026 — orphan scene consolidation + domain-slice store docs.*
 
 ## Cursor Cloud specific instructions
 

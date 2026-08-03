@@ -69,7 +69,7 @@ if a field is not listed there, it is not saved.
 | Persisted | Ephemeral (never saved) |
 |---|---|
 | Ships, installed upgrades, ship versions, sail/dock schedule | Crane kinematics: spreader pose/rotation, cable depth, load tension, trolley, winch, joysticks, twistlock, `installAttemptStartedAt` |
-| Money, reputation, economy serialization | Camera transforms, viewport history/pins, focused viewport |
+| `harborCredits` (single Harbor Credits wallet), reputation, economy serialization | Camera transforms, viewport history/pins, focused viewport |
 | Booth tier, harbor, quality preset, BPM/lyrics/light settings | Live wildlife entities, active sea events, harbor events |
 | Season, wildlife density, marine-life toggle, weather, time of day | In-flight mission state, install queue, spectator sequence |
 | Tugboat career stats, upgrades, salvage contracts, wave params | Music playback map, transient installation feedback |
@@ -91,6 +91,14 @@ from the twistlock engaging to the install, and live sway magnitude from
 `reputationSystem.recordInstallation` awards base completion only, rather than
 scoring against invented numbers (it previously received a hard-coded
 `timeSeconds: 30` / `swayPercent: 0.2`).
+
+## Economy wallet
+
+`harborCredits` is the **one** player-facing currency (Harbor Credits). The legacy
+`money` field and the in-memory `economySystem.state.harborCredits` duplicate were
+unified in PR #146; v3 saves migrate forward via `storage_manager.ts`. Install
+rewards, shop purchases (`HarborShop`), salvage contracts, and mission payouts all
+read/write `harborCredits` through `economySlice` actions.
 
 ## Adding state
 
