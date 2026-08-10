@@ -30,14 +30,38 @@ export default defineConfig(({ mode }) => ({
         chunkSizeWarningLimit: 4000,
         rollupOptions: {
             output: {
-                // Manual chunk splitting - only split non-React libraries
-                manualChunks: {
-                    // 3D libraries only - no React deps
-                    'vendor-3d': ['three', '@react-three/fiber', '@react-three/drei', '@react-three/rapier', '@react-three/postprocessing'],
-                    // Audio only
-                    'vendor-audio': ['tone'],
-                    // Note: React, React-DOM, Leva, and Zustand stay in main bundle
-                    // to avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED error
+                // Manual chunk splitting, matched by resolved module path rather than bare
+                // specifier: the object-form of manualChunks only claims whatever a literal
+                // specifier resolves to (e.g. 'react-dom' -> react-dom/index.js), so deep
+                // imports like 'react-dom/client' or 'three/examples/jsm/...' fell through
+                // and got swept into whichever chunk's static dependency walk found them
+                // first - putting all of react/react-dom inside vendor-3d and forcing the
+                // whole 3D bundle to load eagerly before the app could render anything.
+                manualChunks(id) {
+                    if (id.includes('node_modules/tone/')) {
+                        return 'vendor-audio'
+                    }
+                    // React/ReactDOM/Scheduler get their own chunk, kept out of vendor-3d,
+                    // to avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED errors.
+                    if (
+                        id.includes('node_modules/react/') ||
+                        id.includes('node_modules/react-dom/') ||
+                        id.includes('node_modules/scheduler/')
+                    ) {
+                        return 'vendor-react'
+                    }
+                    // 3D libraries, including their deep submodule imports (e.g.
+                    // three/examples/jsm/*) which a bare 'three' specifier wouldn't catch,
+                    // and the standalone 'postprocessing' package @react-three/postprocessing
+                    // wraps.
+                    if (
+                        id.includes('node_modules/three/') ||
+                        id.includes('node_modules/@react-three/') ||
+                        id.includes('node_modules/postprocessing/')
+                    ) {
+                        return 'vendor-3d'
+                    }
+                    // Note: Leva and Zustand stay in main bundle.
                 },
                 // Ensure chunks are named predictably
                 chunkFileNames: 'assets/[name]-[hash].js',
