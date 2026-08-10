@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build && npm run build:wasm",
+        "build": "npm run models:verify && tsc && vite build && npm run build:wasm",
         "build:analyze": "tsc && vite build --mode analyze",
         "build:wasm": "cd cpp && ./build.sh",
         "check:wasm": "node scripts/check-wasm.mjs",
@@ -35,6 +35,7 @@
         "@react-three/rapier": "^1.3.1",
         "@types/three": "^0.158.0",
         "leva": "^0.9.35",
+        "postprocessing": "^6.32.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "three": "^0.160.0",

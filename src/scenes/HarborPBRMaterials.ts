@@ -310,6 +310,10 @@ export function createHarborMaterial(
     color: baseColor,
     roughness,
     metalness,
+    stencilWrite: true,
+    stencilRef: 1,
+    stencilFunc: THREE.AlwaysStencilFunc,
+    stencilZPass: THREE.ReplaceStencilOp
   })
 
   material.userData.harborKind = kind

@@ -31,7 +31,8 @@ EXPORTS := \
     _dsp_wave_height \
     _dsp_wave_height_batch \
     _dsp_additive_synth_sample \
-    _dsp_audio_rms
+    _dsp_audio_rms \
+    _dsp_fft_r2c
 
 EXPORTED_FUNCTIONS := $(shell echo $(EXPORTS) | tr ' ' ',')
 

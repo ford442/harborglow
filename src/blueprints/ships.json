@@ -222,7 +222,7 @@
       ],
       "contributor": "Grok + Kimi",
       "added": "2026-03-08",
-      "notes": "Multi-deck with glowing balconies \u2014 perfect for LED light shows"
+      "notes": "Multi-deck with glowing balconies — perfect for LED light shows"
     },
     {
       "id": "container",
@@ -1415,13 +1415,29 @@
       ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "Capesize bulk carrier (170,000 DWT, 290m LOA) with 9 cargo holds, 4 deck cranes. Transports iron ore, coal, grain. Too large for Panama Canal - routes via Cape Horn or Cape of Good Hope."
+      "notes": "Capesize bulk carrier (170,000 DWT, 290m LOA) with 9 cargo holds, 4 deck cranes. Transports iron ore, coal, grain. Too large for Panama Canal - routes via Cape Horn or Cape of Good Hope.",
+      "model": {
+        "url": "./models/bulk.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "hatch1",
+          "Empty_HP_02": "hatch2",
+          "Empty_HP_03": "hatch3",
+          "Empty_HP_04": "hatch4",
+          "Empty_HP_05": "crane1",
+          "Empty_HP_06": "crane2",
+          "Empty_HP_07": "crane3",
+          "Empty_HP_08": "crane4",
+          "Empty_HP_09": "funnel"
+        }
+      }
     },
     {
       "id": "lng",
       "version": "1.0",
       "name": "Q-Max LNG Carrier \"Cryo Titan\" v1.0",
-      "scale": 2.0,
+      "scale": 2,
       "baseColor": "#1e3a5f",
       "lod2": {
         "hull": {
@@ -1786,7 +1802,7 @@
       ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "Q-Max LNG carrier (266,000 m\u00b3, 345m LOA) with GTT membrane tanks. Carries liquefied natural gas at -163\u00b0C. Features reliquefaction plant and cryogenic loading arms.",
+      "notes": "Q-Max LNG carrier (266,000 m³, 345m LOA) with GTT membrane tanks. Carries liquefied natural gas at -163°C. Features reliquefaction plant and cryogenic loading arms.",
       "model": {
         "url": "./models/lng_carrier.glb",
         "scale": 1,
@@ -2136,7 +2152,22 @@
       ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "Roll-on/Roll-off ferry with vehicle decks, stern ramp, and bow visor. Designed for rapid loading/unloading of trucks, cars, and trailers. Multiple entry points including side doors."
+      "notes": "Roll-on/Roll-off ferry with vehicle decks, stern ramp, and bow visor. Designed for rapid loading/unloading of trucks, cars, and trailers. Multiple entry points including side doors.",
+      "model": {
+        "url": "./models/roro.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "sternRamp",
+          "Empty_HP_02": "bowVisor",
+          "Empty_HP_03": "superstructure",
+          "Empty_HP_04": "lifeboat1",
+          "Empty_HP_05": "lifeboat2",
+          "Empty_HP_06": "sideDoorL",
+          "Empty_HP_07": "sideDoorR",
+          "Empty_HP_08": "mast"
+        }
+      }
     },
     {
       "id": "research",
@@ -2515,13 +2546,27 @@
       ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "Ice-strengthened research vessel with A-frame crane, multibeam sonar dome, moon pool for submersibles, laboratory spaces, and helicopter deck. PC6 ice class notation."
+      "notes": "Ice-strengthened research vessel with A-frame crane, multibeam sonar dome, moon pool for submersibles, laboratory spaces, and helicopter deck. PC6 ice class notation.",
+      "model": {
+        "url": "./models/research.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "aFrame",
+          "Empty_HP_02": "sonarDome",
+          "Empty_HP_03": "radarDish",
+          "Empty_HP_04": "crane",
+          "Empty_HP_05": "laboratory",
+          "Empty_HP_06": "heliDeck",
+          "Empty_HP_07": "moonPool"
+        }
+      }
     },
     {
       "id": "droneship",
       "version": "1.0",
       "name": "Autonomous Spaceport Drone Ship \"Of Course I Still Love You\" v1.0",
-      "scale": 1.0,
+      "scale": 1,
       "baseColor": "#2c3e50",
       "lod2": {
         "hull": {
@@ -2875,7 +2920,22 @@
       ],
       "contributor": "Scientific Research Team",
       "added": "2026-03-15",
-      "notes": "SpaceX Autonomous Spaceport Drone Ship (ASDS) based on Marmac 304 barge. 90m x 46m with 4 azimuth thrusters for station-keeping within 3m accuracy. Used for Falcon 9 booster landings at sea. Features Octagrabber robot for securing boosters."
+      "notes": "SpaceX Autonomous Spaceport Drone Ship (ASDS) based on Marmac 304 barge. 90m x 46m with 4 azimuth thrusters for station-keeping within 3m accuracy. Used for Falcon 9 booster landings at sea. Features Octagrabber robot for securing boosters.",
+      "model": {
+        "url": "./models/droneship.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "thruster1",
+          "Empty_HP_02": "thruster2",
+          "Empty_HP_03": "thruster3",
+          "Empty_HP_04": "thruster4",
+          "Empty_HP_05": "equipmentContainer",
+          "Empty_HP_06": "starlinkDish",
+          "Empty_HP_07": "cameras",
+          "Empty_HP_08": "octagrabber"
+        }
+      }
     },
     {
       "id": "ferry",
@@ -3092,7 +3152,18 @@
       ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
-      "notes": "Wide shallow ferry with enclosed passenger saloon, open car deck aft, and bow ramp suggestion. Perfect for harbor commute lighting."
+      "notes": "Wide shallow ferry with enclosed passenger saloon, open car deck aft, and bow ramp suggestion. Perfect for harbor commute lighting.",
+      "model": {
+        "url": "./models/ferry.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "bowRamp",
+          "Empty_HP_02": "passengerDeck",
+          "Empty_HP_03": "bridge",
+          "Empty_HP_04": "funnel"
+        }
+      }
     },
     {
       "id": "trawler",
@@ -3331,7 +3402,18 @@
       ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
-      "notes": "Low-profile workboat with prominent wheelhouse forward, boom/gantry aft, and pipe geometry implying nets. Weathered steel finish."
+      "notes": "Low-profile workboat with prominent wheelhouse forward, boom/gantry aft, and pipe geometry implying nets. Weathered steel finish.",
+      "model": {
+        "url": "./models/trawler.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "masthead",
+          "Empty_HP_02": "deck",
+          "Empty_HP_03": "netGantry",
+          "Empty_HP_04": "fishHold"
+        }
+      }
     },
     {
       "id": "horizon",
@@ -3579,7 +3661,18 @@
       ],
       "contributor": "Kimi Code CLI",
       "added": "2026-04-26",
-      "notes": "Mid-size research vessel with distinctive A-frame crane aft, multibeam sonar dome at bow, and lab module amidships. Scientific orange/white finish."
+      "notes": "Mid-size research vessel with distinctive A-frame crane aft, multibeam sonar dome at bow, and lab module amidships. Scientific orange/white finish.",
+      "model": {
+        "url": "./models/horizon.glb",
+        "scale": 1,
+        "yOffset": 0,
+        "attachmentSocketMap": {
+          "Empty_HP_01": "sonarDome",
+          "Empty_HP_02": "aFrame",
+          "Empty_HP_03": "labModule",
+          "Empty_HP_04": "mastArray"
+        }
+      }
     },
     {
       "id": "fireboat",

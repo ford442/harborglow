@@ -53,4 +53,6 @@ export interface RendererDiagnostics {
   contextOptions: RendererContextOptions | null;
   /** Limits/adapter info read back from the live renderer (null before init). */
   capabilities: RendererCapabilities | null;
+  /** True if the backend supports screen space reflections (SSR) via the depth buffer. */
+  supportsSSR: boolean;
 }

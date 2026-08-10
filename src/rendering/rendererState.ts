@@ -13,6 +13,7 @@ const _diagnostics: RendererDiagnostics = {
   initialized: false,
   contextOptions: null,
   capabilities: null,
+  supportsSSR: false,
 };
 
 type Listener = () => void;

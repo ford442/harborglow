@@ -9,6 +9,7 @@ import { getLookDevSettings } from '../utils/lookDevControls'
 import { useControls } from 'leva'
 import { GodRaysShader } from '../shaders/GodRaysShader'
 import { getSunPosition } from './mainScene/MainSceneHelpers'
+import { getRendererDiagnostics } from '../rendering/rendererState'
 
 // =============================================================================
 // POLISHED POST-PROCESSING STACK
@@ -163,6 +164,16 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     'God Rays Weight': { value: 0.12, min: 0.02, max: 0.4, step: 0.01 },
     'God Rays Samples': { value: 32, min: 8, max: 64, step: 8 },
   })
+
+  const {
+    'SSR Enabled': ssrEnabledLeva,
+    'SSR Intensity': ssrIntensity,
+    'SSR Max Distance': ssrMaxDistance,
+  } = useControls('Post / SSR', {
+    'SSR Enabled': { value: true },
+    'SSR Intensity': { value: 1.0, min: 0, max: 3, step: 0.1 },
+    'SSR Max Distance': { value: 20, min: 5, max: 100, step: 1 },
+  })
   
   // Check for light show activity
   const lightShowActive = useMemo(() => ships.some(s => s.version === '2.0'), [ships])
@@ -181,6 +192,8 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
   const bloomPassRef = useRef<any>(null)
   const colorPassRef = useRef<any>(null)
   const godRaysPassRef = useRef<any>(null)
+  const ssrPassRef = useRef<any>(null)
+  const ssrEffectRef = useRef<any>(null)
   const depthRenderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null)
   const lightPos3DRef = useRef(new THREE.Vector3())
   const projectedLightRef = useRef(new THREE.Vector3())
@@ -198,27 +211,64 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
           { EffectComposer },
           { RenderPass },
           { UnrealBloomPass },
-          { ShaderPass }
+          { ShaderPass },
+          { SSREffect, EffectPass }
         ] = await Promise.all([
           import('three/examples/jsm/postprocessing/EffectComposer.js'),
           import('three/examples/jsm/postprocessing/RenderPass.js'),
           import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
-          import('three/examples/jsm/postprocessing/ShaderPass.js')
+          import('three/examples/jsm/postprocessing/ShaderPass.js'),
+          import('postprocessing').catch(() => ({} as any))
         ])
         
         if (!isMounted) return
         
+        const depthTex = new THREE.DepthTexture(size.width, size.height, THREE.UnsignedInt248Type)
+        depthTex.format = THREE.DepthStencilFormat
         const depthRt = new THREE.WebGLRenderTarget(size.width, size.height, {
-          depthTexture: new THREE.DepthTexture(size.width, size.height),
+          depthTexture: depthTex,
           type: THREE.HalfFloatType,
         })
         depthRenderTargetRef.current = depthRt
 
         composer = new EffectComposer(gl, depthRt)
+        composer.renderTarget2.depthTexture = depthRt.depthTexture
         composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         
         // Render pass
         composer.addPass(new RenderPass(scene, camera))
+
+        // SSR Pass
+        const { supportsSSR } = getRendererDiagnostics()
+        if (supportsSSR && SSREffect && qualityPreset !== 'low') {
+          const ssrEffect = new SSREffect(scene, camera, {
+            maxDistance: 20,
+            thickness: 0.5,
+            ior: 1.33
+          })
+          ssrEffectRef.current = ssrEffect
+          const ssrPass = new EffectPass(camera, ssrEffect)
+          
+          const gatedSSRPass = {
+            isPass: true,
+            enabled: true,
+            renderToScreen: false,
+            needsSwap: true,
+            setSize: (w: number, h: number) => ssrPass.setSize(w, h),
+            render: (renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget, deltaTime: number, maskActive: boolean) => {
+              const state = renderer.state
+              state.buffers.stencil.setTest(true)
+              state.buffers.stencil.setFunc(renderer.getContext().EQUAL, 1, 0xffffffff)
+              state.buffers.stencil.setOp(renderer.getContext().KEEP, renderer.getContext().KEEP, renderer.getContext().KEEP)
+              
+              ssrPass.render(renderer, writeBuffer, readBuffer, deltaTime, maskActive)
+              
+              state.buffers.stencil.setTest(false)
+            }
+          }
+          ssrPassRef.current = gatedSSRPass
+          composer.addPass(gatedSSRPass)
+        }
         
         // God rays (radial blur toward sun/moon, depth-occluded)
         const godRaysPass = new ShaderPass(GodRaysShader)
@@ -346,6 +396,13 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
           u.tDepth.value = depthRenderTargetRef.current.depthTexture
         }
       }
+    }
+
+    // Update SSR
+    if (ssrPassRef.current && ssrEffectRef.current) {
+      ssrPassRef.current.enabled = ssrEnabledLeva
+      ssrEffectRef.current.intensity = ssrIntensity
+      ssrEffectRef.current.maxDistance = ssrMaxDistance
     }
 
     // Update bloom

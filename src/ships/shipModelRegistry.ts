@@ -24,6 +24,13 @@ export const SHIP_MODEL_FILENAMES: Record<string, string> = {
   tanker: 'oil_tanker.glb',
   fireboat: 'fireboat.glb',
   lng: 'lng_carrier.glb',
+  bulk: 'bulk.glb',
+  roro: 'roro.glb',
+  research: 'research.glb',
+  droneship: 'droneship.glb',
+  ferry: 'ferry.glb',
+  trawler: 'trawler.glb',
+  horizon: 'horizon.glb',
 }
 
 /**

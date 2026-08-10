@@ -143,3 +143,52 @@ void dsp_wave_height_batch(
             xs[i], zs[i], time, amp, freq, speed, dirX, dirZ);
     }
 }
+
+// ---------------------------------------------------------------------------
+// FFT (Fast Fourier Transform)
+// ---------------------------------------------------------------------------
+
+extern "C" DSP_EXPORT
+void dsp_fft_r2c(const float* input, float* out_real, float* out_imag, int log2N) {
+    int N = 1 << log2N;
+    
+    // Copy input to output, real only. Bit-reversal permutation.
+    for (int i = 0; i < N; ++i) {
+        int rev = 0;
+        for (int j = 0; j < log2N; ++j) {
+            if ((i >> j) & 1) rev |= (1 << (log2N - 1 - j));
+        }
+        out_real[rev] = input[i];
+        out_imag[rev] = 0.0f;
+    }
+
+    // Cooley-Tukey Radix-2
+    for (int s = 1; s <= log2N; ++s) {
+        int m = 1 << s;
+        float theta = -TWO_PI / m;
+        float wm_real = std::cos(theta);
+        float wm_imag = std::sin(theta);
+        
+        for (int k = 0; k < N; k += m) {
+            float w_real = 1.0f;
+            float w_imag = 0.0f;
+            
+            for (int j = 0; j < m / 2; ++j) {
+                float t_real = w_real * out_real[k + j + m / 2] - w_imag * out_imag[k + j + m / 2];
+                float t_imag = w_real * out_imag[k + j + m / 2] + w_imag * out_real[k + j + m / 2];
+                float u_real = out_real[k + j];
+                float u_imag = out_imag[k + j];
+                
+                out_real[k + j] = u_real + t_real;
+                out_imag[k + j] = u_imag + t_imag;
+                out_real[k + j + m / 2] = u_real - t_real;
+                out_imag[k + j + m / 2] = u_imag - t_imag;
+                
+                float next_w_real = w_real * wm_real - w_imag * wm_imag;
+                float next_w_imag = w_real * wm_imag + w_imag * wm_real;
+                w_real = next_w_real;
+                w_imag = next_w_imag;
+            }
+        }
+    }
+}

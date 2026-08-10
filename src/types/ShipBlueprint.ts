@@ -132,7 +132,7 @@ export interface BlueprintRegistry {
 // =============================================================================
 
 /** The loaded blueprint registry from ships.json */
-export const BLUEPRINT_REGISTRY: BlueprintRegistry = shipsJson as BlueprintRegistry
+export const BLUEPRINT_REGISTRY: BlueprintRegistry = shipsJson as unknown as BlueprintRegistry
 
 /** Array of all ship blueprints */
 export const SHIP_BLUEPRINTS: ShipBlueprint[] = BLUEPRINT_REGISTRY.ships

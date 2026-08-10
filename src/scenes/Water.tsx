@@ -523,7 +523,11 @@ export default function Water({ isNight = true }: WaterProps) {
         fragmentShader={fragmentShader}
         transparent
         side={THREE.DoubleSide}
-        depthWrite={false}
+        depthWrite={true}
+        stencilWrite={true}
+        stencilRef={1}
+        stencilFunc={THREE.AlwaysStencilFunc}
+        stencilZPass={THREE.ReplaceStencilOp}
       />
     </mesh>
   )

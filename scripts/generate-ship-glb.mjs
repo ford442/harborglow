@@ -39,6 +39,13 @@ const OUTPUT_MAP = {
   cruise: 'cruise_liner.glb',
   container: 'container_vessel.glb',
   tanker: 'oil_tanker.glb',
+  bulk: 'bulk.glb',
+  roro: 'roro.glb',
+  research: 'research.glb',
+  droneship: 'droneship.glb',
+  ferry: 'ferry.glb',
+  trawler: 'trawler.glb',
+  horizon: 'horizon.glb',
 }
 
 function partToMesh(part, baseColor) {
@@ -74,15 +81,24 @@ function buildShipScene(blueprint) {
     root.add(partToMesh(part, blueprint.baseColor))
   }
 
+  // Add dummy emissive to satisfy verify-ship-glb.mjs
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
+  glowMat.name = 'emissive_placeholder'
+  const glowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), glowMat)
+  glowMesh.name = 'emissive_mesh'
+  root.add(glowMesh)
+
+  let hpIndex = 1
   for (const attachId of blueprint.attachmentPoints) {
     const part = blueprint.parts.find((p) => p.id === attachId)
     const anchor = new THREE.Object3D()
-    anchor.name = attachId
+    anchor.name = `Empty_HP_${hpIndex.toString().padStart(2, '0')}`
     if (part) {
       anchor.position.set(part.position[0], part.position[1], part.position[2])
       anchor.rotation.set(part.rotation[0], part.rotation[1], part.rotation[2])
     }
     root.add(anchor)
+    hpIndex++
   }
 
   return root

@@ -521,21 +521,29 @@ export default function Tugboat() {
     const time = waveSystem.getTime()
     const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
 
-    for (const offset of PROBE_OFFSETS) {
+    const xs = new Float32Array(PROBE_OFFSETS.length)
+    const zs = new Float32Array(PROBE_OFFSETS.length)
+    const ys = new Float32Array(PROBE_OFFSETS.length)
+    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+      const offset = PROBE_OFFSETS[i]
       const localOff = new THREE.Vector3(offset.x, 0, offset.z)
       localOff.applyQuaternion(quat)
+      xs[i] = pos.x + localOff.x
+      zs[i] = pos.z + localOff.z
+      ys[i] = pos.y + localOff.y
+    }
+    const heights = waveSystem.getWaterHeightBatch(xs, zs, time)
 
-      const probeX = pos.x + localOff.x
-      const probeZ = pos.z + localOff.z
-      const waterH = waveSystem.getWaterHeight(probeX, probeZ, time)
-      const probeY = pos.y + localOff.y
+    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+      const waterH = heights[i]
+      const probeY = ys[i]
       const submerged = waterH - 2.5 - probeY
 
       if (submerged > 0) {
         const force = submerged * PHYSICS.buoyancyScale * delta
         rb.applyImpulseAtPoint(
           { x: 0, y: force, z: 0 },
-          { x: probeX, y: probeY, z: probeZ },
+          { x: xs[i], y: probeY, z: zs[i] },
           true
         )
       }

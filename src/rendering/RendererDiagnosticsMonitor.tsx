@@ -41,11 +41,12 @@ export default function RendererDiagnosticsMonitor({
       initialized: true,
       contextOptions,
       capabilities,
+      supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback',
     });
 
     // Expose for external tooling / CI / agents (canvas may be obtained via gl.domElement)
     const canvas = (gl as any).domElement as HTMLCanvasElement | undefined;
-    exposeRenderer(canvas || null, preference, activeBackend, { contextOptions, capabilities });
+    exposeRenderer(canvas || null, preference, activeBackend, { contextOptions, capabilities, supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback' } as any);
   }, [gl, preference, contextOptions]);
 
   return null;

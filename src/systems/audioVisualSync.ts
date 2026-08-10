@@ -2,10 +2,11 @@ import * as Tone from 'tone'
 import { useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { wasmDSP } from './wasmDSP'
 
 // =============================================================================
 // PHASE 8: AUDIO-VISUAL SYNCHRONIZATION SYSTEM
-// Real-time FFT analysis → Visual pipeline for light shows, environment, UI
+// Real-time AnalyserNode + FFT analysis → Visual pipeline for light shows
 // =============================================================================
 
 export interface AudioAnalysisData {
@@ -15,23 +16,155 @@ export interface AudioAnalysisData {
   mid: number       // 400-2.6kHz
   highMid: number   // 2.6-5.2kHz
   treble: number    // 5.2-20kHz
-  
+
   // Waveform/envelope
   waveform: Float32Array  // 256 samples
   envelope: number        // 0-1 amplitude envelope
-  
+
   // Beat detection
   beat: boolean
   beatIntensity: number
   beatPhase: number       // 0-1 within beat
-  
+
   // RMS levels
   rms: number
   peak: number
-  
+
   // Derived values
   energy: number          // Overall energy 0-1
   spectralCentroid: number // Brightness indicator
+}
+
+// ---------------------------------------------------------------------------
+// Pure band / onset helpers (testable without Tone)
+// ---------------------------------------------------------------------------
+
+export const BAND_BIN_RANGES = {
+  bass: [0, 4] as const,
+  mid: [5, 43] as const,
+  treble: [44, 512] as const,
+}
+
+export function meanByteBins(buf: Uint8Array, start: number, end: number): number {
+  let sum = 0
+  const count = end - start + 1
+  if (count <= 0) return 0
+  for (let i = start; i <= end; i++) {
+    sum += buf[i] ?? 0
+  }
+  return sum / count / 255
+}
+
+export function computeMeasuredBands(byteBuf: Uint8Array): { bass: number; mid: number; treble: number } {
+  return {
+    bass: meanByteBins(byteBuf, BAND_BIN_RANGES.bass[0], BAND_BIN_RANGES.bass[1]),
+    mid: meanByteBins(byteBuf, BAND_BIN_RANGES.mid[0], BAND_BIN_RANGES.mid[1]),
+    treble: meanByteBins(byteBuf, BAND_BIN_RANGES.treble[0], BAND_BIN_RANGES.treble[1]),
+  }
+}
+
+export function mapBandsToAnalysisFields(
+  bass: number,
+  mid: number,
+  treble: number,
+): { bass: number; lowMid: number; mid: number; highMid: number; treble: number } {
+  return {
+    bass: Math.min(1, bass),
+    lowMid: Math.min(1, bass * 0.85),
+    mid: Math.min(1, mid),
+    highMid: Math.min(1, (mid + treble) / 2),
+    treble: Math.min(1, treble),
+  }
+}
+
+export function computeSpectralCentroidFromBytes(buf: Uint8Array): number {
+  let weighted = 0
+  let magnitude = 0
+  const len = Math.min(buf.length, 512)
+  for (let i = 0; i < len; i++) {
+    const mag = buf[i]
+    weighted += i * mag
+    magnitude += mag
+  }
+  return magnitude > 0 ? Math.min(1, weighted / magnitude / len) : 0.5
+}
+
+export interface OnsetDetectorState {
+  rollingBassAvg: number
+  lastBeatTime: number
+}
+
+export interface OnsetDetectorOptions {
+  onsetMultiplier?: number
+  bassFloor?: number
+  emaAlpha?: number
+  minIntervalFloor?: number
+}
+
+export interface OnsetDetectorResult {
+  beat: boolean
+  beatPhase: number
+  rollingBassAvg: number
+  lastBeatTime: number
+  shouldFireCallback: boolean
+}
+
+export function createOnsetDetectorState(): OnsetDetectorState {
+  return { rollingBassAvg: 0, lastBeatTime: 0 }
+}
+
+export function detectBeatOnset(
+  state: OnsetDetectorState,
+  bass: number,
+  now: number,
+  bpm: number,
+  options: OnsetDetectorOptions = {},
+): OnsetDetectorResult {
+  const onsetMultiplier = options.onsetMultiplier ?? 1.5
+  const bassFloor = options.bassFloor ?? 0.05
+  const emaAlpha = options.emaAlpha ?? 0.15
+  const minIntervalFloor = options.minIntervalFloor ?? 0.2
+
+  const rollingBassAvg =
+    state.rollingBassAvg * (1 - emaAlpha) + bass * emaAlpha
+
+  const beatDuration = 60 / Math.max(bpm, 1)
+  const minInterval = Math.max(minIntervalFloor, beatDuration)
+  const onsetDetected =
+    bass > rollingBassAvg * onsetMultiplier && bass > bassFloor
+  const beatAccepted =
+    onsetDetected && now - state.lastBeatTime >= minInterval
+
+  let lastBeatTime = state.lastBeatTime
+  let beatPhase: number
+
+  if (beatAccepted) {
+    lastBeatTime = now
+    beatPhase = 0
+  } else {
+    const timeSinceBeat = now - state.lastBeatTime
+    beatPhase = Math.min(1, timeSinceBeat / beatDuration)
+  }
+
+  return {
+    beat: beatAccepted,
+    beatPhase,
+    rollingBassAvg,
+    lastBeatTime,
+    shouldFireCallback: beatAccepted,
+  }
+}
+
+/** Convert Tone.FFT dB bin to 0-1 proxy for fallback band reads. */
+function dbBinToNormalized(db: number): number {
+  return Math.min(1, Math.max(0, (db + 100) / 100))
+}
+
+function fillByteScratchFromDbFft(fftValues: Float32Array, scratch: Uint8Array): void {
+  const len = Math.min(fftValues.length, scratch.length)
+  for (let i = 0; i < len; i++) {
+    scratch[i] = dbBinToNormalized(fftValues[i]) * 255
+  }
 }
 
 // Global audio analysis state - updated once per frame, consumed by all systems
@@ -49,7 +182,7 @@ let globalAudioData: AudioAnalysisData = {
   rms: 0,
   peak: 0,
   energy: 0,
-  spectralCentroid: 0.5
+  spectralCentroid: 0.5,
 }
 
 // Get current audio data (for non-React contexts)
@@ -71,35 +204,29 @@ export class AudioVisualSync {
   private filterHighMid: Tone.Filter | null = null
   private filterTreble: Tone.Filter | null = null
   private meters: Map<string, Tone.Meter> = new Map()
-  
-  // Beat detection
-  private lastBeatTime: number = 0
-  private beatThreshold: number = 0.6
-  private beatDecay: number = 0.95
-  private beatEnergy: number = 0
+
+  private analyser: AnalyserNode | null = null
+  private frequencyByteBuffer: Uint8Array | null = null
+  private fftByteScratch: Uint8Array | null = null
+
+  private onsetState: OnsetDetectorState = createOnsetDetectorState()
   private bpm: number = 128
   private isInitialized: boolean = false
-  
-  // Callbacks for reactive systems
+
   private onBeatCallbacks: Set<(intensity: number) => void> = new Set()
   private onFrameCallbacks: Set<(data: AudioAnalysisData) => void> = new Set()
-  
-  // Initialize audio analysis chain
+
   async initialize() {
     if (this.isInitialized) return
-    
+
     await Tone.start()
-    
-    // Main FFT analyzer - 2048 samples for good frequency resolution
+    wasmDSP.init().catch(() => {})
+
     this.fft = new Tone.FFT(2048)
-    
-    // Waveform analyzer
     this.waveform = new Tone.Waveform(256)
-    
-    // Main meter for overall level
     this.meter = new Tone.Meter()
-    
-    // Band-pass filters for frequency isolation
+    this.fftByteScratch = new Uint8Array(1024)
+
     this.filterBass = new Tone.Filter(80, 'lowpass', -24)
     this.filterLowMid = new Tone.Filter(270, 'peaking', -12)
     this.filterLowMid.Q.value = 2
@@ -108,28 +235,25 @@ export class AudioVisualSync {
     this.filterHighMid = new Tone.Filter(3900, 'peaking', -12)
     this.filterHighMid.Q.value = 2
     this.filterTreble = new Tone.Filter(10000, 'highpass', -24)
-    
-    // Individual meters for each band
+
     this.meters.set('bass', new Tone.Meter())
     this.meters.set('lowMid', new Tone.Meter())
     this.meters.set('mid', new Tone.Meter())
     this.meters.set('highMid', new Tone.Meter())
     this.meters.set('treble', new Tone.Meter())
-    
-    // Connect filter chain to meters
+
     const bassMeter = this.meters.get('bass')
     const lowMidMeter = this.meters.get('lowMid')
     const midMeter = this.meters.get('mid')
     const highMidMeter = this.meters.get('highMid')
     const trebleMeter = this.meters.get('treble')
-    
+
     if (bassMeter && this.filterBass) this.filterBass.connect(bassMeter)
     if (lowMidMeter && this.filterLowMid) this.filterLowMid.connect(lowMidMeter)
     if (midMeter && this.filterMid) this.filterMid.connect(midMeter)
     if (highMidMeter && this.filterHighMid) this.filterHighMid.connect(highMidMeter)
     if (trebleMeter && this.filterTreble) this.filterTreble.connect(trebleMeter)
-    
-    // Connect main output to analyzers
+
     Tone.Destination.connect(this.fft)
     if (this.waveform) Tone.Destination.connect(this.waveform)
     if (this.meter) Tone.Destination.connect(this.meter)
@@ -138,158 +262,136 @@ export class AudioVisualSync {
     if (this.filterMid) Tone.Destination.connect(this.filterMid)
     if (this.filterHighMid) Tone.Destination.connect(this.filterHighMid)
     if (this.filterTreble) Tone.Destination.connect(this.filterTreble)
-    
+
+    try {
+      const rawContext = Tone.getContext().rawContext
+      if (rawContext) {
+        this.analyser = rawContext.createAnalyser()
+        this.analyser.fftSize = 2048
+        this.frequencyByteBuffer = new Uint8Array(this.analyser.frequencyBinCount)
+        Tone.Destination.connect(this.analyser)
+      }
+    } catch {
+      this.analyser = null
+      this.frequencyByteBuffer = null
+    }
+
     this.isInitialized = true
     console.log('🎵 AudioVisualSync initialized')
   }
-  
-  // Analyze audio and update global state
+
   analyze(time: number): AudioAnalysisData {
     if (!this.isInitialized || !this.fft || !this.waveform || !this.meter) {
       return globalAudioData
     }
-    
-    // Get FFT values (frequency domain)
-    const fftValues = this.fft.getValue() as Float32Array
-    
-    // Get waveform (time domain)
+
+    let measuredBass = 0
+    let measuredMid = 0
+    let measuredTreble = 0
+    let spectralCentroid = 0.5
+
+    if (this.analyser && this.frequencyByteBuffer) {
+      this.analyser.getByteFrequencyData(this.frequencyByteBuffer as Uint8Array<ArrayBuffer>)
+      const bands = computeMeasuredBands(this.frequencyByteBuffer)
+      measuredBass = bands.bass
+      measuredMid = bands.mid
+      measuredTreble = bands.treble
+      spectralCentroid = computeSpectralCentroidFromBytes(this.frequencyByteBuffer)
+    } else if (this.fftByteScratch) {
+      const fftValues = this.fft.getValue() as Float32Array
+      fillByteScratchFromDbFft(fftValues, this.fftByteScratch)
+      const bands = computeMeasuredBands(this.fftByteScratch)
+      measuredBass = bands.bass
+      measuredMid = bands.mid
+      measuredTreble = bands.treble
+      spectralCentroid = computeSpectralCentroidFromBytes(this.fftByteScratch)
+    }
+
+    const mapped = mapBandsToAnalysisFields(measuredBass, measuredMid, measuredTreble)
+
     const waveValues = this.waveform.getValue() as Float32Array
-    
-    // Get RMS level
-    const rms = this.meter.getValue() as number
-    
-    // Calculate frequency band energies from FFT
-    // FFT size is 2048, sample rate assumed 44.1kHz
-    // Each bin = 44100 / 2048 = ~21.5Hz
-    const binSize = 44100 / 2048
-    
-    // Bass: 20-140Hz (bins 1-7)
-    const bassBins = fftValues.slice(1, 7)
-    const bass = this.calculateBandEnergy(bassBins)
-    
-    // LowMid: 140-400Hz (bins 7-19)
-    const lowMidBins = fftValues.slice(7, 19)
-    const lowMid = this.calculateBandEnergy(lowMidBins)
-    
-    // Mid: 400-2.6kHz (bins 19-121)
-    const midBins = fftValues.slice(19, 121)
-    const mid = this.calculateBandEnergy(midBins)
-    
-    // HighMid: 2.6-5.2kHz (bins 121-242)
-    const highMidBins = fftValues.slice(121, 242)
-    const highMid = this.calculateBandEnergy(highMidBins)
-    
-    // Treble: 5.2-20kHz (bins 242-930)
-    const trebleBins = fftValues.slice(242, 930)
-    const treble = this.calculateBandEnergy(trebleBins)
-    
-    // Get band levels from filtered meters
-    const bassMeter = this.meters.get('bass')?.getValue() as number || 0
-    const lowMidMeter = this.meters.get('lowMid')?.getValue() as number || 0
-    const midMeter = this.meters.get('mid')?.getValue() as number || 0
-    const highMidMeter = this.meters.get('highMid')?.getValue() as number || 0
-    const trebleMeter = this.meters.get('treble')?.getValue() as number || 0
-    
-    // Combine FFT and meter values for best response
-    const bassFinal = Math.max(bass, Math.abs(bassMeter))
-    const lowMidFinal = Math.max(lowMid, Math.abs(lowMidMeter))
-    const midFinal = Math.max(mid, Math.abs(midMeter))
-    const highMidFinal = Math.max(highMid, Math.abs(highMidMeter))
-    const trebleFinal = Math.max(treble, Math.abs(trebleMeter))
-    
-    // Calculate envelope (smoothed RMS)
-    const envelope = Math.min(1, rms * 2) // Scale to 0-1 range
-    
-    // Calculate peak
-    const peak = Math.max(...waveValues.map(v => Math.abs(v)))
-    
-    // Calculate spectral centroid (brightness)
-    let centroidSum = 0
-    let magnitudeSum = 0
-    for (let i = 0; i < fftValues.length; i++) {
-      const freq = i * binSize
-      const mag = Math.pow(10, fftValues[i] / 20) // dB to linear
-      centroidSum += freq * mag
-      magnitudeSum += mag
+    const waveformOut = globalAudioData.waveform
+    const waveLen = Math.min(waveValues.length, waveformOut.length)
+    let peak = 0
+    for (let i = 0; i < waveLen; i++) {
+      const sample = waveValues[i]
+      waveformOut[i] = sample
+      const abs = sample < 0 ? -sample : sample
+      if (abs > peak) peak = abs
     }
-    const spectralCentroid = magnitudeSum > 0 ? centroidSum / magnitudeSum / 10000 : 0.5
-    
-    // Calculate overall energy
-    const energy = (bassFinal + lowMidFinal + midFinal + highMidFinal + trebleFinal) / 5
-    
-    // Beat detection
-    this.beatEnergy = this.beatEnergy * this.beatDecay + bassFinal * (1 - this.beatDecay)
-    const beatDiff = bassFinal - this.beatEnergy
-    const isBeat = beatDiff > this.beatThreshold && bassFinal > 0.3
-    
-    const now = time
-    let beatPhase = 0
-    if (isBeat && now - this.lastBeatTime > 0.2) { // Minimum 200ms between beats
-      this.lastBeatTime = now
-      // Only fire beat callbacks while the Tone.js Transport is actively running,
-      // so that Tone.Transport.stop() correctly pauses all visual sync.
-      if (Tone.getTransport().state === 'started') {
-        this.onBeatCallbacks.forEach(cb => cb(bassFinal))
-      }
-      beatPhase = 0
-    } else {
-      // Calculate phase within beat
-      const timeSinceBeat = now - this.lastBeatTime
-      const beatDuration = 60 / this.bpm
-      beatPhase = Math.min(1, timeSinceBeat / beatDuration)
+
+    const rms = wasmDSP.audioRms(waveValues)
+    const meterRms = this.meter.getValue() as number
+    const rmsFinal = rms > 0 ? rms : Math.max(0, meterRms)
+
+    const envelope = Math.min(1, rmsFinal * 2)
+
+    const bassScaled = Math.min(1, mapped.bass * 2)
+    const lowMidScaled = Math.min(1, mapped.lowMid * 2)
+    const midScaled = Math.min(1, mapped.mid * 2)
+    const highMidScaled = Math.min(1, mapped.highMid * 2)
+    const trebleScaled = Math.min(1, mapped.treble * 3)
+
+    const energy = Math.min(
+      1,
+      ((bassScaled + lowMidScaled + midScaled + highMidScaled + trebleScaled) / 5) * 1.5,
+    )
+
+    const onset = detectBeatOnset(this.onsetState, measuredBass, time, this.bpm)
+    this.onsetState.rollingBassAvg = onset.rollingBassAvg
+    this.onsetState.lastBeatTime = onset.lastBeatTime
+
+    if (onset.shouldFireCallback && Tone.getTransport().state === 'started') {
+      this.onBeatCallbacks.forEach((cb) => cb(measuredBass))
     }
-    
-    // Update global data
-    globalAudioData = {
-      bass: Math.min(1, bassFinal * 2), // Scale up for better visibility
-      lowMid: Math.min(1, lowMidFinal * 2),
-      mid: Math.min(1, midFinal * 2),
-      highMid: Math.min(1, highMidFinal * 2),
-      treble: Math.min(1, trebleFinal * 3),
-      waveform: waveValues,
-      envelope: Math.max(0, envelope),
-      beat: isBeat,
-      beatIntensity: bassFinal,
-      beatPhase,
-      rms: Math.max(0, rms),
-      peak: Math.min(1, peak),
-      energy: Math.min(1, energy * 1.5),
-      spectralCentroid: Math.min(1, spectralCentroid)
-    }
-    
-    // Notify frame subscribers
-    this.onFrameCallbacks.forEach(cb => cb(globalAudioData))
-    
+
+    globalAudioData.bass = bassScaled
+    globalAudioData.lowMid = lowMidScaled
+    globalAudioData.mid = midScaled
+    globalAudioData.highMid = highMidScaled
+    globalAudioData.treble = trebleScaled
+    globalAudioData.envelope = Math.max(0, envelope)
+    globalAudioData.beat = onset.beat
+    globalAudioData.beatIntensity = measuredBass
+    globalAudioData.beatPhase = onset.beatPhase
+    globalAudioData.rms = Math.max(0, rmsFinal)
+    globalAudioData.peak = Math.min(1, peak)
+    globalAudioData.energy = energy
+    globalAudioData.spectralCentroid = Math.min(1, spectralCentroid)
+
+    this.onFrameCallbacks.forEach((cb) => cb(globalAudioData))
+
     return globalAudioData
   }
-  
-  private calculateBandEnergy(bins: Float32Array): number {
-    if (bins.length === 0) return 0
-    // Convert dB to linear, average, then back to dB-like scale
-    const linearValues = Array.from(bins).map(v => Math.pow(10, v / 20))
-    const average = linearValues.reduce((a, b) => a + b, 0) / linearValues.length
-    return 20 * Math.log10(average + 0.0001) + 100 // Normalize to 0-1 roughly
-  }
-  
-  // Set BPM for beat detection
+
   setBPM(bpm: number) {
     this.bpm = bpm
   }
-  
-  // Subscribe to beat events
+
   onBeat(callback: (intensity: number) => void) {
     this.onBeatCallbacks.add(callback)
-    return () => { this.onBeatCallbacks.delete(callback) }
+    return () => {
+      this.onBeatCallbacks.delete(callback)
+    }
   }
-  
-  // Subscribe to frame updates
+
   onFrame(callback: (data: AudioAnalysisData) => void) {
     this.onFrameCallbacks.add(callback)
-    return () => { this.onFrameCallbacks.delete(callback) }
+    return () => {
+      this.onFrameCallbacks.delete(callback)
+    }
   }
-  
-  // Cleanup
+
   dispose() {
+    if (this.analyser) {
+      try {
+        Tone.Destination.disconnect(this.analyser)
+      } catch {
+        // already disconnected
+      }
+      this.analyser = null
+      this.frequencyByteBuffer = null
+    }
     this.fft?.dispose()
     this.waveform?.dispose()
     this.meter?.dispose()
@@ -298,9 +400,10 @@ export class AudioVisualSync {
     this.filterMid?.dispose()
     this.filterHighMid?.dispose()
     this.filterTreble?.dispose()
-    this.meters.forEach(m => m.dispose())
+    this.meters.forEach((m) => m.dispose())
     this.onBeatCallbacks.clear()
     this.onFrameCallbacks.clear()
+    this.isInitialized = false
   }
 }
 
@@ -310,7 +413,6 @@ export const audioVisualSync = new AudioVisualSync()
 // =============================================================================
 // REACT HOOK: useAudioData
 // Subscribe to audio analysis data without useFrame — safe outside Canvas.
-// Use this in DOM/HUD components that only need to read audio state.
 // =============================================================================
 
 export function useAudioData(): AudioAnalysisData {
@@ -338,47 +440,43 @@ export function useAudioData(): AudioAnalysisData {
 export function useAudioVisualSync() {
   const [audioData, setAudioData] = useState<AudioAnalysisData>(globalAudioData)
   const [isInitialized, setIsInitialized] = useState(false)
-  
+
   useEffect(() => {
     let mounted = true
-    
+
     const init = async () => {
       await audioVisualSync.initialize()
       if (mounted) setIsInitialized(true)
     }
-    
+
     init()
-    
-    // Subscribe to frame updates
+
     const unsubscribe = audioVisualSync.onFrame((data) => {
       if (mounted) setAudioData(data)
     })
-    
+
     return () => {
       mounted = false
       unsubscribe()
     }
   }, [])
-  
-  // Update BPM when it changes
-  const bpm = useGameStore(state => state.bpm)
+
+  const bpm = useGameStore((state) => state.bpm)
   useEffect(() => {
     audioVisualSync.setBPM(bpm)
   }, [bpm])
-  
-  // Analyze on each frame
+
   useFrame((state) => {
     if (isInitialized) {
       audioVisualSync.analyze(state.clock.elapsedTime)
     }
   })
-  
+
   return { audioData, isInitialized }
 }
 
 // =============================================================================
 // REACT HOOK: useBeat
-// Subscribe to beat events with intensity
 // =============================================================================
 
 export function useBeat(callback: (intensity: number) => void) {
@@ -388,8 +486,7 @@ export function useBeat(callback: (intensity: number) => void) {
 }
 
 // =============================================================================
-// SHADER UNIFORMS: getAudioUniforms
-// Returns uniforms object for shaders
+// SHADER UNIFORMS
 // =============================================================================
 
 export function getAudioUniforms() {
@@ -400,13 +497,13 @@ export function getAudioUniforms() {
     uAudioEnvelope: { value: 0 },
     uAudioBeat: { value: 0 },
     uAudioEnergy: { value: 0 },
-    uAudioSpectralCentroid: { value: 0.5 }
+    uAudioSpectralCentroid: { value: 0.5 },
   }
 }
 
 export function updateAudioUniforms(
   uniforms: Record<string, { value: number }>,
-  data: AudioAnalysisData
+  data: AudioAnalysisData,
 ) {
   if (uniforms.uAudioBass) uniforms.uAudioBass.value = data.bass
   if (uniforms.uAudioMid) uniforms.uAudioMid.value = data.mid

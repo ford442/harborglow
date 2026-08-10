@@ -1,8 +1,11 @@
 import { useRef, useMemo, useCallback } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
+import { Html } from '@react-three/drei'
+import { buildRGBMatrixMaterial, buildGodRayMaterial } from '../shaders/lightShowNodes'
 import { useGameStore, type ShipType } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { AudioSpectrumTelemetry } from '../components/dashboard/TelemetryGraph'
 import {
   computeRigMusicDrive,
   rigVariationSeed,
@@ -44,7 +47,8 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
   const seed = rigVariationSeed(shipId, rigKey, type)
   const housing = HOUSING_BY_TYPE[type]
   const flareId = `show-${shipId}-${rigKey}`
-  
+  const material = useMemo(() => buildRGBMatrixMaterial(color), [color])
+
   // Get frequency response based on light type
   const getFrequencyResponse = useCallback(() => {
     switch (type) {
@@ -86,8 +90,7 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
     }
   }, [audioData, type])
   
-  // Ship-specific color palettes
-  const getShipColor = useCallback((baseHue: number) => {
+  const getShipColor = useCallback((baseHue: number, out: THREE.Color) => {
     const palettes: Record<ShipType, { h: number; s: number; l: number }> = {
       cruise: { h: 340, s: 0.8, l: 0.6 }, // Pink
       container: { h: 160, s: 0.9, l: 0.5 }, // Cyan/Green
@@ -105,24 +108,27 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
     
     const palette = palettes[shipType]
     const hue = (palette.h / 360 + baseHue) % 1
-    return new THREE.Color().setHSL(hue, palette.s, palette.l)
+    return out.setHSL(hue, palette.s, palette.l)
   }, [shipType])
   
   useFrame((_, delta) => {
     if (!meshRef.current || !lightRef.current) return
 
     const response = getFrequencyResponse()
-    const baseColor = getShipColor(response.hueShift)
     const drive = computeRigMusicDrive(response.intensity, musicStateRef.current, delta)
     musicStateRef.current = drive.state
     powerRef.current = drive.emissive
 
-    const material = meshRef.current.material as THREE.MeshStandardMaterial
-    material.emissiveIntensity = drive.emissive * (0.75 + seed * 0.2)
-    material.emissive.copy(baseColor)
+    const mat = material as any
+    if (mat.userData.uBass) mat.userData.uBass.value = audioData.bass
+    if (mat.userData.uBeat) mat.userData.uBeat.value = audioData.beat ? 1 : 0
+    if (mat.userData.uMid) mat.userData.uMid.value = audioData.mid
+    if (mat.userData.uTreble) mat.userData.uTreble.value = audioData.treble
+    
+    // We still update intensity on the material itself if needed, but TSL handles emissive now
+    mat.emissiveIntensity = drive.emissive * (0.75 + seed * 0.2)
 
     lightRef.current.intensity = drive.light * 2
-    lightRef.current.color.copy(baseColor)
 
     const scale = 1 + audioData.bass * 0.08 * drive.emissive
     meshRef.current.scale.setScalar(scale)
@@ -158,16 +164,7 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
         bodyColor={`hsl(${210 + seed * 30}, 7%, ${12 + seed * 10}%)`}
       />
 
-      <mesh ref={meshRef} geometry={geometry} position={[0, housing.h * 0.35, housing.d * 0.35]}>
-        <meshStandardMaterial
-          color={0x111111}
-          emissive={color}
-          emissiveIntensity={0.5}
-          toneMapped={false}
-          roughness={0.2}
-          metalness={0.15}
-        />
-      </mesh>
+      <mesh ref={meshRef} geometry={geometry} position={[0, housing.h * 0.35, housing.d * 0.35]} material={material} />
 
       <pointLight
         ref={lightRef}
@@ -185,88 +182,21 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
 
 // 8.2: Audio-Reactive God Rays with shader uniforms
 function AudioReactiveGodRay({ position, color }: { position: [number, number, number], color: string }) {
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
   const { audioData } = useAudioVisualSync()
-  
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uColor: { value: new THREE.Color(color) },
-    uBaseIntensity: { value: 0.5 },
-    uAudioBass: { value: 0 },
-    uAudioMid: { value: 0 },
-    uAudioEnvelope: { value: 0 },
-    uAudioBeat: { value: 0 }
-  }), [color])
+  const material = useMemo(() => buildGodRayMaterial(color), [color])
   
   useFrame((state) => {
-    if (!materialRef.current) return
-    
-    const mat = materialRef.current
-    mat.uniforms.uTime.value = state.clock.elapsedTime
-    mat.uniforms.uAudioBass.value = audioData.bass
-    mat.uniforms.uAudioMid.value = audioData.mid
-    mat.uniforms.uAudioEnvelope.value = audioData.envelope
-    mat.uniforms.uAudioBeat.value = audioData.beat ? audioData.beatIntensity : 0
+    if (!material) return
+    const mat = material as any
+    if (mat.userData.uAudioBass) mat.userData.uAudioBass.value = audioData.bass
+    if (mat.userData.uAudioMid) mat.userData.uAudioMid.value = audioData.mid
+    if (mat.userData.uAudioEnvelope) mat.userData.uAudioEnvelope.value = audioData.envelope
+    if (mat.userData.uAudioBeat) mat.userData.uAudioBeat.value = audioData.beat ? audioData.beatIntensity : 0
   })
   
   return (
-    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh position={position} rotation={[-Math.PI / 2, 0, 0]} material={material}>
       <coneGeometry args={[2, 20, 32, 1, true]} />
-      <shaderMaterial
-        ref={materialRef}
-        uniforms={uniforms}
-        vertexShader={`
-          varying vec2 vUv;
-          varying float vHeight;
-          void main() {
-            vUv = uv;
-            vHeight = position.y;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform float uTime;
-          uniform vec3 uColor;
-          uniform float uBaseIntensity;
-          uniform float uAudioBass;
-          uniform float uAudioMid;
-          uniform float uAudioEnvelope;
-          uniform float uAudioBeat;
-          
-          varying vec2 vUv;
-          varying float vHeight;
-          
-          void main() {
-            // Base fade from bottom to top
-            float alpha = (1.0 - vUv.y) * uBaseIntensity;
-            
-            // Audio-reactive intensity
-            float audioBoost = uAudioBass * 0.5 + uAudioMid * 0.3;
-            alpha *= (1.0 + audioBoost);
-            
-            // Beat flash
-            if (uAudioBeat > 0.5) {
-              alpha *= 1.5;
-            }
-            
-            // Animated shimmer synced to envelope
-            float shimmer = 0.8 + 0.2 * sin(uTime * 3.0 + vUv.y * 8.0 + uAudioEnvelope * 5.0);
-            alpha *= shimmer;
-            
-            // Color temperature shift based on mid frequencies
-            vec3 finalColor = uColor;
-            if (uAudioMid > 0.5) {
-              finalColor = mix(finalColor, vec3(1.0, 0.9, 0.7), uAudioMid * 0.3);
-            }
-            
-            gl_FragColor = vec4(finalColor, alpha);
-          }
-        `}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        side={THREE.DoubleSide}
-      />
     </mesh>
   )
 }
@@ -276,17 +206,31 @@ interface AudioReactiveLightShowProps {
   enabled?: boolean
 }
 
+const AUDIO_DEBUG =
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('audioDebug') === '1'
+
 export default function AudioReactiveLightShow({ enabled = true }: AudioReactiveLightShowProps) {
   const ships = useGameStore(state => state.ships)
   const { audioData } = useAudioVisualSync()
-  
-  // Only show for v2.0 ships
+
   const upgradedShips = ships.filter(s => s.version === '2.0')
-  
+  const debugAnchor = upgradedShips[0]?.position
+
   if (!enabled || upgradedShips.length === 0) return null
-  
+
   return (
     <group>
+      {AUDIO_DEBUG && debugAnchor && (
+        <Html
+          position={[debugAnchor[0] + 35, debugAnchor[1] + 25, debugAnchor[2]]}
+          transform
+          distanceFactor={12}
+          style={{ pointerEvents: 'none' }}
+        >
+          <AudioSpectrumTelemetry />
+        </Html>
+      )}
       {upgradedShips.map((ship) => {
         const basePos = ship.position
         
@@ -375,22 +319,20 @@ function AudioReactiveAmbientLight({
   audioData: ReturnType<typeof useAudioVisualSync>['audioData']
 }) {
   const lightRef = useRef<THREE.PointLight>(null)
-  
+  const colorRef = useRef(new THREE.Color())
+
   useFrame(() => {
     if (!lightRef.current) return
-    
-    // Ambient intensity follows overall energy
+
     const baseIntensity = 0.5
     const audioBoost = audioData.energy * 2
     const beatFlash = audioData.beat ? audioData.beatIntensity : 0
-    
+
     lightRef.current.intensity = baseIntensity + audioBoost + beatFlash
-    
-    // Color temperature shifts with spectral centroid
+
     const warmth = audioData.spectralCentroid
-    const color = new THREE.Color()
-    color.setHSL(0.1 + warmth * 0.1, 0.8, 0.5)
-    lightRef.current.color.copy(color)
+    colorRef.current.setHSL(0.1 + warmth * 0.1, 0.8, 0.5)
+    lightRef.current.color.copy(colorRef.current)
   })
   
   return (
