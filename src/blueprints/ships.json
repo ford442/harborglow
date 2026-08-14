@@ -4011,6 +4011,442 @@
           "Empty_HP_06": "foamDeck"
         }
       }
+    },
+    {
+      "id": "icebreaker-yamal",
+      "version": "1.0",
+      "name": "Nuclear Icebreaker \"Yamal\" with Escort v1.0",
+      "scale": 1.7,
+      "baseColor": "#c41e3a",
+      "lod2": {
+        "hull": {
+          "width": 32,
+          "height": 12,
+          "length": 160
+        },
+        "profile": "stepped",
+        "features": [
+          {
+            "type": "superstructure",
+            "xOffset": 0,
+            "yOffset": 0,
+            "zOffset": -20,
+            "width": 22,
+            "height": 14,
+            "depth": 50
+          },
+          {
+            "type": "funnel",
+            "xOffset": 0,
+            "yOffset": 12,
+            "zOffset": -10,
+            "width": 6,
+            "height": 8,
+            "depth": 6
+          },
+          {
+            "type": "secondary",
+            "xOffset": 18,
+            "yOffset": 0,
+            "zOffset": 20,
+            "width": 14,
+            "height": 8,
+            "depth": 55
+          }
+        ]
+      },
+      "parts": [
+        {
+          "id": "mainHull",
+          "type": "box",
+          "position": [
+            0,
+            -3,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            28,
+            12,
+            120
+          ],
+          "material": {
+            "emissive": "#8b1a2b",
+            "metalness": 0.5,
+            "roughness": 0.6
+          }
+        },
+        {
+          "id": "iceBelt",
+          "type": "box",
+          "position": [
+            0,
+            -2,
+            -10
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            29.5,
+            4,
+            122
+          ],
+          "material": {
+            "emissive": "#5a2a2a",
+            "roughness": 0.7
+          }
+        },
+        {
+          "id": "spoonBow",
+          "type": "cone",
+          "position": [
+            0,
+            -1,
+            55
+          ],
+          "rotation": [
+            1.4,
+            0,
+            0
+          ],
+          "size": [
+            14,
+            22,
+            14
+          ],
+          "material": {
+            "emissive": "#a01a2a"
+          }
+        },
+        {
+          "id": "sharkMouthHint",
+          "type": "box",
+          "position": [
+            0,
+            1,
+            48
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            20,
+            3,
+            8
+          ],
+          "material": {
+            "emissive": "#111111"
+          }
+        },
+        {
+          "id": "foreDeck",
+          "type": "box",
+          "position": [
+            0,
+            4,
+            20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            26,
+            1,
+            40
+          ]
+        },
+        {
+          "id": "superstructure",
+          "type": "box",
+          "position": [
+            0,
+            10,
+            -15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            22,
+            14,
+            45
+          ],
+          "material": {
+            "emissive": "#9b2a3a"
+          }
+        },
+        {
+          "id": "bridge",
+          "type": "box",
+          "position": [
+            0,
+            20,
+            -25
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            18,
+            8,
+            14
+          ],
+          "material": {
+            "emissive": "#ffffff"
+          }
+        },
+        {
+          "id": "funnelMain",
+          "type": "cylinder",
+          "position": [
+            0,
+            22,
+            -5
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            4,
+            12,
+            4
+          ],
+          "material": {
+            "emissive": "#ff4400"
+          }
+        },
+        {
+          "id": "mastArray",
+          "type": "cylinder",
+          "position": [
+            0,
+            28,
+            -20
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            14,
+            0.8
+          ],
+          "material": {
+            "emissive": "#cccccc"
+          }
+        },
+        {
+          "id": "heliDeck",
+          "type": "box",
+          "position": [
+            0,
+            18,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            16,
+            0.6,
+            16
+          ],
+          "material": {
+            "emissive": "#2a5a2a",
+            "roughness": 0.8
+          }
+        },
+        {
+          "id": "towingNotch",
+          "type": "box",
+          "position": [
+            0,
+            2,
+            -65
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            4,
+            10
+          ],
+          "material": {
+            "emissive": "#333333"
+          }
+        },
+        {
+          "id": "secondaryHull",
+          "type": "box",
+          "position": [
+            22,
+            -2,
+            15
+          ],
+          "rotation": [
+            0,
+            0.15,
+            0
+          ],
+          "size": [
+            14,
+            8,
+            70
+          ],
+          "material": {
+            "emissive": "#e65c00",
+            "metalness": 0.4,
+            "roughness": 0.5
+          }
+        },
+        {
+          "id": "secondaryDeck",
+          "type": "box",
+          "position": [
+            22,
+            3,
+            15
+          ],
+          "rotation": [
+            0,
+            0.15,
+            0
+          ],
+          "size": [
+            13,
+            0.5,
+            68
+          ],
+          "material": {
+            "emissive": "#cc5500"
+          }
+        },
+        {
+          "id": "secondarySuper",
+          "type": "box",
+          "position": [
+            22,
+            8,
+            35
+          ],
+          "rotation": [
+            0,
+            0.15,
+            0
+          ],
+          "size": [
+            10,
+            8,
+            18
+          ],
+          "material": {
+            "emissive": "#ff7700"
+          }
+        },
+        {
+          "id": "secondaryCrane",
+          "type": "box",
+          "position": [
+            22,
+            12,
+            0
+          ],
+          "rotation": [
+            0,
+            0.15,
+            0
+          ],
+          "size": [
+            2,
+            14,
+            2
+          ],
+          "material": {
+            "emissive": "#ffaa00"
+          }
+        },
+        {
+          "id": "secondaryCraneArm",
+          "type": "box",
+          "position": [
+            18,
+            18,
+            0
+          ],
+          "rotation": [
+            0,
+            0.15,
+            0.4
+          ],
+          "size": [
+            12,
+            1,
+            1
+          ],
+          "material": {
+            "emissive": "#ffcc00"
+          }
+        },
+        {
+          "id": "secondaryStack",
+          "type": "cylinder",
+          "position": [
+            22,
+            14,
+            40
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            8,
+            2
+          ],
+          "material": {
+            "emissive": "#ff3300"
+          }
+        }
+      ],
+      "attachmentPoints": [
+        "funnelMain",
+        "heliDeck",
+        "towingNotch",
+        "bridge",
+        "secondaryCrane",
+        "secondaryStack",
+        "mastArray",
+        "spoonBow"
+      ],
+      "contributor": "Grok + Noah (YouTube Arctic photo)",
+      "added": "2026-08-14",
+      "notes": "Rosatomflot nuclear icebreaker (Yamal / Arktika-class heritage with signature shark-mouth bow paint) paired with secondary orange support/escort vessel. The dual-hull configuration creates the distinctive elongated and asymmetric silhouette seen in the Arctic sunset ice photo. Captures icebreaking spoon bow, towing notch, helideck, heavy superstructure, and the unusual combined size/shape. References specialized_vessels.md icebreaker research (nuclear endurance, air bubbler, ballast systems, escort ops)."
     }
   ]
 }
