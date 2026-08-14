@@ -167,8 +167,10 @@ function fillByteScratchFromDbFft(fftValues: Float32Array, scratch: Uint8Array):
   }
 }
 
-// Global audio analysis state - updated once per frame, consumed by all systems
-let globalAudioData: AudioAnalysisData = {
+// Global audio analysis state - mutated in place once per frame (zero-alloc),
+// consumed by all systems. The binding itself never rebinds, so subscribers can
+// hold the reference returned by getAudioAnalysisData() across frames.
+const globalAudioData: AudioAnalysisData = {
   bass: 0,
   lowMid: 0,
   mid: 0,
