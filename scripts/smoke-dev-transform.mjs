@@ -86,11 +86,54 @@ function fetchModule(modulePath) {
   })
 }
 
-const dev = spawn('npx', ['vite', '--host', HOST, '--port', String(PORT), '--strictPort'], {
+// Resolve vite's binary directly instead of going through `npx`. `npx` inserts a
+// `sh -c vite ...` layer, so the actual dev server is a *grandchild* — and
+// killing the direct child leaves it running (see the process-group kill below).
+const viteBin = path.join(
+  root,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'vite.cmd' : 'vite',
+)
+
+const dev = spawn(viteBin, ['--host', HOST, '--port', String(PORT), '--strictPort'], {
   cwd: root,
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, FORCE_COLOR: '0' },
+  // Own process group, so the cleanup below can signal the server and anything
+  // it spawned as a unit rather than orphaning them.
+  detached: process.platform !== 'win32',
 })
+
+/**
+ * Kill the dev server *and its whole process group*.
+ *
+ * This gate used to hang until its 10-minute CI job timeout (run 31770009553,
+ * gate-smoke) even though every module check had already passed in ~3s. The
+ * script spawned `npx vite`, then killed only the `npx` process; the `sh -c` and
+ * `node vite` grandchildren were reparented to init and kept the inherited
+ * stdout/stderr pipes open forever. Anything reading those pipes — the Actions
+ * log collector, a local `| tail` — blocks on EOF that never comes, so the step
+ * sat idle until it was cancelled. Signalling the negative pid reaps the group.
+ */
+function killDevServer() {
+  if (dev.exitCode !== null || dev.signalCode !== null) return
+  try {
+    if (process.platform !== 'win32' && dev.pid !== undefined) {
+      process.kill(-dev.pid, 'SIGKILL')
+    } else {
+      dev.kill('SIGKILL')
+    }
+  } catch {
+    // Already gone, or the group vanished between the check and the signal.
+    try { dev.kill('SIGKILL') } catch { /* nothing left to kill */ }
+  }
+}
+
+// A crash or Ctrl-C must not leak a dev server holding port 5174 either.
+process.on('exit', killDevServer)
+process.on('SIGINT', () => { killDevServer(); process.exit(130) })
+process.on('SIGTERM', () => { killDevServer(); process.exit(143) })
 
 let failed = false
 let stderr = ''
@@ -132,15 +175,14 @@ try {
   console.error(`✗ smoke test setup failed: ${message}`)
   if (stderr) console.error(stderr.slice(-2000))
 } finally {
-  if (!dev.killed) {
-    dev.kill('SIGKILL')
-  }
+  killDevServer()
   await Promise.race([
     new Promise((resolve) => dev.on('close', resolve)),
     new Promise((resolve) => setTimeout(resolve, 3000)),
   ])
 }
 
-if (failed) {
-  process.exit(1)
-}
+// Exit explicitly rather than falling off the end: the child's stdio pipes are
+// still attached to this process, and waiting for them to drain naturally is the
+// stall this script is meant to avoid.
+process.exit(failed ? 1 : 0)
