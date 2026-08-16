@@ -2,7 +2,7 @@ import * as Tone from 'tone'
 import { useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
-import { wasmDSP } from './wasmDSP'
+import { audioRuntime } from './audio/AudioRuntime'
 
 // =============================================================================
 // PHASE 8: AUDIO-VISUAL SYNCHRONIZATION SYSTEM
@@ -89,6 +89,17 @@ export function computeSpectralCentroidFromBytes(buf: Uint8Array): number {
   return magnitude > 0 ? Math.min(1, weighted / magnitude / len) : 0.5
 }
 
+/** Phase within the current beat from Tone.Transport (0 = downbeat, 1 = next downbeat). */
+export function getTransportBeatPhase(bpm: number, transportSeconds: number): number {
+  const beatDuration = 60 / Math.max(bpm, 1)
+  return (transportSeconds % beatDuration) / beatDuration
+}
+
+/** True when transport phase is within the first windowFraction of a beat. */
+export function isWithinBeatWindow(phase: number, windowFraction = 0.2): boolean {
+  return phase < windowFraction
+}
+
 export interface OnsetDetectorState {
   rollingBassAvg: number
   lastBeatTime: number
@@ -99,6 +110,9 @@ export interface OnsetDetectorOptions {
   bassFloor?: number
   emaAlpha?: number
   minIntervalFloor?: number
+  /** When set, onset is only accepted near a Transport downbeat. */
+  transportBeatPhase?: number
+  beatWindowFraction?: number
 }
 
 export interface OnsetDetectorResult {
@@ -124,6 +138,8 @@ export function detectBeatOnset(
   const bassFloor = options.bassFloor ?? 0.05
   const emaAlpha = options.emaAlpha ?? 0.15
   const minIntervalFloor = options.minIntervalFloor ?? 0.2
+  const beatWindowFraction = options.beatWindowFraction ?? 0.2
+  const { transportBeatPhase } = options
 
   const rollingBassAvg =
     state.rollingBassAvg * (1 - emaAlpha) + bass * emaAlpha
@@ -132,8 +148,10 @@ export function detectBeatOnset(
   const minInterval = Math.max(minIntervalFloor, beatDuration)
   const onsetDetected =
     bass > rollingBassAvg * onsetMultiplier && bass > bassFloor
+  const withinBeatWindow =
+    transportBeatPhase === undefined || isWithinBeatWindow(transportBeatPhase, beatWindowFraction)
   const beatAccepted =
-    onsetDetected && now - state.lastBeatTime >= minInterval
+    onsetDetected && now - state.lastBeatTime >= minInterval && withinBeatWindow
 
   let lastBeatTime = state.lastBeatTime
   let beatPhase: number
@@ -197,23 +215,10 @@ export function getAudioAnalysisData(): AudioAnalysisData {
 // =============================================================================
 
 export class AudioVisualSync {
-  private fft: Tone.FFT | null = null
-  private waveform: Tone.Waveform | null = null
-  private meter: Tone.Meter | null = null
-  private filterBass: Tone.Filter | null = null
-  private filterLowMid: Tone.Filter | null = null
-  private filterMid: Tone.Filter | null = null
-  private filterHighMid: Tone.Filter | null = null
-  private filterTreble: Tone.Filter | null = null
-  private meters: Map<string, Tone.Meter> = new Map()
-
-  private analyser: AnalyserNode | null = null
-  private frequencyByteBuffer: Uint8Array | null = null
-  private fftByteScratch: Uint8Array | null = null
-
   private onsetState: OnsetDetectorState = createOnsetDetectorState()
   private bpm: number = 128
   private isInitialized: boolean = false
+  private lastAnalyzeTime: number = -1
 
   private onBeatCallbacks: Set<(intensity: number) => void> = new Set()
   private onFrameCallbacks: Set<(data: AudioAnalysisData) => void> = new Set()
@@ -221,110 +226,37 @@ export class AudioVisualSync {
   async initialize() {
     if (this.isInitialized) return
 
-    await Tone.start()
-    wasmDSP.init().catch(() => {})
-
-    this.fft = new Tone.FFT(2048)
-    this.waveform = new Tone.Waveform(256)
-    this.meter = new Tone.Meter()
-    this.fftByteScratch = new Uint8Array(1024)
-
-    this.filterBass = new Tone.Filter(80, 'lowpass', -24)
-    this.filterLowMid = new Tone.Filter(270, 'peaking', -12)
-    this.filterLowMid.Q.value = 2
-    this.filterMid = new Tone.Filter(1500, 'peaking', -12)
-    this.filterMid.Q.value = 2
-    this.filterHighMid = new Tone.Filter(3900, 'peaking', -12)
-    this.filterHighMid.Q.value = 2
-    this.filterTreble = new Tone.Filter(10000, 'highpass', -24)
-
-    this.meters.set('bass', new Tone.Meter())
-    this.meters.set('lowMid', new Tone.Meter())
-    this.meters.set('mid', new Tone.Meter())
-    this.meters.set('highMid', new Tone.Meter())
-    this.meters.set('treble', new Tone.Meter())
-
-    const bassMeter = this.meters.get('bass')
-    const lowMidMeter = this.meters.get('lowMid')
-    const midMeter = this.meters.get('mid')
-    const highMidMeter = this.meters.get('highMid')
-    const trebleMeter = this.meters.get('treble')
-
-    if (bassMeter && this.filterBass) this.filterBass.connect(bassMeter)
-    if (lowMidMeter && this.filterLowMid) this.filterLowMid.connect(lowMidMeter)
-    if (midMeter && this.filterMid) this.filterMid.connect(midMeter)
-    if (highMidMeter && this.filterHighMid) this.filterHighMid.connect(highMidMeter)
-    if (trebleMeter && this.filterTreble) this.filterTreble.connect(trebleMeter)
-
-    Tone.Destination.connect(this.fft)
-    if (this.waveform) Tone.Destination.connect(this.waveform)
-    if (this.meter) Tone.Destination.connect(this.meter)
-    if (this.filterBass) Tone.Destination.connect(this.filterBass)
-    if (this.filterLowMid) Tone.Destination.connect(this.filterLowMid)
-    if (this.filterMid) Tone.Destination.connect(this.filterMid)
-    if (this.filterHighMid) Tone.Destination.connect(this.filterHighMid)
-    if (this.filterTreble) Tone.Destination.connect(this.filterTreble)
-
-    try {
-      const rawContext = Tone.getContext().rawContext
-      if (rawContext) {
-        this.analyser = rawContext.createAnalyser()
-        this.analyser.fftSize = 2048
-        this.frequencyByteBuffer = new Uint8Array(this.analyser.frequencyBinCount)
-        Tone.Destination.connect(this.analyser)
-      }
-    } catch {
-      this.analyser = null
-      this.frequencyByteBuffer = null
-    }
+    await audioRuntime.resume()
 
     this.isInitialized = true
     console.log('🎵 AudioVisualSync initialized')
   }
 
   analyze(time: number): AudioAnalysisData {
-    if (!this.isInitialized || !this.fft || !this.waveform || !this.meter) {
+    if (!this.isInitialized) {
       return globalAudioData
     }
 
-    let measuredBass = 0
-    let measuredMid = 0
-    let measuredTreble = 0
-    let spectralCentroid = 0.5
-
-    if (this.analyser && this.frequencyByteBuffer) {
-      this.analyser.getByteFrequencyData(this.frequencyByteBuffer as Uint8Array<ArrayBuffer>)
-      const bands = computeMeasuredBands(this.frequencyByteBuffer)
-      measuredBass = bands.bass
-      measuredMid = bands.mid
-      measuredTreble = bands.treble
-      spectralCentroid = computeSpectralCentroidFromBytes(this.frequencyByteBuffer)
-    } else if (this.fftByteScratch) {
-      const fftValues = this.fft.getValue() as Float32Array
-      fillByteScratchFromDbFft(fftValues, this.fftByteScratch)
-      const bands = computeMeasuredBands(this.fftByteScratch)
-      measuredBass = bands.bass
-      measuredMid = bands.mid
-      measuredTreble = bands.treble
-      spectralCentroid = computeSpectralCentroidFromBytes(this.fftByteScratch)
+    if (time === this.lastAnalyzeTime) {
+      return globalAudioData
     }
+    this.lastAnalyzeTime = time
+
+    const analysis = audioRuntime.getAnalysis()
+    const measuredBass = analysis.bass
+    const measuredMid = analysis.mid
+    const measuredTreble = analysis.treble
+    const spectralCentroid = analysis.spectralCentroid
 
     const mapped = mapBandsToAnalysisFields(measuredBass, measuredMid, measuredTreble)
 
-    const waveValues = this.waveform.getValue() as Float32Array
     const waveformOut = globalAudioData.waveform
-    const waveLen = Math.min(waveValues.length, waveformOut.length)
-    let peak = 0
+    const waveLen = Math.min(analysis.waveform.length, waveformOut.length)
     for (let i = 0; i < waveLen; i++) {
-      const sample = waveValues[i]
-      waveformOut[i] = sample
-      const abs = sample < 0 ? -sample : sample
-      if (abs > peak) peak = abs
+      waveformOut[i] = analysis.waveform[i]
     }
 
-    const rms = wasmDSP.audioRms(waveValues)
-    const meterRms = this.meter.getValue() as number
-    const rmsFinal = rms > 0 ? rms : Math.max(0, meterRms)
+    const rmsFinal = analysis.rms
 
     const envelope = Math.min(1, rmsFinal * 2)
 
@@ -339,11 +271,19 @@ export class AudioVisualSync {
       ((bassScaled + lowMidScaled + midScaled + highMidScaled + trebleScaled) / 5) * 1.5,
     )
 
-    const onset = detectBeatOnset(this.onsetState, measuredBass, time, this.bpm)
+    const transport = Tone.getTransport()
+    const transportRunning = transport.state === 'started'
+    const transportBeatPhase = transportRunning
+      ? getTransportBeatPhase(this.bpm, transport.seconds)
+      : undefined
+
+    const onset = detectBeatOnset(this.onsetState, measuredBass, time, this.bpm, {
+      transportBeatPhase,
+    })
     this.onsetState.rollingBassAvg = onset.rollingBassAvg
     this.onsetState.lastBeatTime = onset.lastBeatTime
 
-    if (onset.shouldFireCallback && Tone.getTransport().state === 'started') {
+    if (onset.shouldFireCallback && transportRunning) {
       this.onBeatCallbacks.forEach((cb) => cb(measuredBass))
     }
 
@@ -355,9 +295,9 @@ export class AudioVisualSync {
     globalAudioData.envelope = Math.max(0, envelope)
     globalAudioData.beat = onset.beat
     globalAudioData.beatIntensity = measuredBass
-    globalAudioData.beatPhase = onset.beatPhase
+    globalAudioData.beatPhase = transportRunning ? transportBeatPhase! : onset.beatPhase
     globalAudioData.rms = Math.max(0, rmsFinal)
-    globalAudioData.peak = Math.min(1, peak)
+    globalAudioData.peak = Math.min(1, analysis.peak)
     globalAudioData.energy = energy
     globalAudioData.spectralCentroid = Math.min(1, spectralCentroid)
 
@@ -385,27 +325,10 @@ export class AudioVisualSync {
   }
 
   dispose() {
-    if (this.analyser) {
-      try {
-        Tone.Destination.disconnect(this.analyser)
-      } catch {
-        // already disconnected
-      }
-      this.analyser = null
-      this.frequencyByteBuffer = null
-    }
-    this.fft?.dispose()
-    this.waveform?.dispose()
-    this.meter?.dispose()
-    this.filterBass?.dispose()
-    this.filterLowMid?.dispose()
-    this.filterMid?.dispose()
-    this.filterHighMid?.dispose()
-    this.filterTreble?.dispose()
-    this.meters.forEach((m) => m.dispose())
     this.onBeatCallbacks.clear()
     this.onFrameCallbacks.clear()
     this.isInitialized = false
+    this.lastAnalyzeTime = -1
   }
 }
 
@@ -437,6 +360,7 @@ export function useAudioData(): AudioAnalysisData {
 // =============================================================================
 // REACT HOOK: useAudioVisualSync
 // Full hook with useFrame analysis driver — must be used inside a Canvas.
+// For read-only subscribers, prefer useAudioData() to avoid redundant subscriptions.
 // =============================================================================
 
 export function useAudioVisualSync() {

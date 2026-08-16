@@ -24,6 +24,9 @@ interface UseCranePhysicsResult {
 }
 
 export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
+  const multiplayerRole = useGameStore(state => state.multiplayerRole)
+  const isSpectator = multiplayerRole === 'spectator'
+
   const {
     spreaderPos,
     spreaderRotation,
@@ -67,8 +70,10 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
   const lastTimeRef = useRef(Date.now())
   const keysPressed = useRef<Set<string>>(new Set())
 
-  // Physics update loop (60fps)
+  // Physics update loop (60fps) — disabled for multiplayer spectators
   useEffect(() => {
+    if (isSpectator) return
+
     let animationId: number
 
     const updatePhysics = () => {
@@ -162,6 +167,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
     animationId = requestAnimationFrame(updatePhysics)
     return () => cancelAnimationFrame(animationId)
   }, [
+    isSpectator,
     leftStick, rightStick, spreaderPos, spreaderRotation, cableDepth, loadTension,
     trolleyPosition, winchSpeed, isArctic, setSpreaderPos, setSpreaderRotation, setCableDepth,
     setLoadTension, setTrolleyPosition, setJoystickLeft, setJoystickRight, setIsMoving,
@@ -169,6 +175,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
 
   // Keyboard handlers
   useEffect(() => {
+    if (isSpectator) return
     const handleKeyDown = (e: KeyboardEvent) => keysPressed.current.add(e.key)
     const handleKeyUp = (e: KeyboardEvent) => keysPressed.current.delete(e.key)
     window.addEventListener('keydown', handleKeyDown)
@@ -177,7 +184,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [])
+  }, [isSpectator])
 
   const handleJoystickStart = (side: 'left' | 'right', e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault()

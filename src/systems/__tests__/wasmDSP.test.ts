@@ -181,6 +181,84 @@ describe('wasmDSP — additive synthesis', () => {
     const s = wasmDSP.additiveSynthSample(100, 0.01, 1000, 1)
     expect(isNaN(s)).toBe(false)
   })
+
+  it('renders a known phase-continuous additive block', () => {
+    const phases = new Float32Array([0])
+    const output = wasmDSP.additiveBlock(
+      new Float32Array([6000]),
+      new Float32Array([1]),
+      8,
+      48000,
+      phases,
+    )
+    for (let index = 0; index < output.length; index++) {
+      expect(output[index]).toBeCloseTo(Math.sin(index * Math.PI / 4), 5)
+    }
+    expect(Math.min(Math.abs(phases[0]), Math.abs(phases[0] - Math.PI * 2)))
+      .toBeLessThan(1e-5)
+  })
+
+  it('preserves each partial phase across split blocks', () => {
+    const frequencies = new Float32Array([997, 1994, 2991])
+    const amplitudes = new Float32Array([0.6, 0.25, 0.1])
+    const oneShotPhases = new Float32Array(3)
+    const splitPhases = new Float32Array(3)
+    const oneShot = wasmDSP.additiveBlock(
+      frequencies, amplitudes, 384, 48000, oneShotPhases)
+    const first = wasmDSP.additiveBlock(
+      frequencies, amplitudes, 113, 48000, splitPhases)
+    const second = wasmDSP.additiveBlock(
+      frequencies, amplitudes, 271, 48000, splitPhases)
+    const split = new Float32Array(384)
+    split.set(first)
+    split.set(second, first.length)
+
+    expect([...split]).toEqual([...oneShot])
+    for (let index = 0; index < splitPhases.length; index++) {
+      expect(splitPhases[index]).toBeCloseTo(oneShotPhases[index], 6)
+    }
+  })
+
+  it('accepts the full 256-partial limit', () => {
+    const frequencies = Float32Array.from({ length: 256 }, (_, index) => 20 + index)
+    const amplitudes = new Float32Array(256).fill(1 / 256)
+    const phases = new Float32Array(256)
+    const output = wasmDSP.additiveBlock(
+      frequencies, amplitudes, 1024, 48000, phases)
+    expect(output).toHaveLength(1024)
+    expect(output.every(Number.isFinite)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+describe('wasmDSP — streaming convolution', () => {
+  it('reproduces an impulse response and preserves the tail', () => {
+    const convolver = wasmDSP.createConvolver(new Float32Array([0.5, -0.25, 0.125]))
+    expect([...convolver.process(new Float32Array([1, 0]))]).toEqual([0.5, -0.25])
+    expect([...convolver.process(new Float32Array([0, 0]))]).toEqual([0.125, 0])
+    convolver.dispose()
+  })
+
+  it('matches a known convolution vector across chunks and reset', () => {
+    const convolver = wasmDSP.createConvolver(new Float32Array([1, 0.5, -1]))
+    const first = convolver.process(new Float32Array([1, 2]))
+    const second = convolver.process(new Float32Array([3, 4, 0, 0]))
+    expect([...first, ...second]).toEqual([1, 2.5, 3, 3.5, -1, -4])
+
+    convolver.reset()
+    expect([...convolver.process(new Float32Array([1, 2, 3, 4, 0, 0]))])
+      .toEqual([1, 2.5, 3, 3.5, -1, -4])
+    convolver.dispose()
+  })
+
+  it('generates deterministic room impulses', () => {
+    const first = wasmDSP.generateRoomIR(1, 8000, 4096, 42)
+    const second = wasmDSP.generateRoomIR(1, 8000, 4096, 42)
+    expect(first).toEqual(second)
+    expect(first[0]).toBe(1)
+    expect(first.some((sample, index) => index > 0 && sample !== 0)).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -20,7 +20,6 @@ import {
 } from './rendering'
 import { loadGameState } from './utils/storage_manager'
 import { TrainingModuleId } from './systems/trainingSystem'
-import * as Tone from 'tone'
 import MainMenu from './components/MainMenu'
 import LoadingScreen from './components/LoadingScreen'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -31,6 +30,7 @@ import TrainingHUD from './components/TrainingHUD'
 import { introMusicSystem } from './systems/introMusicSystem'
 import { preloadShipModels } from './ships/preloadShipModels'
 import { wasmDSP } from './systems/wasmDSP'
+import { audioRuntime } from './systems/audio/AudioRuntime'
 import './App.css'
 
 // Lazy load MainScene for code splitting with explicit chunk name
@@ -60,11 +60,20 @@ const WALKING_CONTROL_MAP = [
 // Bootstrap, menu, and game container with proper loading & error handling
 // =============================================================================
 
+function parseMultiplayerConfig(): { enabled: boolean; joinRoomId: string | null } {
+    const params = new URLSearchParams(window.location.search)
+    return {
+        enabled: params.get('multiplayer') === '1',
+        joinRoomId: params.get('join'),
+    }
+}
+
 function App() {
     const [screen, setScreen] = useState<'menu' | 'loading' | 'game' | 'training'>('menu')
     const [loadingProgress, setLoadingProgress] = useState(0)
     const [loadingStatus, setLoadingStatus] = useState('Initializing')
     const hasSave = !!loadGameState()
+    const multiplayerConfig = useMemo(() => parseMultiplayerConfig(), [])
     
     const loadSavedState = useGameStore(state => state.loadSavedState)
     const resetGame = useGameStore(state => state.resetGame)
@@ -138,6 +147,36 @@ function App() {
       setRendererPreference(next)
     }, [])
 
+    // Multiplayer feature flag (?multiplayer=1)
+    useEffect(() => {
+        if (multiplayerConfig.enabled) {
+            useGameStore.getState().setMultiplayerEnabled(true)
+        }
+    }, [multiplayerConfig.enabled])
+
+    // Wire WebRTC when entering game screen
+    useEffect(() => {
+        if (screen !== 'game' || !multiplayerConfig.enabled) return
+
+        let disposed = false
+        const initMultiplayer = async () => {
+            const { multiplayerSystem } = await import('./systems/multiplayerSystem')
+            if (disposed) return
+
+            if (multiplayerConfig.joinRoomId) {
+                await multiplayerSystem.startSpectator(multiplayerConfig.joinRoomId)
+            }
+        }
+        void initMultiplayer()
+
+        return () => {
+            disposed = true
+            void import('./systems/multiplayerSystem').then(({ multiplayerSystem }) => {
+                multiplayerSystem.dispose()
+            })
+        }
+    }, [screen, multiplayerConfig.enabled, multiplayerConfig.joinRoomId])
+
     // Leva-controlled renderer backend toggle (appears under "Renderer Backend" folder)
     // Changing this updates state + URL + localStorage; Canvas key forces remount with new gl factory.
     useControls(
@@ -193,13 +232,11 @@ function App() {
     // Initialize audio on user gesture
     useEffect(() => {
         const initAudio = async () => {
-            if (Tone.context.state !== 'running') {
-                await Tone.start()
-            }
+            await audioRuntime.resume()
         }
 
         const handleGesture = () => {
-            initAudio()
+            void initAudio()
         }
 
         document.addEventListener('click', handleGesture, { once: true })
@@ -216,7 +253,7 @@ function App() {
         setScreen('loading')
         setLoadingStatus('Loading DSP modules...')
         setLoadingProgress(2)
-        await wasmDSP.init()
+        await Promise.all([wasmDSP.init(), audioRuntime.resume()])
 
         // Weighted loading stages — ship GLB fetch uses real progress
         const stages = [
@@ -261,6 +298,9 @@ function App() {
         
         if (loadSave) {
             loadSavedState()
+        } else if (multiplayerConfig.joinRoomId) {
+            // Spectator: blank harbor — state arrives from host via WebRTC
+            resetGame()
         } else {
             resetGame()
             // Give the opening control-booth scene an immediate goal: dock a
@@ -285,7 +325,7 @@ function App() {
         await new Promise(r => setTimeout(r, 300))
         
         setScreen('game')
-    }, [loadSavedState, resetGame])
+    }, [loadSavedState, resetGame, multiplayerConfig.joinRoomId])
 
     const handleNewGame = useCallback(() => startGame(false), [startGame])
     const handleLoadGame = useCallback(() => startGame(true), [startGame])

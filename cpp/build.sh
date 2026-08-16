@@ -55,3 +55,7 @@ case "$TARGET" in
     exit 1
     ;;
 esac
+
+if [[ "$TARGET" == "all" || -z "$TARGET" ]]; then
+  node ../scripts/write-wasm-manifest.mjs
+fi

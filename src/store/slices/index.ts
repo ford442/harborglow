@@ -12,3 +12,4 @@ export { createEnvironmentSlice } from './environmentSlice';
 export { createEconomySlice } from './economySlice';
 export { createOpsSlice } from './opsSlice';
 export { createSessionSlice } from './sessionSlice';
+export { createMultiplayerSlice } from './multiplayerSlice';

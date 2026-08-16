@@ -142,10 +142,12 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
   }, [config, triggerLockShake])
 
   useFrame((state, delta) => {
+    const store = useGameStore.getState()
+    if (store.multiplayerRole === 'spectator') return
+
     const camPos = camera.position
     updateCameraPosition([camPos.x, camPos.y, camPos.z])
 
-    const store = useGameStore.getState()
     const attachmentConfig = store.attachmentSystemConfig
     const spreader = store.spreaderPos
     const dt = Math.min(delta, 0.05)

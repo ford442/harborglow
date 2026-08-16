@@ -93,6 +93,19 @@ extern "C" float dsp_additive_synth_sample(
     float freq, float time, int harmonics, float decay);
 
 /**
+ * Render a phase-continuous additive block.
+ *
+ * Each entry in freqs/amps describes one independently-tuned partial.  The
+ * matching phase_acc entry is both input and output and is wrapped to [0, 2π)
+ * so callers can preserve phase across render quanta without keeping time in
+ * JavaScript.
+ */
+extern "C" void dsp_additive_block(
+    float* out, int n_samples,
+    const float* freqs, const float* amps, int n_harmonics,
+    float sample_rate, float* phase_acc);
+
+/**
  * Compute the RMS (root mean square) of a float32 buffer.
  *
  * @param data    Pointer to interleaved f32 audio samples.
@@ -100,6 +113,26 @@ extern "C" float dsp_additive_synth_sample(
  * @return        RMS value ≥ 0.
  */
 extern "C" float dsp_audio_rms(const float* data, int count);
+
+// =============================================================================
+// STREAMING CONVOLUTION / PROCEDURAL ROOM IMPULSES
+// =============================================================================
+
+/** Opaque streaming-convolver handle. Zero indicates allocation failure. */
+extern "C" int dsp_convolver_create(const float* impulse, int impulse_length);
+extern "C" void dsp_convolver_process(
+    int handle, const float* input, float* output, int count);
+extern "C" void dsp_convolver_reset(int handle);
+extern "C" void dsp_convolver_destroy(int handle);
+
+/**
+ * Generate a deterministic room impulse response.
+ * preset: 0 = dry, 1 = steel crane cab, 2 = cargo hold, 3 = tanker hold,
+ *         4 = large ship/music hall.
+ * Returns the number of samples written.
+ */
+extern "C" int dsp_generate_room_ir(
+    float* output, int capacity, int preset, float sample_rate, unsigned seed);
 
 // =============================================================================
 // BATCH / SIMD-FRIENDLY HELPERS

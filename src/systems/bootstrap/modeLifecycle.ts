@@ -15,6 +15,7 @@ export interface ModeLifecycleState {
     gameMode: GameMode
     currentTrainingModule: TrainingModuleId | null
     activeMission: Mission | null
+    multiplayerRole?: 'offline' | 'host' | 'spectator'
 }
 
 /**
@@ -23,7 +24,27 @@ export interface ModeLifecycleState {
  * only gates per-frame ticks via the `storm` group + `shouldTick`.
  */
 export function syncSystemModeLifecycle(state: ModeLifecycleState): void {
-    const { operationMode, gameMode, currentTrainingModule, activeMission } = state
+    const {
+        operationMode,
+        gameMode,
+        currentTrainingModule,
+        activeMission,
+        multiplayerRole = 'offline',
+    } = state
+
+    // Spectators receive all state from host — pause every simulation group.
+    if (multiplayerRole === 'spectator') {
+        systemRegistry.pauseGroup('core')
+        systemRegistry.pauseGroup('crane')
+        systemRegistry.pauseGroup('traffic')
+        systemRegistry.pauseGroup('ambient')
+        systemRegistry.pauseGroup('harbor-events')
+        systemRegistry.pauseGroup('storm')
+        return
+    }
+
+    // Ensure core ticks resume when leaving spectator mode
+    systemRegistry.resumeGroup('core')
 
     // Crane physics only while operating the gantry (or on-foot near crane).
     if (operationMode === 'crane') {
@@ -83,6 +104,7 @@ export function useMainSceneSystemBootstrap(): void {
     const gameMode = useGameStore((s) => s.gameMode)
     const currentTrainingModule = useGameStore((s) => s.currentTrainingModule)
     const activeMission = useGameStore((s) => s.activeMission)
+    const multiplayerRole = useGameStore((s) => s.multiplayerRole)
 
     useEffect(() => {
         syncSystemModeLifecycle({
@@ -90,6 +112,7 @@ export function useMainSceneSystemBootstrap(): void {
             gameMode,
             currentTrainingModule,
             activeMission,
+            multiplayerRole,
         })
-    }, [operationMode, gameMode, currentTrainingModule, activeMission])
+    }, [operationMode, gameMode, currentTrainingModule, activeMission, multiplayerRole])
 }

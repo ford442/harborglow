@@ -388,6 +388,91 @@ export interface SpectatorState {
     duration: number
 }
 
+// -------------------------------------------------------------------------
+// Multiplayer — WebRTC shared-harbor sync (optional, ?multiplayer=1)
+// -------------------------------------------------------------------------
+
+export type MultiplayerRole = 'offline' | 'host' | 'spectator'
+export type MultiplayerConnectionStatus = 'idle' | 'signalling' | 'connected' | 'error'
+
+export interface ChatMessage {
+    id: string
+    sender: string
+    text: string
+    ts: number
+}
+
+/** Wire-format state broadcast host → spectators at 10 Hz. */
+export interface NetworkSyncState {
+    // Base (matches getSerializableState)
+    ships: Ship[]
+    craneUpgrades: Upgrade[]
+    musicEnabled: boolean
+    currentSong?: string
+    bpm: number
+    lyricsSize: number
+    lightIntensity: number
+    timeOfDay: number
+    shipVersions: Record<string, string>
+    shipSailTimes: Record<string, number>
+    shipDockedStatus: Record<string, boolean>
+    weather: WeatherState
+    weatherIntensity: number
+    operationMode: OperationMode
+    tugboatState: TugboatState
+    tugboatDockedCount: number
+    tugboatWinTriggered: boolean
+    tugboatFirstTimeViewed: boolean
+    salvageContracts: SalvageContract[]
+    salvageSuccessfulTows: number
+    tugboatCareerStats: TugboatCareerStats
+    tugboatUpgrades: TugboatUpgradeState
+    waveParams: WaveParams
+    harborCredits: number
+    unlockedShopItems: string[]
+    economyData?: string
+    season: Season
+    wildlifeDensity: number
+    enableMarineLife: boolean
+    // Crane ephemeral
+    spreaderPos: { x: number; y: number; z: number }
+    spreaderRotation: number
+    cableDepth: number
+    loadTension: number
+    trolleyPosition: number
+    winchSpeed: number
+    twistlockEngaged: boolean
+    craneHeight: number
+    craneRotation: number
+    isMoving: boolean
+    heaterActive: boolean
+    iceBuildup: number
+    joystickLeft: { x: number; y: number }
+    joystickRight: { x: number; y: number }
+    // Fleet / cinematic
+    currentShipId: string | null
+    spectatorState: SpectatorState
+    tugSpectatorActive: boolean
+    lastInstallation: InstallationEvent | null
+    // Music (Record, not Map)
+    musicPlaying: Record<string, boolean>
+    // Time
+    gameTime: { hour: number; minute: number } | null
+    isNight: boolean
+    // Ambient authority
+    wildlife: WildlifeEntity[]
+    activeSeaEvent: SeaEvent | null
+    activeHarborEvents: HarborEvent[]
+    // Modes
+    walkingPosition: [number, number, number]
+    stormIntensity: number
+    stormTimeRemaining: number
+    isStormActive: boolean
+    windDirection: number
+    windStrength: number
+    rainDensity: number
+}
+
 // Serializable state matching storage_manager GameState
 interface SerializableState {
     ships: Ship[]
@@ -666,6 +751,23 @@ export interface GameState extends SerializableState {
     detachTowLine: () => void
     /** Signal a cable snap — sets towLineSnapped true, auto-clears after 1.2 s */
     signalTowLineSnap: () => void
+    // Multiplayer
+    multiplayerRole: MultiplayerRole
+    multiplayerEnabled: boolean
+    connectionStatus: MultiplayerConnectionStatus
+    roomId: string | null
+    spectatorCount: number
+    networkLatencyMs: number
+    isApplyingNetworkPatch: boolean
+    chatMessages: ChatMessage[]
+    setMultiplayerRole: (role: MultiplayerRole) => void
+    setMultiplayerEnabled: (enabled: boolean) => void
+    setConnectionStatus: (status: MultiplayerConnectionStatus) => void
+    setRoomId: (roomId: string | null) => void
+    setSpectatorCount: (count: number) => void
+    setNetworkLatency: (ms: number) => void
+    applyNetworkPatch: (patch: Partial<NetworkSyncState>) => void
+    addChatMessage: (message: ChatMessage) => void
 }
 /**
  * Keys of GameState whose values are actions. Derived, not hand-listed: the old
@@ -831,6 +933,15 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
     craneContract: null,
     waveParams: { amplitude: 1.0, speed: 1.0, chaos: 0.0 },
     tugSpectatorActive: false,
+    // Multiplayer
+    multiplayerRole: 'offline' as MultiplayerRole,
+    multiplayerEnabled: false,
+    connectionStatus: 'idle' as MultiplayerConnectionStatus,
+    roomId: null,
+    spectatorCount: 0,
+    networkLatencyMs: 0,
+    isApplyingNetworkPatch: false,
+    chatMessages: [],
 }
 
 // =============================================================================
@@ -849,6 +960,80 @@ let saveTimeout: ReturnType<typeof setTimeout> | null = null
  *
  * Exported so tests can assert the shape without reaching through the debounce.
  */
+/**
+ * Full network sync projection — extends the persistence shape with ephemeral
+ * crane kinematics, musicPlaying, wildlife, and other per-frame fields needed
+ * for spectators to mirror the host harbor.
+ */
+export const getNetworkSyncState = (state: GameState): NetworkSyncState => {
+    const musicPlaying: Record<string, boolean> = {}
+    state.musicPlaying.forEach((playing, shipId) => {
+        musicPlaying[shipId] = playing
+    })
+    return {
+        ships: state.ships,
+        craneUpgrades: state.installedUpgrades,
+        musicEnabled: state.musicEnabled,
+        currentSong: state.currentSong,
+        bpm: state.bpm,
+        lyricsSize: state.lyricsSize,
+        lightIntensity: state.lightIntensity,
+        timeOfDay: state.timeOfDay,
+        shipVersions: state.shipVersions,
+        shipSailTimes: state.shipSailTimes,
+        shipDockedStatus: state.shipDockedStatus,
+        weather: state.weather,
+        weatherIntensity: state.weatherIntensity,
+        operationMode: state.operationMode,
+        tugboatState: state.tugboatState,
+        tugboatDockedCount: state.tugboatDockedCount,
+        tugboatWinTriggered: state.tugboatWinTriggered,
+        tugboatFirstTimeViewed: state.tugboatFirstTimeViewed,
+        salvageContracts: state.salvageContracts,
+        salvageSuccessfulTows: state.salvageSuccessfulTows,
+        tugboatCareerStats: state.tugboatCareerStats,
+        tugboatUpgrades: state.tugboatUpgrades,
+        waveParams: state.waveParams,
+        harborCredits: state.harborCredits,
+        unlockedShopItems: state.unlockedShopItems,
+        economyData: economySystem.serialize(),
+        season: state.season,
+        wildlifeDensity: state.wildlifeDensity,
+        enableMarineLife: state.enableMarineLife,
+        spreaderPos: state.spreaderPos,
+        spreaderRotation: state.spreaderRotation,
+        cableDepth: state.cableDepth,
+        loadTension: state.loadTension,
+        trolleyPosition: state.trolleyPosition,
+        winchSpeed: state.winchSpeed,
+        twistlockEngaged: state.twistlockEngaged,
+        craneHeight: state.craneHeight,
+        craneRotation: state.craneRotation,
+        isMoving: state.isMoving,
+        heaterActive: state.heaterActive,
+        iceBuildup: state.iceBuildup,
+        joystickLeft: state.joystickLeft,
+        joystickRight: state.joystickRight,
+        currentShipId: state.currentShipId,
+        spectatorState: state.spectatorState,
+        tugSpectatorActive: state.tugSpectatorActive,
+        lastInstallation: state.lastInstallation,
+        musicPlaying,
+        gameTime: state.gameTime,
+        isNight: state.isNight,
+        wildlife: state.wildlife,
+        activeSeaEvent: state.activeSeaEvent,
+        activeHarborEvents: state.activeHarborEvents,
+        walkingPosition: state.walkingPosition,
+        stormIntensity: state.stormIntensity,
+        stormTimeRemaining: state.stormTimeRemaining,
+        isStormActive: state.isStormActive,
+        windDirection: state.windDirection,
+        windStrength: state.windStrength,
+        rainDensity: state.rainDensity,
+    }
+}
+
 export const getSerializableState = (state: GameState): StorageGameState => ({
     ships: state.ships,
     craneUpgrades: state.installedUpgrades,

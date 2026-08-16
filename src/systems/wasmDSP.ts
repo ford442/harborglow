@@ -55,9 +55,29 @@ export interface HarborGlowDSPExports {
     freq: number, time: number, harmonics: number, decay: number,
   ): number
 
+  dsp_additive_block(
+    outPtr: number, sampleCount: number,
+    frequenciesPtr: number, amplitudesPtr: number, harmonicCount: number,
+    sampleRate: number, phasesPtr: number,
+  ): void
+
   dsp_audio_rms(dataPtr: number, count: number): number
 
   dsp_fft_r2c(inputPtr: number, outRealPtr: number, outImagPtr: number, log2N: number): void
+
+  dsp_convolver_create(impulsePtr: number, impulseLength: number): number
+  dsp_convolver_process(handle: number, inputPtr: number, outputPtr: number, count: number): void
+  dsp_convolver_reset(handle: number): void
+  dsp_convolver_destroy(handle: number): void
+  dsp_generate_room_ir(
+    outputPtr: number, capacity: number, preset: number, sampleRate: number, seed: number,
+  ): number
+}
+
+export interface DSPConvolver {
+  process(input: Float32Array, output?: Float32Array): Float32Array
+  reset(): void
+  dispose(): void
 }
 
 // ---------------------------------------------------------------------------
@@ -79,8 +99,14 @@ interface RawWasmInstance {
   dsp_wave_height: HarborGlowDSPExports['dsp_wave_height']
   dsp_wave_height_batch: HarborGlowDSPExports['dsp_wave_height_batch']
   dsp_additive_synth_sample: HarborGlowDSPExports['dsp_additive_synth_sample']
+  dsp_additive_block: HarborGlowDSPExports['dsp_additive_block']
   dsp_audio_rms: (dataPtr: number, count: number) => number
   dsp_fft_r2c: HarborGlowDSPExports['dsp_fft_r2c']
+  dsp_convolver_create: HarborGlowDSPExports['dsp_convolver_create']
+  dsp_convolver_process: HarborGlowDSPExports['dsp_convolver_process']
+  dsp_convolver_reset: HarborGlowDSPExports['dsp_convolver_reset']
+  dsp_convolver_destroy: HarborGlowDSPExports['dsp_convolver_destroy']
+  dsp_generate_room_ir: HarborGlowDSPExports['dsp_generate_room_ir']
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +159,7 @@ const jsExports: HarborGlowDSPExports = {
     }
     return norm > 0 ? sample / norm : 0
   },
+  dsp_additive_block: () => {},
   dsp_audio_rms: (_dataPtr, count) => {
     void _dataPtr
     return count <= 0 ? 0 : 0
@@ -140,6 +167,11 @@ const jsExports: HarborGlowDSPExports = {
   dsp_fft_r2c: (inputPtr, outRealPtr, outImagPtr, log2N) => {
     // Basic fallback stub
   },
+  dsp_convolver_create: () => 0,
+  dsp_convolver_process: () => {},
+  dsp_convolver_reset: () => {},
+  dsp_convolver_destroy: () => {},
+  dsp_generate_room_ir: () => 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +188,8 @@ class WasmDSPSystem {
 
   // Reusable scratch buffer for single-layer batch (foam grid = 64 points max typical)
   private _batchScratch: Float32Array | null = null
+  private _audioScratchPtr = 0
+  private _audioScratchCapacity = 0
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -228,6 +262,161 @@ class WasmDSPSystem {
     return this._exports.dsp_additive_synth_sample(freq, time, harmonics, decay)
   }
 
+  additiveBlock(
+    frequencies: Float32Array,
+    amplitudes: Float32Array,
+    sampleCount: number,
+    sampleRate: number,
+    phases: Float32Array,
+    output = new Float32Array(sampleCount),
+  ): Float32Array {
+    const harmonicCount = Math.min(frequencies.length, amplitudes.length, phases.length, 256)
+    if (sampleCount <= 0 || harmonicCount <= 0 || sampleRate <= 0) return output
+
+    if (this._raw) {
+      const raw = this._raw
+      const outPtr = raw.malloc(sampleCount * 4)
+      const frequenciesPtr = raw.malloc(harmonicCount * 4)
+      const amplitudesPtr = raw.malloc(harmonicCount * 4)
+      const phasesPtr = raw.malloc(harmonicCount * 4)
+      try {
+        new Float32Array(raw.memory.buffer, frequenciesPtr, harmonicCount)
+          .set(frequencies.subarray(0, harmonicCount))
+        new Float32Array(raw.memory.buffer, amplitudesPtr, harmonicCount)
+          .set(amplitudes.subarray(0, harmonicCount))
+        new Float32Array(raw.memory.buffer, phasesPtr, harmonicCount)
+          .set(phases.subarray(0, harmonicCount))
+        raw.dsp_additive_block(
+          outPtr, sampleCount, frequenciesPtr, amplitudesPtr, harmonicCount,
+          sampleRate, phasesPtr,
+        )
+        output.set(new Float32Array(raw.memory.buffer, outPtr, sampleCount))
+        phases.set(new Float32Array(raw.memory.buffer, phasesPtr, harmonicCount), 0)
+      } finally {
+        raw.free(outPtr)
+        raw.free(frequenciesPtr)
+        raw.free(amplitudesPtr)
+        raw.free(phasesPtr)
+      }
+      return output
+    }
+
+    const twoPi = Math.PI * 2
+    for (let sample = 0; sample < sampleCount; sample++) {
+      let value = 0
+      for (let harmonic = 0; harmonic < harmonicCount; harmonic++) {
+        value += Math.sin(phases[harmonic]) * amplitudes[harmonic]
+        phases[harmonic] = (
+          phases[harmonic] + twoPi * frequencies[harmonic] / sampleRate
+        ) % twoPi
+      }
+      output[sample] = value
+    }
+    return output
+  }
+
+  createConvolver(impulse: Float32Array): DSPConvolver {
+    if (impulse.length === 0) {
+      throw new Error('createConvolver: impulse must not be empty')
+    }
+
+    if (this._raw) {
+      const raw = this._raw
+      const impulsePtr = raw.malloc(impulse.length * 4)
+      new Float32Array(raw.memory.buffer, impulsePtr, impulse.length).set(impulse)
+      const handle = raw.dsp_convolver_create(impulsePtr, impulse.length)
+      raw.free(impulsePtr)
+      if (!handle) throw new Error('createConvolver: WASM handle limit reached')
+      let disposed = false
+      return {
+        process: (input, output = new Float32Array(input.length)) => {
+          if (disposed) throw new Error('Convolver has been disposed')
+          const inputPtr = raw.malloc(input.length * 4)
+          const outputPtr = raw.malloc(input.length * 4)
+          try {
+            new Float32Array(raw.memory.buffer, inputPtr, input.length).set(input)
+            raw.dsp_convolver_process(handle, inputPtr, outputPtr, input.length)
+            output.set(new Float32Array(raw.memory.buffer, outputPtr, input.length))
+            return output
+          } finally {
+            raw.free(inputPtr)
+            raw.free(outputPtr)
+          }
+        },
+        reset: () => {
+          if (!disposed) raw.dsp_convolver_reset(handle)
+        },
+        dispose: () => {
+          if (!disposed) raw.dsp_convolver_destroy(handle)
+          disposed = true
+        },
+      }
+    }
+
+    const history = new Float32Array(impulse.length)
+    let cursor = 0
+    let disposed = false
+    return {
+      process: (input, output = new Float32Array(input.length)) => {
+        if (disposed) throw new Error('Convolver has been disposed')
+        for (let sample = 0; sample < input.length; sample++) {
+          history[cursor] = input[sample]
+          let sum = 0
+          let historyIndex = cursor
+          for (let tap = 0; tap < impulse.length; tap++) {
+            sum += impulse[tap] * history[historyIndex]
+            historyIndex = historyIndex === 0 ? impulse.length - 1 : historyIndex - 1
+          }
+          output[sample] = sum
+          cursor = (cursor + 1) % impulse.length
+        }
+        return output
+      },
+      reset: () => {
+        history.fill(0)
+        cursor = 0
+      },
+      dispose: () => {
+        history.fill(0)
+        disposed = true
+      },
+    }
+  }
+
+  generateRoomIR(
+    preset: number,
+    sampleRate = 48000,
+    capacity = Math.ceil(sampleRate * 6),
+    seed = 0x4847,
+  ): Float32Array {
+    if (this._raw) {
+      const raw = this._raw
+      const ptr = raw.malloc(capacity * 4)
+      try {
+        const length = raw.dsp_generate_room_ir(ptr, capacity, preset, sampleRate, seed)
+        return new Float32Array(new Float32Array(raw.memory.buffer, ptr, length))
+      } finally {
+        raw.free(ptr)
+      }
+    }
+
+    const durations = [0.02, 0.48, 1.8, 3.4, 6]
+    const length = Math.min(capacity, Math.max(1, Math.floor(durations[
+      Math.min(Math.max(Math.round(preset), 0), durations.length - 1)
+    ] * sampleRate)))
+    const impulse = new Float32Array(length)
+    impulse[0] = 1
+    let state = seed >>> 0 || 0x9e3779b9
+    for (let i = 1; i < length; i++) {
+      state ^= state << 13
+      state ^= state >>> 17
+      state ^= state << 5
+      const noise = ((state | 0) / 0x80000000)
+      impulse[i] = noise * Math.exp(-i / Math.max(1, length * 0.2)) * 0.08
+    }
+    return impulse
+  }
+
   /**
    * RMS of a Float32Array. Uses WASM heap when active.
    */
@@ -258,13 +447,13 @@ class WasmDSPSystem {
     if (data.length === 0) return 0
     if (this._raw) {
       const raw = this._raw
-      const ptr = raw.malloc(data.length * 4)
-      try {
-        new Float32Array(raw.memory.buffer, ptr, data.length).set(data)
-        return raw.dsp_audio_rms(ptr, data.length)
-      } finally {
-        raw.free(ptr)
+      if (this._audioScratchCapacity < data.length) {
+        if (this._audioScratchPtr) raw.free(this._audioScratchPtr)
+        this._audioScratchPtr = raw.malloc(data.length * 4)
+        this._audioScratchCapacity = data.length
       }
+      new Float32Array(raw.memory.buffer, this._audioScratchPtr, data.length).set(data)
+      return raw.dsp_audio_rms(this._audioScratchPtr, data.length)
     }
     let sum = 0
     for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
@@ -365,7 +554,11 @@ class WasmDSPSystem {
         'dsp_smooth_step', 'dsp_smoother_step',
         'dsp_sin_approx', 'dsp_sin_full',
         'dsp_wave_height', 'dsp_wave_height_batch',
-        'dsp_additive_synth_sample', 'dsp_audio_rms', 'dsp_fft_r2c',
+        'dsp_additive_synth_sample', 'dsp_additive_block',
+        'dsp_audio_rms', 'dsp_fft_r2c',
+        'dsp_convolver_create', 'dsp_convolver_process',
+        'dsp_convolver_reset', 'dsp_convolver_destroy',
+        'dsp_generate_room_ir',
       ]
       for (const fn of required) {
         if (exp[fn] === undefined) {

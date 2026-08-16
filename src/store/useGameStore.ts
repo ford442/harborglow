@@ -8,6 +8,7 @@ import {
     createEconomySlice,
     createOpsSlice,
     createSessionSlice,
+    createMultiplayerSlice,
 } from './slices';
 export * from './gameStoreTypes';
 import { Ship, Upgrade, ShipType } from './gameStoreTypes';
@@ -29,6 +30,7 @@ export const useGameStore = create<GameState>((set, get, api) => ({
     ...createEconomySlice(set, get, api),
     ...createOpsSlice(set, get, api),
     ...createSessionSlice(set, get, api),
+    ...createMultiplayerSlice(set, get, api),
 }))
 
 // -----------------------------------------------------------------------------
@@ -41,6 +43,7 @@ export const useGameStore = create<GameState>((set, get, api) => ({
 // The serialized field list lives in `getSerializableState` (gameStoreTypes.ts).
 // -----------------------------------------------------------------------------
 useGameStore.subscribe((state) => {
+    if (state.multiplayerRole === 'spectator') return
     scheduleSave(state)
 })
 

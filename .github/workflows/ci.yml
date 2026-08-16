@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       visual: ${{ steps.filter.outputs.visual }}
+      audio: ${{ steps.filter.outputs.audio }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
@@ -34,6 +35,18 @@ jobs:
               - 'src/shaders/**'
               - 'e2e/**'
               - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+            audio:
+              - 'cpp/**'
+              - 'public/wasm/**'
+              - 'src/systems/audio/**'
+              - 'src/systems/**/*SoundSystem.ts'
+              - 'src/systems/audioVisualSync.ts'
+              - 'src/systems/music/**'
+              - 'scripts/check-wasm.mjs'
+              - 'scripts/write-wasm-manifest.mjs'
+              - 'e2e/audio-wasm.spec.ts'
+              - 'vite.config.ts'
               - '.github/workflows/ci.yml'
 
   gate-wasm:
@@ -54,8 +67,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check committed WASM binary
+      - name: Set up pinned Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: "6.0.6"
+          actions-cache-folder: emsdk-cache
+
+      - name: Rebuild committed WASM binaries
+        run: npm run build:wasm
+
+      - name: Check committed WASM binaries
         run: npm run check:wasm
+
+      - name: Reject stale generated artifacts
+        run: git diff --exit-code -- public/wasm
 
   gate-typecheck:
     runs-on: ubuntu-latest
@@ -206,7 +231,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [changes]
-    if: github.event_name == 'push' || needs.changes.outputs.visual == 'true'
+    if: github.event_name == 'push' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.audio == 'true'
     permissions:
       contents: read
     steps:

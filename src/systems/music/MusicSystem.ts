@@ -3,6 +3,7 @@ import { ShipType } from '../../store/useGameStore'
 import { getBandInfo, BandInfo } from './musicTracks'
 import { getLyrics, LyricEntry } from './lyrics'
 import { createSynthChain, SynthChainConfig } from './musicSynthChains'
+import { AcousticSpace, audioRuntime } from '../audio/AudioRuntime'
 
 // =============================================================================
 // MUSIC SYSTEM - Main orchestrator
@@ -14,6 +15,7 @@ class MusicSystem {
     private synthChains: Map<ShipType, SynthChainConfig> = new Map()
     private lyrics: Map<ShipType, LyricEntry[]> = new Map()
     private currentLyricIndex: Map<ShipType, number> = new Map()
+    private scheduledParts: any[] = []
     private isInitialized: boolean = false
 
     constructor() {
@@ -80,11 +82,14 @@ class MusicSystem {
         ])
         chordPart.loop = true
         chordPart.loopEnd = '4:0'
+        chordPart.start(0)
 
         const bassPart = new Tone.Sequence((time, note) => {
             bass?.triggerAttackRelease(note, '2n', time)
         }, ['C2', 'C2', 'F2', 'G2'])
         bassPart.loop = true
+        bassPart.start(0)
+        this.scheduledParts.push(chordPart, bassPart)
 
         this.transports.set('cruise', transport)
     }
@@ -165,6 +170,21 @@ class MusicSystem {
 
     async startMusic(shipType: ShipType) {
         await this.initializeAudio()
+        const roomByShip: Record<ShipType, AcousticSpace> = {
+            cruise: 'ship-hall',
+            container: 'cargo-hold',
+            tanker: 'tanker-hold',
+            bulk: 'cargo-hold',
+            lng: 'ship-hall',
+            roro: 'cargo-hold',
+            research: 'ship-hall',
+            droneship: 'ship-hall',
+            ferry: 'cargo-hold',
+            trawler: 'cargo-hold',
+            horizon: 'ship-hall',
+            fireboat: 'crane-cab',
+        }
+        audioRuntime.setAcousticSpace(roomByShip[shipType], 0.35)
         const transport = this.transports.get(shipType)
         if (transport) {
             transport.start()
@@ -259,6 +279,8 @@ class MusicSystem {
             chain.synths.forEach((s: any) => s.dispose())
             chain.effects.forEach((e: any) => e.dispose())
         })
+        this.scheduledParts.forEach(part => part.dispose())
+        this.scheduledParts = []
         this.transports.forEach(t => t.dispose())
     }
 }

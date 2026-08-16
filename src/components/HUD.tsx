@@ -31,6 +31,7 @@ import {
   DockWalkHUD,
   hudContainerStyle,
 } from './hud'
+import LobbyPanel from './LobbyPanel'
 
 export interface HUDProps {
   onOpenTraining?: () => void
@@ -48,6 +49,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const currentShip = ships.find(s => s.id === currentShipId)
   const operationMode = useGameStore(state => state.operationMode)
   const cameraMode = useGameStore(state => state.cameraMode)
+  const multiplayerRole = useGameStore(state => state.multiplayerRole)
+  const isSpectator = multiplayerRole === 'spectator'
   const walkingPosition = useGameStore(state => state.walkingPosition)
   const walkingSpawnPoint = useGameStore(state => state.walkingSpawnPoint)
   const beginWalkingFromCab = useGameStore(state => state.beginWalkingFromCab)
@@ -81,9 +84,11 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   
   return (
     <div style={hudContainerStyle}>
-      {isCraneMode && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
+      <LobbyPanel />
+
+      {isCraneMode && !isSpectator && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
       
-      {!isWalkingMode && <ModeToggle />}
+      {!isWalkingMode && !isSpectator && <ModeToggle />}
       
       <TopBar currentShip={currentShip} ships={ships} />
       
@@ -95,8 +100,8 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       
       <MissionHUD />
 
-      {isCraneMode && <CraneObjectiveHUD />}
-      {isCraneMode && <CraneWelcomeHandler />}
+      {isCraneMode && !isSpectator && <CraneObjectiveHUD />}
+      {isCraneMode && !isSpectator && <CraneWelcomeHandler />}
 
       <RewardAnimation />
       
@@ -106,20 +111,20 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       
       {isCraneMode && <CameraMultiviewControls />}
       
-      {isCraneMode && <CraneControlIndicators />}
+      {isCraneMode && !isSpectator && <CraneControlIndicators />}
       
-      {isCraneMode && <ShipSpawner />}
-      {isCraneMode && <UpgradeMenu />}
+      {isCraneMode && !isSpectator && <ShipSpawner />}
+      {isCraneMode && !isSpectator && <UpgradeMenu />}
       <SpectatorTitleCard />
       <LyricsDisplay />
       {!isWalkingMode && <ShipVersionDisplay />}
-      {isCraneMode && <CraneControls />}
+      {isCraneMode && !isSpectator && <CraneControls />}
       
       {!isWalkingMode && <DynamicEventNotifier />}
       
       {!isWalkingMode && <ReputationPanel />}
 
-      {isCraneMode && (
+      {isCraneMode && !isSpectator && (
         <div style={shopButtonContainerStyle}>
           <HarborShopButton onClick={() => setShopOpen(true)} />
         </div>

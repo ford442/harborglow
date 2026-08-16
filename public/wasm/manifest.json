@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "sourceMd5": "1c954f421124fb06730ca4b27d0daef5",
+  "sources": {
+    "cpp/harborglow_dsp.cpp": "efc5ff2b003cf80a2ca4272387204bd9",
+    "cpp/harborglow_dsp.h": "4c46b4fa9f3b25cf8a0431d6f03707ad",
+    "cpp/harborglow_audio_engine.cpp": "1ef7e0a78661f5d1d99fcdde2cbff444",
+    "cpp/harborglow_audio_engine.h": "7f85feafb80b0a619743e156c7944683",
+    "cpp/dsp_ring_buffer.c": "a197f45ea81ad7f4afe1cb8e5ca164eb",
+    "cpp/dsp_ring_buffer.h": "32e9be526cb8e319fe7bf8df3449db59",
+    "cpp/Makefile": "b3087992e4afab40b5b071d052892f09",
+    "cpp/build.sh": "cc43c4c6681432bdb5db3bebd510d959"
+  },
+  "binaries": {
+    "public/wasm/harborglow_dsp.wasm": {
+      "bytes": 20011,
+      "sha256": "fb5ca304ad9a97083ae8486aaef2681affa238aac816413f59546e611e8cfc53"
+    },
+    "public/wasm/harborglow_audio_shared.wasm": {
+      "bytes": 42095,
+      "sha256": "ebb54187c91c48bf707e3866d68c9ba5a3467d8479eb2e698ed5c3790940613d"
+    },
+    "public/wasm/harborglow_audio_shared_simd.wasm": {
+      "bytes": 42843,
+      "sha256": "46153c40796a101a276c023e111683948196ac599ba625bd15eae3409325fc72"
+    }
+  },
+  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.6 (ce75e06884093bcefb86a6b8fd56a5d62a4cc245)"
+}

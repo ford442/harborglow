@@ -5,6 +5,8 @@ import {
   computeMeasuredBands,
   createOnsetDetectorState,
   detectBeatOnset,
+  getTransportBeatPhase,
+  isWithinBeatWindow,
   mapBandsToAnalysisFields,
   meanByteBins,
 } from '../audioVisualSync'
@@ -63,6 +65,25 @@ describe('mapBandsToAnalysisFields', () => {
   })
 })
 
+describe('getTransportBeatPhase', () => {
+  it('returns 0 at beat boundary and 0.5 at mid-beat', () => {
+    const bpm = 120
+    const beatDuration = 60 / bpm
+    expect(getTransportBeatPhase(bpm, 0)).toBe(0)
+    expect(getTransportBeatPhase(bpm, beatDuration * 0.5)).toBeCloseTo(0.5, 5)
+    expect(getTransportBeatPhase(bpm, beatDuration)).toBeCloseTo(0, 5)
+  })
+})
+
+describe('isWithinBeatWindow', () => {
+  it('accepts phases near downbeat and rejects mid-beat', () => {
+    expect(isWithinBeatWindow(0.05)).toBe(true)
+    expect(isWithinBeatWindow(0.5)).toBe(false)
+    expect(isWithinBeatWindow(0.19)).toBe(true)
+    expect(isWithinBeatWindow(0.21)).toBe(false)
+  })
+})
+
 describe('detectBeatOnset', () => {
   it('does not fire on steady bass', () => {
     const state = createOnsetDetectorState()
@@ -111,6 +132,24 @@ describe('detectBeatOnset', () => {
     const result = detectBeatOnset(state, 0.95, afterGate, bpm)
     expect(result.beat).toBe(true)
     expect(minInterval).toBeCloseTo(0.46875, 4)
+  })
+
+  it('rejects bass spike outside Transport beat window', () => {
+    const state = createOnsetDetectorState()
+    state.rollingBassAvg = 0.2
+
+    const result = detectBeatOnset(state, 0.9, 1.0, 128, { transportBeatPhase: 0.5 })
+    expect(result.beat).toBe(false)
+    expect(result.shouldFireCallback).toBe(false)
+  })
+
+  it('accepts bass spike inside Transport beat window', () => {
+    const state = createOnsetDetectorState()
+    state.rollingBassAvg = 0.2
+
+    const result = detectBeatOnset(state, 0.9, 1.0, 128, { transportBeatPhase: 0.05 })
+    expect(result.beat).toBe(true)
+    expect(result.shouldFireCallback).toBe(true)
   })
 })
 

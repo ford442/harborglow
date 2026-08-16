@@ -14,6 +14,10 @@
 
 #include <cmath>
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
@@ -120,6 +124,32 @@ float dsp_additive_synth_sample(
 }
 
 extern "C" DSP_EXPORT
+void dsp_additive_block(
+        float* out, int n_samples,
+        const float* freqs, const float* amps, int n_harmonics,
+        float sample_rate, float* phase_acc) {
+    if (!out || !freqs || !amps || !phase_acc || n_samples <= 0 ||
+        n_harmonics <= 0 || sample_rate <= 0.0f) {
+        return;
+    }
+
+    const int harmonics = std::min(n_harmonics, 256);
+    const float inv_rate = 1.0f / sample_rate;
+
+    for (int sample_index = 0; sample_index < n_samples; ++sample_index) {
+        float sample = 0.0f;
+        for (int harmonic = 0; harmonic < harmonics; ++harmonic) {
+            float phase = phase_acc[harmonic];
+            sample += std::sin(phase) * amps[harmonic];
+            phase += TWO_PI * freqs[harmonic] * inv_rate;
+            phase -= TWO_PI * std::floor(phase / TWO_PI);
+            phase_acc[harmonic] = phase;
+        }
+        out[sample_index] = sample;
+    }
+}
+
+extern "C" DSP_EXPORT
 float dsp_audio_rms(const float* data, int count) {
     if (count <= 0) return 0.0f;
     float sum = 0.0f;
@@ -127,6 +157,162 @@ float dsp_audio_rms(const float* data, int count) {
         sum += data[i] * data[i];
     }
     return std::sqrt(sum / static_cast<float>(count));
+}
+
+// ---------------------------------------------------------------------------
+// STREAMING CONVOLUTION / PROCEDURAL ROOM IMPULSES
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct StreamingConvolver {
+    std::vector<float> impulse;
+    std::vector<float> history;
+    std::size_t cursor = 0;
+
+    explicit StreamingConvolver(const float* ir, int length)
+        : impulse(ir, ir + length), history(static_cast<std::size_t>(length), 0.0f) {}
+
+    void reset() {
+        std::fill(history.begin(), history.end(), 0.0f);
+        cursor = 0;
+    }
+};
+
+constexpr std::size_t MAX_CONVOLVERS = 32;
+std::array<std::unique_ptr<StreamingConvolver>, MAX_CONVOLVERS> convolvers;
+
+StreamingConvolver* get_convolver(int handle) {
+    if (handle <= 0 || static_cast<std::size_t>(handle) > MAX_CONVOLVERS) {
+        return nullptr;
+    }
+    return convolvers[static_cast<std::size_t>(handle - 1)].get();
+}
+
+std::uint32_t xorshift32(std::uint32_t& state) {
+    state ^= state << 13U;
+    state ^= state >> 17U;
+    state ^= state << 5U;
+    return state;
+}
+
+float random_bipolar(std::uint32_t& state) {
+    constexpr float scale = 1.0f / 2147483648.0f;
+    return static_cast<float>(static_cast<std::int32_t>(xorshift32(state))) * scale;
+}
+
+}  // namespace
+
+extern "C" DSP_EXPORT
+int dsp_convolver_create(const float* impulse, int impulse_length) {
+    if (!impulse || impulse_length <= 0 || impulse_length > 262144) {
+        return 0;
+    }
+    for (std::size_t index = 0; index < convolvers.size(); ++index) {
+        if (!convolvers[index]) {
+            convolvers[index] = std::make_unique<StreamingConvolver>(
+                impulse, impulse_length);
+            return static_cast<int>(index + 1);
+        }
+    }
+    return 0;
+}
+
+extern "C" DSP_EXPORT
+void dsp_convolver_process(
+        int handle, const float* input, float* output, int count) {
+    StreamingConvolver* convolver = get_convolver(handle);
+    if (!convolver || !input || !output || count <= 0) {
+        return;
+    }
+
+    const std::size_t length = convolver->impulse.size();
+    for (int sample_index = 0; sample_index < count; ++sample_index) {
+        convolver->history[convolver->cursor] = input[sample_index];
+
+        float sum = 0.0f;
+        std::size_t history_index = convolver->cursor;
+        for (std::size_t tap = 0; tap < length; ++tap) {
+            sum += convolver->impulse[tap] * convolver->history[history_index];
+            history_index = history_index == 0 ? length - 1 : history_index - 1;
+        }
+        output[sample_index] = sum;
+        convolver->cursor = (convolver->cursor + 1) % length;
+    }
+}
+
+extern "C" DSP_EXPORT
+void dsp_convolver_reset(int handle) {
+    if (StreamingConvolver* convolver = get_convolver(handle)) {
+        convolver->reset();
+    }
+}
+
+extern "C" DSP_EXPORT
+void dsp_convolver_destroy(int handle) {
+    if (handle <= 0 || static_cast<std::size_t>(handle) > MAX_CONVOLVERS) {
+        return;
+    }
+    convolvers[static_cast<std::size_t>(handle - 1)].reset();
+}
+
+extern "C" DSP_EXPORT
+int dsp_generate_room_ir(
+        float* output, int capacity, int preset, float sample_rate,
+        unsigned seed) {
+    if (!output || capacity <= 0 || sample_rate <= 0.0f) {
+        return 0;
+    }
+
+    struct RoomParameters {
+        float duration;
+        float decay;
+        float early_gain;
+        float metallic;
+    };
+    static constexpr RoomParameters rooms[] = {
+        {0.02f, 0.01f, 0.0f, 0.0f},
+        {0.48f, 0.16f, 0.72f, 0.82f},
+        {1.8f, 0.62f, 0.62f, 0.45f},
+        {3.4f, 1.1f, 0.68f, 0.7f},
+        {6.0f, 2.1f, 0.52f, 0.28f},
+    };
+
+    const int room_index = std::min(std::max(preset, 0), 4);
+    const RoomParameters room = rooms[room_index];
+    const int length = std::min(
+        capacity, std::max(1, static_cast<int>(room.duration * sample_rate)));
+    std::fill(output, output + length, 0.0f);
+    output[0] = 1.0f;
+    if (room_index == 0) {
+        return length;
+    }
+
+    std::uint32_t random_state = seed == 0U
+        ? 0x9e3779b9U ^ static_cast<std::uint32_t>(room_index)
+        : seed;
+    for (int index = 1; index < length; ++index) {
+        const float time = static_cast<float>(index) / sample_rate;
+        const float envelope = std::exp(-time / room.decay);
+        const float noise = random_bipolar(random_state);
+        const float metallic = std::sin(
+            TWO_PI * (173.0f + 67.0f * room.metallic) * time);
+        output[index] = envelope * (noise * (1.0f - room.metallic * 0.45f) +
+            metallic * room.metallic * 0.28f) * 0.085f;
+    }
+
+    static constexpr float early_delays[] = {0.007f, 0.013f, 0.021f, 0.034f, 0.055f};
+    for (std::size_t reflection = 0;
+         reflection < sizeof(early_delays) / sizeof(early_delays[0]);
+         ++reflection) {
+        const int index = static_cast<int>(
+            early_delays[reflection] * sample_rate * (1.0f + room_index * 0.35f));
+        if (index < length) {
+            output[index] += room.early_gain /
+                static_cast<float>(reflection + 2);
+        }
+    }
+    return length;
 }
 
 // ---------------------------------------------------------------------------

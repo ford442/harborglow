@@ -18,7 +18,12 @@ math from the main TypeScript game loop.
 | `dsp_wave_height(...)` | Single Gerstner wave height sample (`sin(dot·freq + time·speed)`) |
 | `dsp_wave_height_batch(...)` | Batch Gerstner query (many positions, one layer) |
 | `dsp_additive_synth_sample(...)` | Additive synthesizer partial sum |
+| `dsp_additive_block(...)` | Phase-continuous 256-partial block synthesis |
 | `dsp_audio_rms(data, count)` | RMS of a float32 buffer |
+| `dsp_convolver_*` | Stateful impulse-response convolution |
+| `dsp_generate_room_ir(...)` | Deterministic cab/hold impulse responses |
+| `dsp_ring_*` | C11 atomic SPSC command/analysis queues |
+| `dsp_audio_engine_*` | Fixed-voice real-time synth/effect engine |
 | `malloc` / `free` | Heap allocators for batch buffer passing from JS |
 
 The TypeScript binding (`src/systems/wasmDSP.ts`) loads the **raw** `.wasm`
@@ -55,11 +60,14 @@ npm run build:wasm
 
 | File | Purpose |
 |---|---|
-| `../public/wasm/harborglow_dsp.wasm` | WASM binary — loaded at runtime (~15 KB release) |
+| `../public/wasm/harborglow_dsp.wasm` | Private growable memory; simulation and direct TypeScript helpers |
+| `../public/wasm/harborglow_audio_shared.wasm` | Fixed shared memory; scalar AudioWorklet engine |
+| `../public/wasm/harborglow_audio_shared_simd.wasm` | Fixed shared memory; SIMD + relaxed-SIMD AudioWorklet engine |
+| `../public/wasm/manifest.json` | Source MD5, binary SHA-256, sizes, and toolchain identity |
 
 The `.wasm` file is **committed** to the repository so the game runs without a
-local Emscripten install. CI runs `npm run check:wasm` to reject stub
-regressions (size threshold + required export names).
+local Emscripten install. CI runs `npm run check:wasm` to validate source
+freshness, artifact hashes/imports/exports, and DSP golden vectors.
 
 ### Build flags (Makefile)
 
@@ -68,6 +76,9 @@ regressions (size threshold + required export names).
   import stub (see `wasmDSP.ts`).
 - `INITIAL_MEMORY=262144` (256 KB) — covers Emscripten runtime + batch float
   buffers; grows via `ALLOW_MEMORY_GROWTH`.
+- Shared audio builds use a fixed 32 MiB imported memory, atomics/bulk-memory,
+  and a scalar plus `-O3 -msimd128 -mrelaxed-simd` variant. The runtime probes
+  the optimized artifact before falling back to scalar.
 - **Not used at runtime:** MODULARIZE / `harborglow_dsp.js` glue (historical
   builds emitted this file; the game binds exports directly).
 
@@ -90,6 +101,20 @@ src/scenes/Tugboat.tsx          single-point buoyancy probes
 
 Boot order: `App.tsx` `startGame()` calls `await wasmDSP.init()` on the loading
 screen **before** MainScene / WaveSystem queries run.
+
+The audio engine is initialized independently on the first user gesture by
+`AudioRuntime`. Shared-memory audio requires HTTPS (or localhost),
+`SharedArrayBuffer`, `AudioWorklet`, and these response headers:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Resource-Policy: same-origin
+```
+
+Vite dev/preview sets them. Production hosting must do the same and serve WASM
+as `application/wasm`; otherwise the native Web Audio compatibility path is
+selected without blocking game startup.
 
 ## Adding new functions
 

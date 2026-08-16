@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { fileURLToPath } from 'node:url'
+
+const isolationHeaders = {
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -14,11 +21,22 @@ export default defineConfig(({ mode }) => ({
         }),
     ].filter(Boolean),
     base: './',
+    resolve: {
+        // Keep existing Tone-shaped system APIs while running every procedural
+        // synth/effect through the WASM AudioWorklet backend.
+        alias: {
+            tone: fileURLToPath(new URL('./src/systems/audio/toneCompat.ts', import.meta.url)),
+        },
+    },
     // Ensure .wasm files in public/ are served with the correct MIME type
     assetsInclude: ['**/*.wasm'],
     server: {
         host: true,
-        port: 5173
+        port: 5173,
+        headers: isolationHeaders,
+    },
+    preview: {
+        headers: isolationHeaders,
     },
     build: {
         minify: 'terser',

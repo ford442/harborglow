@@ -5,6 +5,7 @@
 // =============================================================================
 
 import * as Tone from 'tone'
+import { audioRuntime } from './audio/AudioRuntime'
 
 // =============================================================================
 // SOUND STATE & CONFIG
@@ -82,6 +83,7 @@ let brakeSynth: Tone.NoiseSynth | null = null
 
 function initSynths() {
   if (!config.enabled) return
+  audioRuntime.setAcousticSpace('crane-cab', 0.32)
 
   // Hydraulic system - brown noise with lowpass filter
   if (!hydraulicSynth) {

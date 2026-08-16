@@ -147,6 +147,19 @@ export type SessionSlice = Pick<
     | 'loadSavedState'
 >;
 
+/** WebRTC shared-harbor multiplayer */
+export type MultiplayerSlice = Pick<
+    GameState,
+    | 'setMultiplayerRole'
+    | 'setMultiplayerEnabled'
+    | 'setConnectionStatus'
+    | 'setRoomId'
+    | 'setSpectatorCount'
+    | 'setNetworkLatency'
+    | 'applyNetworkPatch'
+    | 'addChatMessage'
+>;
+
 /** Every action key owned by some slice. */
 export type OwnedActionKey =
     | keyof ShipsSlice
@@ -155,7 +168,8 @@ export type OwnedActionKey =
     | keyof EnvironmentSlice
     | keyof EconomySlice
     | keyof OpsSlice
-    | keyof SessionSlice;
+    | keyof SessionSlice
+    | keyof MultiplayerSlice;
 
 /**
  * Compile-time guard: any action on GameState that no slice claims shows up
