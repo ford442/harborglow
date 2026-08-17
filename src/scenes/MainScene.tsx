@@ -1,5 +1,5 @@
 import { LevaControlsConfig, ShipSchedulingConfig, SpectatorCameraConfig, DepartingShipsConfig, NightDockLights, NightVolumetricCones, WaterLightVolumes, SpectatorNightCinematicEffects, ShipWrapper, SpectatorOverlay, triggerGeopoliticalEvent, triggerTariffEvent, triggerLaborAction, triggerPeakSeason, useLevaControls, useShipScheduling, UnderwaterEffects, getSunPosition, updateSpectatorCamera, animateDepartingShips } from './mainScene/MainSceneHelpers';
-import { useRef, useEffect, useState, useMemo } from 'react'
+import { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
 import { useControls } from 'leva'
@@ -14,7 +14,7 @@ import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
 import { weatherSystem, WeatherType } from '../systems/weatherSystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
 import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
@@ -39,7 +39,7 @@ import GlobalIllumination from './GlobalIllumination'
 import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
-import PostProcessing from './PostProcessing'
+const PostProcessing = lazy(() => import('./PostProcessing'))
 import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
 import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
@@ -54,6 +54,7 @@ import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { setSceneCamera } from '../utils/sceneCamera'
 import { buildFrameContext, systemRegistry, useMainSceneSystemBootstrap } from '../systems/bootstrap'
+import { simScheduler } from '../systems/sim'
 
 // =============================================================================
 // CONSTANTS
@@ -125,6 +126,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const season = useGameStore(s => s.season)
     const wildlifeDensity = useGameStore(s => s.wildlifeDensity)
     const enableMarineLife = useGameStore(s => s.enableMarineLife)
+    const qualityPreset = useGameStore(s => s.qualityPreset)
     
     // Actions
     const setBPM = useGameStore(s => s.setBPM)
@@ -397,15 +399,17 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             0
         )
 
-        systemRegistry.tick(
-            delta,
-            buildFrameContext({
-                state,
-                delta,
-                camera,
-                swayTrolleyPosition: swayTrolleyVecRef.current,
-            })
-        )
+        simScheduler.advance(delta, (sim) => {
+            systemRegistry.tick(
+                sim.dt,
+                buildFrameContext({
+                    state,
+                    delta: sim.dt,
+                    camera,
+                    swayTrolleyPosition: swayTrolleyVecRef.current,
+                })
+            )
+        })
 
         // Tugboat win condition (gameplay, not a singleton system tick)
         if (
@@ -540,7 +544,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <LightFlareSystem />
-            <PostProcessing enabled={true} audioData={audioData} />
+            {qualityPreset !== 'low' && (
+              <Suspense fallback={null}>
+                <PostProcessing enabled={true} audioData={audioData} />
+              </Suspense>
+            )}
 
             {/* Ships — visible in all modes so the glowing fleet coexists with the tug */}
             {ships.map(ship => (

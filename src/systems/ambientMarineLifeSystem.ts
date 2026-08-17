@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // AMBIENT MARINE LIFE SYSTEM — HarborGlow
 // Density-driven, season/time/weather-aware ambient wildlife layer.

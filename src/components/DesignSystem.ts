@@ -2,6 +2,8 @@
 // PHASE 6.1: HUD DESIGN SYSTEM - Glassmorphism & Animations
 // =============================================================================
 
+import { ShipType } from '../store/useGameStore'
+
 export const GLASSMORPHISM = {
   background: 'rgba(20, 20, 30, 0.6)',
   backgroundHover: 'rgba(30, 30, 45, 0.75)',
@@ -124,7 +126,12 @@ export const ANIMATIONS = {
 }
 
 // Ship type color palette
-export const SHIP_COLORS = {
+export const SHIP_COLORS: Record<ShipType, {
+  primary: string
+  secondary: string
+  glow: string
+  gradient: string
+}> = {
   cruise: {
     primary: '#ff6b9d',
     secondary: '#ff8fb3',
@@ -196,6 +203,12 @@ export const SHIP_COLORS = {
     secondary: '#ff6666',
     glow: '#ff333380',
     gradient: 'linear-gradient(135deg, #ff3333, #3366ff)'
+  },
+  icebreaker: {
+    primary: '#c41e3a',
+    secondary: '#e65c00',
+    glow: '#7ec8e380',
+    gradient: 'linear-gradient(135deg, #c41e3a, #7ec8e3)'
   }
 }
 

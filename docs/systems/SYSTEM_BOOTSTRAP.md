@@ -11,7 +11,9 @@ The bootstrap layer centralizes registration, tick order, and mode-aware pausing
 | `src/systems/bootstrap/SystemRegistry.ts` | Registry singleton (`systemRegistry`) with `register`, `startAll`, `stopAll`, `pauseGroup`, `tick` |
 | `src/systems/bootstrap/mainSceneSystems.ts` | Registers all living-harbor systems with explicit `order` |
 | `src/systems/bootstrap/modeLifecycle.ts` | `syncSystemModeLifecycle` + `useMainSceneSystemBootstrap` hook |
-| `src/scenes/MainScene.tsx` | Calls `useMainSceneSystemBootstrap()` once and `systemRegistry.tick(...)` from `useFrame` |
+| `src/scenes/MainScene.tsx` | Calls `useMainSceneSystemBootstrap()` once and `simScheduler.advance` → `systemRegistry.tick(SIM_DT, …)` from `useFrame` |
+
+Simulation time and RNG: [DETERMINISM.md](./DETERMINISM.md).
 
 ## Tick order table
 

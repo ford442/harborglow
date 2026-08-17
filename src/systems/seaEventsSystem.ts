@@ -18,6 +18,8 @@
 
 import { useGameStore, SeaEvent, SeaEventType, Ship } from '../store/useGameStore'
 import { wildlifeSystem } from './wildlifeSystem'
+import { timeSystem } from './timeSystem'
+import { simRandom, simNowMs } from './sim/SimContext'
 
 // Scientific event specifications
 interface EventSpec {
@@ -132,7 +134,7 @@ class SeaEventsSystem {
         this.states.milky_seas = {
             update: (event, delta, ships) => {
                 // Intensity varies slightly over time
-                const variation = Math.sin(Date.now() / 10000) * 0.1
+                const variation = Math.sin(simNowMs() / 10000) * 0.1
                 return { intensity: Math.max(0, Math.min(1, event.intensity + variation)) }
             },
             onStart: (event) => {
@@ -149,10 +151,10 @@ class SeaEventsSystem {
         this.states.whale_migration = {
             update: (event, delta, ships) => {
                 // Migration progresses across the scene
-                const progress = (Date.now() - event.startTime) / 1000 / event.duration
+                const progress = (simNowMs() - event.startTime) / 1000 / event.duration
                 
                 // Spawn additional whales during migration
-                if (Math.random() < 0.01) {
+                if (simRandom() < 0.01) {
                     // This would trigger wildlife system to spawn whales
                     wildlifeSystem.spawnWildlife('humpback_whale')
                 }
@@ -172,7 +174,7 @@ class SeaEventsSystem {
                 // Sharks more aggressive/active during patrol
                 
                 // Random shark spawns near ships
-                if (Math.random() < 0.02) {
+                if (simRandom() < 0.02) {
                     wildlifeSystem.spawnWildlife('great_white_shark')
                 }
                 
@@ -202,7 +204,7 @@ class SeaEventsSystem {
         this.states.bioluminescent_bloom = {
             update: (event, delta, ships) => {
                 // Spawn plankton entities
-                if (Math.random() < 0.05) {
+                if (simRandom() < 0.05) {
                     wildlifeSystem.spawnWildlife('bioluminescent_plankton')
                 }
                 
@@ -221,13 +223,13 @@ class SeaEventsSystem {
         if (type === 'none') return null
         
         const spec = EVENT_SPECS[type]
-        const duration = spec.minDuration + Math.random() * (spec.maxDuration - spec.minDuration)
-        const intensity = spec.minIntensity + Math.random() * (spec.maxIntensity - spec.minIntensity)
+        const duration = spec.minDuration + simRandom() * (spec.maxDuration - spec.minDuration)
+        const intensity = spec.minIntensity + simRandom() * (spec.maxIntensity - spec.minIntensity)
         
         const event: SeaEvent = {
-            id: `event-${type}-${Date.now()}`,
+            id: `event-${type}-${simNowMs()}`,
             type,
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration,
             intensity,
             affectedArea: {
@@ -269,7 +271,7 @@ class SeaEventsSystem {
         
         // Update existing event
         if (currentEvent) {
-            const elapsed = (Date.now() - currentEvent.startTime) / 1000
+            const elapsed = (simNowMs() - currentEvent.startTime) / 1000
             
             // Check if event should end
             if (elapsed >= currentEvent.duration) {
@@ -302,7 +304,7 @@ class SeaEventsSystem {
         if (this.currentEvent) return
         
         const isNight = timeOfDay < 6 || timeOfDay > 18
-        const month = new Date().getMonth() + 1
+        const month = (Math.floor(timeSystem.getState().dayNumber / 30) % 12) + 1
         
         // Calculate probabilities for each event type
         const candidates: { type: SeaEventType; weight: number }[] = []
@@ -325,7 +327,7 @@ class SeaEventsSystem {
         
         // Weighted random selection
         const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0)
-        let random = Math.random() * totalWeight
+        let random = simRandom() * totalWeight
         
         for (const candidate of candidates) {
             random -= candidate.weight
@@ -355,15 +357,21 @@ class SeaEventsSystem {
     // Get event progress (0-1)
     getEventProgress(): number {
         if (!this.currentEvent) return 0
-        const elapsed = (Date.now() - this.currentEvent.startTime) / 1000
+        const elapsed = (simNowMs() - this.currentEvent.startTime) / 1000
         return Math.min(1, elapsed / this.currentEvent.duration)
     }
     
     // Get remaining time
     getRemainingTime(): number {
         if (!this.currentEvent) return 0
-        const elapsed = (Date.now() - this.currentEvent.startTime) / 1000
+        const elapsed = (simNowMs() - this.currentEvent.startTime) / 1000
         return Math.max(0, this.currentEvent.duration - elapsed)
+    }
+
+    reset() {
+        this.currentEvent = null
+        this.eventTimer = 0
+        useGameStore.getState().setActiveSeaEvent(null)
     }
 }
 

@@ -367,6 +367,11 @@ class MoonSystem {
         this.state = this.calculateState(gameMinutes)
         this.notifyListeners()
     }
+
+    reset() {
+        this.overridePhase = null
+        this.update(24 * 60 + 6 * 60)
+    }
     
     // Get time until next phase
     getTimeUntilNextPhase(): number {

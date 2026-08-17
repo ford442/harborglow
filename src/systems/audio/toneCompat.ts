@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 import {
   AcousticSpace,
   EffectsOptions,
@@ -572,7 +573,7 @@ export const Transport = transport
 export const Draw = {
   schedule(callback: () => void, time = 0): number {
     const delay = Math.max(0, time - now()) * 1000
-    return globalThis.setTimeout(callback, delay)
+    return window.setTimeout(callback, delay)
   },
   cancel(id: number): void {
     globalThis.clearTimeout(id)

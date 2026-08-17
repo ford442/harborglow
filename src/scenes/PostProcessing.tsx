@@ -10,6 +10,7 @@ import { useControls } from 'leva'
 import { GodRaysShader } from '../shaders/GodRaysShader'
 import { getSunPosition } from './mainScene/MainSceneHelpers'
 import { getRendererDiagnostics } from '../rendering/rendererState'
+import { getGpuChoreSession } from '../rendering/gpuChores'
 
 // =============================================================================
 // POLISHED POST-PROCESSING STACK
@@ -197,10 +198,16 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
   const depthRenderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null)
   const lightPos3DRef = useRef(new THREE.Vector3())
   const projectedLightRef = useRef(new THREE.Vector3())
-  
-  // Initialize post-processing
+
   useEffect(() => {
-    if (!enabled) return
+    const session = getGpuChoreSession()
+    session.attach(gl as never)
+    return () => session.detach()
+  }, [gl])
+  
+  // Initialize post-processing (skipped on low quality — no composer bundle needed)
+  useEffect(() => {
+    if (!enabled || qualityPreset === 'low') return
     
     let isMounted = true
     let composer: any = null
@@ -240,7 +247,7 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
 
         // SSR Pass
         const { supportsSSR } = getRendererDiagnostics()
-        if (supportsSSR && SSREffect && qualityPreset !== 'low') {
+        if (supportsSSR && SSREffect) {
           const ssrEffect = new SSREffect(scene, camera, {
             maxDistance: 20,
             thickness: 0.5,
@@ -313,7 +320,7 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
       depthRenderTargetRef.current?.dispose()
       depthRenderTargetRef.current = null
     }
-  }, [enabled, gl, scene, camera, size, config.bloom.intensity, config.bloom.threshold, config.ssao])
+  }, [enabled, qualityPreset, gl, scene, camera, size, config.bloom.intensity, config.bloom.threshold, config.ssao])
   
   // Update color grading based on time
   useEffect(() => {
@@ -469,6 +476,17 @@ export default function PostProcessing({ enabled = true, audioData }: PostProces
     } catch (e) {
       // Silent fail
     }
+
+    const choreSession = getGpuChoreSession()
+    choreSession.tick({
+      renderer: gl as never,
+      composer: composerRef.current,
+      dofEnabled: config.dof,
+    })
+    if (colorPassRef.current) {
+      colorPassRef.current.uniforms.tBlurred.value = choreSession.getBlurTexture()
+      colorPassRef.current.uniforms.uUseBlurred.value = choreSession.blurReady() ? 1 : 0
+    }
   })
   
   return null
@@ -492,7 +510,9 @@ function createColorGradingShader(lut: typeof COLOR_LUTS.day, config: typeof QUA
       uTime: { value: 0 },
       uBeatPulse: { value: 0 },
       uFocusDistance: { value: 10 },
-      uDofEnabled: { value: config.dof ? 1 : 0 }
+      uDofEnabled: { value: config.dof ? 1 : 0 },
+      tBlurred: { value: null },
+      uUseBlurred: { value: 0 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -517,6 +537,8 @@ function createColorGradingShader(lut: typeof COLOR_LUTS.day, config: typeof QUA
       uniform float uBeatPulse;
       uniform float uFocusDistance;
       uniform float uDofEnabled;
+      uniform sampler2D tBlurred;
+      uniform float uUseBlurred;
       varying vec2 vUv;
       
       // ACES Filmic Tone Mapping
@@ -596,15 +618,21 @@ function createColorGradingShader(lut: typeof COLOR_LUTS.day, config: typeof QUA
         // Color tint
         color += uTint * 0.1;
         
-        // Fake DOF - radial blur at edges for cinematic spectator mode
+        // DOF — sample chore-produced downsample+blur when available; 4-tap fallback otherwise
         if (uDofEnabled > 0.5) {
           float edgeBlur = smoothstep(0.25, 0.85, dist) * 0.04;
-          vec3 blurColor = color;
-          blurColor += texture2D(tDiffuse, uv + vec2(edgeBlur, 0.0)).rgb;
-          blurColor += texture2D(tDiffuse, uv + vec2(-edgeBlur, 0.0)).rgb;
-          blurColor += texture2D(tDiffuse, uv + vec2(0.0, edgeBlur)).rgb;
-          blurColor += texture2D(tDiffuse, uv + vec2(0.0, -edgeBlur)).rgb;
-          color = mix(color, blurColor * 0.2, smoothstep(0.25, 0.85, dist));
+          vec3 blurred;
+          if (uUseBlurred > 0.5) {
+            blurred = texture2D(tBlurred, uv).rgb;
+          } else {
+            blurred = color;
+            blurred += texture2D(tDiffuse, uv + vec2(edgeBlur, 0.0)).rgb;
+            blurred += texture2D(tDiffuse, uv + vec2(-edgeBlur, 0.0)).rgb;
+            blurred += texture2D(tDiffuse, uv + vec2(0.0, edgeBlur)).rgb;
+            blurred += texture2D(tDiffuse, uv + vec2(0.0, -edgeBlur)).rgb;
+            blurred *= 0.2;
+          }
+          color = mix(color, blurred, smoothstep(0.25, 0.85, dist));
         }
         
         gl_FragColor = vec4(color, 1.0);

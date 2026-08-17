@@ -1,7 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { lightingSystem } from '../lightingSystem'
 import { getLightShow } from '../lightShows'
 import { ShipType } from '../../store/useGameStore'
+import { createSimContext, setSim } from '../sim/SimContext'
+
+function setSimMs(ms: number) {
+  setSim({ ...createSimContext(1), simTime: ms / 1000 })
+}
 
 // =============================================================================
 // LIGHTING SYSTEM — per-band light-cue dispatch smoke tests
@@ -20,13 +25,12 @@ describe('lightShows registry', () => {
 
 describe('LightingSystem cue dispatch', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(0)
+    setSimMs(0)
   })
 
   afterEach(() => {
     lightingSystem.endHarborShow()
-    vi.useRealTimers()
+    setSimMs(0)
   })
 
   it('starts the LNG show on the cyan breathing cue, then reaches the strobe cue at the drop (beat 24)', () => {
@@ -40,7 +44,7 @@ describe('LightingSystem cue dispatch', () => {
     // Date.now() truncates to whole milliseconds, so round up to ensure the
     // beat-24 cue boundary has been crossed.
     const elapsedMs = Math.ceil(beatDuration * 24 * 1000)
-    vi.setSystemTime(elapsedMs)
+    setSimMs(elapsedMs)
     lightingSystem.update(elapsedMs / 1000, 118)
 
     expect(lightingSystem.getActiveCue()?.pattern).toBe('strobe')
@@ -52,7 +56,7 @@ describe('LightingSystem cue dispatch', () => {
 
     const beatDuration = 60 / 140
     const elapsedMs = Math.ceil(beatDuration * 4 * 1000) // beat 4 = blackout
-    vi.setSystemTime(elapsedMs)
+    setSimMs(elapsedMs)
     lightingSystem.update(elapsedMs / 1000, 140)
 
     expect(lightingSystem.getActiveCue()?.pattern).toBe('blackout')

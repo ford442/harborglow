@@ -3,10 +3,20 @@
 // Timed storm escalation with wind forces, lightning, thunder, and rain density.
 // =============================================================================
 
-import * as THREE from 'three'
 import * as Tone from 'tone'
 import { useGameStore } from '../store/useGameStore'
 import { weatherSystem } from './weatherSystem'
+import { simRandom, simNowMs } from './sim/SimContext'
+
+export interface WindVector3 {
+  x: number
+  y: number
+  z: number
+}
+
+export function windVectorLengthSq(v: WindVector3): number {
+  return v.x * v.x + v.y * v.y + v.z * v.z
+}
 
 // =============================================================================
 // TYPES
@@ -55,8 +65,8 @@ class StormSystem {
       rainDensity: 0,
       visibility: 1,
     }
-    this.windDirTarget = Math.random() * Math.PI * 2
-    this.windDirCurrent = this.windDirTarget
+    this.windDirTarget = 0
+    this.windDirCurrent = 0
   }
 
   // ---------------------------------------------------------------------------
@@ -70,7 +80,7 @@ class StormSystem {
     this.state.intensity = 0.2
     this.state.rainDensity = 0.3
     this.state.visibility = 0.7
-    this.windDirTarget = Math.random() * Math.PI * 2
+    this.windDirTarget = simRandom() * Math.PI * 2
     this.windDirCurrent = this.windDirTarget
     this.lastLightning = 0
     this.lightningEnd = 0
@@ -88,6 +98,20 @@ class StormSystem {
     weatherSystem.clearOverride()
     this.notifyListeners()
     console.log('🌤️ Storm ended')
+  }
+
+  reset() {
+    this.state.active = false
+    this.state.intensity = 0
+    this.state.lightningFlash = false
+    this.state.rainDensity = 0
+    this.state.visibility = 1
+    this.state.elapsed = 0
+    this.state.duration = 180
+    this.windDirTarget = 0
+    this.windDirCurrent = 0
+    this.lastLightning = 0
+    this.lightningEnd = 0
   }
 
   toggle() {
@@ -120,7 +144,7 @@ class StormSystem {
     this.thunderSynth.connect(filter)
   }
 
-  private async playThunder(intensity: number) {
+  private async playThunder(intensity: number, rumbleDuration: number) {
     try {
       this.initThunderSynth()
       await Tone.start()
@@ -129,7 +153,7 @@ class StormSystem {
       const vol = Tone.gainToDb(Math.min(1, intensity * 0.8 + 0.2))
       this.thunderSynth.volume.rampTo(vol, 0.01)
       this.thunderSynth.triggerAttackRelease(
-        0.3 + Math.random() * 0.4,
+        rumbleDuration,
         Tone.now() + this.thunderDelay
       )
 
@@ -161,13 +185,13 @@ class StormSystem {
     this.state.intensity = 0.2 + progress * 0.8
 
     // Rain density follows intensity with slight lag
-    this.state.rainDensity = this.state.intensity * (0.5 + Math.random() * 0.5)
+    this.state.rainDensity = this.state.intensity * (0.5 + simRandom() * 0.5)
 
     // Visibility drops as intensity rises
     this.state.visibility = Math.max(0.15, 1 - this.state.intensity * 0.85)
 
     // Wind direction drifts slowly
-    this.windDirTarget += (Math.random() - 0.5) * 0.1 * delta
+    this.windDirTarget += (simRandom() - 0.5) * 0.1 * delta
     this.windDirCurrent += (this.windDirTarget - this.windDirCurrent) * 0.5 * delta
     this.state.windDirection = this.windDirCurrent
 
@@ -176,17 +200,18 @@ class StormSystem {
 
     // Lightning
     this.state.lightningFlash = false
-    const now = performance.now()
+    const now = simNowMs()
     if (now > this.lightningEnd) {
       const strikeProbability = this.state.intensity * 0.3 * delta
-      if (Math.random() < strikeProbability) {
+      if (simRandom() < strikeProbability) {
         this.state.lightningFlash = true
         this.lightningEnd = now + 150
         this.lastLightning = now
 
         // Thunder follows lightning after a distance delay
-        this.thunderDelay = 0.2 + Math.random() * 0.8
-        this.playThunder(this.state.intensity)
+        this.thunderDelay = 0.2 + simRandom() * 0.8
+        const rumbleDuration = 0.3 + simRandom() * 0.4
+        void this.playThunder(this.state.intensity, rumbleDuration)
       }
     }
 
@@ -208,14 +233,14 @@ class StormSystem {
   // Queries
   // ---------------------------------------------------------------------------
 
-  getWindForce(): THREE.Vector3 {
-    if (!this.state.active) return new THREE.Vector3(0, 0, 0)
+  getWindForce(): WindVector3 {
+    if (!this.state.active) return { x: 0, y: 0, z: 0 }
     const force = this.state.intensity * 15
-    return new THREE.Vector3(
-      Math.cos(this.state.windDirection) * force,
-      0,
-      Math.sin(this.state.windDirection) * force
-    )
+    return {
+      x: Math.cos(this.state.windDirection) * force,
+      y: 0,
+      z: Math.sin(this.state.windDirection) * force,
+    }
   }
 
   /**
@@ -229,9 +254,9 @@ class StormSystem {
    *
    * @param lateralArea  Projected above-water lateral area of the hull (m²)
    */
-  getWindShearForFreighter(lateralArea: number): { yawTorque: number; heelForce: THREE.Vector3 } {
+  getWindShearForFreighter(lateralArea: number): { yawTorque: number; heelForce: WindVector3 } {
     if (!this.state.active || this.state.intensity <= 0 || this.shearTorqueScale <= 0) {
-      return { yawTorque: 0, heelForce: new THREE.Vector3() }
+      return { yawTorque: 0, heelForce: { x: 0, y: 0, z: 0 } }
     }
 
     const windX = Math.cos(this.state.windDirection) * this.state.windSpeed
@@ -242,7 +267,7 @@ class StormSystem {
     const dynamicPressure = windMag * windMag * 0.0006  // ½ρC_D (simplified)
 
     // Gust variation: slow sinusoidal shear layers at different frequencies
-    const t = performance.now() * 0.001
+    const t = simNowMs() * 0.001
     const gustFactor = 1.0 + Math.sin(t * 0.31) * 0.35 + Math.sin(t * 0.73) * 0.15
 
     const shearBase = dynamicPressure * lateralArea * this.state.intensity * this.shearTorqueScale
@@ -253,19 +278,20 @@ class StormSystem {
 
     // Lateral heel force: broadside wind push (translational)
     const heelMag = shearBase * gustFactor * 0.8
-    const heelForce = new THREE.Vector3(windX / (windMag + 0.01), 0, windZ / (windMag + 0.01))
-      .multiplyScalar(heelMag)
+    const normX = windX / (windMag + 0.01)
+    const normZ = windZ / (windMag + 0.01)
+    const heelForce = { x: normX * heelMag, y: 0, z: normZ * heelMag }
 
     return { yawTorque, heelForce }
   }
 
-  getWindVector(): THREE.Vector3 {
-    if (!this.state.active) return new THREE.Vector3(0, 0, 0)
-    return new THREE.Vector3(
-      Math.cos(this.state.windDirection) * this.state.windSpeed,
-      0,
-      Math.sin(this.state.windDirection) * this.state.windSpeed
-    )
+  getWindVector(): WindVector3 {
+    if (!this.state.active) return { x: 0, y: 0, z: 0 }
+    return {
+      x: Math.cos(this.state.windDirection) * this.state.windSpeed,
+      y: 0,
+      z: Math.sin(this.state.windDirection) * this.state.windSpeed,
+    }
   }
 
   getIntensity(): number {

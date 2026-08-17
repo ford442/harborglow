@@ -15,6 +15,7 @@ import { musicSystem } from './musicSystem'
 import { lightingSystem } from './lightingSystem'
 import { timeSystem } from './timeSystem'
 import { moonSystem } from './moonSystem'
+import { simRandom, simNowMs } from './sim/SimContext'
 
 // =============================================================================
 // DYNAMIC EVENT TYPES
@@ -260,7 +261,7 @@ const EVENT_TEMPLATES: EventTemplate[] = [
 export class DynamicEventSystem {
   private activeEvents: Map<string, DynamicEvent> = new Map()
   private cooldowns: Map<HarborEventType, number> = new Map()
-  private lastUpdate: number = Date.now()
+  private lastUpdate: number = simNowMs()
   private eventHistory: Array<{ type: HarborEventType; time: number; intensity: number }> = []
   private maxHistorySize: number = 50
   
@@ -287,7 +288,7 @@ export class DynamicEventSystem {
   // ========================================================================
 
   update(delta: number) {
-    const now = Date.now()
+    const now = simNowMs()
     const store = useGameStore.getState()
     
     // Update cooldowns
@@ -321,7 +322,7 @@ export class DynamicEventSystem {
 
   private checkEventTriggers(delta: number, store: ReturnType<typeof useGameStore.getState>) {
     const hour = store.gameTime?.hour ?? timeSystem.getGameHour() % 24
-    const month = new Date().getMonth() + 1
+    const month = (Math.floor(timeSystem.getState().dayNumber / 30) % 12) + 1
     const moonPhase = moonSystem.getPhase()
 
     EVENT_TEMPLATES.forEach(template => {
@@ -332,7 +333,7 @@ export class DynamicEventSystem {
       if (!this.checkConditions(template, hour, month, moonPhase, store)) return
 
       // Roll for event
-      if (Math.random() < template.probability * delta) {
+      if (simRandom() < template.probability * delta) {
         this.triggerEvent(template)
       }
     })
@@ -363,11 +364,11 @@ export class DynamicEventSystem {
   // ========================================================================
 
   triggerEvent(template: EventTemplate, forceIntensity?: number): DynamicEvent | null {
-    const intensity = forceIntensity ?? 0.3 + Math.random() * 0.7
-    const duration = template.baseDuration + Math.random() * template.durationVariance
+    const intensity = forceIntensity ?? 0.3 + simRandom() * 0.7
+    const duration = template.baseDuration + simRandom() * template.durationVariance
     
     const event: DynamicEvent = {
-      id: `${template.type}-${Date.now()}`,
+      id: `${template.type}-${simNowMs()}`,
       type: template.type,
       category: template.category,
       title: template.title,
@@ -389,7 +390,7 @@ export class DynamicEventSystem {
     this.cooldowns.set(template.type, template.cooldown)
     
     // Add to history
-    this.eventHistory.push({ type: template.type, time: Date.now(), intensity })
+    this.eventHistory.push({ type: template.type, time: simNowMs(), intensity })
     if (this.eventHistory.length > this.maxHistorySize) {
       this.eventHistory.shift()
     }
@@ -634,6 +635,17 @@ export class DynamicEventSystem {
     console.log('🧹 All dynamic events cleared')
   }
 
+  reset() {
+    this.activeEvents.clear()
+    this.cooldowns.clear()
+    this.lastUpdate = 0
+    this.eventHistory = []
+  }
+
+  snapshotIds(): string[] {
+    return [...this.activeEvents.keys()].sort()
+  }
+
   setCooldown(type: HarborEventType, seconds: number) {
     this.cooldowns.set(type, seconds)
   }
@@ -665,13 +677,13 @@ const NAVY_ARRIVAL_PROBABILITY = 0.7
 timeSystem.addPhaseEventHandler((eventType: string) => {
     switch (eventType) {
         case 'whale_migration_peak':
-            if (Math.random() > WHALE_MIGRATION_PROBABILITY) harborEventSystem.triggerWhaleMigration('humpback')
+            if (simRandom() > WHALE_MIGRATION_PROBABILITY) harborEventSystem.triggerWhaleMigration('humpback')
             break
         case 'sea_lion_haulout':
-            if (Math.random() > SEA_LION_HAULOUT_PROBABILITY) harborEventSystem.triggerSeaLionHaulout()
+            if (simRandom() > SEA_LION_HAULOUT_PROBABILITY) harborEventSystem.triggerSeaLionHaulout()
             break
         case 'navy_arrival':
-            if (Math.random() > NAVY_ARRIVAL_PROBABILITY) harborEventSystem.triggerNavyResupply()
+            if (simRandom() > NAVY_ARRIVAL_PROBABILITY) harborEventSystem.triggerNavyResupply()
             break
         // 'bioluminescence_peak' intentionally left as no-op (boosts existing plankton bloom)
     }

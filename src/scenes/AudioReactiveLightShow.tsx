@@ -103,7 +103,8 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
       ferry: { h: 155, s: 0.8, l: 0.5 }, // Teal/Green
       trawler: { h: 35, s: 0.7, l: 0.5 }, // Amber
       horizon: { h: 210, s: 0.8, l: 0.5 },  // Ocean Blue
-      fireboat: { h: 0, s: 1, l: 0.5 }      // Emergency Red
+      fireboat: { h: 0, s: 1, l: 0.5 },      // Emergency Red
+      icebreaker: { h: 0, s: 0.85, l: 0.42 } // Yamal Red / ice cyan mix
     }
     
     const palette = palettes[shipType]

@@ -16,71 +16,102 @@ math from the main TypeScript game loop.
 | `dsp_sin_approx(x)` | Fast sine (Bhaskara I, ~0.1 % error, [0, π]) |
 | `dsp_sin_full(x)` | Full-cycle fast sine (any radian input) |
 | `dsp_wave_height(...)` | Single Gerstner wave height sample (`sin(dot·freq + time·speed)`) |
-| `dsp_wave_height_batch(...)` | Batch Gerstner query (many positions, one layer) |
+| `dsp_wave_height_batch(...)` | Batch Gerstner query (many positions, one layer; SIMD when compiled `-msimd128`) |
 | `dsp_additive_synth_sample(...)` | Additive synthesizer partial sum |
 | `dsp_additive_block(...)` | Phase-continuous 256-partial block synthesis |
-| `dsp_audio_rms(data, count)` | RMS of a float32 buffer |
+| `dsp_audio_rms(data, count)` | RMS of a float32 buffer (SIMD reduction when available) |
+| `dsp_fft_r2c(...)` | Packed real-to-complex FFT, N = 2^log2N ≤ 4096, Hermitian N-bin output |
 | `dsp_convolver_*` | Stateful impulse-response convolution |
 | `dsp_generate_room_ir(...)` | Deterministic cab/hold impulse responses |
 | `dsp_ring_*` | C11 atomic SPSC command/analysis queues |
 | `dsp_audio_engine_*` | Fixed-voice real-time synth/effect engine |
 | `malloc` / `free` | Heap allocators for batch buffer passing from JS |
 
-The TypeScript binding (`src/systems/wasmDSP.ts`) loads the **raw** `.wasm`
-via `WebAssembly.instantiate` (not the Emscripten MODULARIZE glue). It falls
-back to pure JS implementations when WASM is unavailable (e.g. in Node unit
-tests).
+The TypeScript binding (`src/systems/wasmDSP.ts`) probes WASM SIMD with
+`WebAssembly.validate`, then loads `harborglow_dsp_simd.wasm` or the scalar
+`harborglow_dsp.wasm` via raw `WebAssembly.instantiate`. It falls back to
+pure JS (including a matching FFT) when WASM is unavailable.
+
+Export names are parsed from the public headers by
+`scripts/wasm-exports.mjs`. `check:wasm` fails if the headers, Makefile
+export list, `wasmDSP.ts` required array, and committed binaries disagree.
 
 ## Building
 
 ### Requirements
 
-- **Emscripten SDK ≥ 3.1** — [Installation guide](https://emscripten.org/docs/getting_started/downloads.html)
+- **Emscripten SDK 6.0.6** (CI pin; ≥ 3.1 works for local iteration) —
+  [Installation guide](https://emscripten.org/docs/getting_started/downloads.html)
 
 ```bash
-# 1. Install / activate Emscripten
+# 1. Install / activate Emscripten (match CI)
 git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
-cd ~/emsdk && ./emsdk install latest && ./emsdk activate latest
+cd ~/emsdk && ./emsdk install 6.0.6 && ./emsdk activate 6.0.6
 source ~/emsdk/emsdk_env.sh
 
 # 2. Build from this directory
 cd /path/to/harborglow/cpp
-./build.sh          # optimised release  →  ../public/wasm/harborglow_dsp.wasm
+./build.sh          # optimised release (fails if em++ is missing)
 ./build.sh debug    # debug + sanitizers
 ./build.sh clean    # remove artifacts
+./build.sh --allow-missing-emsdk   # skip compile when em++ is absent
 ```
 
-Or directly via npm from the repo root:
+`ALLOW_MISSING_EMSDK=1` is the same skip. Use it only when iterating on
+TypeScript and trusting committed artifacts. `npm run build` from the repo
+root is strict by default (requires `em++`). CI job `gate-build` sets the
+env skip because `gate-wasm` already rebuilds with emsdk and diffs
+`public/wasm`.
 
 ```bash
-npm run build:wasm
+npm run build:wasm   # from repo root
+make test            # native assertion harness (host c++, no emsdk)
+make bench           # native micro-benchmarks
+node ../scripts/bench-wasm-dsp.mjs
 ```
 
 ### Output
 
 | File | Purpose |
 |---|---|
-| `../public/wasm/harborglow_dsp.wasm` | Private growable memory; simulation and direct TypeScript helpers |
+| `../public/wasm/harborglow_dsp.wasm` | Growable-memory scalar reactor |
+| `../public/wasm/harborglow_dsp_simd.wasm` | Same reactor with `-msimd128` |
 | `../public/wasm/harborglow_audio_shared.wasm` | Fixed shared memory; scalar AudioWorklet engine |
 | `../public/wasm/harborglow_audio_shared_simd.wasm` | Fixed shared memory; SIMD + relaxed-SIMD AudioWorklet engine |
 | `../public/wasm/manifest.json` | Source MD5, binary SHA-256, sizes, and toolchain identity |
 
-The `.wasm` file is **committed** to the repository so the game runs without a
-local Emscripten install. CI runs `npm run check:wasm` to validate source
-freshness, artifact hashes/imports/exports, and DSP golden vectors.
+The `.wasm` files are **committed** so the game runs without a local
+Emscripten install. CI rebuilds from source (emsdk 6.0.6) and fails on
+drift.
 
 ### Build flags (Makefile)
 
-- `STANDALONE_WASM=1` + `--no-entry` — reactor library with no `main()`; loadable
-  via raw `WebAssembly.instantiate` with a single `env.emscripten_notify_memory_growth`
-  import stub (see `wasmDSP.ts`).
-- `INITIAL_MEMORY=262144` (256 KB) — covers Emscripten runtime + batch float
-  buffers; grows via `ALLOW_MEMORY_GROWTH`.
-- Shared audio builds use a fixed 32 MiB imported memory, atomics/bulk-memory,
-  and a scalar plus `-O3 -msimd128 -mrelaxed-simd` variant. The runtime probes
-  the optimized artifact before falling back to scalar.
-- **Not used at runtime:** MODULARIZE / `harborglow_dsp.js` glue (historical
-  builds emitted this file; the game binds exports directly).
+- `STANDALONE_WASM=1` + `--no-entry` — reactor library with no `main()`;
+  loadable via raw `WebAssembly.instantiate` with
+  `env.emscripten_notify_memory_growth` (logged in DEV from `wasmDSP.ts`).
+- `INITIAL_MEMORY=4194304` (4 MiB) — covers the Emscripten reactor, 2048-point
+  FFT scratch (3×8 KiB), a 16×16 wave batch, and a multi-second room IR
+  without a per-scene heap copy. `ALLOW_MEMORY_GROWTH=1` remains on for
+  larger convolvers. Measured heap after instantiate is 4 MiB (64 pages).
+- Core SIMD artifact: `-O3 -flto -msimd128`. Shared audio builds keep a
+  fixed 32 MiB imported memory plus a scalar / `-msimd128 -mrelaxed-simd`
+  pair.
+- **Not used at runtime:** MODULARIZE / `harborglow_dsp.js` glue.
+
+## Benchmarks
+
+Recorded 2026-08-16 on the implementation host (x86_64 Linux, Node 20,
+`em++` 6.0.6). Times are µs/call, 200 iterations after one warmup.
+
+| Kernel | Native `c++ -O3` | WASM scalar | WASM SIMD |
+|---|---:|---:|---:|
+| `dsp_wave_height_batch` n=256 | 8.3 | 36.8 | 9.9 |
+| `dsp_audio_rms` n=1024 | 1.0 | 1.7 | 1.2 |
+| `dsp_fft_r2c` N=2048 | 46.6 | 64.0 | 50.3 |
+
+Re-run with `make bench` and `node scripts/bench-wasm-dsp.mjs`. SIMD wave
+batch still uses scalar `sin` per lane (parity with `Math.sin`); the
+speedup is from vectorized phase arithmetic. RMS is a `f32x4` reduction.
 
 ## Architecture
 
@@ -88,11 +119,12 @@ freshness, artifact hashes/imports/exports, and DSP golden vectors.
 C++ (harborglow_dsp.cpp)
         │  Emscripten STANDALONE_WASM
         ▼
-public/wasm/harborglow_dsp.wasm
-        │  WebAssembly.instantiate (+ env stub)
+public/wasm/harborglow_dsp.wasm          (scalar)
+public/wasm/harborglow_dsp_simd.wasm     (SIMD, preferred)
+        │  WebAssembly.validate probe + instantiate
         ▼
 src/systems/wasmDSP.ts          await wasmDSP.init() at app boot
-        │  waveHeight / waveHeightBatch / audioRms …
+        │  waveHeight / waveHeightBatch / audioRms / fftR2C …
         ▼
 src/systems/WaveSystem.ts       getWaterHeight + getWaterHeightBatch
 src/scenes/FoamSystem.tsx       crest grid batch sampling
@@ -118,9 +150,11 @@ selected without blocking game startup.
 
 ## Adding new functions
 
-1. Declare in `harborglow_dsp.h` (with `extern "C"` and doxygen comment).
-2. Implement in `harborglow_dsp.cpp` (with `DSP_EXPORT`).
-3. Add to `EXPORTS` in `Makefile`.
-4. Add TypeScript binding in `src/systems/wasmDSP.ts` (interface + JS fallback).
-5. Add export name to `scripts/check-wasm.mjs` `REQUIRED_EXPORTS` if public.
-6. Re-run `npm run build:wasm`, `npm run check:wasm`, and commit the updated `.wasm`.
+1. Declare in the appropriate header (`harborglow_dsp.h`,
+   `harborglow_audio_engine.h`, or `dsp_ring_buffer.h`) with `extern "C"`.
+2. Implement with `DSP_EXPORT` / `AUDIO_EXPORT`.
+3. Add the TypeScript binding in `src/systems/wasmDSP.ts` if it is part of
+   the JS reactor API (keep the `required` array in `bindInstance` in sync —
+   `scripts/wasm-exports.mjs --check` enforces this).
+4. Re-run `npm run build:wasm`, `npm run check:wasm`, `make -C cpp test`,
+   and commit the updated `.wasm` files plus `manifest.json`.

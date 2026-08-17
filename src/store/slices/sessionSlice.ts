@@ -17,6 +17,7 @@ import {
     DEFAULT_STORE_DASHBOARD_PRESETS,
     createSalvageContracts,
     DEFAULT_HANDSHAKE_SEQUENCE,
+    normalizeSavedShipType,
 } from '../gameStoreTypes';
 import { clearSave } from '../../utils/storage_manager';
 import { loadGameState } from '../../utils/storage_manager';
@@ -112,6 +113,7 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
             set({
                 ships: Array.isArray(saved.ships) ? saved.ships.map((s: Ship) => ({
                     ...s,
+                    type: normalizeSavedShipType(s.type),
                     isDocked: s.isDocked ?? true,  // Default to docked if not set
                     sailTime: s.sailTime ?? undefined
                 })) : [],

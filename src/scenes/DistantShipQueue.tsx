@@ -63,7 +63,8 @@ function DistantShip({ position, type, scale, isNight }: DistantShipProps) {
             ferry: isNight ? '#0a1a15' : '#3a4a40',
             trawler: isNight ? '#151008' : '#454035',
             horizon: isNight ? '#0a1015' : '#3a4045',
-            fireboat: isNight ? '#1a0808' : '#4a3030'
+            fireboat: isNight ? '#1a0808' : '#4a3030',
+            icebreaker: isNight ? '#1a080c' : '#5a3038'
         }
         return colors[type]
     }, [type, isNight])
@@ -89,6 +90,7 @@ function DistantShip({ position, type, scale, isNight }: DistantShipProps) {
             case 'trawler': return { length: 14, width: 4, height: 4 }
             case 'horizon': return { length: 20, width: 5, height: 5 }
             case 'fireboat': return { length: 12, width: 4, height: 4 }
+            case 'icebreaker': return { length: 44, width: 8, height: 7 }
         }
     }, [type])
     
@@ -320,7 +322,7 @@ export default function DistantShipQueue({ isNight }: DistantShipQueueProps) {
         
         // Additional atmospheric ships
         const extraCount = 3 + Math.floor(Math.random() * 4)
-        const types: ShipType[] = ['container', 'tanker', 'bulk', 'cruise', 'lng']
+        const types: ShipType[] = ['container', 'tanker', 'bulk', 'cruise', 'lng', 'icebreaker']
         
         for (let i = 0; i < extraCount; i++) {
             ships.push({

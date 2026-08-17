@@ -335,6 +335,7 @@ export function CraneCableLOD({
     <line>
       <bufferGeometry>
         <bufferAttribute
+          args={[new Float32Array([...startPos, ...endPos]), 3]}
           attach="attributes-position"
           count={2}
           array={new Float32Array([...startPos, ...endPos])}

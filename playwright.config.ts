@@ -4,12 +4,11 @@ const PORT = process.env.PLAYWRIGHT_PORT ?? '4173'
 const HOST = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
 
 /**
- * Always exercise the WebGL2 debug renderer in headless CI/agents.
- * Query params are appended by goto('/') via baseURL.
+ * Headless CI has no WebGPU. Force-GL URL flags are disabled this phase;
+ * tests that need a scene assert the fatal overlay instead of a GL harbor.
  */
-const query = 'renderer=webgl&wireframe=0'
 const baseURL =
-  process.env.PLAYWRIGHT_BASE_URL ?? `http://${HOST}:${PORT}/?${query}`
+  process.env.PLAYWRIGHT_BASE_URL ?? `http://${HOST}:${PORT}/`
 
 export default defineConfig({
   testDir: './e2e',

@@ -10,9 +10,9 @@
  *   const mat = buildRGBMatrixMaterial()
  */
 
-import * as THREE from 'three'
+import * as THREE from 'three/webgpu'
+import { MeshStandardNodeMaterial } from 'three/webgpu'
 import {
-  MeshStandardNodeMaterial,
   uniform,
   color,
   float,
@@ -20,23 +20,25 @@ import {
   mix,
   hue,
   saturation,
-  timerLocal,
   vec4,
   uv,
   add,
   mul,
-  sub
-} from 'three/examples/jsm/nodes/Nodes.js'
-
-// Import the WebGL GLSL transpiler so NodeMaterial works with standard WebGLRenderer fallback
-import 'three/examples/jsm/renderers/webgl-legacy/nodes/WebGLNodes.js'
+  sub,
+  Fn,
+  compute,
+  texture,
+  textureStore,
+  instanceIndex,
+  uvec2
+} from 'three/tsl'
 
 /**
  * Creates a MeshStandardNodeMaterial that pulses with a rainbow hue synced to a time uniform.
  * The `uTime` and `uBeat` uniforms should be updated each frame.
  */
 export function buildRGBMatrixMaterial(baseColorHex: number | string) {
-  const uTime = timerLocal(1);
+  const uTime = uniform(0);
   const uBeat = uniform(0);
   const uBass = uniform(0);
   const uMid = uniform(0);
@@ -60,7 +62,7 @@ export function buildRGBMatrixMaterial(baseColorHex: number | string) {
   mat.metalnessNode = float(0.6);
   mat.emissiveNode = emissiveNode;
   
-  mat.userData = { uBeat, uBass, uMid, uTreble };
+  mat.userData = { uTime, uBeat, uBass, uMid, uTreble };
   return mat;
 }
 
@@ -68,7 +70,7 @@ export function buildRGBMatrixMaterial(baseColorHex: number | string) {
  * Creates a MeshStandardNodeMaterial for volumetric god-ray effect on the dock lights.
  */
 export function buildGodRayMaterial(baseColorHex: string | number = '#00aaff') {
-  const uTime = timerLocal(1);
+  const uTime = uniform(0);
   const uBaseIntensity = uniform(0.5);
   const uAudioBass = uniform(0);
   const uAudioMid = uniform(0);
@@ -93,7 +95,16 @@ export function buildGodRayMaterial(baseColorHex: string | number = '#00aaff') {
   
   mat.colorNode = vec4(uColor, alpha);
   
-  mat.userData = { uBaseIntensity, uAudioBass, uAudioMid, uAudioEnvelope, uAudioBeat };
+  mat.userData = {
+    uBaseIntensity,
+    uIntensity: uBaseIntensity,
+    uColor,
+    uTime,
+    uAudioBass,
+    uAudioMid,
+    uAudioEnvelope,
+    uAudioBeat,
+  };
   return mat;
 }
 
@@ -101,9 +112,10 @@ export function buildGodRayMaterial(baseColorHex: string | number = '#00aaff') {
  * Updates a god-ray material's time uniform.
  * Call this in useFrame.
  */
-export function updateGodRay(material: THREE.ShaderMaterial, time: number) {
-  if (material.uniforms?.uTime) {
-    material.uniforms.uTime.value = time
+export function updateGodRay(material: MeshStandardNodeMaterial, time: number) {
+  const uTime = material.userData.uTime as { value: number } | undefined
+  if (uTime) {
+    uTime.value = time
   }
 }
 
@@ -111,30 +123,27 @@ export function updateGodRay(material: THREE.ShaderMaterial, time: number) {
  * Builds the WGSL compute shader nodes for the FFT ocean simulation.
  * Returns a TSL texture2D node representing the displacement/normal map.
  */
-export async function buildOceanFFTNode(): Promise<{ texNode: any, computeNode: any }> {
-  // In Three.js r160, we set up a StorageTexture for the compute shader to write to
-  const StorageTextureClass = (THREE as any).StorageTexture || THREE.DataTexture
-  const displacementTex = new StorageTextureClass(256, 256)
+export function buildOceanFFTNode(width = 256, height = 256) {
+  const displacementTex = new THREE.StorageTexture(width, height)
   displacementTex.type = THREE.HalfFloatType
-  
-  // Wrap the wgsl function
-  // (In a full WebGPU implementation, wgslFn would parse the compute shader 
-  // and we would call renderer.compute(computeNode) in the render loop).
-  let computeNode = null
-  let texNode = null
-  try {
-    const Nodes: any = await import('three/examples/jsm/nodes/Nodes.js')
-    const wgslFn = Nodes.wgslFn
-    const compute = Nodes.compute
-    const texture = Nodes.texture
-    const oceanFFT = wgslFn(`
-      fn main() {}
-    `)
-    computeNode = compute(oceanFFT(), 256, [256, 1, 1])
-    texNode = texture(displacementTex)
-  } catch (e) {
-    // Fallback if TSL compute is not fully supported in the current backend
-  }
 
-  return { texNode, computeNode };
+  // This is the deterministic storage-texture write pass used as the
+  // foundation for the quality-gated FFT backend. The renderer must execute
+  // it explicitly with renderer.computeAsync(computeNode).
+  const writeDisplacement = Fn(() => {
+    const posX = instanceIndex.mod(width)
+    const posY = instanceIndex.div(width)
+    const indexUV = uvec2(posX, posY)
+    const normalizedX = float(posX).div(width)
+    const normalizedY = float(posY).div(height)
+    const value = vec4(normalizedX, normalizedY, 0, 1)
+
+    return textureStore(displacementTex, indexUV, value).toWriteOnly()
+  })
+
+  return {
+    displacementTex,
+    texNode: texture(displacementTex),
+    computeNode: compute(writeDisplacement(), width * height, [64]),
+  }
 }

@@ -23,13 +23,15 @@ Parallel water stacks (`FFTOcean`, `PBRWater`, `InteractiveWater`), the unused
 
 See `scripts/archive/scenes/README.md` for the per-file decision table and recovery notes.
 
-### Still in `src/scenes/` but unreferenced (audit list)
+### Removed orphan scene entry points (Aug 2026)
 
-These scene entry points are **not** imported by `MainScene` or any other live module as of Aug 2026. They remain in-tree for now; consider archiving in a follow-up:
+Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any live module:
 
-| File | ~LOC | Status |
-|------|------|--------|
-| `LightShow.tsx` | ~120 | Superseded by `AudioReactiveLightShow.tsx` + `scenes/lightRigs/` |
-| `UpgradeCelebration.tsx` | ~770 | Superseded by `cinematicSystem` + `AudioReactiveLightShow` |
-| `ParticleSystem.tsx` | ~450 | Generic particle demo; live bursts use `components/ParticleBurst3D.tsx` |
-| `MonitorSystem.tsx` | ~120 | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
+| Former file | Notes |
+|-------------|-------|
+| `LightShow.tsx` | Superseded by `AudioReactiveLightShow.tsx` |
+| `UpgradeCelebration.tsx` | Superseded by `cinematicSystem` |
+| `ParticleSystem.tsx` | Live bursts use `components/ParticleBurst3D.tsx` |
+| `MonitorSystem.tsx` | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
+
+Recover from git history before the deletion commit if needed.

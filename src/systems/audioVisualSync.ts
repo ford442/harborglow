@@ -1,7 +1,5 @@
 import * as Tone from 'tone'
 import { useEffect, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
 import { audioRuntime } from './audio/AudioRuntime'
 
 // =============================================================================
@@ -188,7 +186,7 @@ function fillByteScratchFromDbFft(fftValues: Float32Array, scratch: Uint8Array):
 // Global audio analysis state - mutated in place once per frame (zero-alloc),
 // consumed by all systems. The binding itself never rebinds, so subscribers can
 // hold the reference returned by getAudioAnalysisData() across frames.
-const globalAudioData: AudioAnalysisData = {
+export const globalAudioData: AudioAnalysisData = {
   bass: 0,
   lowMid: 0,
   mid: 0,
@@ -337,8 +335,6 @@ export const audioVisualSync = new AudioVisualSync()
 
 // =============================================================================
 // REACT HOOK: useAudioData
-// Subscribe to audio analysis data without useFrame — safe outside Canvas.
-// =============================================================================
 
 export function useAudioData(): AudioAnalysisData {
   const [audioData, setAudioData] = useState<AudioAnalysisData>(globalAudioData)
@@ -355,50 +351,6 @@ export function useAudioData(): AudioAnalysisData {
   }, [])
 
   return audioData
-}
-
-// =============================================================================
-// REACT HOOK: useAudioVisualSync
-// Full hook with useFrame analysis driver — must be used inside a Canvas.
-// For read-only subscribers, prefer useAudioData() to avoid redundant subscriptions.
-// =============================================================================
-
-export function useAudioVisualSync() {
-  const [audioData, setAudioData] = useState<AudioAnalysisData>(globalAudioData)
-  const [isInitialized, setIsInitialized] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-
-    const init = async () => {
-      await audioVisualSync.initialize()
-      if (mounted) setIsInitialized(true)
-    }
-
-    init()
-
-    const unsubscribe = audioVisualSync.onFrame((data) => {
-      if (mounted) setAudioData(data)
-    })
-
-    return () => {
-      mounted = false
-      unsubscribe()
-    }
-  }, [])
-
-  const bpm = useGameStore((state) => state.bpm)
-  useEffect(() => {
-    audioVisualSync.setBPM(bpm)
-  }, [bpm])
-
-  useFrame((state) => {
-    if (isInitialized) {
-      audioVisualSync.analyze(state.clock.elapsedTime)
-    }
-  })
-
-  return { audioData, isInitialized }
 }
 
 // =============================================================================

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('shared WASM AudioWorklet initializes and publishes analysis', async ({ page }) => {
-  await page.goto('/?renderer=webgl&wireframe=0')
+  await page.goto('/?wireframe=0')
   await expect.poll(() => page.evaluate(() => globalThis.crossOriginIsolated))
     .toBe(true)
 

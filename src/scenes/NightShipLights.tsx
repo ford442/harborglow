@@ -43,6 +43,7 @@ function getShipBeamEstimate(ship: Ship): number {
         case 'trawler': return 3.6
         case 'horizon': return 4.6
         case 'fireboat': return 3.2
+        case 'icebreaker': return 8.8
     }
 }
 

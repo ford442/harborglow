@@ -263,6 +263,33 @@ describe('wasmDSP — streaming convolution', () => {
 
 // ---------------------------------------------------------------------------
 
+describe('wasmDSP — FFT', () => {
+  it('matches a naive DFT on N=8 real input', () => {
+    const input = Float32Array.from({ length: 8 }, (_, i) => (i % 3 === 0 ? 1 : 0.25 * i))
+    const { real, imag } = wasmDSP.fftR2C(input, 3)
+    const n = 8
+    for (let k = 0; k < n; k++) {
+      let sumRe = 0
+      let sumIm = 0
+      for (let index = 0; index < n; index++) {
+        const theta = -2 * Math.PI * k * index / n
+        sumRe += input[index] * Math.cos(theta)
+        sumIm += input[index] * Math.sin(theta)
+      }
+      expect(real[k]).toBeCloseTo(sumRe, 4)
+      expect(imag[k]).toBeCloseTo(sumIm, 4)
+    }
+  })
+
+  it('N=2 DC and Nyquist are real', () => {
+    const { real, imag } = wasmDSP.fftR2C(new Float32Array([3, 1]), 1)
+    expect(real[0]).toBeCloseTo(4, 6)
+    expect(real[1]).toBeCloseTo(2, 6)
+    expect(imag[0]).toBeCloseTo(0, 6)
+    expect(imag[1]).toBeCloseTo(0, 6)
+  })
+})
+
 describe('wasmDSP — audio RMS', () => {
   it('returns 0 for empty buffer', () => {
     expect(wasmDSP.audioRms(new Float32Array(0))).toBe(0)

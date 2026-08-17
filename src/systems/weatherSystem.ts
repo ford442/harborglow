@@ -6,6 +6,7 @@
 import { useGameStore } from '../store/useGameStore'
 import { timeSystem, DayPhase } from './timeSystem'
 import { musicSystem } from './musicSystem'
+import { simRandom, getSim } from './sim/SimContext'
 
 // =============================================================================
 // TYPES
@@ -124,6 +125,8 @@ class WeatherSystem {
     private listeners: Set<(state: WeatherState) => void> = new Set()
     private lastLightning: number = 0
     private lightningActive: boolean = false
+    private lightningUntil = 0
+    private nextLightningAt = 0
     private override: WeatherType | null = null
     
     constructor() {
@@ -136,11 +139,11 @@ class WeatherSystem {
         return {
             type,
             intensity,
-            duration: 60 + Math.random() * 120,
+            duration: 60 + simRandom() * 120,
             windSpeed: base.windSpeed || 5,
-            windDirection: Math.random() * 360,
+            windDirection: simRandom() * 360,
             visibility: base.visibility || 1,
-            temperature: 15 + Math.random() * 10,
+            temperature: 15 + simRandom() * 10,
             humidity: type === 'fog' ? 0.9 : type === 'rain' ? 0.8 : 0.6,
             fogDensity: base.fogDensity || 0,
             rainIntensity: base.rainIntensity || 0,
@@ -179,8 +182,8 @@ class WeatherSystem {
         }
         
         // Update wind variation
-        this.state.windDirection += (Math.random() - 0.5) * 2
-        this.state.windSpeed += (Math.random() - 0.5) * 0.5
+        this.state.windDirection += (simRandom() - 0.5) * 2
+        this.state.windSpeed += (simRandom() - 0.5) * 0.5
         this.state.windSpeed = Math.max(0, this.state.windSpeed)
         
         // Update lightning for storms
@@ -214,7 +217,7 @@ class WeatherSystem {
         const currentPhase = timeSystem.getState().currentPhase
         const probabilities = WEATHER_SCHEDULE[currentPhase]
         
-        const rand = Math.random()
+        const rand = simRandom()
         let cumulative = 0
         
         for (const [weather, prob] of Object.entries(probabilities)) {
@@ -231,21 +234,26 @@ class WeatherSystem {
     // ========================================================================
     
     updateLightning() {
-        const now = Date.now()
-        if (now - this.lastLightning > 5000 + Math.random() * 10000) {
-            this.lightningActive = true
-            this.lastLightning = now
-            
-            // Flash effect
-            setTimeout(() => {
-                this.lightningActive = false
-            }, 150)
-            
-            // Thunder sound delay
-            setTimeout(() => {
-                console.log('⚡ Thunder!')
-            }, 1000 + Math.random() * 2000)
+        const t = getSim().simTime
+        if (this.lightningActive && t >= this.lightningUntil) {
+            this.lightningActive = false
         }
+        if (t >= this.nextLightningAt) {
+            this.lightningActive = true
+            this.lightningUntil = t + 0.15
+            this.nextLightningAt = t + 5 + simRandom() * 10
+        }
+    }
+
+    reset() {
+        this.override = null
+        this.transition = null
+        this.state = this.createWeatherState('clear', 0.5)
+        this.state = { ...this.state, ...WEATHER_CONFIG.clear }
+        this.lastLightning = 0
+        this.lightningActive = false
+        this.lightningUntil = 0
+        this.nextLightningAt = 0
     }
     
     isLightning(): boolean {
@@ -274,6 +282,7 @@ class WeatherSystem {
     
     transitionTo(weather: WeatherType, durationMinutes: number = 5) {
         if (weather === this.state.type) return
+        if (this.transition?.to === weather) return
         
         console.log(`🌦️ Weather changing: ${this.state.type} → ${weather}`)
         

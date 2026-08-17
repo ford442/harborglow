@@ -10,6 +10,8 @@ import { weatherSystem } from '../weatherSystem'
 import { ShipSpawner } from '../shipSpawner'
 import { HarborEvent, HarborEventType, BusinessPattern, BusinessPatternType, PortOperations } from './types'
 import { EVENT_CONFIGS } from './eventConfigs'
+import { simRandom, simNowMs } from '../sim/SimContext'
+import { timeSystem } from '../timeSystem'
 
 export class HarborEventSystem {
     private activeEvents: Map<string, HarborEvent> = new Map()
@@ -67,7 +69,7 @@ export class HarborEventSystem {
     // ========================================================================
     
     private updateSeasonalPattern() {
-        const month = new Date().getMonth() + 1
+        const month = (Math.floor(timeSystem.getState().dayNumber / 30) % 12) + 1
         
         let containerModifier = 1.0
         if (month >= 8 && month <= 10) containerModifier = 1.4
@@ -84,11 +86,11 @@ export class HarborEventSystem {
         const pattern: BusinessPattern = {
             type: 'tanker_geopolitical',
             active: true,
-            intensity: 0.7 + Math.random() * 0.3,
-            startTime: Date.now(),
-            duration: 600 + Math.random() * 1200,
+            intensity: 0.7 + simRandom() * 0.3,
+            startTime: simNowMs(),
+            duration: 600 + simRandom() * 1200,
             affectedShipTypes: ['tanker', 'lng'],
-            arrivalModifier: 1.5 + Math.random() * 0.5,
+            arrivalModifier: 1.5 + simRandom() * 0.5,
             description: `Tanker traffic surge due to ${region.replace('_', ' ')} disruption`
         }
         
@@ -103,11 +105,11 @@ export class HarborEventSystem {
         const pattern: BusinessPattern = {
             type: 'tariff_event',
             active: true,
-            intensity: 0.5 + Math.random() * 0.3,
-            startTime: Date.now(),
-            duration: 900 + Math.random() * 900,
+            intensity: 0.5 + simRandom() * 0.3,
+            startTime: simNowMs(),
+            duration: 900 + simRandom() * 900,
             affectedShipTypes: ['container'],
-            arrivalModifier: 0.4 + Math.random() * 0.3,
+            arrivalModifier: 0.4 + simRandom() * 0.3,
             description: 'Container traffic reduced due to tariff uncertainty'
         }
         
@@ -121,9 +123,9 @@ export class HarborEventSystem {
         const pattern: BusinessPattern = {
             type: 'labor_action',
             active: true,
-            intensity: 0.6 + Math.random() * 0.4,
-            startTime: Date.now(),
-            duration: 300 + Math.random() * 600,
+            intensity: 0.6 + simRandom() * 0.4,
+            startTime: simNowMs(),
+            duration: 300 + simRandom() * 600,
             affectedShipTypes: ['container', 'bulk'],
             arrivalModifier: 0.3,
             description: 'Port worker slowdown - operations affected'
@@ -141,7 +143,7 @@ export class HarborEventSystem {
             type: 'peak_season',
             active: true,
             intensity: 0.8,
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 1200,
             affectedShipTypes: ['container'],
             arrivalModifier: 1.5,
@@ -158,7 +160,7 @@ export class HarborEventSystem {
     
     getArrivalModifier(shipType: ShipType): number {
         let modifier = 1.0
-        const month = new Date().getMonth() + 1
+        const month = (Math.floor(timeSystem.getState().dayNumber / 30) % 12) + 1
         
         if (shipType === 'container') {
             if (month >= 8 && month <= 10) modifier *= 1.4
@@ -200,14 +202,14 @@ export class HarborEventSystem {
     getDistantShipQueue(): { type: ShipType; eta: number; position: [number, number, number] }[] {
         return this.distantShipQueue.map((ship, i) => ({
             ...ship,
-            position: [150 + i * 30, 0, -100 + (Math.random() - 0.5) * 50]
+            position: [150 + i * 30, 0, -100 + (simRandom() - 0.5) * 50]
         }))
     }
     
     addToQueue(shipType: ShipType) {
         this.distantShipQueue.push({
             type: shipType,
-            eta: Date.now() + 300000 + Math.random() * 600000
+            eta: simNowMs() + 300000 + simRandom() * 600000
         })
         this.operations.queueLength = this.distantShipQueue.length
     }
@@ -236,28 +238,28 @@ export class HarborEventSystem {
 
     triggerWhaleMigration(whaleType: 'gray' | 'humpback' = 'humpback'): HarborEvent {
         const event: HarborEvent = {
-            id: `whale-${Date.now()}`,
+            id: `whale-${simNowMs()}`,
             type: 'whale_migration',
-            startTime: Date.now(),
-            duration: 600 + Math.random() * 600,
-            intensity: 0.7 + Math.random() * 0.3,
-            position: [80 + Math.random() * 40, 0, -50 + Math.random() * 100]
+            startTime: simNowMs(),
+            duration: 600 + simRandom() * 600,
+            intensity: 0.7 + simRandom() * 0.3,
+            position: [80 + simRandom() * 40, 0, -50 + simRandom() * 100]
         }
 
-        const whaleCount = whaleType === 'gray' ? 1 + Math.floor(Math.random() * 2) : 1
+        const whaleCount = whaleType === 'gray' ? 1 + Math.floor(simRandom() * 2) : 1
         
         for (let i = 0; i < whaleCount; i++) {
             const whale: WildlifeEntity = {
-                id: `migration-whale-${Date.now()}-${i}`,
+                id: `migration-whale-${simNowMs()}-${i}`,
                 type: 'humpback_whale',
                 position: [
-                    event.position[0] + (Math.random() - 0.5) * 30,
+                    event.position[0] + (simRandom() - 0.5) * 30,
                     -2,
-                    event.position[2] + (Math.random() - 0.5) * 50
+                    event.position[2] + (simRandom() - 0.5) * 50
                 ],
-                velocity: [-3, 0, (Math.random() - 0.5) * 2],
+                velocity: [-3, 0, (simRandom() - 0.5) * 2],
                 behaviorState: 'migrating',
-                createdAt: Date.now()
+                createdAt: simNowMs()
             }
             useGameStore.getState().addWildlife(whale)
         }
@@ -271,11 +273,11 @@ export class HarborEventSystem {
 
     triggerDolphinPod(): HarborEvent {
         const event: HarborEvent = {
-            id: `dolphin-${Date.now()}`,
+            id: `dolphin-${simNowMs()}`,
             type: 'dolphin_pod',
-            startTime: Date.now(),
-            duration: 180 + Math.random() * 300,
-            intensity: 0.5 + Math.random() * 0.5,
+            startTime: simNowMs(),
+            duration: 180 + simRandom() * 300,
+            intensity: 0.5 + simRandom() * 0.5,
             position: [0, 0, 0]
         }
 
@@ -286,20 +288,20 @@ export class HarborEventSystem {
             event.affectedShipId = targetShip.id
             event.position = targetShip.position
 
-            const podSize = 3 + Math.floor(Math.random() * 10)
+            const podSize = 3 + Math.floor(simRandom() * 10)
             for (let i = 0; i < podSize; i++) {
                 const dolphin: WildlifeEntity = {
-                    id: `dolphin-${Date.now()}-${i}`,
+                    id: `dolphin-${simNowMs()}-${i}`,
                     type: 'bottlenose_dolphin',
                     position: [
-                        targetShip.position[0] + 15 + (Math.random() - 0.5) * 10,
-                        0.5 + Math.random() * 0.5,
-                        targetShip.position[2] + (Math.random() - 0.5) * 15
+                        targetShip.position[0] + 15 + (simRandom() - 0.5) * 10,
+                        0.5 + simRandom() * 0.5,
+                        targetShip.position[2] + (simRandom() - 0.5) * 15
                     ],
-                    velocity: [8, 0, (Math.random() - 0.5) * 3],
+                    velocity: [8, 0, (simRandom() - 0.5) * 3],
                     behaviorState: 'playing',
                     targetShipId: targetShip.id,
-                    createdAt: Date.now()
+                    createdAt: simNowMs()
                 }
                 useGameStore.getState().addWildlife(dolphin)
             }
@@ -317,18 +319,18 @@ export class HarborEventSystem {
             [-40, 0.5, 40],   // Pier area
         ]
         
-        const site = hauloutSites[Math.floor(Math.random() * hauloutSites.length)]
+        const site = hauloutSites[Math.floor(simRandom() * hauloutSites.length)]
         
         const event: HarborEvent = {
-            id: `sealions-${Date.now()}`,
+            id: `sealions-${simNowMs()}`,
             type: 'sea_lion_haulout',
-            startTime: Date.now(),
-            duration: 600 + Math.random() * 1200,
-            intensity: 0.4 + Math.random() * 0.4,
+            startTime: simNowMs(),
+            duration: 600 + simRandom() * 1200,
+            intensity: 0.4 + simRandom() * 0.4,
             position: site,
             metadata: {
-                count: 10 + Math.floor(Math.random() * 50),
-                vocalizing: Math.random() > 0.3
+                count: 10 + Math.floor(simRandom() * 50),
+                vocalizing: simRandom() > 0.3
             }
         }
 
@@ -340,15 +342,15 @@ export class HarborEventSystem {
 
     triggerPlanktonBloom(): HarborEvent {
         const event: HarborEvent = {
-            id: `plankton-${Date.now()}`,
+            id: `plankton-${simNowMs()}`,
             type: 'plankton_bloom',
-            startTime: Date.now(),
-            duration: 300 + Math.random() * 300,
-            intensity: 0.6 + Math.random() * 0.4,
+            startTime: simNowMs(),
+            duration: 300 + simRandom() * 300,
+            intensity: 0.6 + simRandom() * 0.4,
             position: [
-                (Math.random() - 0.5) * 100,
+                (simRandom() - 0.5) * 100,
                 -2,
-                (Math.random() - 0.5) * 60
+                (simRandom() - 0.5) * 60
             ],
             metadata: {
                 species: 'Lingulodinium polyedrum',
@@ -374,7 +376,7 @@ export class HarborEventSystem {
                 s.type === 'container' || s.type === 'tanker' || s.type === 'cruise'
             )
             if (flammableShips.length === 0) return null
-            targetShip = flammableShips[Math.floor(Math.random() * flammableShips.length)]
+            targetShip = flammableShips[Math.floor(simRandom() * flammableShips.length)]
         }
 
         if (!targetShip) return null
@@ -384,15 +386,15 @@ export class HarborEventSystem {
         const targetShipPosition = targetShip.position
 
         const event: HarborEvent = {
-            id: `fire-${Date.now()}`,
+            id: `fire-${simNowMs()}`,
             type: 'ship_fire',
-            startTime: Date.now(),
-            duration: 240 + Math.random() * 300,
-            intensity: 0.7 + Math.random() * 0.3,
+            startTime: simNowMs(),
+            duration: 240 + simRandom() * 300,
+            intensity: 0.7 + simRandom() * 0.3,
             affectedShipId: targetShipId,
             position: targetShipPosition,
             metadata: {
-                deck: Math.random() > 0.5 ? 'cargo' : 'engine',
+                deck: simRandom() > 0.5 ? 'cargo' : 'engine',
                 spreading: false,
                 contained: false
             }
@@ -433,9 +435,9 @@ export class HarborEventSystem {
         }
 
         const event: HarborEvent = {
-            id: `fireboats-${Date.now()}`,
+            id: `fireboats-${simNowMs()}`,
             type: 'fireboat_response',
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 300,
             intensity: 1.0,
             affectedShipId: shipId,
@@ -444,7 +446,7 @@ export class HarborEventSystem {
                 fireboatCount: 5,
                 spawnedFireboatIds: spawnedIds,
                 waterPressure: 'high',
-                foamDeployed: Math.random() > 0.5
+                foamDeployed: simRandom() > 0.5
             }
         }
 
@@ -456,15 +458,15 @@ export class HarborEventSystem {
 
     triggerNavyFleetWeek(): HarborEvent {
         const event: HarborEvent = {
-            id: `fleetweek-${Date.now()}`,
+            id: `fleetweek-${simNowMs()}`,
             type: 'navy_fleet_week',
-            startTime: Date.now(),
-            duration: 900 + Math.random() * 900,
+            startTime: simNowMs(),
+            duration: 900 + simRandom() * 900,
             intensity: 0.8,
             position: [100, 0, -50],
             metadata: {
-                vesselType: ['destroyer', 'cruiser', 'carrier_escort'][Math.floor(Math.random() * 3)],
-                hasAirShow: Math.random() > 0.5,
+                vesselType: ['destroyer', 'cruiser', 'carrier_escort'][Math.floor(simRandom() * 3)],
+                hasAirShow: simRandom() > 0.5,
                 libertyPending: true
             }
         }
@@ -477,15 +479,15 @@ export class HarborEventSystem {
 
     triggerNavyResupply(): HarborEvent {
         const event: HarborEvent = {
-            id: `navy-${Date.now()}`,
+            id: `navy-${simNowMs()}`,
             type: 'navy_resupply',
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 600,
             intensity: 0.5,
             position: [80, 0, 0],
             metadata: {
                 vesselType: 'supply_ship',
-                daysAtSea: 60 + Math.floor(Math.random() * 60)
+                daysAtSea: 60 + Math.floor(simRandom() * 60)
             }
         }
 
@@ -497,17 +499,17 @@ export class HarborEventSystem {
 
     triggerAtmosphericRiver(): HarborEvent {
         const event: HarborEvent = {
-            id: `storm-${Date.now()}`,
+            id: `storm-${simNowMs()}`,
             type: 'atmospheric_river',
-            startTime: Date.now(),
-            duration: 480 + Math.random() * 720,
-            intensity: 0.4 + Math.random() * 0.6,
+            startTime: simNowMs(),
+            duration: 480 + simRandom() * 720,
+            intensity: 0.4 + simRandom() * 0.6,
             position: [0, 0, 0],
             metadata: {
-                windSpeed: 40 + Math.floor(Math.random() * 40),
+                windSpeed: 40 + Math.floor(simRandom() * 40),
                 rainfall: 'heavy',
                 origin: 'Hawaii',
-                waveHeight: 3 + Math.random() * 4
+                waveHeight: 3 + simRandom() * 4
             }
         }
 
@@ -522,16 +524,16 @@ export class HarborEventSystem {
 
     triggerCruiseArrival(): HarborEvent {
         const event: HarborEvent = {
-            id: `cruise-arr-${Date.now()}`,
+            id: `cruise-arr-${simNowMs()}`,
             type: 'cruise_arrival',
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 300,
             intensity: 0.6,
             position: [0, 0, 50],
             metadata: {
-                passengers: 2000 + Math.floor(Math.random() * 2000),
-                destination: ['Mexico', 'Alaska', 'Hawaii'][Math.floor(Math.random() * 3)],
-                pier: ['27', '35'][Math.floor(Math.random() * 2)]
+                passengers: 2000 + Math.floor(simRandom() * 2000),
+                destination: ['Mexico', 'Alaska', 'Hawaii'][Math.floor(simRandom() * 3)],
+                pier: ['27', '35'][Math.floor(simRandom() * 2)]
             }
         }
 
@@ -543,9 +545,9 @@ export class HarborEventSystem {
 
     triggerShipArrival(ship: { name: string; type: string }): HarborEvent {
         const event: HarborEvent = {
-            id: `ship-arr-${Date.now()}`,
+            id: `ship-arr-${simNowMs()}`,
             type: 'clear',
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 60,
             intensity: 0.3,
             position: [0, 0, 0],
@@ -563,9 +565,9 @@ export class HarborEventSystem {
 
     triggerCruiseDeparture(): HarborEvent {
         const event: HarborEvent = {
-            id: `cruise-dep-${Date.now()}`,
+            id: `cruise-dep-${simNowMs()}`,
             type: 'cruise_departure',
-            startTime: Date.now(),
+            startTime: simNowMs(),
             duration: 180,
             intensity: 0.5,
             position: [0, 0, 50],
@@ -583,15 +585,15 @@ export class HarborEventSystem {
 
     triggerSuspiciousVessel(): HarborEvent {
         const event: HarborEvent = {
-            id: `suspicious-${Date.now()}`,
+            id: `suspicious-${simNowMs()}`,
             type: 'suspicious_vessel',
-            startTime: Date.now(),
-            duration: 120 + Math.random() * 180,
+            startTime: simNowMs(),
+            duration: 120 + simRandom() * 180,
             intensity: 0.3,
             position: [
-                40 + Math.random() * 40,
+                40 + simRandom() * 40,
                 0,
-                -40 + Math.random() * 80
+                -40 + simRandom() * 80
             ],
             metadata: {
                 vesselType: 'small_craft',
@@ -633,9 +635,9 @@ export class HarborEventSystem {
     // ========================================================================
 
     update(delta: number) {
-        const now = Date.now()
+        const now = simNowMs()
         const state = useGameStore.getState()
-        const month = new Date().getMonth() + 1
+        const month = (Math.floor(timeSystem.getState().dayNumber / 30) % 12) + 1
         const isNight = state.isNight
 
         this.businessPatternTimer += delta
@@ -682,7 +684,7 @@ export class HarborEventSystem {
 
             if (newTimer >= config.minInterval && timeSinceLast >= config.minInterval) {
                 if (this.canSpawnEvent(type, config, month, isNight, state)) {
-                    if (Math.random() < config.probability * delta) {
+                    if (simRandom() < config.probability * delta) {
                         const event = this.spawnEvent(type)
                         if (event) {
                             this.eventTimers.set(type, 0)
@@ -758,10 +760,10 @@ export class HarborEventSystem {
     private updateEvent(event: HarborEvent, _delta: number) {
         switch (event.type) {
             case 'ship_fire':
-                event.intensity = 0.6 + Math.random() * 0.4
+                event.intensity = 0.6 + simRandom() * 0.4
                 break
             case 'atmospheric_river':
-                event.intensity = 0.4 + Math.sin(Date.now() / 5000) * 0.3
+                event.intensity = 0.4 + Math.sin(simNowMs() / 5000) * 0.3
                 break
         }
     }
@@ -793,15 +795,15 @@ export class HarborEventSystem {
 
     private triggerPorpoiseSighting(): HarborEvent {
         const event: HarborEvent = {
-            id: `porpoise-${Date.now()}`,
+            id: `porpoise-${simNowMs()}`,
             type: 'porpoise_sighting',
-            startTime: Date.now(),
-            duration: 60 + Math.random() * 120,
+            startTime: simNowMs(),
+            duration: 60 + simRandom() * 120,
             intensity: 0.3,
             position: [
-                (Math.random() - 0.5) * 40,
+                (simRandom() - 0.5) * 40,
                 -0.5,
-                (Math.random() - 0.5) * 40
+                (simRandom() - 0.5) * 40
             ]
         }
 
@@ -812,21 +814,21 @@ export class HarborEventSystem {
 
     private triggerSharkPatrol(): HarborEvent {
         const event: HarborEvent = {
-            id: `shark-${Date.now()}`,
+            id: `shark-${simNowMs()}`,
             type: 'shark_patrol',
-            startTime: Date.now(),
-            duration: 180 + Math.random() * 240,
+            startTime: simNowMs(),
+            duration: 180 + simRandom() * 240,
             intensity: 0.5,
-            position: [90, -5, (Math.random() - 0.5) * 60]
+            position: [90, -5, (simRandom() - 0.5) * 60]
         }
 
         const shark: WildlifeEntity = {
-            id: `shark-${Date.now()}`,
+            id: `shark-${simNowMs()}`,
             type: 'great_white_shark',
             position: [...event.position],
-            velocity: [-5, 0, (Math.random() - 0.5) * 2],
+            velocity: [-5, 0, (simRandom() - 0.5) * 2],
             behaviorState: 'hunting',
-            createdAt: Date.now()
+            createdAt: simNowMs()
         }
         useGameStore.getState().addWildlife(shark)
 
@@ -870,6 +872,21 @@ export class HarborEventSystem {
         this.activeEvents.forEach((_, id) => this.endEvent(id))
     }
 
+    reset() {
+        this.activeEvents.clear()
+        this.activeBusinessPatterns.clear()
+        this.distantShipQueue = []
+        this.businessPatternTimer = 0
+        Object.keys(EVENT_CONFIGS).forEach((type) => {
+            this.eventTimers.set(type as HarborEventType, 0)
+            this.lastEventTime.set(type as HarborEventType, 0)
+        })
+    }
+
+    snapshotIds(): string[] {
+        return [...this.activeEvents.keys()].sort()
+    }
+
     getFireboatPositions(): [number, number, number][] {
         return this.fireboatPositions
     }
@@ -892,7 +909,7 @@ export class HarborEventSystem {
     forceBusinessPattern(type: BusinessPatternType): BusinessPattern | null {
         switch (type) {
             case 'tanker_geopolitical':
-                return this.triggerGeopoliticalEvent(['red_sea', 'hormuz', 'panama'][Math.floor(Math.random() * 3)] as 'red_sea' | 'hormuz' | 'panama')
+                return this.triggerGeopoliticalEvent(['red_sea', 'hormuz', 'panama'][Math.floor(simRandom() * 3)] as 'red_sea' | 'hormuz' | 'panama')
             case 'tariff_event':
                 return this.triggerTariffEvent()
             case 'labor_action':

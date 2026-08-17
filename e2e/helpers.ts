@@ -38,28 +38,21 @@ export function assertNoLevaControlsConfigErrors(errors: string[]) {
   ).toHaveLength(0)
 }
 
-/** Main menu → New Game → WebGL canvas ready (post MainScene lazy load). */
-export async function bootGame(page: Page): Promise<Locator> {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem('harborglow.renderer.preference', 'webgl')
-    } catch {
-      // private mode / disabled storage
-    }
-  })
-
-  // screenshot=1 forces preserveDrawingBuffer so canvas pixel reads return the last
-  // rendered frame rather than a cleared buffer (see docs/RENDERER.md).
-  await page.goto('/?renderer=webgl&wireframe=0&screenshot=1')
+/** Main menu → New Game → WebGPU fatal overlay (CI SwiftShader has no WebGPU). */
+export async function bootToFatalOverlay(page: Page): Promise<Locator> {
+  await page.goto('/?wireframe=0&screenshot=1')
   await page.getByRole('button', { name: 'New Game' }).click()
+  const overlay = page.getByTestId('webgpu-fatal-overlay')
+  await expect(overlay).toBeVisible({ timeout: 90_000 })
+  return overlay
+}
 
-  const canvas = page.locator('canvas[data-renderer="webgl"]')
-  await expect(canvas).toBeVisible({ timeout: 90_000 })
-
-  // Let lazy chunks, post-processing passes, and first frames settle.
-  await page.waitForTimeout(2_500)
-
-  return canvas
+/**
+ * @deprecated Harbor canvas boot requires WebGPU. Visual harbor snapshots are
+ * deferred until WebGL restore or a WebGPU CI runner. Prefer bootToFatalOverlay.
+ */
+export async function bootGame(page: Page): Promise<Locator> {
+  return bootToFatalOverlay(page)
 }
 
 /** Count pixels that differ between two equal-size PNG buffers (rough RGBA diff). */

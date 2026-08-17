@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // PORT ECONOMY SYSTEM - HarborGlow
 // Lightweight economy layer tied to crane + light-upgrade gameplay
@@ -5,6 +6,7 @@
 
 import type { ShipType, WeatherState } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
+import { scheduleSave } from '../store/gameStoreTypes'
 import { reputationSystem } from './reputationSystem'
 import { playSound } from './soundEffects'
 
@@ -738,11 +740,7 @@ export class EconomySystem {
   }
 
   private persistToStorage(): void {
-    void import('../store/useGameStore').then(({ useGameStore }) => {
-      void import('../store/gameStoreTypes').then(({ scheduleSave }) => {
-        scheduleSave(useGameStore.getState())
-      })
-    })
+    scheduleSave(useGameStore.getState())
   }
 
   // ========================================================================

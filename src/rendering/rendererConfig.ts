@@ -1,22 +1,21 @@
-import type { RendererCapabilities, RendererContextOptions, RendererPreference } from './types';
+import type { GpuChoresBreadcrumb } from './gpuChores/types';
+import type {
+  ComputeProbeStatus,
+  RendererCapabilities,
+  RendererContextOptions,
+  RendererPreference,
+} from './types';
+
+export { parseNoGpuCompute } from './gpuChores/killSwitch';
 
 const STORAGE_KEY = 'harborglow.renderer.preference';
-const VALID: RendererPreference[] = ['webgl', 'webgpu'];
+const VALID: RendererPreference[] = ['webgpu'];
 
-export function parseRendererPreference(search = window.location.search): RendererPreference {
-  const raw = new URLSearchParams(search).get('renderer');
-  if (raw === 'webgl' || raw === 'webgpu') return raw;
-
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored === 'webgl' || stored === 'webgpu') return stored;
-    } catch {
-      // ignore storage failures (private mode etc)
-    }
-  }
-
-  // Default: WebGPU path (auto-falls back to WebGL2 when unavailable inside WebGPURenderer).
+/**
+ * WebGPU is required this phase. `?renderer=webgl` and a stored `webgl`
+ * preference are ignored (see `wasForceGlRequested` / window.webgpuProbe).
+ */
+export function parseRendererPreference(_search = typeof window === 'undefined' ? '' : window.location.search): RendererPreference {
   return 'webgpu';
 }
 
@@ -34,6 +33,7 @@ export function syncRendererPreferenceToUrl(preference: RendererPreference): voi
 
 export function persistRendererPreference(preference: RendererPreference): void {
   if (typeof window === 'undefined') return;
+  if (preference !== 'webgpu') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, preference);
   } catch {
@@ -64,6 +64,8 @@ export function parseScreenshotMode(search = typeof window === 'undefined' ? '' 
 export interface ExposeRendererDetails {
   contextOptions?: RendererContextOptions | null;
   capabilities?: RendererCapabilities | null;
+  computeProbe?: ComputeProbeStatus;
+  gpuChores?: GpuChoresBreadcrumb | null;
 }
 
 /**
@@ -76,12 +78,15 @@ export function exposeRenderer(
   details: ExposeRendererDetails = {}
 ): void {
   if (typeof window !== 'undefined') {
+    const prev = ((window as any).harborglowRenderer ?? {}) as { gpuChores?: GpuChoresBreadcrumb };
     (window as any).currentRenderer = preference;
     (window as any).harborglowRenderer = {
       preference,
       activeBackend,
       contextOptions: details.contextOptions ?? null,
       capabilities: details.capabilities ?? null,
+      computeProbe: details.computeProbe ?? 'not-run',
+      gpuChores: details.gpuChores ?? prev.gpuChores ?? null,
     };
   }
   if (canvas) {
@@ -90,6 +95,10 @@ export function exposeRenderer(
     canvas.dataset.webglVersion = activeBackend.includes('webgl') ? '2' : '';
     if (details.contextOptions) {
       canvas.dataset.preserveDrawingBuffer = String(details.contextOptions.preserveDrawingBuffer);
+    }
+    if (details.gpuChores) {
+      canvas.dataset.gpuChoresBackend = details.gpuChores.backend;
+      canvas.dataset.gpuChoresKillSwitch = details.gpuChores.killSwitch ? '1' : '0';
     }
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // REPUTATION / PORT AUTHORITY RATING SYSTEM - HarborGlow
 // Simple progression system unlocking ships, light rigs, and training modules

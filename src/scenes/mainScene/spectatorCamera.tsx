@@ -18,6 +18,7 @@ export function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remaini
         trawler: 'Saltwater',
         horizon: 'Meridian',
         fireboat: 'Harbor Guardian',
+        icebreaker: 'Polar Steel',
     }
 
     const colors: Record<ShipType, string> = {
@@ -33,6 +34,7 @@ export function SpectatorOverlay({ ship, remainingTime }: { ship?: Ship; remaini
         trawler: '#cc8833',
         horizon: '#3388cc',
         fireboat: '#ff4422',
+        icebreaker: '#c41e3a',
     }
 
     return (

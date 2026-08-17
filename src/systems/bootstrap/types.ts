@@ -1,4 +1,5 @@
 import type * as THREE from 'three'
+import type { SimContext } from '../sim/SimContext'
 
 // =============================================================================
 // FRAME CONTEXT — per-tick inputs shared by all registered systems
@@ -11,6 +12,7 @@ export interface FrameContext {
     /** World-space trolley position for crane sway physics. */
     swayTrolleyPosition: THREE.Vector3
     bpm: number
+    sim: SimContext
 }
 
 // =============================================================================

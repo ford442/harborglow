@@ -12,6 +12,7 @@ import { ferryCutaway } from './ferry'
 import { trawlerCutaway } from './trawler'
 import { horizonCutaway } from './horizon'
 import { fireboatCutaway } from './fireboat'
+import { icebreakerCutaway } from './icebreaker'
 
 export type { CutawayCue, CutawayAction, CutawayPlan } from './types'
 
@@ -22,7 +23,7 @@ export const DEFAULT_CUTAWAY_PLAN: CutawayPlan = [
   { beat: 32, action: { type: 'hide_band_name' } },
 ]
 
-export const cutawayRegistry: Partial<Record<ShipType, CutawayPlan>> = {
+export const cutawayRegistry: Record<ShipType, CutawayPlan> = {
   tanker: oilTankerCutaway,
   cruise: cruiseCutaway,
   container: containerCutaway,
@@ -35,6 +36,7 @@ export const cutawayRegistry: Partial<Record<ShipType, CutawayPlan>> = {
   trawler: trawlerCutaway,
   horizon: horizonCutaway,
   fireboat: fireboatCutaway,
+  icebreaker: icebreakerCutaway,
 }
 
 export function getCutawayPlan(shipType: ShipType): CutawayPlan {
@@ -53,3 +55,4 @@ export { ferryCutaway } from './ferry'
 export { trawlerCutaway } from './trawler'
 export { horizonCutaway } from './horizon'
 export { fireboatCutaway } from './fireboat'
+export { icebreakerCutaway } from './icebreaker'

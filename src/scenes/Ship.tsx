@@ -82,7 +82,8 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
         ferry: '#00cc88',
         trawler: '#cc8833',
         horizon: '#3388cc',
-        fireboat: '#ff3333'
+        fireboat: '#ff3333',
+        icebreaker: '#c41e3a'
     }
     const color = colors[type]
     
@@ -100,6 +101,7 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
             case 'trawler': return [4, 1.5, 1.2] as [number, number, number]
             case 'horizon': return [6, 2, 1.5] as [number, number, number]
             case 'fireboat': return [3.5, 1.8, 1.4] as [number, number, number]
+            case 'icebreaker': return [12, 2.4, 3.2] as [number, number, number]
         }
     }, [type])
     

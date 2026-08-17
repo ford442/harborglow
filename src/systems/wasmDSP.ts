@@ -109,9 +109,114 @@ interface RawWasmInstance {
   dsp_generate_room_ir: HarborGlowDSPExports['dsp_generate_room_ir']
 }
 
-// ---------------------------------------------------------------------------
-// Pure TypeScript fallback — always available
-// ---------------------------------------------------------------------------
+function jsFftR2C(
+  input: ArrayLike<number>,
+  outReal: Float32Array,
+  outImag: Float32Array,
+  log2N: number,
+): void {
+  if (log2N < 1 || log2N > 12) return
+  const N = 1 << log2N
+  if (log2N === 1) {
+    outReal[0] = input[0] + input[1]
+    outImag[0] = 0
+    outReal[1] = input[0] - input[1]
+    outImag[1] = 0
+    return
+  }
+
+  const M = N / 2
+  const log2M = log2N - 1
+  const bitrev = new Int32Array(M)
+  for (let i = 0; i < M; i++) {
+    let rev = 0
+    for (let bit = 0; bit < log2M; bit++) {
+      if ((i >> bit) & 1) rev |= 1 << (log2M - 1 - bit)
+    }
+    bitrev[i] = rev
+  }
+
+  const workRe = new Float32Array(M)
+  const workIm = new Float32Array(M)
+  for (let i = 0; i < M; i++) {
+    workRe[bitrev[i]] = input[2 * i]
+    workIm[bitrev[i]] = input[2 * i + 1]
+  }
+
+  const twRe = new Float32Array(M)
+  const twIm = new Float32Array(M)
+  for (let i = 0; i < M; i++) {
+    const theta = -2 * Math.PI * i / M
+    twRe[i] = Math.cos(theta)
+    twIm[i] = Math.sin(theta)
+  }
+
+  for (let s = 1; s <= log2M; s++) {
+    const m = 1 << s
+    const half = m / 2
+    const stride = M / m
+    for (let k = 0; k < M; k += m) {
+      for (let j = 0; j < half; j++) {
+        const tw = j * stride
+        const wr = twRe[tw]
+        const wi = twIm[tw]
+        const hi = k + j + half
+        const lo = k + j
+        const tReal = wr * workRe[hi] - wi * workIm[hi]
+        const tImag = wr * workIm[hi] + wi * workRe[hi]
+        const uReal = workRe[lo]
+        const uImag = workIm[lo]
+        workRe[lo] = uReal + tReal
+        workIm[lo] = uImag + tImag
+        workRe[hi] = uReal - tReal
+        workIm[hi] = uImag - tImag
+      }
+    }
+  }
+
+  outReal[0] = workRe[0] + workIm[0]
+  outImag[0] = 0
+  outReal[M] = workRe[0] - workIm[0]
+  outImag[M] = 0
+  for (let k = 1; k < M; k++) {
+    const zr = workRe[k]
+    const zi = workIm[k]
+    const znr = workRe[M - k]
+    const zni = workIm[M - k]
+    const xr = 0.5 * (zr + znr)
+    const xi = 0.5 * (zi - zni)
+    const yr = 0.5 * (zi + zni)
+    const yi = 0.5 * (znr - zr)
+    const theta = -2 * Math.PI * k / N
+    const wr = Math.cos(theta)
+    const wi = Math.sin(theta)
+    const re = xr + wr * yr - wi * yi
+    const im = xi + wr * yi + wi * yr
+    outReal[k] = re
+    outImag[k] = im
+    outReal[N - k] = re
+    outImag[N - k] = -im
+  }
+}
+
+/** Tiny WASM module that returns v128; used to feature-detect SIMD. */
+const WASM_SIMD_PROBE = new Uint8Array([
+  0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8,
+  0, 65, 0, 253, 15, 253, 98, 11,
+])
+
+export function wasmSimdSupported(): boolean {
+  try {
+    return WebAssembly.validate(WASM_SIMD_PROBE)
+  } catch {
+    return false
+  }
+}
+
+function isDev(): boolean {
+  return typeof import.meta !== 'undefined' &&
+    Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV)
+}
 
 const jsExports: HarborGlowDSPExports = {
   dsp_mix:   (a, b, t)                    => a + (b - a) * t,
@@ -164,8 +269,8 @@ const jsExports: HarborGlowDSPExports = {
     void _dataPtr
     return count <= 0 ? 0 : 0
   },
-  dsp_fft_r2c: (inputPtr, outRealPtr, outImagPtr, log2N) => {
-    // Basic fallback stub
+  dsp_fft_r2c: (_inputPtr, _outRealPtr, _outImagPtr, _log2N) => {
+    void _inputPtr; void _outRealPtr; void _outImagPtr; void _log2N
   },
   dsp_convolver_create: () => 0,
   dsp_convolver_process: () => {},
@@ -188,8 +293,9 @@ class WasmDSPSystem {
 
   // Reusable scratch buffer for single-layer batch (foam grid = 64 points max typical)
   private _batchScratch: Float32Array | null = null
-  private _audioScratchPtr = 0
-  private _audioScratchCapacity = 0
+  private _heapScratchPtr = 0
+  private _heapScratchFloats = 0
+  private _simd = false
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -209,6 +315,11 @@ class WasmDSPSystem {
   /** Whether the WASM binary is currently in use. */
   get isWasmActive(): boolean {
     return this._status === 'ready'
+  }
+
+  /** Whether the loaded reactor was the SIMD artifact. */
+  get isSimdActive(): boolean {
+    return this._status === 'ready' && this._simd
   }
 
   /** Current load status. */
@@ -421,39 +532,32 @@ class WasmDSPSystem {
    * RMS of a Float32Array. Uses WASM heap when active.
    */
   fftR2C(input: Float32Array, log2N: number): { real: Float32Array, imag: Float32Array } {
-    const N = 1 << log2N;
-    const real = new Float32Array(N);
-    const imag = new Float32Array(N);
+    const N = 1 << log2N
+    const real = new Float32Array(N)
+    const imag = new Float32Array(N)
     if (this._raw) {
-      const raw = this._raw;
-      const inputPtr = raw.malloc(N * 4);
-      const outRealPtr = raw.malloc(N * 4);
-      const outImagPtr = raw.malloc(N * 4);
-      try {
-        new Float32Array(raw.memory.buffer, inputPtr, N).set(input);
-        raw.dsp_fft_r2c(inputPtr, outRealPtr, outImagPtr, log2N);
-        real.set(new Float32Array(raw.memory.buffer, outRealPtr, N));
-        imag.set(new Float32Array(raw.memory.buffer, outImagPtr, N));
-      } finally {
-        raw.free(inputPtr);
-        raw.free(outRealPtr);
-        raw.free(outImagPtr);
-      }
+      const raw = this._raw
+      const ptr = this.ensureHeapScratch(N * 3)
+      const inputPtr = ptr
+      const outRealPtr = ptr + N * 4
+      const outImagPtr = ptr + N * 8
+      new Float32Array(raw.memory.buffer, inputPtr, N).set(input.subarray(0, N))
+      raw.dsp_fft_r2c(inputPtr, outRealPtr, outImagPtr, log2N)
+      real.set(new Float32Array(raw.memory.buffer, outRealPtr, N))
+      imag.set(new Float32Array(raw.memory.buffer, outImagPtr, N))
+      return { real, imag }
     }
-    return { real, imag };
+    jsFftR2C(input, real, imag, log2N)
+    return { real, imag }
   }
 
   audioRms(data: Float32Array): number {
     if (data.length === 0) return 0
     if (this._raw) {
       const raw = this._raw
-      if (this._audioScratchCapacity < data.length) {
-        if (this._audioScratchPtr) raw.free(this._audioScratchPtr)
-        this._audioScratchPtr = raw.malloc(data.length * 4)
-        this._audioScratchCapacity = data.length
-      }
-      new Float32Array(raw.memory.buffer, this._audioScratchPtr, data.length).set(data)
-      return raw.dsp_audio_rms(this._audioScratchPtr, data.length)
+      const ptr = this.ensureHeapScratch(data.length)
+      new Float32Array(raw.memory.buffer, ptr, data.length).set(data)
+      return raw.dsp_audio_rms(ptr, data.length)
     }
     let sum = 0
     for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
@@ -483,25 +587,20 @@ class WasmDSPSystem {
 
     if (this._raw) {
       const raw = this._raw
-      const xsPtr = raw.malloc(count * 4)
-      const zsPtr = raw.malloc(count * 4)
-      const outPtr = raw.malloc(count * 4)
-      try {
-        const heap = new Float32Array(raw.memory.buffer)
-        const xsOff = xsPtr / 4
-        const zsOff = zsPtr / 4
-        const outOff = outPtr / 4
-        for (let i = 0; i < count; i++) {
-          heap[xsOff + i] = xs[i]
-          heap[zsOff + i] = zs[i]
-        }
-        raw.dsp_wave_height_batch(xsPtr, zsPtr, time, amp, freq, speed, dirX, dirZ, outPtr, count)
-        heights.set(heap.subarray(outOff, outOff + count))
-      } finally {
-        raw.free(xsPtr)
-        raw.free(zsPtr)
-        raw.free(outPtr)
+      const ptr = this.ensureHeapScratch(count * 3)
+      const xsPtr = ptr
+      const zsPtr = ptr + count * 4
+      const outPtr = ptr + count * 8
+      const heap = new Float32Array(raw.memory.buffer)
+      const xsOff = xsPtr / 4
+      const zsOff = zsPtr / 4
+      const outOff = outPtr / 4
+      for (let i = 0; i < count; i++) {
+        heap[xsOff + i] = xs[i]
+        heap[zsOff + i] = zs[i]
       }
+      raw.dsp_wave_height_batch(xsPtr, zsPtr, time, amp, freq, speed, dirX, dirZ, outPtr, count)
+      heights.set(heap.subarray(outOff, outOff + count))
       return heights
     }
 
@@ -522,9 +621,63 @@ class WasmDSPSystem {
     return this._batchScratch
   }
 
+  private ensureHeapScratch(floats: number): number {
+    const raw = this._raw
+    if (!raw) return 0
+    if (this._heapScratchFloats < floats) {
+      if (this._heapScratchPtr) raw.free(this._heapScratchPtr)
+      this._heapScratchPtr = raw.malloc(floats * 4)
+      this._heapScratchFloats = floats
+    }
+    return this._heapScratchPtr
+  }
+
   // -------------------------------------------------------------------------
   // Private
   // -------------------------------------------------------------------------
+
+  private wasmImports() {
+    return {
+      env: {
+        emscripten_notify_memory_growth: (_index: number) => {
+          if (isDev() && this._raw) {
+            console.warn(
+              '[wasmDSP] WASM memory grew; heap is now',
+              this._raw.memory.buffer.byteLength,
+              'bytes',
+            )
+          }
+        },
+      },
+    }
+  }
+
+  private bindInstance(exp: RawWasmInstance, simd: boolean): void {
+    const required: Array<keyof RawWasmInstance> = [
+      'memory', 'malloc', 'free',
+      'dsp_mix', 'dsp_clamp', 'dsp_remap',
+      'dsp_smooth_step', 'dsp_smoother_step',
+      'dsp_sin_approx', 'dsp_sin_full',
+      'dsp_wave_height', 'dsp_wave_height_batch',
+      'dsp_additive_synth_sample', 'dsp_additive_block',
+      'dsp_audio_rms', 'dsp_fft_r2c',
+      'dsp_convolver_create', 'dsp_convolver_process',
+      'dsp_convolver_reset', 'dsp_convolver_destroy',
+      'dsp_generate_room_ir',
+    ]
+    for (const fn of required) {
+      if (exp[fn] === undefined) {
+        throw new Error(`WASM export missing: ${fn}`)
+      }
+    }
+    if (exp._initialize) exp._initialize()
+    this._raw = exp
+    this._exports = exp
+    this._simd = simd
+    this._heapScratchPtr = 0
+    this._heapScratchFloats = 0
+    this._status = 'ready'
+  }
 
   private async _load(): Promise<void> {
     this._status = 'loading'
@@ -532,49 +685,32 @@ class WasmDSPSystem {
       const base = typeof import.meta !== 'undefined'
         ? (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? './'
         : './'
-      const url = `${base}wasm/harborglow_dsp.wasm`
-
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} fetching ${url}`)
+      const candidates: Array<{ url: string; simd: boolean }> = []
+      if (wasmSimdSupported()) {
+        candidates.push({ url: `${base}wasm/harborglow_dsp_simd.wasm`, simd: true })
       }
+      candidates.push({ url: `${base}wasm/harborglow_dsp.wasm`, simd: false })
 
-      const buffer = await response.arrayBuffer()
-      const imports = {
-        env: {
-          emscripten_notify_memory_growth: () => {},
-        },
-      }
-      const { instance } = await WebAssembly.instantiate(buffer, imports)
-      const exp = instance.exports as unknown as RawWasmInstance
-
-      const required: Array<keyof RawWasmInstance> = [
-        'memory', 'malloc', 'free',
-        'dsp_mix', 'dsp_clamp', 'dsp_remap',
-        'dsp_smooth_step', 'dsp_smoother_step',
-        'dsp_sin_approx', 'dsp_sin_full',
-        'dsp_wave_height', 'dsp_wave_height_batch',
-        'dsp_additive_synth_sample', 'dsp_additive_block',
-        'dsp_audio_rms', 'dsp_fft_r2c',
-        'dsp_convolver_create', 'dsp_convolver_process',
-        'dsp_convolver_reset', 'dsp_convolver_destroy',
-        'dsp_generate_room_ir',
-      ]
-      for (const fn of required) {
-        if (exp[fn] === undefined) {
-          throw new Error(`WASM export missing: ${fn}`)
+      let lastError: unknown
+      for (const candidate of candidates) {
+        try {
+          const response = await fetch(candidate.url)
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status} fetching ${candidate.url}`)
+          }
+          const buffer = await response.arrayBuffer()
+          const { instance } = await WebAssembly.instantiate(buffer, this.wasmImports())
+          this.bindInstance(instance.exports as unknown as RawWasmInstance, candidate.simd)
+          return
+        } catch (error) {
+          lastError = error
         }
       }
-
-      if (exp._initialize) exp._initialize()
-
-      this._raw = exp
-      this._exports = exp
-      this._status = 'ready'
+      throw lastError instanceof Error ? lastError : new Error('No DSP WASM variant available')
     } catch (err) {
       this._status = 'unavailable'
-      if (typeof import.meta !== 'undefined' &&
-          (import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+      this._simd = false
+      if (isDev()) {
         console.warn('[wasmDSP] Falling back to JS implementation:', err)
       }
     }

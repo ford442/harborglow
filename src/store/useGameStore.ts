@@ -70,7 +70,8 @@ export const UPGRADE_TARGETS: Record<ShipType, number> = {
     ferry: 4,       // Island Hopper ferry - passenger deck + car deck + nav lights
     trawler: 4,     // North Star trawler - wheelhouse + gantry + fish hold + mast
     horizon: 4,     // Horizon Deep research vessel - A-frame + helideck + moonpool + sonar
-    fireboat: 6     // Harbor fireboat - dual monitors + siren mast + hull wash + foam deck
+    fireboat: 6,    // Harbor fireboat - dual monitors + siren mast + hull wash + foam deck
+    icebreaker: 8   // Yamal — funnel, helideck, notch, bridge, escort crane/stack, mast, spoon bow
 }
 
 export const selectUpgradeProgress = (state: GameState, shipId: string): number => {

@@ -1,5 +1,6 @@
 import { ShipType } from '../store/useGameStore'
 import { getLightShow, LightCue, LightCuePattern, SHIP_BPM } from './lightShows'
+import { simNowMs } from './sim/SimContext'
 
 // =============================================================================
 // LIGHTING SYSTEM - HarborGlow PBR Edition
@@ -43,7 +44,7 @@ class LightingSystem {
       isActive: true,
       shipId,
       shipType,
-      startTime: Date.now(),
+      startTime: simNowMs(),
       duration: 30000,
       bpm: SHIP_BPM[shipType] ?? 128,
     }
@@ -77,7 +78,7 @@ class LightingSystem {
   // ============================================================================
   update(time: number, bpm: number) {
     if (this.currentShow.isActive) {
-      const elapsed = Date.now() - this.currentShow.startTime
+      const elapsed = simNowMs() - this.currentShow.startTime
       const progress = elapsed / this.currentShow.duration
 
       const effectiveBpm = this.currentShow.bpm || bpm
@@ -198,7 +199,7 @@ class LightingSystem {
       return this.activeCue.color
     }
 
-    const hue = (Date.now() / 1000 * 60) % 360
+    const hue = (simNowMs() / 1000 * 60) % 360
     return `hsl(${hue}, 100%, 60%)`
   }
 

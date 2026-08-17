@@ -35,7 +35,7 @@ export function useScreenShake() {
     intensity: 0,
   })
   
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
   const shakeDataRef = useRef<{
     intensity: number
     decay: number

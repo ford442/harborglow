@@ -100,6 +100,10 @@ unified in PR #146; v3 saves migrate forward via `storage_manager.ts`. Install
 rewards, shop purchases (`HarborShop`), salvage contracts, and mission payouts all
 read/write `harborCredits` through `economySlice` actions.
 
+Time and entropy for systems that *read* the store are documented in
+[docs/systems/DETERMINISM.md](./systems/DETERMINISM.md): `SimContext` +
+fixed-step `simScheduler`, not `Date.now()` / `Math.random()`.
+
 ## Adding state
 
 1. Add the field to `GameState` and a value to `defaultState` (`gameStoreTypes.ts`).

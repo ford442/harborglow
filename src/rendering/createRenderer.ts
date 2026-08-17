@@ -1,6 +1,7 @@
-import * as THREE from 'three';
+import type { Renderer as FiberRenderer } from '@react-three/fiber';
 import { configureRendererDefaults, type RendererDefaultsOptions } from './rendererDefaults';
 import type { RendererContextOptions, RendererPreference } from './types';
+import { getWebgpuProbe, publishWebgpuProbe, WebgpuRequiredError } from './webgpuProbe';
 
 export interface GameRendererOptions extends RendererDefaultsOptions {
   preference: RendererPreference;
@@ -49,44 +50,23 @@ export function resolveContextOptions(options: Partial<GameRendererOptions>): Re
   };
 }
 
-/**
- * Constructor parameters actually consumed by three r160's WebGPU/WebGL backends.
- *
- * `@types/three@0.158` types the JSM `WebGPURenderer` constructor with only
- * `{ canvas, antialias, sampleCount }`, but `WebGPUBackend` forwards
- * `powerPreference` / `requiredLimits` to `requestAdapter()` and `WebGPURenderer`
- * reads `forceWebGL`. This interface documents the real contract so the call site
- * stays typed instead of reaching for `any` / `@ts-ignore`.
- */
-export interface WebGPURendererParameters {
-  canvas?: HTMLCanvasElement;
-  antialias?: boolean;
-  sampleCount?: number;
-  powerPreference?: WebGLPowerPreference;
-  forceWebGL?: boolean;
-  requiredLimits?: Record<string, number>;
-}
-
-/** A constructed WebGPURenderer, presented to R3F through the WebGLRenderer-shaped surface it expects. */
-export type WebGPURendererLike = THREE.WebGLRenderer & { init: () => Promise<void> };
-
-type WebGPURendererCtor = new (parameters: WebGPURendererParameters) => WebGPURendererLike;
+type DisposableRenderer = FiberRenderer & {
+  backend?: { isWebGPUBackend?: boolean };
+  dispose?: () => void;
+};
 
 /**
- * Creates the Three.js renderer for the <Canvas> (R3F).
+ * Creates the Three.js WebGPU renderer for the R3F &lt;Canvas&gt;.
  *
- * - `webgpu`: WebGPURenderer (lazy loaded); falls back internally to WebGL2 when WebGPU unavailable.
- * - `webgl`:  Pure WebGLRenderer — stable reference for visual debugging, GLSL inspection, agent/Playwright pixel reads, and porting work.
- *
- * Both paths run through `configureRendererDefaults` so color space, tone mapping
- * and shadows are identical regardless of backend.
- *
- * R3F's gl function form receives the canvas element; we construct the renderer targeting it explicitly.
+ * WebGPU is required. The boot probe owns the GPUDevice; this factory passes
+ * that device into WebGPURenderer so Three does not request a second one.
+ * A WebGL2 fallback (explicit WebGLRenderer or Three's getFallback) is not
+ * returned — dispose and throw instead.
  */
 export async function createGameRenderer(
   canvas: HTMLCanvasElement,
   options: GameRendererOptions
-): Promise<THREE.WebGLRenderer> {
+): Promise<FiberRenderer> {
   const ctx = resolveContextOptions(options);
   const defaults: RendererDefaultsOptions = {
     toneMapping: options.toneMapping,
@@ -96,38 +76,38 @@ export async function createGameRenderer(
     clearAlpha: options.clearAlpha ?? (ctx.alpha ? 0 : 1),
   };
 
-  if (options.preference === 'webgl') {
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: ctx.antialias,
-      alpha: ctx.alpha,
-      premultipliedAlpha: ctx.premultipliedAlpha,
-      preserveDrawingBuffer: ctx.preserveDrawingBuffer,
-      powerPreference: ctx.powerPreference,
-      stencil: ctx.stencil,
-      depth: ctx.depth,
-      logarithmicDepthBuffer: ctx.logarithmicDepthBuffer,
-      failIfMajorPerformanceCaveat: ctx.failIfMajorPerformanceCaveat,
-    });
-    configureRendererDefaults(renderer, defaults);
-    return renderer;
+  const probe = getWebgpuProbe();
+  if (!probe || !probe.ok || !probe.device) {
+    throw new WebgpuRequiredError(probe?.reason ?? 'no-gpu');
   }
 
-  // WebGPU path (primary). Lazy import keeps the main bundle smaller until needed.
-  // Use the examples/jsm path because three 0.160 package.json exports map does not expose "three/webgpu" directly.
-  const mod = await import('three/examples/jsm/renderers/webgpu/WebGPURenderer.js');
-  const WebGPURendererCtor = mod.default as unknown as WebGPURendererCtor;
-  // Only antialias/sampleCount/powerPreference reach the WebGPU backend in r160;
-  // stencil/depth/alpha/preserveDrawingBuffer are no-ops there (see docs/RENDERER.md).
-  const renderer = new WebGPURendererCtor({
+  const { WebGPURenderer } = await import('three/webgpu');
+  const renderer = new WebGPURenderer({
     canvas,
     antialias: ctx.antialias,
-    powerPreference: ctx.powerPreference,
-    // When WebGPU device cannot be created, three's WebGPURenderer falls back to a WebGL2 backend automatically.
+    powerPreference:
+      ctx.powerPreference === 'default' ? undefined : ctx.powerPreference,
+    alpha: ctx.alpha,
+    depth: ctx.depth,
+    stencil: ctx.stencil,
     forceWebGL: false,
+    device: probe.device as never,
   });
+
   await renderer.init();
+
+  const disposable = renderer as unknown as DisposableRenderer;
+  if (!disposable.backend?.isWebGPUBackend) {
+    disposable.dispose?.();
+    publishWebgpuProbe({
+      ...probe,
+      ok: false,
+      device: null,
+      reason: 'webgl2-fallback',
+    });
+    throw new WebgpuRequiredError('webgl2-fallback');
+  }
+
   configureRendererDefaults(renderer, defaults);
-  // R3F expects something with .render, .setSize, domElement etc. WebGPURenderer satisfies this at runtime.
   return renderer;
 }

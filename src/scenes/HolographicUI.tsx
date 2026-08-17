@@ -2,7 +2,7 @@ import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 
 // =============================================================================
 // PHASE 9.1: HOLOGRAPHIC UI ELEMENTS

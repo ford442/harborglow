@@ -479,6 +479,41 @@ export const createFireboatSynths = (): SynthChainConfig => {
     return { synths, effects }
 }
 
+// -------------------------------------------------------------------------
+// ICEBREAKER - "Polar Steel"
+// -------------------------------------------------------------------------
+export const createIcebreakerSynths = (): SynthChainConfig => {
+    const effects: any[] = []
+    const synths: any[] = []
+
+    const reverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.08, wet: 0.45 }).toDestination()
+    effects.push(reverb)
+
+    const iceLead = new Tone.MonoSynth({
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.08, decay: 0.4, sustain: 0.5, release: 1.2 },
+        filterEnvelope: { attack: 0.2, decay: 0.6, sustain: 0.3, release: 1.4, baseFrequency: 120, octaves: 2.5 }
+    }).connect(reverb)
+    iceLead.volume.value = -10
+    synths.push(iceLead)
+
+    const reactorBass = new Tone.MonoSynth({
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.05, decay: 0.3, sustain: 0.7, release: 0.8 }
+    }).connect(reverb)
+    reactorBass.volume.value = -12
+    synths.push(reactorBass)
+
+    const icePing = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 1.2, sustain: 0, release: 2.5 }
+    }).connect(reverb)
+    icePing.volume.value = -16
+    synths.push(icePing)
+
+    return { synths, effects }
+}
+
 // Factory function to create synth chains by ship type
 export const createSynthChain = (shipType: ShipType): SynthChainConfig => {
     const creators: Record<ShipType, () => SynthChainConfig> = {
@@ -494,6 +529,7 @@ export const createSynthChain = (shipType: ShipType): SynthChainConfig => {
         trawler: createTrawlerSynths,
         horizon: createHorizonSynths,
         fireboat: createFireboatSynths,
+        icebreaker: createIcebreakerSynths,
     }
 
     const creator = creators[shipType]

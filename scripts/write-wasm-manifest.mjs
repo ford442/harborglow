@@ -15,9 +15,11 @@ const sources = [
   'cpp/dsp_ring_buffer.h',
   'cpp/Makefile',
   'cpp/build.sh',
+  'scripts/wasm-exports.mjs',
 ]
 const binaries = [
   'public/wasm/harborglow_dsp.wasm',
+  'public/wasm/harborglow_dsp_simd.wasm',
   'public/wasm/harborglow_audio_shared.wasm',
   'public/wasm/harborglow_audio_shared_simd.wasm',
 ]

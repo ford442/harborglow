@@ -128,6 +128,38 @@ describe('store persistence', () => {
     expect(state.enableMarineLife).toBe(false)
   })
 
+  it('round-trips an icebreaker ship and remaps legacy icebreaker-yamal ids', () => {
+    const icebreaker: Ship = {
+      ...makeShip('yamal-1'),
+      type: 'icebreaker',
+      modelName: 'icebreaker',
+      name: 'Yamal',
+      length: 24,
+    }
+    loadGameState.mockReturnValue({
+      ships: [icebreaker],
+      craneUpgrades: [],
+    })
+    useGameStore.getState().loadSavedState()
+    expect(useGameStore.getState().ships[0].type).toBe('icebreaker')
+
+    loadGameState.mockReturnValue({
+      ships: [{ ...icebreaker, id: 'legacy-yamal', type: 'icebreaker-yamal' as Ship['type'] }],
+      craneUpgrades: [],
+    })
+    useGameStore.getState().loadSavedState()
+    expect(useGameStore.getState().ships[0].type).toBe('icebreaker')
+  })
+
+  it('loads an unknown saved ship type as cruise without throwing', () => {
+    loadGameState.mockReturnValue({
+      ships: [{ ...makeShip('mystery'), type: 'not-a-ship' as Ship['type'] }],
+      craneUpgrades: [],
+    })
+    expect(() => useGameStore.getState().loadSavedState()).not.toThrow()
+    expect(useGameStore.getState().ships[0].type).toBe('cruise')
+  })
+
   it('excludes ephemeral frame state from the serialized payload', () => {
     const store = useGameStore.getState()
     store.setSpreaderPos({ x: 1, y: 2, z: 3 })

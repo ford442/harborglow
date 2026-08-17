@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import type { WebGLProgramParametersWithUniforms } from 'three/src/renderers/webgl/WebGLPrograms.js'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import { computeHarborWetness, HARBOR_NOISE_GLSL } from './HarborPBRMaterials'
@@ -41,7 +42,7 @@ interface CableUniforms {
   uTravel: { value: number }
 }
 
-function injectWorldPos(shader: THREE.Shader) {
+function injectWorldPos(shader: WebGLProgramParametersWithUniforms) {
   if (!shader.vertexShader.includes('vCraneWorldPos')) {
     shader.vertexShader = `varying vec3 vCraneWorldPos;\n${shader.vertexShader}`
     shader.vertexShader = shader.vertexShader.replace(
@@ -55,7 +56,7 @@ function injectWorldPos(shader: THREE.Shader) {
   }
 }
 
-function injectCraneUniforms(shader: THREE.Shader, weathering: number): CraneUniforms {
+function injectCraneUniforms(shader: WebGLProgramParametersWithUniforms, weathering: number): CraneUniforms {
   const uniforms: CraneUniforms = {
     uWetness: { value: 0 },
     uWeathering: { value: weathering },
@@ -67,7 +68,7 @@ function injectCraneUniforms(shader: THREE.Shader, weathering: number): CraneUni
   return uniforms
 }
 
-function patchColor(shader: THREE.Shader, body: string) {
+function patchColor(shader: WebGLProgramParametersWithUniforms, body: string) {
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <color_fragment>',
     `#include <color_fragment>\n${body}`

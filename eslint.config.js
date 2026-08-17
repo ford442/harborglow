@@ -32,5 +32,22 @@ export default tseslint.config(
       }],
       '@typescript-eslint/no-redeclare': 'error',
     },
-  }
+  },
+
+  {
+    files: ['src/systems/**/*.{ts,tsx}'],
+    ignores: ['src/systems/**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+        message: 'Use getSim().rng / simRandom() instead of Math.random() (see docs/systems/DETERMINISM.md).',
+      }, {
+        selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+        message: 'Use getSim().simTime / simNowMs() instead of Date.now() in sim systems.',
+      }, {
+        selector: "CallExpression[callee.object.name='performance'][callee.property.name='now']",
+        message: 'Use getSim().simTime / simNowMs() instead of performance.now() in sim systems.',
+      }],
+    },
+  },
 )

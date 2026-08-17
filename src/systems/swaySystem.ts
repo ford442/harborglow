@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // SWAY SYSTEM - HarborGlow Bay
 // Realistic pendulum physics for crane hook/spreader with environmental effects

@@ -33,6 +33,9 @@ jobs:
               - 'src/scenes/**'
               - 'src/rendering/**'
               - 'src/shaders/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
               - 'e2e/**'
               - 'playwright.config.ts'
               - '.github/workflows/ci.yml'
@@ -75,6 +78,9 @@ jobs:
 
       - name: Rebuild committed WASM binaries
         run: npm run build:wasm
+
+      - name: Native DSP tests
+        run: make -C cpp test
 
       - name: Check committed WASM binaries
         run: npm run check:wasm
@@ -188,7 +194,34 @@ jobs:
         run: npm ci
 
       - name: Production build
+        env:
+          # WASM drift is enforced by gate-wasm (rebuild + git diff). Skip a
+          # second emsdk install here when the compiler is absent on this job.
+          ALLOW_MISSING_EMSDK: "1"
         run: npm run build
+
+  gate-size:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bundle size budgets
+        env:
+          ALLOW_MISSING_EMSDK: "1"
+        run: npm run typecheck && vite build && npm run check:bundle
 
   merge-gate:
     name: merge-gate
@@ -202,6 +235,7 @@ jobs:
       - gate-test
       - gate-smoke
       - gate-build
+      - gate-size
     if: always()
     steps:
       - name: Require all merge gates
@@ -212,9 +246,10 @@ jobs:
           GATE_TEST: ${{ needs.gate-test.result }}
           GATE_SMOKE: ${{ needs.gate-smoke.result }}
           GATE_BUILD: ${{ needs.gate-build.result }}
+          GATE_SIZE: ${{ needs.gate-size.result }}
         run: |
           failed=0
-          for label in GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD; do
+          for label in GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD GATE_SIZE; do
             result="${!label}"
             echo "$label: $result"
             if [ "$result" != "success" ]; then
@@ -251,9 +286,11 @@ jobs:
         run: npm run test:e2e:install
 
       - name: Production build
+        env:
+          ALLOW_MISSING_EMSDK: "1"
         run: npm run build
 
-      - name: Playwright visual smoke (WebGL2)
+      - name: Playwright smoke (WebGPU probe / menu)
         run: npm run test:e2e
         env:
           CI: "true"

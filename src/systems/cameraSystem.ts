@@ -1,9 +1,11 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 import { useRef, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore, type CameraMode, type CameraTransform } from '../store/useGameStore'
 import type { CameraPreset, CameraPresetId, DashboardPresets } from '../types/CameraPreset'
 import type { TugboatDashboardPresets, TugboatViewportId } from '../types/CameraPreset'
+import { scratchVec3a, scratchVec3b, scratchVec3c, scratchVec3d, scratchDir } from '../utils/scratch'
 
 // =============================================================================
 // PHASE 7: CINEMATIC CAMERA SYSTEM
@@ -386,14 +388,13 @@ export function useCinematicCamera(enabled = true) {
       const point = pathCurveRef.current.getPoint(pathProgressRef.current)
       const tangent = pathCurveRef.current.getTangent(pathProgressRef.current)
 
-      // Look-at target: use tug position during tug spectator, ship position otherwise
       const lookAtCenter = tugSpectatorActive
-        ? new THREE.Vector3(...tugboatState.position).add(new THREE.Vector3(0, 3, 0))
-        : new THREE.Vector3(...(currentShip?.position ?? [0, 0, 0])).add(new THREE.Vector3(0, 5, 0))
-      
+        ? scratchVec3a.set(...tugboatState.position).add(scratchVec3b.set(0, 3, 0))
+        : scratchVec3a.set(...(currentShip?.position ?? [0, 0, 0])).add(scratchVec3b.set(0, 5, 0))
+
       target = {
         position: point,
-        lookAt: lookAtCenter.add(tangent.multiplyScalar(-10)),
+        lookAt: scratchVec3c.copy(tangent).multiplyScalar(-10).add(lookAtCenter),
         fov: tugSpectatorActive ? 52 : 45
       }
       
@@ -440,16 +441,15 @@ export function useCinematicCamera(enabled = true) {
     // Smooth camera movement with lerp
     const lerpFactor = (spectatorState.isActive || tugSpectatorActive) ? 0.03 : 0.08
     camera.position.lerp(
-      new THREE.Vector3(
+      scratchVec3d.set(
         targetPosRef.current.x + shakeX,
         targetPosRef.current.y + shakeY,
         targetPosRef.current.z
       ),
       lerpFactor
     )
-    
-    // Smooth look-at
-    const currentLook = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position)
+
+    const currentLook = scratchDir.set(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position)
     currentLook.lerp(targetLookRef.current, lerpFactor)
     camera.lookAt(currentLook)
     
@@ -555,12 +555,13 @@ export function focusOnShip(shipPosition: [number, number, number], duration = 1
 // =============================================================================
 
 export function getCameraTransform(camera: THREE.Camera, label?: string): CameraTransform {
+  const dir = scratchDir.set(0, 0, -1).applyQuaternion(camera.quaternion)
   return {
     position: [camera.position.x, camera.position.y, camera.position.z],
     target: [
-      camera.position.x + camera.getWorldDirection(new THREE.Vector3()).x,
-      camera.position.y + camera.getWorldDirection(new THREE.Vector3()).y,
-      camera.position.z + camera.getWorldDirection(new THREE.Vector3()).z
+      camera.position.x + dir.x,
+      camera.position.y + dir.y,
+      camera.position.z + dir.z
     ],
     label
   }

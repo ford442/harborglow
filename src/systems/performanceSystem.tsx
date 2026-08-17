@@ -108,6 +108,8 @@ function ImpostorMesh({ type }: { type: ShipType }) {
       case 'ferry': return '#ef9a9a'
       case 'trawler': return '#80cbc4'
       case 'horizon': return '#b0bec5'
+      case 'fireboat': return '#ff3333'
+      case 'icebreaker': return '#c41e3a'
     }
   }, [type])
   

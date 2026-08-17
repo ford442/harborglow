@@ -90,6 +90,14 @@ const SHIP_TYPES: ShipTypeConfig[] = [
     description: 'Emergency siren techno with water-cannon lights',
     musicStyle: '"Rescue Pulse"',
     icon: '🚒'
+  },
+  {
+    type: 'icebreaker',
+    label: 'Nuclear Icebreaker Yamal',
+    shortLabel: 'Icebreaker',
+    description: 'Industrial arctic convoy with ice-cyan rigs',
+    musicStyle: '"Polar Steel"',
+    icon: '🧊'
   }
 ]
 
@@ -125,7 +133,8 @@ export default function ShipSpawner() {
     ferry: ships.filter(s => s.type === 'ferry').length,
     trawler: ships.filter(s => s.type === 'trawler').length,
     horizon: ships.filter(s => s.type === 'horizon').length,
-    fireboat: ships.filter(s => s.type === 'fireboat').length
+    fireboat: ships.filter(s => s.type === 'fireboat').length,
+    icebreaker: ships.filter(s => s.type === 'icebreaker').length
   }
 
   return (

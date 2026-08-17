@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SystemRegistry } from '../SystemRegistry'
 import type { FrameContext, SystemTick } from '../types'
+import { getSim } from '../../sim/SimContext'
 
 function makeCtx(overrides: Partial<FrameContext> = {}): FrameContext {
     return {
@@ -10,6 +11,7 @@ function makeCtx(overrides: Partial<FrameContext> = {}): FrameContext {
         camera: {} as FrameContext['camera'],
         swayTrolleyPosition: { x: 0, y: 0, z: 0 } as FrameContext['swayTrolleyPosition'],
         bpm: 120,
+        sim: getSim(),
         ...overrides,
     }
 }

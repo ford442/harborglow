@@ -1,0 +1,22 @@
+{
+  "chunks": {
+    "vendor-3d-core": 600,
+    "vendor-3d-webgpu": 600,
+    "vendor-3d-post": 600,
+    "vendor-3d-rapier": 900,
+    "GameShell": 600,
+    "MainScene": 600,
+    "index": 200
+  },
+  "profiles": {
+    "menu-eager": {
+      "prefixes": ["index", "vendor-react"],
+      "gzipMaxKb": 400,
+      "cssPrefixes": ["index"]
+    },
+    "game-initial": {
+      "prefixes": ["GameShell", "vendor-3d-core", "MainScene"],
+      "gzipMaxKb": 580
+    }
+  }
+}

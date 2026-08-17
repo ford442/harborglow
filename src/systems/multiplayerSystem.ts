@@ -1,5 +1,11 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // MULTIPLAYER SYSTEM — WebRTC star topology (host ↔ spectators)
+//
+// #183 re-scope: harbor gameplay sync is seed + input log (see
+// docs/systems/DETERMINISM.md). This module remains the WebRTC transport for
+// presence, chat, and spectator attach. Do not stream wildlife/traffic/particle
+// transforms every frame — share SimContext seed and the recorded input log.
 // =============================================================================
 
 import { useGameStore } from '../store/useGameStore';

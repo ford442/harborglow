@@ -10,7 +10,7 @@ import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'
-import { stormSystem } from '../systems/StormSystem'
+import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 
 // =============================================================================
@@ -97,7 +97,7 @@ function SmokeParticles({ position, intensity }: { position: [number, number, nu
   return (
     <points ref={pointsRef} position={position}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+        <bufferAttribute args={[positions, 3]} attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
       <pointsMaterial
         color="#555555"
@@ -196,7 +196,7 @@ export default function DistressedShip({
 
     // --- Wind force ---
     const windForce = stormSystem.getWindForce()
-    if (windForce.lengthSq() > 0) {
+    if (windVectorLengthSq(windForce) > 0) {
       rb.applyImpulse(
         { x: windForce.x * delta, y: 0, z: windForce.z * delta },
         true

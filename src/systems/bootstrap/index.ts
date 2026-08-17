@@ -7,3 +7,5 @@ export {
 } from './mainSceneSystems'
 export { syncSystemModeLifecycle, useMainSceneSystemBootstrap } from './modeLifecycle'
 export type { ModeLifecycleState } from './modeLifecycle'
+export { SIM_DT, getSim } from '../sim/SimContext'
+export { simScheduler } from '../sim/FixedStepScheduler'

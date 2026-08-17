@@ -8,8 +8,8 @@ HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with R
 
 ## Tech Stack
 
-- **Frontend**: React 18.2 + TypeScript 5.2
-- **3D Graphics**: Three.js 0.160 + React Three Fiber 8.15 + WebGPU rendering
+- **Frontend**: React 19.2 + TypeScript 5.2
+- **3D Graphics**: Three.js 0.183.1 + React Three Fiber 9.7 + WebGPU rendering
 - **Physics**: Rapier 1.3 (@react-three/rapier)
 - **State Management**: Zustand 4.4
 - **Audio**: Tone.js 14.7 (music synthesis, sound effects)
@@ -271,7 +271,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 ## Browser & Compatibility
 
 - **Target**: Chrome 113+, Edge 113+ (WebGPU support required)
-- **Fallback**: Warning displayed if WebGPU not available (see `WebGPUWarning.tsx`)
+- **Fallback**: Probe fail → blocking overlay (`WebGPUFatalOverlay.tsx`); no WebGL scene this phase.
 - **Responsive**: Adaptive pixel ratio (dpr=[1, 2]) for mobile/retina
 
 ## Git & Commit Conventions

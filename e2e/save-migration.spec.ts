@@ -24,11 +24,12 @@ test('a legacy v3 save migrates both ledgers into one wallet', async ({ page }) 
     )
   })
 
-  await page.goto('/?renderer=webgl&screenshot=1')
+  await page.goto('/?screenshot=1')
   await page.getByRole('button', { name: 'Continue' }).click()
 
-  const canvas = page.locator('canvas[data-renderer="webgl"]')
-  await expect(canvas).toBeVisible({ timeout: 90_000 })
+  // Canvas boot requires WebGPU; CI SwiftShader hard-fails. Save migration
+  // still runs from App.startGame before GameShell mounts the overlay.
+  await expect(page.getByTestId('webgpu-fatal-overlay')).toBeVisible({ timeout: 90_000 })
 
   // Let the debounced save write the migrated payload.
   await page.waitForTimeout(3_000)

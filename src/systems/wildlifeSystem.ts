@@ -10,6 +10,7 @@
 // =============================================================================
 
 import { useGameStore, WildlifeEntity, WildlifeType, Ship } from '../store/useGameStore'
+import { simRandom, simNowMs, getSim } from './sim/SimContext'
 // Three.js types used for position calculations
 
 // Scientific constants based on real marine biology data
@@ -99,7 +100,7 @@ class WildlifeSystem {
         // Humpback whale behavior - breaching and diving
         this.behaviors.humpback_whale = {
             update: (entity) => {
-                const time = Date.now() / 1000
+                const time = getSim().simTime
                 const specs = WILDLIFE_SPECS.humpback_whale
                 
                 // Breaching behavior - jump out of water
@@ -128,7 +129,7 @@ class WildlifeSystem {
                 }
                 
                 // Random breaching (10% chance per check)
-                if (Math.random() < 0.001 && entity.position[1] <= 0) {
+                if (simRandom() < 0.001 && entity.position[1] <= 0) {
                     return { behaviorState: 'breaching' }
                 }
                 
@@ -149,7 +150,7 @@ class WildlifeSystem {
         // Great white shark behavior - patrol pattern
         this.behaviors.great_white_shark = {
             update: (entity) => {
-                const time = Date.now() / 1000
+                const time = getSim().simTime
                 const specs = WILDLIFE_SPECS.great_white_shark
                 
                 // Shark patrol pattern - coastal grid search
@@ -176,7 +177,7 @@ class WildlifeSystem {
         // Bottlenose dolphin behavior - bow riding and pod swimming
         this.behaviors.bottlenose_dolphin = {
             update: (entity, _delta, ships) => {
-                const time = Date.now() / 1000
+                const time = getSim().simTime
                 const specs = WILDLIFE_SPECS.bottlenose_dolphin
                 
                 // Find nearest ship for bow-riding
@@ -232,7 +233,7 @@ class WildlifeSystem {
         // Bioluminescent plankton - passive drift with flash response
         this.behaviors.bioluminescent_plankton = {
             update: (entity, delta, ships) => {
-                const time = Date.now() / 1000
+                const time = getSim().simTime
                 
                 // Check for ship disturbance
                 let flashIntensity = 0
@@ -263,12 +264,12 @@ class WildlifeSystem {
     
     // Spawn new wildlife entity
     spawnWildlife(type: WildlifeType): WildlifeEntity {
-        const id = `wildlife-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+        const id = `wildlife-${type}-${simNowMs()}-${simRandom().toString(36).substr(2, 5)}`
         // Get specs via WILDLIFE_SPECS[type]
         
         // Random spawn position away from ships
-        const angle = Math.random() * Math.PI * 2
-        const distance = 50 + Math.random() * 100
+        const angle = simRandom() * Math.PI * 2
+        const distance = 50 + simRandom() * 100
         
         const entity: WildlifeEntity = {
             id,
@@ -280,23 +281,23 @@ class WildlifeSystem {
             ],
             velocity: [0, 0, 0],
             behaviorState: type === 'bottlenose_dolphin' ? 'migrating' : 'idle',
-            createdAt: Date.now()
+            createdAt: getSim().simTime
         }
         
         // For dolphins, sometimes spawn in pods
-        if (type === 'bottlenose_dolphin' && Math.random() < 0.7) {
+        if (type === 'bottlenose_dolphin' && simRandom() < 0.7) {
             useGameStore.getState().addWildlife(entity)
             
             // Spawn pod members
-            const podSize = Math.floor(Math.random() * 8) + 3
+            const podSize = Math.floor(simRandom() * 8) + 3
             for (let i = 0; i < podSize; i++) {
                 const podMember: WildlifeEntity = {
                     ...entity,
-                    id: `wildlife-${type}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
+                    id: `wildlife-${type}-${simNowMs()}-${i}-${simRandom().toString(36).substr(2, 5)}`,
                     position: [
-                        entity.position[0] + (Math.random() - 0.5) * 20,
-                        entity.position[1] + (Math.random() - 0.5) * 2,
-                        entity.position[2] + (Math.random() - 0.5) * 20
+                        entity.position[0] + (simRandom() - 0.5) * 20,
+                        entity.position[1] + (simRandom() - 0.5) * 2,
+                        entity.position[2] + (simRandom() - 0.5) * 20
                     ]
                 }
                 useGameStore.getState().addWildlife(podMember)
@@ -351,7 +352,7 @@ class WildlifeSystem {
         ]
         
         for (const { type, chance } of spawnChances) {
-            if (Math.random() < chance) {
+            if (simRandom() < chance) {
                 this.spawnWildlife(type)
                 break
             }
@@ -366,13 +367,23 @@ class WildlifeSystem {
     // Clean up old wildlife
     cleanup(maxAge: number = 300) { // 5 minutes
         const state = useGameStore.getState()
-        const now = Date.now()
+        const now = getSim().simTime
         
         state.wildlife.forEach(entity => {
-            if ((now - entity.createdAt) / 1000 > maxAge) {
+            if (now - entity.createdAt > maxAge) {
                 state.removeWildlife(entity.id)
             }
         })
+    }
+
+    reset() {
+        this.spawnTimer = 0
+        const state = useGameStore.getState()
+        ;[...state.wildlife].forEach((entity) => state.removeWildlife(entity.id))
+    }
+
+    snapshotIds(): string[] {
+        return useGameStore.getState().wildlife.map((entity) => entity.id).sort()
     }
 }
 

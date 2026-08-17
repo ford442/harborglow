@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // CRANE SOUND SYSTEM - HarborGlow
 // Realistic crane operation sounds using Tone.js

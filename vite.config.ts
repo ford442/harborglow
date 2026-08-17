@@ -41,12 +41,19 @@ export default defineConfig(({ mode }) => ({
     build: {
         minify: 'terser',
         sourcemap: mode === 'development',
-        // esnext required for top-level await inside three/examples/jsm WebGPURenderer and related WGSL modules.
+        // esnext required for top-level await inside Three WebGPU and related WGSL modules.
         // The WebGL2 debug fallback path does not exercise this code.
         target: 'esnext',
-        // Chunk size warnings (1.3MB gzipped = ~4MB uncompressed)
-        chunkSizeWarningLimit: 4000,
+        // Warn when any chunk exceeds ~1 MB raw (~300 KB gzip for typical JS).
+        chunkSizeWarningLimit: 1000,
+        modulePreload: false,
         rollupOptions: {
+            onwarn(warning, warn) {
+                if (warning.code === 'MISSING_EXPORT' || warning.code === 'UNRESOLVED_IMPORT') {
+                    throw new Error(`[rollup ${warning.code}] ${warning.message}`)
+                }
+                warn(warning)
+            },
             output: {
                 // Manual chunk splitting, matched by resolved module path rather than bare
                 // specifier: the object-form of manualChunks only claims whatever a literal
@@ -68,16 +75,38 @@ export default defineConfig(({ mode }) => ({
                     ) {
                         return 'vendor-react'
                     }
-                    // 3D libraries, including their deep submodule imports (e.g.
-                    // three/examples/jsm/*) which a bare 'three' specifier wouldn't catch,
-                    // and the standalone 'postprocessing' package @react-three/postprocessing
-                    // wraps.
+                    // Split vendor-3d along runtime seams. three/fiber/drei BEFORE rapier so
+                    // physics WASM does not absorb the entire Three.js stack.
                     if (
                         id.includes('node_modules/three/') ||
-                        id.includes('node_modules/@react-three/') ||
-                        id.includes('node_modules/postprocessing/')
+                        id.includes('node_modules/@react-three/fiber') ||
+                        id.includes('node_modules/@react-three/drei')
                     ) {
-                        return 'vendor-3d'
+                        return 'vendor-3d-core'
+                    }
+                    if (
+                        id.includes('node_modules/postprocessing/') ||
+                        id.includes('examples/jsm/postprocessing/')
+                    ) {
+                        return 'vendor-3d-post'
+                    }
+                    if (
+                        id.includes('three.webgpu') ||
+                        id.includes('Three.WebGPU') ||
+                        id.includes('three.tsl') ||
+                        id.includes('Three.TSL') ||
+                        id.includes('node_modules/three/src/nodes/')
+                    ) {
+                        return 'vendor-3d-webgpu'
+                    }
+                    if (
+                        id.includes('node_modules/@react-three/rapier') ||
+                        id.includes('node_modules/@dimforge/rapier')
+                    ) {
+                        return 'vendor-3d-rapier'
+                    }
+                    if (id.includes('node_modules/@react-three/')) {
+                        return 'vendor-3d-core'
                     }
                     // Note: Leva and Zustand stay in main bundle.
                 },

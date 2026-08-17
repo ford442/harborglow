@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { coreExports, engineExports } from './wasm-exports.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const manifestPath = join(root, 'public/wasm/manifest.json')
@@ -15,55 +16,16 @@ const sourcePaths = [
   'cpp/dsp_ring_buffer.h',
   'cpp/Makefile',
   'cpp/build.sh',
+  'scripts/wasm-exports.mjs',
 ]
 const binaryPaths = [
   'public/wasm/harborglow_dsp.wasm',
+  'public/wasm/harborglow_dsp_simd.wasm',
   'public/wasm/harborglow_audio_shared.wasm',
   'public/wasm/harborglow_audio_shared_simd.wasm',
 ]
-const coreExports = [
-  'dsp_mix',
-  'dsp_clamp',
-  'dsp_remap',
-  'dsp_smooth_step',
-  'dsp_smoother_step',
-  'dsp_sin_approx',
-  'dsp_sin_full',
-  'dsp_wave_height',
-  'dsp_wave_height_batch',
-  'dsp_additive_synth_sample',
-  'dsp_additive_block',
-  'dsp_audio_rms',
-  'dsp_fft_r2c',
-  'dsp_convolver_create',
-  'dsp_convolver_process',
-  'dsp_convolver_reset',
-  'dsp_convolver_destroy',
-  'dsp_generate_room_ir',
-  'dsp_ring_required_bytes',
-  'dsp_ring_data_offset',
-  'dsp_ring_read_offset',
-  'dsp_ring_write_offset',
-  'dsp_ring_overflow_offset',
-  'dsp_ring_init',
-  'dsp_ring_push',
-  'dsp_ring_pop',
-  'dsp_ring_size',
-  'dsp_ring_overflow_count',
-  'dsp_ring_reset',
-  'malloc',
-  'free',
-]
-const engineExports = [
-  'dsp_audio_engine_init',
-  'dsp_audio_engine_note_on',
-  'dsp_audio_engine_note_off',
-  'dsp_audio_engine_set_effects',
-  'dsp_audio_engine_render',
-  'dsp_audio_engine_stop_all',
-  'dsp_audio_engine_rms',
-  'dsp_audio_engine_peak',
-]
+const coreExportList = coreExports()
+const engineExportList = engineExports()
 
 function fail(message) {
   throw new Error(`check-wasm: ${message}`)
@@ -102,6 +64,11 @@ if (manifest.sourceMd5 !== computeSourceMd5()) {
   fail('source digest differs from committed WASM manifest; run npm run build:wasm')
 }
 
+const { execFileSync } = await import('node:child_process')
+execFileSync(process.execPath, [join(root, 'scripts/wasm-exports.mjs'), '--check'], {
+  stdio: 'inherit',
+})
+
 const modules = new Map()
 for (const binary of binaryPaths) {
   const path = join(root, binary)
@@ -116,7 +83,9 @@ for (const binary of binaryPaths) {
 }
 
 const core = modules.get(binaryPaths[0])
-assertExports(core.module, [...coreExports, 'memory'], 'harborglow_dsp.wasm')
+assertExports(core.module, [...coreExportList, 'memory'], 'harborglow_dsp.wasm')
+const simdCore = modules.get(binaryPaths[1])
+assertExports(simdCore.module, [...coreExportList, 'memory'], 'harborglow_dsp_simd.wasm')
 
 const coreResult = await WebAssembly.instantiate(core.bytes, {
   env: { emscripten_notify_memory_growth: () => {} },
@@ -127,6 +96,15 @@ const coreInstance = coreResult instanceof WebAssembly.Instance
 const coreApi = coreInstance.exports
 coreApi._initialize?.()
 assertNear(coreApi.dsp_mix(10, 20, 0.5), 15, 1e-6, 'dsp_mix')
+
+const simdResult = await WebAssembly.instantiate(simdCore.bytes, {
+  env: { emscripten_notify_memory_growth: () => {} },
+})
+const simdInstance = simdResult instanceof WebAssembly.Instance
+  ? simdResult
+  : simdResult.instance
+simdInstance.exports._initialize?.()
+assertNear(simdInstance.exports.dsp_mix(10, 20, 0.5), 15, 1e-6, 'simd dsp_mix')
 
 const memory = coreApi.memory
 const malloc = coreApi.malloc
@@ -179,9 +157,9 @@ for (const pointer of [
   out, frequency, amplitude, phase, impulse, input, convolved, ring, item, popped,
 ]) free(pointer)
 
-for (const binary of binaryPaths.slice(1)) {
+for (const binary of binaryPaths.slice(2)) {
   const artifact = modules.get(binary)
-  assertExports(artifact.module, [...coreExports, ...engineExports], binary)
+  assertExports(artifact.module, [...coreExportList, ...engineExportList], binary)
   const imports = WebAssembly.Module.imports(artifact.module)
   const importedMemory = imports.find(({ kind }) => kind === 'memory')
   if (!importedMemory || importedMemory.module !== 'env' || importedMemory.name !== 'memory') {

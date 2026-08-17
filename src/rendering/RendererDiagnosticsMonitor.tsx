@@ -8,11 +8,17 @@ import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import {
   detectActiveBackend,
+  getRendererDiagnostics,
   getRendererDisplayName,
   isWebGpuNavigatorAvailable,
   updateRendererDiagnostics,
 } from './rendererState';
 import { exposeRenderer } from './rendererConfig';
+import {
+  runStorageTextureComputeProbe,
+  type ComputeProbeRenderer,
+  type ComputeProbeStatus,
+} from './computeDiagnostics';
 import { readRendererCapabilities, type ConfigurableRenderer } from './rendererDefaults';
 import type { RendererContextOptions, RendererPreference } from './types';
 
@@ -32,21 +38,41 @@ export default function RendererDiagnosticsMonitor({
     const activeBackend = detectActiveBackend(gl as any);
     const displayName = getRendererDisplayName(preference, activeBackend);
     const capabilities = readRendererCapabilities(gl as unknown as ConfigurableRenderer);
+    let cancelled = false;
 
-    updateRendererDiagnostics({
-      preference,
-      activeBackend,
-      rendererName: displayName,
-      webgpuAvailable: isWebGpuNavigatorAvailable(),
-      initialized: true,
-      contextOptions,
-      capabilities,
-      supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback',
-    });
+    const report = (computeProbe: ComputeProbeStatus) => {
+      if (cancelled) return;
 
-    // Expose for external tooling / CI / agents (canvas may be obtained via gl.domElement)
-    const canvas = (gl as any).domElement as HTMLCanvasElement | undefined;
-    exposeRenderer(canvas || null, preference, activeBackend, { contextOptions, capabilities, supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback' } as any);
+      updateRendererDiagnostics({
+        preference,
+        activeBackend,
+        rendererName: displayName,
+        webgpuAvailable: isWebGpuNavigatorAvailable(),
+        initialized: true,
+        contextOptions,
+        capabilities,
+        supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback',
+        computeProbe,
+      });
+
+      // Expose for external tooling / CI / agents (canvas may be obtained via gl.domElement)
+      const canvas = (gl as any).domElement as HTMLCanvasElement | undefined;
+      exposeRenderer(canvas || null, preference, activeBackend, {
+        contextOptions,
+        capabilities,
+        computeProbe,
+        gpuChores: getRendererDiagnostics().gpuChores,
+      });
+    };
+
+    report('not-run');
+    if (activeBackend === 'webgpu') {
+      void runStorageTextureComputeProbe(gl as unknown as ComputeProbeRenderer).then(report);
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [gl, preference, contextOptions]);
 
   return null;

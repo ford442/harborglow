@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // CAVITATION SYSTEM — HarborGlow Tugboat Mode
 // Realistic propeller cavitation detection, thrust penalty, amber alarm state,

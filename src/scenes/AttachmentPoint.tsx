@@ -538,6 +538,7 @@ export default function AttachmentPointVisual({
           <line>
             <bufferGeometry>
               <bufferAttribute
+                args={[new Float32Array([0, -position[1], 0, 0, 0, 0]), 3]}
                 attach="attributes-position"
                 count={2}
                 array={new Float32Array([0, -position[1], 0, 0, 0, 0])}

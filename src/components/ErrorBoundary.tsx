@@ -58,8 +58,8 @@ export default class ErrorBoundary extends Component<Props, State> {
                         
                         {/* Description */}
                         <p style={descriptionStyle}>
-                            We encountered an error while loading the harbor. 
-                            This might be due to WebGL compatibility or memory constraints.
+                            We encountered an error while loading the harbor.
+                            This might be a scene bug, a lost WebGPU device, or a memory constraint.
                         </p>
                         
                         {/* Error details (collapsible) */}

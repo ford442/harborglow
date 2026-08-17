@@ -5,7 +5,7 @@ import { View, Html, PerspectiveCamera } from '@react-three/drei'
 import { useGameStore, type CameraTransform } from '../store/useGameStore'
 import type { DashboardViewportId } from '../types/CameraPreset'
 import type { TugboatViewportId } from '../types/CameraPreset'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import { TUGBOAT_VIEWPORT_ORDER } from '../systems/cameraSystem'
 
 // =============================================================================
@@ -535,7 +535,7 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
 interface ViewPanelChromeProps {
   viewportId: DashboardViewportId
   style?: React.CSSProperties
-  cameraRef: React.RefObject<THREE.PerspectiveCamera>
+  cameraRef: React.RefObject<THREE.PerspectiveCamera | null>
 }
 
 const ViewPanelChrome = forwardRef<HTMLDivElement, ViewPanelChromeProps>(({ viewportId, style, cameraRef }, ref) => {

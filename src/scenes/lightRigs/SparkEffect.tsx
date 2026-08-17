@@ -72,6 +72,7 @@ export function SparkEffect({ position, onComplete }: SparkEffectProps) {
     <points ref={particlesRef} position={position}>
       <bufferGeometry>
         <bufferAttribute
+          args={[particles.positions, 3]}
           attach="attributes-position"
           count={20}
           array={particles.positions}

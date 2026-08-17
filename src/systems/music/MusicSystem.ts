@@ -1,5 +1,5 @@
 import * as Tone from 'tone'
-import { ShipType } from '../../store/useGameStore'
+import type { ShipType } from '../../store/gameStoreTypes'
 import { getBandInfo, BandInfo } from './musicTracks'
 import { getLyrics, LyricEntry } from './lyrics'
 import { createSynthChain, SynthChainConfig } from './musicSynthChains'
@@ -9,6 +9,24 @@ import { AcousticSpace, audioRuntime } from '../audio/AudioRuntime'
 // MUSIC SYSTEM - Main orchestrator
 // Manages unique audio tracks for each ship type with synchronized lyrics
 // =============================================================================
+
+// Local exhaustive list — cannot import SHIP_TYPES at module init (musicSystem
+// is constructed while gameStoreTypes is still evaluating a circular import).
+const MUSIC_SHIP_TYPES = Object.keys({
+    cruise: true,
+    container: true,
+    tanker: true,
+    bulk: true,
+    lng: true,
+    roro: true,
+    research: true,
+    droneship: true,
+    ferry: true,
+    trawler: true,
+    horizon: true,
+    fireboat: true,
+    icebreaker: true,
+} satisfies Record<ShipType, true>) as ShipType[]
 
 class MusicSystem {
     private transports: Map<ShipType, any> = new Map()
@@ -23,8 +41,7 @@ class MusicSystem {
     }
 
     private initializeLyrics() {
-        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon', 'fireboat']
-        shipTypes.forEach(shipType => {
+        MUSIC_SHIP_TYPES.forEach(shipType => {
             this.lyrics.set(shipType, getLyrics(shipType))
             this.currentLyricIndex.set(shipType, 0)
         })
@@ -35,8 +52,7 @@ class MusicSystem {
         
         await Tone.start()
         
-        const shipTypes: ShipType[] = ['cruise', 'container', 'tanker', 'bulk', 'lng', 'roro', 'research', 'droneship', 'ferry', 'trawler', 'horizon', 'fireboat']
-        shipTypes.forEach(shipType => {
+        MUSIC_SHIP_TYPES.forEach(shipType => {
             const synthChain = createSynthChain(shipType)
             this.synthChains.set(shipType, synthChain)
         })
@@ -48,7 +64,7 @@ class MusicSystem {
     private initializeTransports() {
         const bpmMap: Record<ShipType, number> = {
             cruise: 120, container: 128, tanker: 140, bulk: 135, lng: 118,
-            roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100, fireboat: 152
+            roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100, fireboat: 152, icebreaker: 108
         }
 
         this.createCruiseTransport(bpmMap.cruise)
@@ -63,6 +79,7 @@ class MusicSystem {
         this.createTrawlerTransport(bpmMap.trawler)
         this.createHorizonTransport(bpmMap.horizon)
         this.createFireboatTransport(bpmMap.fireboat)
+        this.createIcebreakerTransport(bpmMap.icebreaker)
     }
 
     private createCruiseTransport(bpm: number) {
@@ -160,6 +177,12 @@ class MusicSystem {
         this.transports.set('fireboat', transport)
     }
 
+    private createIcebreakerTransport(bpm: number) {
+        const transport = Tone.getTransport()
+        transport.bpm.value = bpm
+        this.transports.set('icebreaker', transport)
+    }
+
     // =========================================================================
     // PUBLIC API
     // =========================================================================
@@ -183,6 +206,7 @@ class MusicSystem {
             trawler: 'cargo-hold',
             horizon: 'ship-hall',
             fireboat: 'crane-cab',
+            icebreaker: 'tanker-hold',
         }
         audioRuntime.setAcousticSpace(roomByShip[shipType], 0.35)
         const transport = this.transports.get(shipType)

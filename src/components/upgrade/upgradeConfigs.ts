@@ -122,6 +122,16 @@ export const UPGRADE_CONFIGS: Record<ShipType, UpgradeOption[]> = {
         { partName: 'hullWash', label: 'Hull Wash', description: 'Red hull underwater wash lights' },
         { partName: 'foamDeck', label: 'Foam Deck', description: 'Deck flood + foam system illumination' },
     ],
+    icebreaker: [
+        { partName: 'funnelMain', label: 'Main Funnel Array', description: 'Nuclear stack polar flood' },
+        { partName: 'heliDeck', label: 'Helideck Lights', description: 'Flight-deck ice approach ring' },
+        { partName: 'towingNotch', label: 'Towing Notch', description: 'Stern notch convoy lights' },
+        { partName: 'bridge', label: 'Ice Bridge', description: 'Wheelhouse arctic nav array' },
+        { partName: 'secondaryCrane', label: 'Escort Crane', description: 'Support-hull crane flood' },
+        { partName: 'secondaryStack', label: 'Escort Stack', description: 'Orange escort funnel glow' },
+        { partName: 'mastArray', label: 'Mast Array', description: 'Radar mast ice-cyan beacons' },
+        { partName: 'spoonBow', label: 'Spoon Bow Wash', description: 'Shark-mouth bow hull wash' },
+    ],
 }
 
 export const shipTypeLabels: Record<ShipType, string> = {
@@ -137,6 +147,7 @@ export const shipTypeLabels: Record<ShipType, string> = {
     trawler: 'North Star Trawler',
     horizon: 'Horizon Deep Research Vessel',
     fireboat: 'Harbor Fireboat',
+    icebreaker: 'Nuclear Icebreaker Yamal',
 }
 
 export const shipTypeColors: Record<ShipType, string> = {
@@ -152,4 +163,5 @@ export const shipTypeColors: Record<ShipType, string> = {
     trawler: '#cc8833',
     horizon: '#3388cc',
     fireboat: '#ff3333',
+    icebreaker: '#c41e3a',
 }

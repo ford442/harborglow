@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 import { encode, decode } from '@msgpack/msgpack';
 import type { NetworkSyncState } from '../store/gameStoreTypes';
 

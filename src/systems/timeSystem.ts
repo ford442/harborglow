@@ -632,6 +632,18 @@ class TimeSystem {
     getIsPaused(): boolean {
         return this.isPaused
     }
+
+    reset() {
+        this.state.gameTime = 6 * 60
+        this.state.dayNumber = 1
+        this.state.timeScale = DEFAULT_TIME_SCALE
+        this.phaseEventsTriggered.clear()
+        this.isPaused = false
+        this.recalculateState()
+        const totalGameMinutes = this.state.dayNumber * MINUTES_PER_DAY + this.state.gameTime
+        moonSystem.update(totalGameMinutes)
+        this.syncToStore()
+    }
 }
 
 // Export singleton

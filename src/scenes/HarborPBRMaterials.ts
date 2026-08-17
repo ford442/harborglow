@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import type { WebGLProgramParametersWithUniforms } from 'three/src/renderers/webgl/WebGLPrograms.js'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import type { WeatherState } from '../store/gameStoreTypes'
@@ -108,7 +109,7 @@ interface HarborUniforms {
   uPuddleStrength: { value: number }
 }
 
-function injectWorldPosVarying(shader: THREE.Shader) {
+function injectWorldPosVarying(shader: WebGLProgramParametersWithUniforms) {
   if (!shader.vertexShader.includes('vHarborWorldPos')) {
     shader.vertexShader = `varying vec3 vHarborWorldPos;\n${shader.vertexShader}`
     shader.vertexShader = shader.vertexShader.replace(
@@ -122,7 +123,7 @@ function injectWorldPosVarying(shader: THREE.Shader) {
   }
 }
 
-function injectHarborUniforms(shader: THREE.Shader): HarborUniforms {
+function injectHarborUniforms(shader: WebGLProgramParametersWithUniforms): HarborUniforms {
   const uniforms: HarborUniforms = {
     uWetness: { value: 0 },
     uNightFactor: { value: 0 },
@@ -138,7 +139,7 @@ function injectHarborUniforms(shader: THREE.Shader): HarborUniforms {
   return uniforms
 }
 
-function patchColorFragment(shader: THREE.Shader, body: string) {
+function patchColorFragment(shader: WebGLProgramParametersWithUniforms, body: string) {
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <color_fragment>',
     `#include <color_fragment>

@@ -34,7 +34,7 @@ export function ParticleBurst({ position, color, active, onComplete }: ParticleB
     size: number
   }>>([])
   
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
   
   useEffect(() => {
     if (!active) return

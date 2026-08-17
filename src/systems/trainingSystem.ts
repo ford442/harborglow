@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // TRAINING SYSTEM - HarborGlow Crane Operator Training Simulations
 // Professional training mode with progressive skill development

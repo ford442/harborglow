@@ -18,6 +18,7 @@ import { waveSystem } from '../WaveSystem'
 import { stormSystem } from '../StormSystem'
 import { systemRegistry } from './SystemRegistry'
 import type { FrameContext } from './types'
+import { getSim } from '../sim/SimContext'
 
 // =============================================================================
 // MAIN SCENE SYSTEM TABLE — explicit tick order (lower = earlier)
@@ -182,9 +183,10 @@ export function buildFrameContext({
 }: BuildFrameContextParams): FrameContext {
     return {
         delta,
-        elapsedTime: state.clock.elapsedTime,
+        elapsedTime: getSim().simTime,
         camera,
         swayTrolleyPosition,
         bpm: useGameStore.getState().bpm,
+        sim: getSim(),
     }
 }

@@ -1,59 +1,17 @@
-import { useState, useEffect, useCallback, useMemo, Suspense, lazy, type ComponentProps } from 'react'
-import { Canvas } from '@react-three/fiber'
-import type * as THREE from 'three'
-import { Physics } from '@react-three/rapier'
-import { KeyboardControls } from '@react-three/drei'
-import { Leva, useControls } from 'leva'
+import { useState, useEffect, useCallback, useMemo, type ComponentType } from 'react'
 import { useGameStore, UPGRADE_TARGETS } from './store/useGameStore'
 import { ShipSpawner } from './systems/shipSpawner'
-import {
-  createGameRenderer,
-  parseRendererPreference,
-  parseScreenshotMode,
-  persistRendererPreference,
-  resolveContextOptions,
-  shadowMapTypeForQuality,
-  shadowQualityForPreset,
-  RendererDiagnosticsMonitor,
-  WireframeDebug,
-  type RendererPreference,
-} from './rendering'
 import { loadGameState } from './utils/storage_manager'
-import { TrainingModuleId } from './systems/trainingSystem'
+import type { TrainingModuleId } from './systems/trainingSystem'
 import MainMenu from './components/MainMenu'
 import LoadingScreen from './components/LoadingScreen'
-import ErrorBoundary from './components/ErrorBoundary'
-import HUD from './components/HUD'
 import TrainingMode from './components/TrainingMode'
-import WebGPUWarning from './components/WebGPUWarning'
-import TrainingHUD from './components/TrainingHUD'
 import { introMusicSystem } from './systems/introMusicSystem'
-import { preloadShipModels } from './ships/preloadShipModels'
 import { wasmDSP } from './systems/wasmDSP'
 import { audioRuntime } from './systems/audio/AudioRuntime'
 import './App.css'
 
-// Lazy load MainScene for code splitting with explicit chunk name
-const MainScene = lazy(() => import(/* webpackChunkName: "main-scene" */ './scenes/MainScene'))
-
-/**
- * R3F 8's `gl` prop type predates async renderer factories, but the runtime awaits
- * the returned promise — which WebGPURenderer requires (`await renderer.init()`).
- * This is the single, documented seam where that gap is bridged.
- */
-type CanvasGlProp = ComponentProps<typeof Canvas>['gl']
-const asGlProp = (
-  factory: (canvas: HTMLCanvasElement) => Promise<THREE.WebGLRenderer>
-): CanvasGlProp => factory as unknown as CanvasGlProp
-
-const WALKING_CONTROL_MAP = [
-    { name: 'forward', keys: ['KeyW'] },
-    { name: 'backward', keys: ['KeyS'] },
-    { name: 'left', keys: ['KeyA'] },
-    { name: 'right', keys: ['KeyD'] },
-    { name: 'jump', keys: ['Space'] },
-    { name: 'sprint', keys: ['ShiftLeft', 'ShiftRight'] },
-]
+import type { GameShellProps } from './GameShell'
 
 // =============================================================================
 // APP COMPONENT
@@ -72,6 +30,7 @@ function App() {
     const [screen, setScreen] = useState<'menu' | 'loading' | 'game' | 'training'>('menu')
     const [loadingProgress, setLoadingProgress] = useState(0)
     const [loadingStatus, setLoadingStatus] = useState('Initializing')
+    const [GameShellComponent, setGameShellComponent] = useState<ComponentType<GameShellProps> | null>(null)
     const hasSave = !!loadGameState()
     const multiplayerConfig = useMemo(() => parseMultiplayerConfig(), [])
     
@@ -81,10 +40,8 @@ function App() {
     const currentTrainingModule = useGameStore(state => state.currentTrainingModule)
     const exitTrainingModule = useGameStore(state => state.exitTrainingModule)
     
-    // Get current harbor theme from store (or default)
     const boothTier = useGameStore(state => state.boothTier)
     
-    // Map booth tier to theme
     const harborTheme = useCallback(() => {
         switch (boothTier) {
             case 1: return 'industrial'
@@ -93,59 +50,6 @@ function App() {
             default: return 'industrial'
         }
     }, [boothTier])
-
-    // -------------------------------------------------------------------------
-    // RENDERER BACKEND (WebGPU primary + toggleable WebGL2 fallback)
-    // ?renderer=webgl, localStorage, or Leva control. Canvas remounts on change.
-    // -------------------------------------------------------------------------
-    const [rendererPreference, setRendererPreference] = useState<RendererPreference>(() =>
-      parseRendererPreference()
-    )
-    const [wireframeDebug, setWireframeDebug] = useState(() => {
-      const params = new URLSearchParams(window.location.search)
-      const raw = params.get('wireframe')
-      return raw === '1' || raw === 'true'
-    })
-    const [physicsDebug, setPhysicsDebug] = useState(() => {
-      const params = new URLSearchParams(window.location.search)
-      const raw = params.get('physicsDebug')
-      return raw === '1' || raw === 'true'
-    })
-
-    // Screenshot mode (?screenshot=1 / Playwright UA) forces preserveDrawingBuffer so
-    // canvas pixel reads return the last frame instead of a cleared buffer.
-    const [screenshotMode] = useState(() => parseScreenshotMode())
-    const qualityPreset = useGameStore(state => state.qualityPreset)
-    const shadowQuality = shadowQualityForPreset(qualityPreset)
-
-    // Fully-resolved context options: shared by the gl factory and the diagnostics monitor.
-    const contextOptions = useMemo(
-      () => resolveContextOptions({ preserveDrawingBuffer: screenshotMode }),
-      [screenshotMode]
-    )
-
-    // Keep R3F's post-creation shadow pass in sync with configureRendererDefaults.
-    const shadowConfig = useMemo(
-      () => ({ enabled: shadowQuality !== 'off', type: shadowMapTypeForQuality(shadowQuality) }),
-      [shadowQuality]
-    )
-
-    const glFactory = useMemo(
-      () =>
-        asGlProp((canvas: HTMLCanvasElement) =>
-          createGameRenderer(canvas, {
-            ...contextOptions,
-            preference: rendererPreference,
-            shadows: shadowQuality,
-          })
-        ),
-      [contextOptions, rendererPreference, shadowQuality]
-    )
-
-    const handleRendererPreferenceChange = useCallback((next: RendererPreference) => {
-      persistRendererPreference(next)
-      setRendererPreference(next)
-    }, [])
 
     // Multiplayer feature flag (?multiplayer=1)
     useEffect(() => {
@@ -177,58 +81,6 @@ function App() {
         }
     }, [screen, multiplayerConfig.enabled, multiplayerConfig.joinRoomId])
 
-    // Leva-controlled renderer backend toggle (appears under "Renderer Backend" folder)
-    // Changing this updates state + URL + localStorage; Canvas key forces remount with new gl factory.
-    useControls(
-      'Renderer Backend',
-      {
-        renderer: {
-          value: rendererPreference,
-          options: {
-            'WebGPU (primary)': 'webgpu',
-            'WebGL2 (fallback/debug)': 'webgl',
-          },
-          onChange: (v: string) => {
-            const next = (v === 'webgl' ? 'webgl' : 'webgpu') as RendererPreference
-            if (next !== rendererPreference) {
-              handleRendererPreferenceChange(next)
-            }
-          },
-        },
-      },
-      { collapsed: true }
-    )
-
-    // URL sync for wireframe / physicsDebug (shareable debug links)
-    useEffect(() => {
-      const params = new URLSearchParams(window.location.search)
-      if (wireframeDebug) params.set('wireframe', '1')
-      else params.delete('wireframe')
-      if (physicsDebug) params.set('physicsDebug', '1')
-      else params.delete('physicsDebug')
-      const next = params.toString()
-      window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`)
-    }, [wireframeDebug, physicsDebug])
-
-    // Keyboard shortcuts for debug overlays (G = wireframe, F = physics colliders)
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.repeat) return
-        // Ignore when focused on inputs
-        const target = e.target as HTMLElement | null
-        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
-
-        if (e.code === 'KeyG') {
-          setWireframeDebug((prev) => !prev)
-        }
-        if (e.code === 'KeyF') {
-          setPhysicsDebug((prev) => !prev)
-        }
-      }
-      window.addEventListener('keydown', handleKeyDown)
-      return () => window.removeEventListener('keydown', handleKeyDown)
-    }, [])
-
     // Initialize audio on user gesture
     useEffect(() => {
         const initAudio = async () => {
@@ -255,7 +107,6 @@ function App() {
         setLoadingProgress(2)
         await Promise.all([wasmDSP.init(), audioRuntime.resume()])
 
-        // Weighted loading stages — ship GLB fetch uses real progress
         const stages = [
             { weight: 10, label: 'Initializing harbor systems...', duration: 300 },
             { weight: 28, label: 'Loading ship models...', duration: 0, real: true as const },
@@ -271,6 +122,7 @@ function App() {
             setLoadingStatus(stage.label)
 
             if ('real' in stage && stage.real) {
+                const { preloadShipModels } = await import('./ships/preloadShipModels')
                 await preloadShipModels({
                     onProgress: ({ label, percent }) => {
                         setLoadingStatus(label)
@@ -299,12 +151,9 @@ function App() {
         if (loadSave) {
             loadSavedState()
         } else if (multiplayerConfig.joinRoomId) {
-            // Spectator: blank harbor — state arrives from host via WebRTC
             resetGame()
         } else {
             resetGame()
-            // Give the opening control-booth scene an immediate goal: dock a
-            // starter ship and issue its first "light up the vessel" contract.
             const starterType = 'container' as const
             const ship = ShipSpawner.spawnShip(starterType)
             const targetRigs = UPGRADE_TARGETS[starterType]
@@ -319,7 +168,6 @@ function App() {
             })
         }
         
-        // Small delay for smooth transition
         await new Promise(r => setTimeout(r, 200))
         setLoadingProgress(100)
         await new Promise(r => setTimeout(r, 300))
@@ -330,7 +178,6 @@ function App() {
     const handleNewGame = useCallback(() => startGame(false), [startGame])
     const handleLoadGame = useCallback(() => startGame(true), [startGame])
 
-    // Space to start shortcut
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
             if (e.code === 'Space' && screen === 'menu') {
@@ -343,7 +190,6 @@ function App() {
         return () => window.removeEventListener('keydown', handleKeyPress)
     }, [screen, hasSave, startGame])
 
-    // Handle training navigation
     const handleOpenTraining = useCallback(() => {
         setScreen('training')
     }, [])
@@ -363,130 +209,61 @@ function App() {
     }, [exitTrainingModule])
 
     const handleTugboatMode = useCallback(async () => {
-        // Start a new game and immediately switch to tugboat mode
         await startGame(false)
-        // Set operation mode to tugboat after a brief delay to ensure game is loaded
         setTimeout(() => {
             useGameStore.getState().setOperationMode('tugboat')
         }, 500)
     }, [startGame])
 
-    // -------------------------------------------------------------------------
-    // INTRO MUSIC LIFECYCLE
-    // Orchestrate fade-outs and restarts across screen transitions.
-    // -------------------------------------------------------------------------
     useEffect(() => {
         if (screen === 'game') {
-            // Fade out intro music before the 3D scene boots.
-            // If already fading, this is a no-op.
             introMusicSystem.fadeOut(1.5)
         } else if (screen === 'menu') {
-            // Restart title music when returning to menu
             introMusicSystem.playTitle().catch(() => {})
         } else if (screen === 'training') {
-            // Quiet fade for training hub
             introMusicSystem.fadeOut(1.0)
         }
     }, [screen])
 
-    // Menu screen
+    useEffect(() => {
+        if (screen !== 'game') {
+            setGameShellComponent(null)
+            return
+        }
+
+        let cancelled = false
+        void import('./GameShell').then((mod) => {
+            if (!cancelled) setGameShellComponent(() => mod.default)
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [screen])
+
     if (screen === 'menu') {
         return <MainMenu hasSave={hasSave} onNewGame={handleNewGame} onLoadGame={handleLoadGame} onTraining={handleOpenTraining} onTugboatMode={handleTugboatMode} />
     }
     
-    // Training Hub screen
     if (screen === 'training') {
         return <TrainingMode onExit={handleExitTraining} onStartModule={handleStartTrainingModule} />
     }
 
-    // Loading screen
     if (screen === 'loading') {
         return <LoadingScreen progress={loadingProgress} status={loadingStatus} />
     }
 
-    // Game screen - IMMERSIVE CONTROL BOOTH MODE with ErrorBoundary
-    // Canvas is keyed by rendererPreference so that switching backends (via Leva / ?renderer / localStorage)
-    // fully remounts the R3F root with the correct (async) gl factory.
+    if (!GameShellComponent) {
+        return <LoadingScreen progress={99} status="Loading 3D engine..." />
+    }
+
     return (
-        <ErrorBoundary>
-            <Canvas
-                key={`renderer-${rendererPreference}`}
-                shadows={shadowConfig}
-                camera={{ position: [0, 2.5, 4.5], fov: 60 }}
-                dpr={[1, 2]} // Responsive pixel ratio
-                gl={glFactory}
-                style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    display: 'block'
-                }}
-                onCreated={(state) => {
-                  // Ensure canvas dataset + window exposure are set even on initial mount
-                  const canvas = (state.gl as any).domElement as HTMLCanvasElement | undefined
-                  // The monitor effect will also call expose; this is a belt-and-suspenders for early tooling
-                  if (canvas) {
-                    canvas.dataset.renderer = rendererPreference
-                  }
-                }}
-            >
-                <Suspense fallback={<SceneFallback />}>
-                    <KeyboardControls map={WALKING_CONTROL_MAP}>
-                        <Physics gravity={[0, -9.81, 0]}>
-                            {/*
-                              Operator Cabin Experience:
-                              - Default: 4-camera multiview (multiview mode)
-                              - Press 'C' to toggle Immersive Cab Mode (first-person)
-                            */}
-                            <MainScene harborTheme={harborTheme()} />
-
-                            {/* Renderer-agnostic debug helpers (work on both WebGPU and WebGL2) */}
-                            <RendererDiagnosticsMonitor
-                              preference={rendererPreference}
-                              contextOptions={contextOptions}
-                            />
-                            <WireframeDebug enabled={wireframeDebug} />
-                            {/* physicsDebug flag is live (F key / URL / future Leva) — Rapier <Debug/> not exported in current @react-three/rapier; extend here with useRapier() + manual lines if needed for full collider viz. */}
-                        </Physics>
-                    </KeyboardControls>
-                </Suspense>
-            </Canvas>
-            
-            {/* HUD Overlay */}
-            <HUD onOpenTraining={handleOpenTraining} />
-            
-            {/* Renderer status / WebGPU availability banner (visible when needed or forced to fallback) */}
-            <WebGPUWarning />
-            
-            {/* Training HUD (only when in training mode) */}
-            {currentTrainingModule && (
-                <TrainingHUD 
-                    moduleId={currentTrainingModule}
-                    onExit={handleCompleteTrainingModule}
-                    onComplete={handleCompleteTrainingModule}
-                />
-            )}
-            
-            <Leva
-                collapsed={true}
-                titleBar={{ title: 'Harbor Controls' }}
-                flat
-            />
-        </ErrorBoundary>
-    )
-}
-
-// =============================================================================
-// SCENE FALLBACK - Shows while MainScene is loading
-// =============================================================================
-
-function SceneFallback() {
-    return (
-        <mesh>
-            <boxGeometry args={[1, 1, 1]} />
-            <meshBasicMaterial color="#00d4aa" wireframe />
-        </mesh>
+        <GameShellComponent
+            harborTheme={harborTheme()}
+            onOpenTraining={handleOpenTraining}
+            currentTrainingModule={currentTrainingModule}
+            onCompleteTrainingModule={handleCompleteTrainingModule}
+        />
     )
 }
 

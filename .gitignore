@@ -10,3 +10,6 @@ playwright/.cache/
 # Regenerated on demand — never commit
 stats.html
 .swarm-state.md
+cpp/tests/dsp_native_test
+cpp/tests/dsp_bench
+cpp/tests/*.o

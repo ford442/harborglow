@@ -13,7 +13,7 @@ import type { RapierRigidBody } from '@react-three/rapier'
 import { useControls, button } from 'leva'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'
-import { stormSystem } from '../systems/StormSystem'
+import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState } from '../systems/TugboatWakeSystem'
 import {
@@ -167,7 +167,7 @@ export default function TugboatTargetShip({
 
     // --- Wind force (uniform broadside push, same as before) ---
     const windForce = stormSystem.getWindForce()
-    if (windForce.lengthSq() > 0) {
+    if (windVectorLengthSq(windForce) > 0) {
       rb.applyImpulse(
         { x: windForce.x * delta, y: 0, z: windForce.z * delta },
         true
@@ -181,7 +181,7 @@ export default function TugboatTargetShip({
     if (shearYaw !== 0) {
       rb.applyTorqueImpulse({ x: 0, y: shearYaw * delta, z: 0 }, true)
     }
-    if (heelForce.lengthSq() > 0) {
+    if (heelForce.x * heelForce.x + heelForce.z * heelForce.z > 0) {
       rb.applyImpulse(
         { x: heelForce.x * delta, y: 0, z: heelForce.z * delta },
         true
@@ -503,7 +503,7 @@ export function TowLineVisual({
   shipRbRef,
   shipId,
 }: {
-  shipRbRef: RefObject<RapierRigidBody>
+  shipRbRef: RefObject<RapierRigidBody | null>
   shipId: string
 }) {
   // Pre-allocated position buffer shared by main + glow line
@@ -612,6 +612,7 @@ export function TowLineVisual({
       <line>
         <bufferGeometry>
           <bufferAttribute
+            args={[posArray, 3]}
             ref={attrRef}
             attach="attributes-position"
             array={posArray}
@@ -626,6 +627,7 @@ export function TowLineVisual({
       <line>
         <bufferGeometry>
           <bufferAttribute
+            args={[posArray, 3]}
             ref={glowAttr}
             attach="attributes-position"
             array={posArray}

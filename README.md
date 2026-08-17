@@ -117,17 +117,12 @@ To add screenshots:
 - **Tone.js** - Audio synthesis and sequencing
 - **Leva** - In-game debug controls
 
-### Renderer Backends (WebGPU + WebGL2 Fallback)
-HarborGlow is WebGPU-first but includes a **toggleable WebGL2 fallback renderer** (Three.js `WebGLRenderer` via the same R3F Canvas).
+### Renderer (WebGPU required)
+HarborGlow requires **WebGPU**. A failed boot probe shows a blocking overlay and does **not** start WebGL as the scene renderer. `?renderer=webgl` is ignored this phase. See **[docs/RENDERER.md](docs/RENDERER.md)**.
 
-- Toggle via `?renderer=webgl` (or `?renderer=webgpu`), `localStorage`, or the **Leva "Renderer Backend"** dropdown.
-- **All gameplay, physics, audio, state, cameras, and logic are identical** — only the underlying Three.js renderer differs.
-- **Debug helpers** (both backends):
-  - Press `G` — scene-wide wireframe overlay (great for inspecting ships, crane, light rigs, attachment points).
-  - Press `F` — Rapier physics collider debug draw.
-  - Yellow top banner shows the active backend (e.g. "WebGLRenderer").
-- **Use cases**: visual debugging for agents & Playwright (WebGPU pixel inspection is difficult), GLSL reference while porting TSL/WGSL features, CI smoke tests, and side-by-side parity work.
-- Full details, porting notes (WebGL2 ↔ WebGPU), and shareable debug URLs: see **[docs/RENDERER.md](docs/RENDERER.md)**.
+- **G** — scene-wide wireframe overlay
+- **F** — Rapier physics collider debug draw
+- `window.webgpuProbe` — `{ ok, browser, adapterInfo, limits, compute, reason }`
 
 ### File Structure
 ```
@@ -169,7 +164,7 @@ npm run preview
 ### Prerequisites
 - Node.js 18+
 - Recommended: Browser with WebGPU support (Chrome 113+, Edge 113+)
-- WebGL2 fallback is always available for debugging / CI / older browsers via `?renderer=webgl` (see docs/RENDERER.md)
+- WebGL/R3F fallback is deferred; a failed probe hard-fails (see docs/RENDERER.md)
 
 ## 📝 TODO / Future Enhancements
 

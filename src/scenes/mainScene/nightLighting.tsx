@@ -183,8 +183,8 @@ export function SpectatorNightCinematicEffects({
     const secondaryRayMaterial = useMemo(() => buildGodRayMaterial(), [])
 
     useEffect(() => {
-        primaryRayMaterial.uniforms.uColor.value = new THREE.Color('#8bd4ff')
-        secondaryRayMaterial.uniforms.uColor.value = new THREE.Color('#ffb572')
+        primaryRayMaterial.userData.uColor.value = new THREE.Color('#8bd4ff')
+        secondaryRayMaterial.userData.uColor.value = new THREE.Color('#ffb572')
         if (keyLightRef.current && keyTargetRef.current) {
             keyLightRef.current.target = keyTargetRef.current
         }
@@ -214,8 +214,8 @@ export function SpectatorNightCinematicEffects({
         const boost = boostRef.current
         if (!targetShip) {
             if (keyLightRef.current) keyLightRef.current.intensity = 0
-            primaryRayMaterial.uniforms.uIntensity.value = 0
-            secondaryRayMaterial.uniforms.uIntensity.value = 0
+            primaryRayMaterial.userData.uIntensity.value = 0
+            secondaryRayMaterial.userData.uIntensity.value = 0
             return
         }
 
@@ -252,8 +252,8 @@ export function SpectatorNightCinematicEffects({
             raySecondaryRef.current.rotation.set(0.22, orbitAhead + 0.9, -0.16)
         }
 
-        primaryRayMaterial.uniforms.uIntensity.value = 0.8 * boost * (0.85 + beat * 0.2)
-        secondaryRayMaterial.uniforms.uIntensity.value = 0.52 * boost * (0.8 + beat * 0.15)
+        primaryRayMaterial.userData.uIntensity.value = 0.8 * boost * (0.85 + beat * 0.2)
+        secondaryRayMaterial.userData.uIntensity.value = 0.52 * boost * (0.8 + beat * 0.15)
         updateGodRay(primaryRayMaterial, state.clock.elapsedTime)
         updateGodRay(secondaryRayMaterial, state.clock.elapsedTime + 0.65)
     })

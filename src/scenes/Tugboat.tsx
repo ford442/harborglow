@@ -11,7 +11,7 @@ import { useControls, button } from 'leva'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore } from '../store/useGameStore'
-import { stormSystem } from '../systems/StormSystem'
+import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
 import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
@@ -498,7 +498,7 @@ export default function Tugboat() {
 
     // --- Wind ---
     const windForce = stormSystem.getWindForce()
-    if (windForce.lengthSq() > 0) {
+    if (windVectorLengthSq(windForce) > 0) {
       rb.applyImpulse(
         { x: windForce.x * delta, y: 0, z: windForce.z * delta },
         true

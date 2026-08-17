@@ -3,7 +3,7 @@ export {
   resolveContextOptions,
   DEFAULT_CONTEXT_OPTIONS,
 } from './createRenderer';
-export type { GameRendererOptions, WebGPURendererParameters } from './createRenderer';
+export type { GameRendererOptions } from './createRenderer';
 export {
   configureRendererDefaults,
   readRendererCapabilities,
@@ -15,9 +15,11 @@ export type { ConfigurableRenderer, RendererDefaultsOptions } from './rendererDe
 export {
   parseRendererPreference,
   parseScreenshotMode,
+  parseNoGpuCompute,
   persistRendererPreference,
   syncRendererPreferenceToUrl,
   exposeRenderer,
+  isRendererPreference,
 } from './rendererConfig';
 export {
   getRendererDiagnostics,
@@ -26,8 +28,27 @@ export {
   isWebGpuNavigatorAvailable,
   getRendererDisplayName,
 } from './rendererState';
+export { runStorageTextureComputeProbe } from './computeDiagnostics';
+export {
+  runWebgpuBootProbe,
+  getWebgpuProbe,
+  publishWebgpuProbe,
+  resetWebgpuProbe,
+  detectBrowserBrand,
+  wasForceGlRequested,
+  toWebgpuProbePublic,
+  WebgpuRequiredError,
+} from './webgpuProbe';
+export type {
+  WebgpuProbePublic,
+  WebgpuProbeOutcome,
+  WebgpuProbeBrowser,
+  WebgpuProbeAdapterInfo,
+  WebgpuProbeCompute,
+} from './webgpuProbe';
 export type {
   ActiveRendererBackend,
+  ComputeProbeStatus,
   RendererCapabilities,
   RendererContextOptions,
   RendererDiagnostics,
@@ -35,4 +56,12 @@ export type {
   ShadowQuality,
 } from './types';
 export { default as RendererDiagnosticsMonitor } from './RendererDiagnosticsMonitor';
+export { default as FrameBudgetMonitor } from './FrameBudgetMonitor';
 export { default as WireframeDebug } from './WireframeDebug';
+export {
+  adoptComputeDevice,
+  getGpuChoreSession,
+  getGpuChoresBreadcrumb,
+  GPU_CHORE_JOBS,
+} from './gpuChores';
+export type { GpuChoresBreadcrumb, GpuChoreBackend } from './gpuChores';

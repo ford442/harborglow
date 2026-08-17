@@ -186,6 +186,7 @@ function WindSweptRain({
     <points ref={pointsRef}>
       <bufferGeometry>
         <bufferAttribute
+          args={[positions, 3]}
           attach="attributes-position"
           count={activeCount}
           array={positions}

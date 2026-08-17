@@ -146,8 +146,15 @@ export const SHIP_BLUEPRINTS: ShipBlueprint[] = BLUEPRINT_REGISTRY.ships
  * @param id - The ship type identifier
  * @returns ShipBlueprint or undefined if not found
  */
-export const getBlueprint = (id: string): ShipBlueprint | undefined =>
-  SHIP_BLUEPRINTS.find(b => b.id === id)
+/** Historical JSON ids that still resolve after a rename. */
+const BLUEPRINT_ID_ALIASES: Record<string, string> = {
+  'icebreaker-yamal': 'icebreaker',
+}
+
+export const getBlueprint = (id: string): ShipBlueprint | undefined => {
+  const resolved = BLUEPRINT_ID_ALIASES[id] ?? id
+  return SHIP_BLUEPRINTS.find(b => b.id === resolved)
+}
 
 /**
  * Get all attachment points for a ship

@@ -20,55 +20,45 @@ The game includes an alternate operation mode where players control a tugboat to
 
 | Category | Technology | Version |
 |----------|------------|---------|
-| Framework | React | ^18.2.0 |
+| Framework | React | ^19.2.0 |
 | Language | TypeScript | ^5.2.2 |
 | Build Tool | Vite | ^5.0.8 |
-| 3D Rendering | @react-three/fiber | ^8.15.11 |
-| 3D Helpers | @react-three/drei | ^9.122.0 |
-| 3D Physics | @react-three/rapier | ^1.3.1 |
-| 3D Post-Processing | @react-three/postprocessing | ^2.15.1 |
-| 3D Core | three | ^0.160.0 |
+| 3D Rendering | @react-three/fiber | ^9.7.0 |
+| 3D Helpers | @react-three/drei | ^10.7.8 |
+| 3D Physics | @react-three/rapier | ^2.2.0 |
+| 3D Post-Processing | @react-three/postprocessing | ^3.0.5 |
+| 3D Core | three | 0.183.1 |
 | 3D Stdlib | three-stdlib | ^2.36.1 |
 | Audio | tone | ^14.7.77 |
 | State Management | zustand | ^4.4.7 |
-| Debug UI | leva | ^0.9.35 |
+| Debug UI | leva | ^0.10.1 |
 | Styling | Tailwind CSS | ^3.4.19 |
 | CSS Processing | PostCSS + Autoprefixer | ^8.5.6 / ^10.4.27 |
 | Linting | ESLint + @typescript-eslint | ^8.55.0 / ^6.14.0 |
 | Bundle Analysis | rollup-plugin-visualizer | ^5.12.0 |
 | Minification | terser | ^5.46.1 |
 
-## Renderer Backends (WebGPU + WebGL2 Fallback)
+## Renderer (WebGPU required)
 
-The app is **WebGPU-first** (via Three.js `WebGPURenderer` + R3F) but ships a **toggleable WebGL2 fallback renderer** (`WebGLRenderer`) for:
+The app is **WebGPU-only at boot** (Three.js `WebGPURenderer` + R3F). A failed adapter/device/canvas probe shows a blocking overlay and does **not** start WebGL as the scene renderer. Force-GL URL flags (`?renderer=webgl`), Leva backend switching, and a stored `webgl` preference are **disabled this phase**. WebGL/R3F restore is a later wave.
 
-- Easier visual debugging of crane, ships, glowing rigs, particles, and music-reactive light shows (agents and Playwright have a hard time introspecting WebGPU framebuffers).
-- Using WebGL2 as a stable reference implementation while porting/iterating graphics features (GLSL vs TSL/WGSL).
-- Robust CI / automated testing and screenshot comparison.
+**Boot probe** (`src/rendering/webgpuProbe.ts`):
+1. `requestAdapter` + `requestDevice` + canvas `configure` (one device)
+2. Optional trivial compute (recorded; not a hard-fail)
+3. `window.webgpuProbe` — `{ ok, browser, adapterInfo, limits, compute, reason, ignoredForceGl }`
 
-**How to switch** (priority order):
-1. URL param: `?renderer=webgl` or `?renderer=webgpu`
-2. Leva debug UI (in-game): open the Leva panel → **"Renderer Backend"** folder → dropdown
-3. `localStorage` key `harborglow.renderer.preference` (persisted automatically)
-
-Canvas uses `key={`renderer-${pref}`}` + an `async gl` factory so switching remounts only the R3F context while Zustand game state, Rapier world, Tone transport, etc. remain live.
-
-**Debug helpers** (both paths):
-- `G` — wireframe overlay on all meshes (ships, crane, light rigs, dock...)
+**Debug helpers** (WebGPU session):
+- `G` — wireframe overlay on all meshes
 - `F` — Rapier `<Debug />` collider visualization
-- Yellow top banner (updated `WebGPUWarning.tsx`) shows the active backend + reason
-- `&wireframe=1&physicsDebug=1` for deep-linkable debug sessions
-- `window.currentRenderer`, `window.harborglowRenderer`, `<canvas>.dataset.renderer` are set for tooling
-
-Shared scene graph means **visual parity is expected for all core content** (ships from blueprints, attachment points, light rigs, AudioReactiveLightShow, PostProcessing, volumetric lights, etc.). Differences are mainly post-processing fidelity, shadow map details, and availability of TSL compute nodes.
+- `window.webgpuProbe`, `window.harborglowRenderer`, `<canvas>.dataset.renderer`
 
 See:
-- `docs/RENDERER.md` — usage, architecture diagram, WebGL2→WebGPU porting table
-- `src/rendering/` — `createRenderer.ts`, `rendererConfig.ts`, `rendererState.ts`, `WireframeDebug.tsx`, `RendererDiagnosticsMonitor.tsx`
-- `src/App.tsx` — Canvas + Leva bridge + keyboard wiring
-- `src/components/WebGPUWarning.tsx`
+- `docs/RENDERER.md` — probe, hard-fail overlay, deferred WebGL
+- `src/rendering/` — `webgpuProbe.ts`, `createRenderer.ts`, gpu-chores (adopt-only device)
+- `src/GameShell.tsx` — probe before Canvas
+- `src/components/WebGPUFatalOverlay.tsx`
 
-When adding graphics work, develop/tune first on `?renderer=webgl`, verify on `?renderer=webgpu`.
+When adding graphics work, target WebGPU. Do not add a silent GL rescue.
 
 ## Build and Development Commands
 
@@ -112,23 +102,25 @@ npm run preview
 - Static assets from `public/` are copied to `dist/`.
 - `base: './'` in `vite.config.ts` enables relative-path deployment.
 - Manual chunk splitting creates:
-  - `vendor-3d` — three, R3F, drei, rapier, postprocessing (~3.2 MB raw / ~1.1 MB gzip)
+  - `vendor-3d` — three, R3F, drei, rapier, postprocessing (~4.4 MB raw / ~1.46 MB gzip after r183 upgrade)
   - `vendor-audio` — tone (~288 KB raw / ~69 KB gzip)
   - `MainScene` — lazy-loaded scene chunk (~188 KB raw / ~49 KB gzip)
 - React, React-DOM, Leva, and Zustand are intentionally kept in the main bundle to avoid `__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` errors.
 - Terser drops `console.log` and `debugger` in production (`passes: 2`).
 - Sourcemaps are generated only in development mode.
 
-### Recent Bundle Metrics (April 2026)
+### Recent Bundle Metrics (August 2026, r183 baseline)
 | Chunk | Raw | gzip |
 |-------|-----|------|
-| vendor-3d | 3,227 kB | 1,096 kB |
-| index (React + Leva + Zustand + app) | 472 kB | 136 kB |
-| vendor-audio | 288 kB | 69 kB |
-| MainScene (lazy) | 188 kB | 49 kB |
-| PostProcessing chunks (7 files) | 17 kB | 5 kB |
-| index.css | 34 kB | 8 kB |
-| **Total** | **~4.2 MB** | **~1.36 MB** |
+| vendor-3d | 4,424 kB | 1,463 kB |
+| index (React + Leva + Zustand + app) | 753 kB | 215 kB |
+| MainScene (lazy) | 370 kB | 101 kB |
+| index.css | 37 kB | 8 kB |
+| **Primary chunks** | **~5.6 MB** | **~1.79 MB** |
+
+The r183 WebGPU/TSL baseline exceeds the historical ~1.1 MB `vendor-3d` soft
+ceiling; this is recorded for follow-up tree-shaking and bundle-budget work,
+not treated as noise.
 
 ## Project Structure
 
@@ -198,8 +190,9 @@ src/
 │   ├── TrainingMode.tsx
 │   ├── UpgradeMenu.tsx
 │   ├── VisualFeedback.tsx
-│   └── WebGPUWarning.tsx
-│   (new) src/rendering/        # Dual-renderer support (createRenderer, config, WireframeDebug, diagnostics)
+│   └── WebGPUFatalOverlay.tsx
+│   src/rendering/              # WebGPU-required renderer (probe, createRenderer, gpu-chores)
+│       ├── webgpuProbe.ts
 │       ├── createRenderer.ts
 │       ├── rendererConfig.ts
 │       ├── rendererState.ts
@@ -443,13 +436,13 @@ Root files:
 3. Verify lyrics sync with music.
 4. Check spectator drone activates after completion.
 5. Test day/night cycle affects lighting.
-6. Verify WebGPU/Renderer warning banner appears on unsupported browsers or when `?renderer=webgl` is used.
-7. Test renderer toggle: `?renderer=webgl`, Leva "Renderer Backend" dropdown, `G` (wireframe), `F` (physics debug). Verify wireframe + colliders appear under both backends and game state is unaffected.
+6. Verify the WebGPU fatal overlay appears when the boot probe fails (`window.webgpuProbe`).
+7. Test `G` (wireframe) and `F` (physics debug) on a real WebGPU session. Force-GL URL flags are disabled this phase.
 8. Test training module flow (open hub, start module, complete, return).
 9. Verify save/load persistence across page reloads.
 10. Test tugboat mode toggle and tugboat HUD.
 11. Verify moon phase display in time system.
-12. **Playwright E2E (local):** `npm run build && npm run test:e2e` — menu → New Game → WebGL canvas boot, harbor overview screenshot, wireframe (`G`) pixel diff. Uses `?renderer=webgl&wireframe=0` and SwiftShader in headless Chromium. CI job `e2e-visual` runs the same suite (with 2× retry on screenshot diffs) when PRs touch `src/scenes/`, `src/rendering/`, or `src/shaders/`.
+12. **Playwright E2E (local):** `npm run build && npm run test:e2e` — menu → New Game → WebGPU probe overlay on SwiftShader (no GL harbor). Harbor pixel snapshots are deferred until WebGL restore or a WebGPU CI runner. See `e2e/webgpu-probe.spec.ts`.
 
 ## Deployment
 
@@ -490,7 +483,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
 | `gate-summary` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
-| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot, MainScene lazy-load (no `LevaControlsConfig` Babel errors), harbor overview screenshot, wireframe toggle. WebGL2 via `?renderer=webgl`; SwiftShader in CI. **Path-filtered on PRs** (runs on push to `main` or when visual paths change). Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
+| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
 
 Run locally before pushing:
 
@@ -607,9 +600,8 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 
 ## Browser Requirements
 
-- **Minimum**: WebGL2-enabled browser (the WebGL2 fallback renderer works everywhere WebGL2 is available)
-- **Recommended**: WebGPU support (Chrome 113+, Edge 113+) for the primary path
-- **Renderer switching**: `?renderer=webgl` forces the stable debug/reference WebGLRenderer; `?renderer=webgpu` (default) uses WebGPURenderer (with automatic internal fallback when needed). See `docs/RENDERER.md`.
+- **Minimum**: Browser with WebGPU (Chrome 113+, Edge 113+). Probe fail → blocking overlay; no WebGL scene this phase.
+- **Renderer**: WebGPU required. `?renderer=webgl` is ignored. See `docs/RENDERER.md`.
 - **Audio**: Requires user interaction to start (browser autoplay policy)
 
 ---
@@ -621,7 +613,7 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `preview`) and are described above; this section only records non-obvious caveats found while setting up the environment.
 
 ### Running the app / dev server
-- Dev server: `npm run dev` (Vite, `host: 0.0.0.0`, port `5173`). For agent/automated testing always open `http://localhost:5173/?renderer=webgl` — the default WebGPU path is hard to introspect from headless browsers, and `?renderer=webgl` skips the WebGPU renderer entirely (see the "Renderer Backends" section).
+- Dev server: `npm run dev` (Vite, `host: 0.0.0.0`, port `5173`). Headless/SwiftShader sessions will hit the WebGPU fatal overlay (`window.webgpuProbe`) — there is no `?renderer=webgl` rescue this phase.
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
 ### CI locally

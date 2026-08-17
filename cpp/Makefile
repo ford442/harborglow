@@ -4,85 +4,48 @@
 # Prerequisites:
 #   • Emscripten SDK ≥ 3.1  (https://emscripten.org/docs/getting_started/)
 #   • Run `source /path/to/emsdk/emsdk_env.sh` before invoking make
+#   • Node.js (export lists are generated from public headers)
 #
 # Targets:
 #   make          — build optimised WASM (output → ../public/wasm/)
 #   make debug    — build with DWARF debug info and sanitizers
+#   make test     — native assertion harness (host c++)
+#   make bench    — native micro-benchmarks
 #   make clean    — remove build artifacts
 # =============================================================================
 
 CXX        := em++
+NATIVE_CXX ?= c++
+NATIVE_CC  ?= cc
 CORE_SRC   := harborglow_dsp.cpp dsp_ring_buffer.c
 AUDIO_SRC  := $(CORE_SRC) harborglow_audio_engine.cpp
 HEADER     := harborglow_dsp.h harborglow_audio_engine.h dsp_ring_buffer.h
 OUT_DIR    := ../public/wasm
 OUT_WASM   := $(OUT_DIR)/harborglow_dsp.wasm
+OUT_WASM_SIMD := $(OUT_DIR)/harborglow_dsp_simd.wasm
 OUT_AUDIO  := $(OUT_DIR)/harborglow_audio_shared.wasm
 OUT_SIMD   := $(OUT_DIR)/harborglow_audio_shared_simd.wasm
+EXPORTS_JS := ../scripts/wasm-exports.mjs
 
-# Exported C functions (keep in sync with harborglow_dsp.h)
-CORE_EXPORTS := \
-    _malloc \
-    _free \
-    _dsp_mix \
-    _dsp_clamp \
-    _dsp_remap \
-    _dsp_smooth_step \
-    _dsp_smoother_step \
-    _dsp_sin_approx \
-    _dsp_sin_full \
-    _dsp_wave_height \
-    _dsp_wave_height_batch \
-    _dsp_additive_synth_sample \
-    _dsp_additive_block \
-    _dsp_audio_rms \
-    _dsp_fft_r2c \
-    _dsp_convolver_create \
-    _dsp_convolver_process \
-    _dsp_convolver_reset \
-    _dsp_convolver_destroy \
-    _dsp_generate_room_ir \
-    _dsp_ring_required_bytes \
-    _dsp_ring_data_offset \
-    _dsp_ring_read_offset \
-    _dsp_ring_write_offset \
-    _dsp_ring_overflow_offset \
-    _dsp_ring_init \
-    _dsp_ring_push \
-    _dsp_ring_pop \
-    _dsp_ring_size \
-    _dsp_ring_overflow_count \
-    _dsp_ring_reset
+# Export lists are parsed from headers (see scripts/wasm-exports.mjs).
+# Prefer values passed from build.sh so `make test` never shells out to Node.
+CORE_EXPORTED_FUNCTIONS ?= $(shell node $(EXPORTS_JS) --emcc core)
+AUDIO_EXPORTED_FUNCTIONS ?= $(shell node $(EXPORTS_JS) --emcc audio)
 
-AUDIO_EXPORTS := $(CORE_EXPORTS) \
-    _dsp_audio_engine_init \
-    _dsp_audio_engine_note_on \
-    _dsp_audio_engine_note_off \
-    _dsp_audio_engine_set_effects \
-    _dsp_audio_engine_render \
-    _dsp_audio_engine_stop_all \
-    _dsp_audio_engine_rms \
-    _dsp_audio_engine_peak
-
-CORE_EXPORTED_FUNCTIONS := $(shell echo $(CORE_EXPORTS) | tr ' ' ',')
-AUDIO_EXPORTED_FUNCTIONS := $(shell echo $(AUDIO_EXPORTS) | tr ' ' ',')
-
-# Common flags
-# STANDALONE_WASM + --no-entry produces a raw .wasm loadable via
-# WebAssembly.instantiate (see src/systems/wasmDSP.ts). Requires a single env
-# import stub: emscripten_notify_memory_growth. MODULARIZE glue is not used.
-# INITIAL_MEMORY must cover Emscripten runtime + batch float buffers.
-BASE_FLAGS := \
+# INITIAL_MEMORY is 4 MiB: Emscripten reactor + 2048-point FFT scratch +
+# 16×16 wave batch + a multi-second room IR without a per-scene heap copy.
+# ALLOW_MEMORY_GROWTH remains on; wasmDSP.ts logs growth in DEV.
+BASE_FLAGS = \
     -std=c++17 \
     -s WASM=1 \
     -s STANDALONE_WASM=1 \
     --no-entry \
     -s EXPORTED_FUNCTIONS="[$(CORE_EXPORTED_FUNCTIONS)]" \
     -s ALLOW_MEMORY_GROWTH=1 \
-    -s INITIAL_MEMORY=262144 \
+    -s INITIAL_MEMORY=4194304 \
     -s ENVIRONMENT="web,worker"
 
-SHARED_FLAGS := \
+SHARED_FLAGS = \
     -std=c++17 \
     -s WASM=1 \
     -s STANDALONE_WASM=1 \
@@ -103,23 +66,31 @@ SHARED_FLAGS := \
 # Release build (default)
 # ---------------------------------------------------------------------------
 .PHONY: all
-all: $(OUT_WASM) $(OUT_AUDIO) $(OUT_SIMD)
+all: $(OUT_WASM) $(OUT_WASM_SIMD) $(OUT_AUDIO) $(OUT_SIMD)
 
-$(OUT_WASM): $(CORE_SRC) $(HEADER) | $(OUT_DIR)
+$(OUT_WASM): $(CORE_SRC) $(HEADER) $(EXPORTS_JS) | $(OUT_DIR)
 	$(CXX) $(CORE_SRC) $(BASE_FLAGS) \
 	    -O3 \
 	    -flto \
 	    -o $(OUT_WASM)
 	@echo "✅  Release build → $(OUT_WASM)"
 
-$(OUT_AUDIO): $(AUDIO_SRC) $(HEADER) | $(OUT_DIR)
+$(OUT_WASM_SIMD): $(CORE_SRC) $(HEADER) $(EXPORTS_JS) | $(OUT_DIR)
+	$(CXX) $(CORE_SRC) $(BASE_FLAGS) \
+	    -O3 \
+	    -flto \
+	    -msimd128 \
+	    -o $(OUT_WASM_SIMD)
+	@echo "✅  SIMD reactor build → $(OUT_WASM_SIMD)"
+
+$(OUT_AUDIO): $(AUDIO_SRC) $(HEADER) $(EXPORTS_JS) | $(OUT_DIR)
 	$(CXX) $(AUDIO_SRC) $(SHARED_FLAGS) \
 	    -O3 \
 	    -flto \
 	    -o $(OUT_AUDIO)
 	@echo "✅  Shared scalar audio build → $(OUT_AUDIO)"
 
-$(OUT_SIMD): $(AUDIO_SRC) $(HEADER) | $(OUT_DIR)
+$(OUT_SIMD): $(AUDIO_SRC) $(HEADER) $(EXPORTS_JS) | $(OUT_DIR)
 	$(CXX) $(AUDIO_SRC) $(SHARED_FLAGS) \
 	    -O3 \
 	    -flto \
@@ -142,6 +113,34 @@ debug: $(OUT_DIR)
 	@echo "🐞  Debug build → $(OUT_WASM)"
 
 # ---------------------------------------------------------------------------
+# Native tests / benches (host compiler, no Emscripten)
+# ---------------------------------------------------------------------------
+TEST_BIN := tests/dsp_native_test
+BENCH_BIN := tests/dsp_bench
+
+.PHONY: test
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+$(TEST_BIN): tests/dsp_native_test.cpp harborglow_dsp.cpp dsp_ring_buffer.c $(HEADER)
+	mkdir -p tests
+	$(NATIVE_CC) -std=c11 -c dsp_ring_buffer.c -o tests/dsp_ring_buffer.o
+	$(NATIVE_CXX) -std=c++17 -O2 -I. \
+	    tests/dsp_native_test.cpp harborglow_dsp.cpp tests/dsp_ring_buffer.o \
+	    -lm -o $(TEST_BIN)
+
+.PHONY: bench
+bench: $(BENCH_BIN)
+	./$(BENCH_BIN)
+
+$(BENCH_BIN): tests/dsp_bench.cpp harborglow_dsp.cpp dsp_ring_buffer.c $(HEADER)
+	mkdir -p tests
+	$(NATIVE_CC) -std=c11 -c dsp_ring_buffer.c -o tests/dsp_ring_buffer.o
+	$(NATIVE_CXX) -std=c++17 -O3 -I. \
+	    tests/dsp_bench.cpp harborglow_dsp.cpp tests/dsp_ring_buffer.o \
+	    -lm -o $(BENCH_BIN)
+
+# ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
 $(OUT_DIR):
@@ -149,5 +148,6 @@ $(OUT_DIR):
 
 .PHONY: clean
 clean:
-	rm -f $(OUT_WASM) $(OUT_AUDIO) $(OUT_SIMD) $(OUT_DIR)/harborglow_dsp.js
+	rm -f $(OUT_WASM) $(OUT_WASM_SIMD) $(OUT_AUDIO) $(OUT_SIMD) $(OUT_DIR)/harborglow_dsp.js
+	rm -f $(TEST_BIN) $(BENCH_BIN) tests/dsp_ring_buffer.o
 	@echo "🧹  Cleaned $(OUT_DIR)"

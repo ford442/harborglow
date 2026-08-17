@@ -27,11 +27,13 @@ Then set `VITE_SIGNAL_URL` to your deployed worker URL before `npm run build`.
 ## Manual test (two browser tabs)
 
 1. Start the worker: `npx wrangler dev` (port 8787).
-2. Tab A (host): `http://localhost:5173/?multiplayer=1&renderer=webgl`
+2. Tab A (host): `http://localhost:5173/?multiplayer=1`
    - New Game → Lobby → **Create shared harbor** → copy share link.
 3. Tab B (spectator): open the share link (`?multiplayer=1&join=ROOMID`).
    - New Game → auto-joins as spectator.
 4. Operate crane in Tab A; spreader position should sync to Tab B within ~100 ms.
+   Gameplay-state multiplayer (#183) is **seed + input log**, not per-entity
+   transform spam — see `docs/systems/DETERMINISM.md`.
 5. Send chat from either tab; message appears in both.
 
 ## API

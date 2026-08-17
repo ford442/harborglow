@@ -599,6 +599,7 @@ const FEATURE_COLORS: Record<string, string> = {
   moonpool: '#1a4a6a',
   water_cannon: '#3366ff',
   siren: '#ff2222',
+  secondary: '#e65c00',
 };
 
 const GLOWING_FEATURES = new Set(['funnel', 'cellguides', 'aframe', 'helideck', 'water_cannon', 'siren']);

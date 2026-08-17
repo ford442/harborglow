@@ -35,7 +35,39 @@ export const DEFAULT_STORE_DASHBOARD_PRESETS: DashboardPresets = {
 // TYPES - HarborGlow Game State
 // =============================================================================
 
-export type ShipType = 'cruise' | 'container' | 'tanker' | 'bulk' | 'lng' | 'roro' | 'research' | 'droneship' | 'ferry' | 'trawler' | 'horizon' | 'fireboat'
+export const SHIP_TYPES = [
+    'cruise',
+    'container',
+    'tanker',
+    'bulk',
+    'lng',
+    'roro',
+    'research',
+    'droneship',
+    'ferry',
+    'trawler',
+    'horizon',
+    'fireboat',
+    'icebreaker',
+] as const
+
+export type ShipType = (typeof SHIP_TYPES)[number]
+
+/** Legacy blueprint / save aliases that still resolve to a live ShipType. */
+const SHIP_TYPE_ALIASES: Record<string, ShipType> = {
+    'icebreaker-yamal': 'icebreaker',
+}
+
+export function isShipType(value: unknown): value is ShipType {
+    return typeof value === 'string' && (SHIP_TYPES as readonly string[]).includes(value)
+}
+
+/** Maps saved/blueprint ids onto a live ShipType. Unknown values become cruise. */
+export function normalizeSavedShipType(raw: unknown): ShipType {
+    if (typeof raw !== 'string') return 'cruise'
+    if (isShipType(raw)) return raw
+    return SHIP_TYPE_ALIASES[raw] ?? 'cruise'
+}
 export type WeatherState = 'clear' | 'rain' | 'fog' | 'storm'
 export type CameraMode = 'orbit' | 'crane-cockpit' | 'crane-shoulder' | 'crane-top' |
                          'ship-low' | 'ship-aerial' | 'ship-water' | 'ship-rig' |
@@ -261,6 +293,7 @@ export const TUG_TONS_BY_SHIP: Record<ShipType, number> = {
     trawler: 45,
     horizon: 90,
     fireboat: 30,
+    icebreaker: 155,
 }
 
 export function getReputationTierMultiplier(): number {

@@ -9,9 +9,9 @@ export interface LyricEntry {
     text: string
 }
 
-const lyricsMap: Map<ShipType, LyricEntry[]> = new Map([
+const lyricsMap: Record<ShipType, LyricEntry[]> = {
     // Mega Cruise Liner - "Ocean Symphony" - Orchestral + choir
-    ['cruise', [
+    cruise: [
         { time: '0:0', text: 'We sail through the night…' },
         { time: '0:2', text: 'stars shining bright…' },
         { time: '1:0', text: 'lights ignite…' },
@@ -21,10 +21,10 @@ const lyricsMap: Map<ShipType, LyricEntry[]> = new Map([
         { time: '3:0', text: 'We are the light…' },
         { time: '3:2', text: 'through the night…' },
         { time: '4:0', text: 'HarborGlow!' },
-    ]],
+    ],
 
     // Ultra Large Container Vessel - "Neon Stack" - Heavy techno / future bass
-    ['container', [
+    container: [
         { time: '0:0', text: 'Stack it high…' },
         { time: '0:1', text: 'touch the sky…' },
         { time: '0:2', text: 'light the sky…' },
@@ -35,10 +35,10 @@ const lyricsMap: Map<ShipType, LyricEntry[]> = new Map([
         { time: '2:2', text: 'HarborGlow!' },
         { time: '3:0', text: 'Stack it higher!' },
         { time: '3:2', text: 'Set it on fire!' },
-    ]],
+    ],
 
     // VLCC Oil Tanker - "Flame Runner" - Gritty industrial / dubstep
-    ['tanker', [
+    tanker: [
         { time: '0:0', text: 'Black gold flows…' },
         { time: '0:2', text: 'fire glows…' },
         { time: '1:0', text: 'we own these glowing seas!' },
@@ -49,63 +49,72 @@ const lyricsMap: Map<ShipType, LyricEntry[]> = new Map([
         { time: '3:2', text: 'HarborGlow!' },
         { time: '4:0', text: 'Oil and flame!' },
         { time: '4:2', text: 'Know our name!' },
-    ]],
+    ],
 
     // Bulk Carrier
-    ['bulk', []],
+    bulk: [],
 
     // LNG Carrier
-    ['lng', []],
+    lng: [],
 
     // RO-RO Ferry
-    ['roro', []],
+    roro: [],
 
     // Research Vessel
-    ['research', []],
+    research: [],
 
     // Drone Ship
-    ['droneship', []],
+    droneship: [],
 
     // Island Hopper Ferry - "Harbour Light" - Reggae / Calypso
-    ['ferry', [
+    ferry: [
         { time: '0:0', text: 'Island to island we ride…' },
         { time: '0:2', text: 'lights on the tide…' },
         { time: '1:0', text: 'HarborGlow!' },
         { time: '2:0', text: 'Every crossing glows bright!' },
         { time: '3:0', text: 'Home on the water tonight!' },
-    ]],
+    ],
 
     // North Star Trawler - "Saltwater" - Sea Shanty
-    ['trawler', [
+    trawler: [
         { time: '0:0', text: 'Haul the nets, light the way…' },
         { time: '0:2', text: 'North Star guides our day…' },
         { time: '1:0', text: 'HarborGlow!' },
         { time: '2:0', text: 'Salt and steel and light!' },
         { time: '3:0', text: 'We sail through the night!' },
-    ]],
+    ],
 
     // Horizon Deep - "Meridian" - Oceanic Ambient
-    ['horizon', [
+    horizon: [
         { time: '0:0', text: 'Beneath the deep we find…' },
         { time: '1:0', text: 'the light we left behind…' },
         { time: '2:0', text: 'HarborGlow…' },
         { time: '4:0', text: 'Horizon calling…' },
-    ]],
+    ],
 
     // Harbor Fireboat - "Rescue Pulse" - Emergency Siren Techno
-    ['fireboat', [
+    fireboat: [
         { time: '0:0', text: 'All units respond — fire on the water!' },
         { time: '0:2', text: 'Monitors up, lights blazing…' },
         { time: '1:0', text: 'HarborGlow!' },
         { time: '2:0', text: 'Foam and fury, we hold the line!' },
         { time: '3:0', text: 'Rescue Pulse — never fade!' },
-    ]],
-])
+    ],
+
+    // Nuclear Icebreaker Yamal - "Polar Steel" - Industrial Arctic
+    icebreaker: [
+        { time: '0:0', text: 'Steel through the ice…' },
+        { time: '0:2', text: 'reactors hum…' },
+        { time: '1:0', text: 'Polar Steel!' },
+        { time: '2:0', text: 'Convoy lights on the pack!' },
+        { time: '3:0', text: 'HarborGlow — hold the channel!' },
+    ],
+}
 
 export const getLyrics = (shipType: ShipType): LyricEntry[] => {
-    return lyricsMap.get(shipType) || []
+    return lyricsMap[shipType] ?? []
 }
 
 export const getAllLyrics = (): Map<ShipType, LyricEntry[]> => {
-    return new Map(lyricsMap)
+    return new Map(Object.entries(lyricsMap) as [ShipType, LyricEntry[]][])
 }

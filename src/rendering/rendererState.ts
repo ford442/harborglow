@@ -3,6 +3,7 @@
  * Crosses the R3F Canvas boundary (same pattern as other cross-context state).
  */
 
+import { defaultGpuChoresBreadcrumb } from './gpuChores/types';
 import type { ActiveRendererBackend, RendererDiagnostics, RendererPreference } from './types';
 
 const _diagnostics: RendererDiagnostics = {
@@ -14,6 +15,8 @@ const _diagnostics: RendererDiagnostics = {
   contextOptions: null,
   capabilities: null,
   supportsSSR: false,
+  computeProbe: 'not-run',
+  gpuChores: defaultGpuChoresBreadcrumb(),
 };
 
 type Listener = () => void;

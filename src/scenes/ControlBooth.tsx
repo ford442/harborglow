@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useFrame, useThree, createPortal } from '@react-three/fiber'
 import { PerspectiveCamera as DreiPerspectiveCamera } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import CraneControlMonitor3D from './controlBooth/CraneControlMonitor3D'
 import { 
   BoothRoom, 

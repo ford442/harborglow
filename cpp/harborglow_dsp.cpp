@@ -19,6 +19,13 @@
 #include <memory>
 #include <vector>
 
+#if defined(__wasm_simd128__)
+#  include <wasm_simd128.h>
+#  define DSP_HAS_SIMD 1
+#else
+#  define DSP_HAS_SIMD 0
+#endif
+
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #  define DSP_EXPORT EMSCRIPTEN_KEEPALIVE
@@ -151,9 +158,20 @@ void dsp_additive_block(
 
 extern "C" DSP_EXPORT
 float dsp_audio_rms(const float* data, int count) {
-    if (count <= 0) return 0.0f;
+    if (!data || count <= 0) return 0.0f;
+    int i = 0;
     float sum = 0.0f;
-    for (int i = 0; i < count; ++i) {
+#if DSP_HAS_SIMD
+    v128_t acc = wasm_f32x4_splat(0.0f);
+    for (; i + 4 <= count; i += 4) {
+        v128_t v = wasm_v128_load(data + i);
+        acc = wasm_f32x4_add(acc, wasm_f32x4_mul(v, v));
+    }
+    alignas(16) float lanes[4];
+    wasm_v128_store(lanes, acc);
+    sum = lanes[0] + lanes[1] + lanes[2] + lanes[3];
+#endif
+    for (; i < count; ++i) {
         sum += data[i] * data[i];
     }
     return std::sqrt(sum / static_cast<float>(count));
@@ -324,57 +342,202 @@ void dsp_wave_height_batch(
         const float* xs, const float* zs, float time,
         float amp, float freq, float speed, float dirX, float dirZ,
         float* out_heights, int count) {
-    for (int i = 0; i < count; ++i) {
+    if (!xs || !zs || !out_heights || count <= 0) return;
+    int i = 0;
+#if DSP_HAS_SIMD
+    const v128_t vdirX = wasm_f32x4_splat(dirX);
+    const v128_t vdirZ = wasm_f32x4_splat(dirZ);
+    const v128_t vfreq = wasm_f32x4_splat(freq);
+    const v128_t vphase0 = wasm_f32x4_splat(speed * time);
+    for (; i + 4 <= count; i += 4) {
+        v128_t xs4 = wasm_v128_load(xs + i);
+        v128_t zs4 = wasm_v128_load(zs + i);
+        v128_t dot = wasm_f32x4_add(
+            wasm_f32x4_mul(xs4, vdirX), wasm_f32x4_mul(zs4, vdirZ));
+        v128_t phase = wasm_f32x4_add(wasm_f32x4_mul(dot, vfreq), vphase0);
+        alignas(16) float phases[4];
+        wasm_v128_store(phases, phase);
+        out_heights[i]     = amp * std::sin(phases[0]);
+        out_heights[i + 1] = amp * std::sin(phases[1]);
+        out_heights[i + 2] = amp * std::sin(phases[2]);
+        out_heights[i + 3] = amp * std::sin(phases[3]);
+    }
+#endif
+    for (; i < count; ++i) {
         out_heights[i] = dsp_wave_height(
             xs[i], zs[i], time, amp, freq, speed, dirX, dirZ);
     }
 }
 
 // ---------------------------------------------------------------------------
-// FFT (Fast Fourier Transform)
+// FFT (packed real-to-complex, precomputed tables)
 // ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr int FFT_MIN_LOG2 = 1;
+constexpr int FFT_MAX_LOG2 = 12;  // N ≤ 4096
+
+struct FftTables {
+    std::vector<int> bitrev;
+    std::vector<float> tw_re;
+    std::vector<float> tw_im;
+    std::vector<float> unpack_re;
+    std::vector<float> unpack_im;
+    bool ready = false;
+};
+
+FftTables fft_tables[FFT_MAX_LOG2 + 1];
+
+void ensure_fft_tables(int log2N) {
+    FftTables& tables = fft_tables[log2N];
+    if (tables.ready) return;
+
+    const int N = 1 << log2N;
+    const int M = N / 2;
+    const int log2M = log2N - 1;
+
+    tables.bitrev.resize(static_cast<std::size_t>(M));
+    for (int i = 0; i < M; ++i) {
+        int rev = 0;
+        for (int bit = 0; bit < log2M; ++bit) {
+            if ((i >> bit) & 1) rev |= 1 << (log2M - 1 - bit);
+        }
+        tables.bitrev[static_cast<std::size_t>(i)] = rev;
+    }
+
+    tables.tw_re.resize(static_cast<std::size_t>(M));
+    tables.tw_im.resize(static_cast<std::size_t>(M));
+    for (int i = 0; i < M; ++i) {
+        const double theta = -2.0 * static_cast<double>(PI) * static_cast<double>(i) /
+            static_cast<double>(M);
+        tables.tw_re[static_cast<std::size_t>(i)] = static_cast<float>(std::cos(theta));
+        tables.tw_im[static_cast<std::size_t>(i)] = static_cast<float>(std::sin(theta));
+    }
+
+    tables.unpack_re.resize(static_cast<std::size_t>(M));
+    tables.unpack_im.resize(static_cast<std::size_t>(M));
+    for (int k = 0; k < M; ++k) {
+        const double theta = -2.0 * static_cast<double>(PI) * static_cast<double>(k) /
+            static_cast<double>(N);
+        tables.unpack_re[static_cast<std::size_t>(k)] = static_cast<float>(std::cos(theta));
+        tables.unpack_im[static_cast<std::size_t>(k)] = static_cast<float>(std::sin(theta));
+    }
+
+    tables.ready = true;
+}
+
+void complex_fft(float* re, float* im, int log2N, const FftTables& tables) {
+    const int N = 1 << log2N;
+    for (int s = 1; s <= log2N; ++s) {
+        const int m = 1 << s;
+        const int half = m / 2;
+        const int stride = N / m;
+        for (int k = 0; k < N; k += m) {
+            int j = 0;
+#if DSP_HAS_SIMD
+            for (; j + 4 <= half; j += 4) {
+                const int tw0 = j * stride;
+                const int tw1 = (j + 1) * stride;
+                const int tw2 = (j + 2) * stride;
+                const int tw3 = (j + 3) * stride;
+                alignas(16) float wr_lanes[4] = {
+                    tables.tw_re[static_cast<std::size_t>(tw0)],
+                    tables.tw_re[static_cast<std::size_t>(tw1)],
+                    tables.tw_re[static_cast<std::size_t>(tw2)],
+                    tables.tw_re[static_cast<std::size_t>(tw3)],
+                };
+                alignas(16) float wi_lanes[4] = {
+                    tables.tw_im[static_cast<std::size_t>(tw0)],
+                    tables.tw_im[static_cast<std::size_t>(tw1)],
+                    tables.tw_im[static_cast<std::size_t>(tw2)],
+                    tables.tw_im[static_cast<std::size_t>(tw3)],
+                };
+                v128_t wr = wasm_v128_load(wr_lanes);
+                v128_t wi = wasm_v128_load(wi_lanes);
+                v128_t br = wasm_v128_load(re + k + j + half);
+                v128_t bi = wasm_v128_load(im + k + j + half);
+                v128_t ur = wasm_v128_load(re + k + j);
+                v128_t ui = wasm_v128_load(im + k + j);
+                v128_t tr = wasm_f32x4_sub(wasm_f32x4_mul(wr, br), wasm_f32x4_mul(wi, bi));
+                v128_t ti = wasm_f32x4_add(wasm_f32x4_mul(wr, bi), wasm_f32x4_mul(wi, br));
+                wasm_v128_store(re + k + j, wasm_f32x4_add(ur, tr));
+                wasm_v128_store(im + k + j, wasm_f32x4_add(ui, ti));
+                wasm_v128_store(re + k + j + half, wasm_f32x4_sub(ur, tr));
+                wasm_v128_store(im + k + j + half, wasm_f32x4_sub(ui, ti));
+            }
+#endif
+            for (; j < half; ++j) {
+                const int tw = j * stride;
+                const float wr = tables.tw_re[static_cast<std::size_t>(tw)];
+                const float wi = tables.tw_im[static_cast<std::size_t>(tw)];
+                const int hi = k + j + half;
+                const int lo = k + j;
+                const float t_real = wr * re[hi] - wi * im[hi];
+                const float t_imag = wr * im[hi] + wi * re[hi];
+                const float u_real = re[lo];
+                const float u_imag = im[lo];
+                re[lo] = u_real + t_real;
+                im[lo] = u_imag + t_imag;
+                re[hi] = u_real - t_real;
+                im[hi] = u_imag - t_imag;
+            }
+        }
+    }
+}
+
+}  // namespace
 
 extern "C" DSP_EXPORT
 void dsp_fft_r2c(const float* input, float* out_real, float* out_imag, int log2N) {
-    int N = 1 << log2N;
-    
-    // Copy input to output, real only. Bit-reversal permutation.
-    for (int i = 0; i < N; ++i) {
-        int rev = 0;
-        for (int j = 0; j < log2N; ++j) {
-            if ((i >> j) & 1) rev |= (1 << (log2N - 1 - j));
-        }
-        out_real[rev] = input[i];
-        out_imag[rev] = 0.0f;
+    if (!input || !out_real || !out_imag) return;
+    if (log2N < FFT_MIN_LOG2 || log2N > FFT_MAX_LOG2) return;
+
+    const int N = 1 << log2N;
+    if (log2N == 1) {
+        out_real[0] = input[0] + input[1];
+        out_imag[0] = 0.0f;
+        out_real[1] = input[0] - input[1];
+        out_imag[1] = 0.0f;
+        return;
     }
 
-    // Cooley-Tukey Radix-2
-    for (int s = 1; s <= log2N; ++s) {
-        int m = 1 << s;
-        float theta = -TWO_PI / m;
-        float wm_real = std::cos(theta);
-        float wm_imag = std::sin(theta);
-        
-        for (int k = 0; k < N; k += m) {
-            float w_real = 1.0f;
-            float w_imag = 0.0f;
-            
-            for (int j = 0; j < m / 2; ++j) {
-                float t_real = w_real * out_real[k + j + m / 2] - w_imag * out_imag[k + j + m / 2];
-                float t_imag = w_real * out_imag[k + j + m / 2] + w_imag * out_real[k + j + m / 2];
-                float u_real = out_real[k + j];
-                float u_imag = out_imag[k + j];
-                
-                out_real[k + j] = u_real + t_real;
-                out_imag[k + j] = u_imag + t_imag;
-                out_real[k + j + m / 2] = u_real - t_real;
-                out_imag[k + j + m / 2] = u_imag - t_imag;
-                
-                float next_w_real = w_real * wm_real - w_imag * wm_imag;
-                float next_w_imag = w_real * wm_imag + w_imag * wm_real;
-                w_real = next_w_real;
-                w_imag = next_w_imag;
-            }
-        }
+    ensure_fft_tables(log2N);
+    const FftTables& tables = fft_tables[log2N];
+    const int M = N / 2;
+    const int log2M = log2N - 1;
+
+    std::vector<float> work_re(static_cast<std::size_t>(M));
+    std::vector<float> work_im(static_cast<std::size_t>(M));
+    for (int i = 0; i < M; ++i) {
+        const int rev = tables.bitrev[static_cast<std::size_t>(i)];
+        work_re[static_cast<std::size_t>(rev)] = input[2 * i];
+        work_im[static_cast<std::size_t>(rev)] = input[2 * i + 1];
+    }
+
+    complex_fft(work_re.data(), work_im.data(), log2M, tables);
+
+    out_real[0] = work_re[0] + work_im[0];
+    out_imag[0] = 0.0f;
+    out_real[M] = work_re[0] - work_im[0];
+    out_imag[M] = 0.0f;
+
+    for (int k = 1; k < M; ++k) {
+        const float zr = work_re[static_cast<std::size_t>(k)];
+        const float zi = work_im[static_cast<std::size_t>(k)];
+        const float znr = work_re[static_cast<std::size_t>(M - k)];
+        const float zni = work_im[static_cast<std::size_t>(M - k)];
+        const float xr = 0.5f * (zr + znr);
+        const float xi = 0.5f * (zi - zni);
+        const float yr = 0.5f * (zi + zni);
+        const float yi = 0.5f * (znr - zr);
+        const float wr = tables.unpack_re[static_cast<std::size_t>(k)];
+        const float wi = tables.unpack_im[static_cast<std::size_t>(k)];
+        const float re = xr + wr * yr - wi * yi;
+        const float im = xi + wr * yi + wi * yr;
+        out_real[k] = re;
+        out_imag[k] = im;
+        out_real[N - k] = re;
+        out_imag[N - k] = -im;
     }
 }

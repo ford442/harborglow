@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // TUGBOAT SOUND SYSTEM — HarborGlow
 // Dedicated audio identity for tugboat mode:

@@ -8,7 +8,8 @@ import {
   shadowQualityForPreset,
   type ConfigurableRenderer,
 } from '../rendererDefaults';
-import { parseScreenshotMode } from '../rendererConfig';
+import { parseScreenshotMode, parseNoGpuCompute, parseRendererPreference } from '../rendererConfig';
+import { runStorageTextureComputeProbe } from '../computeDiagnostics';
 
 /** Minimal stand-in for either backend — configureRendererDefaults is structural by design. */
 function makeFakeRenderer(overrides: Partial<ConfigurableRenderer> = {}) {
@@ -145,10 +146,16 @@ describe('readRendererCapabilities', () => {
   it('reads WebGPU adapter info and the renderer-level anisotropy getter', () => {
     const caps = readRendererCapabilities({
       getMaxAnisotropy: () => 8,
-      backend: { adapter: { info: { vendor: 'acme', architecture: 'gpu-1' } } },
+      backend: {
+        isWebGPUBackend: true,
+        adapter: { info: { vendor: 'acme', architecture: 'gpu-1' } },
+        device: { features: { has: (feature: string) => feature === 'float32-filterable' } },
+      },
     } as unknown as ConfigurableRenderer);
 
     expect(caps.maxAnisotropy).toBe(8);
+    expect(caps.computeShaders).toBe(true);
+    expect(caps.float32Filterable).toBe(true);
     expect(caps.adapterInfo?.vendor).toBe('acme');
     expect(caps.adapterInfo?.architecture).toBe('gpu-1');
   });
@@ -158,9 +165,39 @@ describe('readRendererCapabilities', () => {
     expect(caps).toEqual({
       maxTextureSize: null,
       maxAnisotropy: null,
+      computeShaders: null,
+      float32Filterable: null,
       preserveDrawingBuffer: null,
       adapterInfo: null,
     });
+  });
+});
+
+describe('runStorageTextureComputeProbe', () => {
+  it('waits for a real compute submission before reporting passed', async () => {
+    let submitted = false;
+    const result = await runStorageTextureComputeProbe({
+      computeAsync: async (computeNode) => {
+        submitted = computeNode.isComputeNode;
+      },
+    });
+
+    expect(submitted).toBe(true);
+    expect(result).toBe('passed');
+  });
+
+  it('reports unsupported when the renderer has no compute queue', async () => {
+    await expect(runStorageTextureComputeProbe({})).resolves.toBe('unsupported');
+  });
+
+  it('reports failed when the backend rejects the submission', async () => {
+    await expect(
+      runStorageTextureComputeProbe({
+        computeAsync: async () => {
+          throw new Error('compute unavailable');
+        },
+      }),
+    ).resolves.toBe('failed');
   });
 });
 
@@ -174,5 +211,21 @@ describe('parseScreenshotMode', () => {
     expect(parseScreenshotMode('?screenshot=true')).toBe(true);
     expect(parseScreenshotMode('?preserveDrawingBuffer=1')).toBe(true);
     expect(parseScreenshotMode('?screenshot=0')).toBe(false);
+  });
+});
+
+describe('parseNoGpuCompute', () => {
+  it('is off by default and enabled by ?no_gpu_compute=1', () => {
+    expect(parseNoGpuCompute('')).toBe(false);
+    expect(parseNoGpuCompute('?no_gpu_compute=1')).toBe(true);
+    expect(parseNoGpuCompute('?no_gpu_compute=true')).toBe(true);
+  });
+});
+
+describe('parseRendererPreference', () => {
+  it('always returns webgpu even when ?renderer=webgl is set', () => {
+    expect(parseRendererPreference('')).toBe('webgpu');
+    expect(parseRendererPreference('?renderer=webgl')).toBe('webgpu');
+    expect(parseRendererPreference('?renderer=webgpu')).toBe('webgpu');
   });
 });

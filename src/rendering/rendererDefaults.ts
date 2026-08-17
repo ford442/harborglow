@@ -21,7 +21,7 @@ export interface ConfigurableRenderer {
   getContext?: () => unknown;
   getMaxAnisotropy?: () => number;
   capabilities?: { maxTextureSize?: number; getMaxAnisotropy?: () => number };
-  backend?: { adapter?: { info?: Record<string, string> } };
+  backend?: unknown;
 }
 
 export interface RendererDefaultsOptions {
@@ -125,6 +125,8 @@ export function readRendererCapabilities(renderer: ConfigurableRenderer): Render
   const caps: RendererCapabilities = {
     maxTextureSize: null,
     maxAnisotropy: null,
+    computeShaders: null,
+    float32Filterable: null,
     preserveDrawingBuffer: null,
     adapterInfo: null,
   };
@@ -150,7 +152,24 @@ export function readRendererCapabilities(renderer: ConfigurableRenderer): Render
       }
     }
 
-    const info = renderer.backend?.adapter?.info;
+    const backend = renderer.backend;
+    const backendDetails =
+      backend && typeof backend === 'object'
+        ? (backend as {
+            isWebGPUBackend?: boolean;
+            adapter?: { info?: Record<string, string> };
+            device?: { features?: { has?: (feature: string) => boolean } };
+          })
+        : null;
+    if (backendDetails?.isWebGPUBackend) {
+      caps.computeShaders = true;
+      const features = backendDetails.device?.features;
+      if (features && typeof features.has === 'function') {
+        caps.float32Filterable = features.has('float32-filterable');
+      }
+    }
+
+    const info = backendDetails?.adapter?.info;
     if (info) {
       caps.adapterInfo = {
         vendor: info.vendor,

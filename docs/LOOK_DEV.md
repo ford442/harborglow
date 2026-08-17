@@ -37,4 +37,4 @@ Existing folders (**Cinematic**, **Harbor Ambiance**, **Renderer Backend**, etc.
 3. **Visual Polish → Global → God Ray Density** — night dock light shafts brighten/dim.
 4. Fully upgrade a ship, then tweak **Rig Emissive Boost** and **Flare Intensity** during the light show.
 
-Works on both WebGPU and WebGL2 (`?renderer=webgl`); materials update uniforms every frame on both backends.
+Works on WebGPU. WebGL/R3F fallback is deferred; materials update uniforms every frame.

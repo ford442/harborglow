@@ -19,12 +19,15 @@ Architecture decision: [`docs/adr/0001-webgpu-tsl-vs-glsl-first.md`](../adr/0001
 
 ### Context
 
-Pinned `three@^0.160.0` has no `three/webgpu` or `three/tsl` package exports; HarborGlow still imports `three/examples/jsm/renderers/webgpu/WebGPURenderer.js` and shims constructor types (`docs/RENDERER.md`). Capability diagnostics omit `computeShaders` and `float32Filterable` needed to gate FFT / compute work.
+The Phase A baseline now pins `three@0.183.1` and `@types/three@0.183.1`, with
+React 19 / R3F 9 ecosystem peers. HarborGlow imports the public
+`three/webgpu` and `three/tsl` entry points, and diagnostics expose
+`computeShaders`, `float32Filterable`, and a storage-texture compute probe.
 
 ### Scope
 
-1. Re-verify peer ranges for `@react-three/fiber`, `@react-three/drei`, `@react-three/rapier`, `@react-three/postprocessing` against a three release that exports `three/webgpu` + `three/tsl`.
-2. Bump `three` (+ align `@types/three` if still separate) in a dedicated PR; switch `createRenderer.ts` to `three/webgpu` and drop the JSM/constructor shim where types allow.
+1. Keep the exact r183 baseline aligned with the React 19 / R3F 9 peer graph; do not move to Three 0.185.x while `postprocessing@6.39.x` caps Three below 0.184.
+2. Keep `createRenderer.ts` on `three/webgpu` and the TSL material/compute code on `three/tsl`, without a JSM renderer or constructor shim.
 3. Extend `RendererCapabilities` / `readRendererCapabilities` with:
    - `computeShaders: boolean | null`
    - `float32Filterable: boolean | null`

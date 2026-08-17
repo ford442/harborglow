@@ -12,6 +12,7 @@ import { ferryLightShow } from './ferry'
 import { trawlerLightShow } from './trawler'
 import { horizonLightShow } from './horizon'
 import { fireboatLightShow } from './fireboat'
+import { icebreakerLightShow } from './icebreaker'
 
 export type { LightCue, LightCuePattern, LightPattern } from './types'
 
@@ -28,9 +29,10 @@ export const SHIP_BPM: Record<ShipType, number> = {
   trawler: 95,
   horizon: 100,
   fireboat: 152,
+  icebreaker: 108,
 }
 
-export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
+export const lightShowRegistry: Record<ShipType, LightCue[]> = {
   lng: lngLightShow,
   tanker: tankerLightShow,
   cruise: cruiseLightShow,
@@ -43,6 +45,7 @@ export const lightShowRegistry: Record<ShipType, LightCue[] | undefined> = {
   trawler: trawlerLightShow,
   horizon: horizonLightShow,
   fireboat: fireboatLightShow,
+  icebreaker: icebreakerLightShow,
 }
 
 export function getLightShow(shipType: ShipType): LightCue[] | undefined {
@@ -51,3 +54,4 @@ export function getLightShow(shipType: ShipType): LightCue[] | undefined {
 
 export { lngLightShow } from './lng'
 export { tankerLightShow } from './tanker'
+export { icebreakerLightShow } from './icebreaker'

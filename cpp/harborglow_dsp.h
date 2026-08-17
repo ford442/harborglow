@@ -114,6 +114,16 @@ extern "C" void dsp_additive_block(
  */
 extern "C" float dsp_audio_rms(const float* data, int count);
 
+/**
+ * Real-to-complex FFT of length N = 2^log2N (1 ≤ log2N ≤ 12).
+ *
+ * Writes a full Hermitian spectrum of N bins into out_real / out_imag
+ * (X[N-k] = conj(X[k])). Uses precomputed bit-reversal and twiddle tables
+ * and a packed N/2 complex transform internally.
+ */
+extern "C" void dsp_fft_r2c(
+    const float* input, float* out_real, float* out_imag, int log2N);
+
 // =============================================================================
 // STREAMING CONVOLUTION / PROCEDURAL ROOM IMPULSES
 // =============================================================================

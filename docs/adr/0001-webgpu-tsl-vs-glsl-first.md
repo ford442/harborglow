@@ -1,13 +1,15 @@
 # ADR 0001 — WebGPU TSL materials + FFT ocean (vs GLSL-first)
 
-- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165))
+- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165)); **runtime WebGL/R3F fallback deferred** by foundation [#194](https://github.com/ford442/harborglow/issues/194) (2026-08)
 - **Date:** 2026-08-03
 - **Deciders:** HarborGlow graphics / foundation track
 - **Related:** [`docs/RENDERER.md`](../RENDERER.md), [`docs/plans/feature-plan.md`](../plans/feature-plan.md), [`docs/ARCHIVE.md`](../ARCHIVE.md), [`docs/systems/SYSTEM_BOOTSTRAP.md`](../systems/SYSTEM_BOOTSTRAP.md), child-issue specs in [`docs/plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md`](../plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md)
 
 ## Context
 
-HarborGlow is already **WebGPU-primary with a toggleable WebGL2 fallback** (`src/rendering/`, unified context options + `configureRendererDefaults` via #143). Playwright visual regression pins `?renderer=webgl`. Living-harbor systems tick through the bootstrap registry (#160). Ocean rendering has a single live authority: `src/scenes/Water.tsx` (Gerstner + `WaveSystem` / WASM batch heights); parallel stacks including `FFTOcean.tsx` were archived (#162).
+HarborGlow is **WebGPU-required at boot** (`src/rendering/webgpuProbe.ts`). A failed adapter/device/canvas probe hard-fails with a blocking overlay; it does **not** construct `WebGLRenderer` or keep Three’s internal WebGL2 fallback as the scene renderer. Force-GL URL / Leva / localStorage switches are disabled this phase. Playwright harbor pixel baselines that pinned `?renderer=webgl` are deferred until a WebGL restore wave or a WebGPU CI runner.
+
+The dual-path **material** strategy below still stands for when WebGL/R3F returns: GLSL as a reference dialect, TSL on a real WebGPU device. Living-harbor systems tick through the bootstrap registry (#160). Ocean rendering has a single live authority: `src/scenes/Water.tsx` (Gerstner + `WaveSystem` / WASM batch heights).
 
 What remains aspirational from the feature plan and research synthesis:
 
@@ -16,7 +18,7 @@ What remains aspirational from the feature plan and research synthesis:
 | Materials | `lightShowNodes.ts` → `MeshStandardMaterial` / GLSL god-ray | TSL node materials on WebGPU |
 | Post | Vanilla JSM `EffectComposer` (GLSL only) | Dual-path; compute/TSL only behind capability gates |
 | Ocean | Gerstner JS/WASM via `Water.tsx` | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
-| three.js | `0.160.x`; WebGPU via `examples/jsm/.../WebGPURenderer.js` shim | Bump when R3F/drei peers allow; prefer `three/webgpu` + `three/tsl` exports |
+| three.js | Exact `0.183.1` with matching `@types/three`; WebGPU via `three/webgpu` and TSL via `three/tsl` | Keep the exact baseline until the postprocessing peer ceiling moves |
 | Caps probe | `maxTextureSize`, `maxAnisotropy`, `preserveDrawingBuffer`, `adapterInfo` | Also `computeShaders`, `float32Filterable` |
 
 Two competing strategies were on the table:
@@ -33,7 +35,7 @@ Neither matches the dual-renderer + CI reality of this repo.
 Concrete rules:
 
 1. **Stay Three.js-only by default.** Do not add `@babylonjs/core` (or another engine) unless a measured compute helper wins against the [vendor-3d bundle budget](#bundle-budget). Phase D evaluations must publish gzip delta before merge.
-2. **GLSL path is mandatory for anything in the shared scene graph.** Every new material / post pass that ships for gameplay must remain correct under `?renderer=webgl`. Playwright baselines must not regress when WebGPU gains features.
+2. **GLSL remains the deferred WebGL / CI reference dialect.** A live `?renderer=webgl` scene is **not** available this phase (#194). When WebGL/R3F restore lands, gameplay materials must remain correct on that path. Playwright harbor baselines are skipped until then.
 3. **TSL is the preferred WebGPU material dialect after Phase A** (three bump unlocking `three/tsl` / `three/webgpu`). Port light-rig, god-ray, and water shading with explicit fallbacks — not a silent NodeMaterial-only fork.
 4. **`Water.tsx` stays the sole ocean authority.** FFT is a *backend* behind quality tiers (Low = Gerstner JS/WASM; High = FFT texture displacement; Cinema = higher res ± tessellation if feasible), registered/updated via existing wave bootstrap (`waves` order 120), not a revived parallel `FFTOcean` scene. Archive sketch may be mined; the loser is deleted or stays archived.
 5. **Compute is opt-in behind capability probes**, never assumed. Extend `RendererCapabilities` with `computeShaders` and `float32Filterable` before any WGSL FFT / god-ray compute lands. CPU/WASM Gerstner remains the universal fallback.
@@ -42,9 +44,10 @@ Concrete rules:
 
 ### Chosen three.js target (Phase A)
 
-- **Minimum unlock:** a three release where package exports include `three/webgpu` and `three/tsl`, and current `@react-three/fiber` / `drei` / `rapier` / `postprocessing` peers allow the bump without forcing an R3F major unless that major is itself the unlock.
-- **Pinned today:** `three@^0.160.0` (installed `0.160.1`) with **no** `webgpu`/`tsl` export map entries — the JSM shim stays until the bump PR.
-- **Do not** drive-by bump three inside a materials or ocean PR; Phase A is its own child issue.
+- **Minimum unlock:** a three release where package exports include `three/webgpu` and `three/tsl`, and the graphics peer graph resolves without overrides.
+- **Pinned baseline:** exact `three@0.183.1` and exact `@types/three@0.183.1`, with React 19 / R3F 9 / Drei 10 / Rapier 2 coordinated in the same dependency baseline.
+- **Peer ceiling:** `postprocessing@6.39.x` currently requires `three <0.184.0`, so Three 0.185.x is deferred until that peer line moves or the post stack is intentionally replaced.
+- **Unlocked by Phase A:** public WebGPU/TSL entry points, typed `StorageTexture`, `computeAsync`, and capability probes for compute and float32 filtering. The WebGL2 path remains the CI reference.
 
 ## Consequences
 
@@ -58,7 +61,7 @@ Concrete rules:
 ### Negative / costs
 
 - Two material dialects to maintain for ported surfaces until a distant GLSL sunset (not planned in this epic).
-- three bump may force coordinated peer upgrades (R3F, drei, postprocessing) and a one-time EffectComposer revalidation.
+- the baseline requires coordinated React 19, R3F 9, Drei 10, Rapier 2, and postprocessing-wrapper upgrades plus a one-time EffectComposer revalidation.
 - FFT High/Cinema tiers add complexity (textures, optional workers/SAB) and must justify frame-time and bundle cost.
 
 ### Neutral
@@ -73,6 +76,11 @@ Concrete rules:
 | `vendor-3d` (three + R3F + drei + rapier + postprocessing) | **~1.1 MB** (measured ~1,096 kB, Apr 2026) | Hard review gate |
 | `vendor-audio` (tone) | ~70 kB gzip | Not in scope for graphics deps |
 | MainScene lazy | ~50 kB gzip | Materials/ocean code preferably here or smaller app chunks, not new top-level vendors |
+
+The first r183 baseline build measures `vendor-3d` at approximately 4,424 kB
+raw / 1,463 kB gzip (up from approximately 3,227 kB / 1,096 kB). This exceeds
+the historical soft ceiling and is an explicit follow-up optimization item;
+the increase is not being hidden by changing the budget.
 
 **Rules for implementation PRs:**
 

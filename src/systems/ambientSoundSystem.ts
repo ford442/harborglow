@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // AMBIENT SOUND SYSTEM - HarborGlow
 // Dynamic environmental audio that changes with time of day

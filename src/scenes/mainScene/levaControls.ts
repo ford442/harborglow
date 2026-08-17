@@ -15,6 +15,12 @@ import { dynamicEventSystem } from '../../systems/dynamicEventSystem'
 import { reputationSystem } from '../../systems/reputationSystem'
 import { harborEventSystem } from '../../systems/eventSystem/HarborEventSystem'
 import {
+    simScheduler,
+    serializeReplay,
+    parseReplay,
+} from '../../systems/sim'
+import { resetDeterministicSystems } from '../../systems/sim/headless'
+import {
     setCraneSoundVolume,
     setCraneSoundsEnabled,
     playContainerImpact,
@@ -63,6 +69,8 @@ export function triggerPeakSeason() {
     harborEventSystem.triggerPeakSeason()
 }
 
+let levaSimSeed = 1
+
 export function useLevaControls(config: LevaControlsConfig) {
     const {
         currentShip,
@@ -90,6 +98,65 @@ export function useLevaControls(config: LevaControlsConfig) {
     } = config
 
     useControls({
+        'Sim Seed': {
+            value: 1,
+            min: 1,
+            max: 1000000,
+            step: 1,
+            folder: 'Determinism',
+            onChange: (value: number) => {
+                levaSimSeed = value
+            },
+        },
+        'Reset To Seed': {
+            value: false,
+            folder: 'Determinism',
+            onChange: (armed: boolean) => {
+                if (!armed) return
+                simScheduler.reset(levaSimSeed)
+                resetDeterministicSystems()
+                simScheduler.record('sim.reset', { seed: levaSimSeed })
+            },
+        },
+        'Record Session': {
+            value: false,
+            folder: 'Determinism',
+            onChange: (recording: boolean) => {
+                if (recording) {
+                    simScheduler.startRecording()
+                    return
+                }
+                if (!simScheduler.isRecording) return
+                const file = simScheduler.stopRecording()
+                localStorage.setItem('harborglow.replay', serializeReplay(file))
+                console.log(`📼 Replay stored (${file.inputs.length} inputs, seed ${file.seed})`)
+            },
+        },
+        'Replay Stored Session': {
+            value: false,
+            folder: 'Determinism',
+            onChange: (armed: boolean) => {
+                if (!armed) return
+                const raw = localStorage.getItem('harborglow.replay')
+                if (!raw) {
+                    console.warn('📼 No stored replay')
+                    return
+                }
+                const file = parseReplay(raw)
+                simScheduler.loadReplay(file, (entry) => {
+                    if (entry.action === 'storm.start') {
+                        const duration = typeof entry.payload === 'number'
+                            ? entry.payload
+                            : (entry.payload as { duration?: number } | null)?.duration ?? 180
+                        stormSystem.start(duration)
+                    }
+                    if (entry.action === 'storm.stop') {
+                        stormSystem.stop()
+                    }
+                })
+                resetDeterministicSystems()
+            },
+        },
         'Current Ship': {
             value: currentShip?.type || 'cruise',
             options: ['cruise', 'container', 'tanker'],
@@ -518,8 +585,10 @@ export function useLevaControls(config: LevaControlsConfig) {
                 useGameStore.getState().setStormActive(value)
                 if (value) {
                     stormSystem.start(180)
+                    simScheduler.record('storm.start', { duration: 180 })
                 } else {
                     stormSystem.stop()
+                    simScheduler.record('storm.stop', null)
                 }
             }
         },
