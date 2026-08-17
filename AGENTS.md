@@ -477,7 +477,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | Job | Command | What it catches |
 |------|---------|-----------------|
 | `gate-lockfile` | `npm ci` + `npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three`/`postprocessing` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
-| `gate-wasm` | `npm run check:wasm` | Drift between committed `public/cpp/*.wasm` and source |
+| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
 | `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |

@@ -7,13 +7,13 @@ this again.
 
 ## 1. `npm ci` from a clean state — FAILED before this PR
 
-```
+```bash
 rm -rf node_modules && npm ci
 ```
 
 exited **1** with `EUSAGE`:
 
-```
+```text
 npm error `npm ci` can only install packages when your package.json and
 package-lock.json or npm-shrinkwrap.json are in sync. Please update your
 lock file with `npm install` before continuing.
@@ -58,7 +58,7 @@ lockfile-hygiene one.
 `npm ls three postprocessing @react-three/fiber @react-three/drei
 @react-three/rapier` (clean install, this PR's lockfile):
 
-```
+```text
 +-- @react-three/drei@10.7.8        (peer three >=0.159)          → three@0.183.1 deduped
 +-- @react-three/fiber@9.7.0        (peer three >=0.156)          → three@0.183.1 deduped
 +-- @react-three/postprocessing@3.0.5
