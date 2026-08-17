@@ -52,9 +52,36 @@ jobs:
               - 'vite.config.ts'
               - '.github/workflows/ci.yml'
 
+  gate-lockfile:
+    # Fails fast (~1 min) and with one clear signal when package-lock.json is
+    # stale or a dependency's peer range no longer admits our pinned `three`.
+    # Without this, a lockfile break makes every gate below fail identically
+    # at "Install dependencies" after its own multi-minute timeout — which is
+    # how a broken lockfile went unnoticed on main for weeks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (fails on lockfile drift or peer ERESOLVE)
+        run: npm ci
+
+      - name: Verify three/postprocessing peer graph
+        run: npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier
+
   gate-wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -91,6 +118,7 @@ jobs:
   gate-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -115,6 +143,7 @@ jobs:
   gate-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -136,6 +165,7 @@ jobs:
   gate-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -157,6 +187,7 @@ jobs:
   gate-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -178,6 +209,7 @@ jobs:
   gate-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -203,6 +235,7 @@ jobs:
   gate-size:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: gate-lockfile
     permissions:
       contents: read
     steps:
@@ -229,6 +262,7 @@ jobs:
     permissions:
       contents: read
     needs:
+      - gate-lockfile
       - gate-wasm
       - gate-typecheck
       - gate-lint
@@ -240,6 +274,7 @@ jobs:
     steps:
       - name: Require all merge gates
         env:
+          GATE_LOCKFILE: ${{ needs.gate-lockfile.result }}
           GATE_WASM: ${{ needs.gate-wasm.result }}
           GATE_TYPECHECK: ${{ needs.gate-typecheck.result }}
           GATE_LINT: ${{ needs.gate-lint.result }}
@@ -249,7 +284,7 @@ jobs:
           GATE_SIZE: ${{ needs.gate-size.result }}
         run: |
           failed=0
-          for label in GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD GATE_SIZE; do
+          for label in GATE_LOCKFILE GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD GATE_SIZE; do
             result="${!label}"
             echo "$label: $result"
             if [ "$result" != "success" ]; then
@@ -265,7 +300,7 @@ jobs:
   e2e-visual:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [changes]
+    needs: [changes, gate-lockfile]
     if: github.event_name == 'push' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.audio == 'true'
     permissions:
       contents: read
