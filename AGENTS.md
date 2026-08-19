@@ -472,22 +472,28 @@ been removed.
 
 ### CI merge gates
 
-Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml`. Each gate reports independently so a red unit-test job does not skip dev-transform smoke or the production build. Job `gate-summary` aggregates all gate results and is the single required status check for PR merges.
+Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml`. Each gate reports independently so a red unit-test job does not skip dev-transform smoke or the production build. Job `merge-gate` aggregates all gate results and is the single required status check for PR merges.
 
 | Job | Command | What it catches |
 |------|---------|-----------------|
-| `gate-wasm` | `npm run check:wasm` | Drift between committed `public/cpp/*.wasm` and source |
+| `gate-lockfile` | `npm ci` + `npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three`/`postprocessing` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
+| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
 | `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
-| `gate-summary` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
+| `gate-size` | `npm run typecheck && vite build && npm run check:bundle` | Bundle size budget regressions |
+| `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
 | `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
 
-Run locally before pushing:
+Run locally before pushing — **from a clean install**, since an existing `node_modules` can mask a
+`package-lock.json` that no longer matches `package.json` (`npm install` silently repairs and
+re-hoists a stale lock without you noticing; only `npm ci` against the committed lock proves it's
+reproducible):
 
 ```bash
+rm -rf node_modules && npm ci && npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier
 npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build
 ```
 
