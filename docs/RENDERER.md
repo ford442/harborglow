@@ -83,6 +83,19 @@ Every live renderer still goes through `configureRendererDefaults` (`src/renderi
 | `shadowMap.enabled` / `.type` | quality-preset driven |
 | `setClearColor` | `0x0a0f14` |
 
+### WebGPU Options Matrix (r183 asked-vs-honoured)
+Three's `WebGPURenderer` does not currently support or exposes a different API for some WebGL context options:
+
+| Option | Status |
+|--------|--------|
+| `device` | Honoured (passed from probe) |
+| `canvas` | Honoured |
+| `antialias` | Honoured |
+| `preserveDrawingBuffer` | Ignored (use manual readback or Playwright screenshot) |
+| `logarithmicDepthBuffer` | Ignored |
+| `stencil` | Ignored |
+| `premultipliedAlpha` | Ignored |
+
 `depth: true` (god-rays / DOF / SSAO). `logarithmicDepthBuffer: false`.
 
 ### Screenshot mode (`preserveDrawingBuffer`)

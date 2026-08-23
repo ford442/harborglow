@@ -23,11 +23,9 @@ export interface RendererContextOptions {
   premultipliedAlpha: boolean;
   /** Required for reliable canvas.toDataURL() screenshots (Playwright / agents). */
   preserveDrawingBuffer: boolean;
-  powerPreference: WebGLPowerPreference;
   stencil: boolean;
   depth: boolean;
   logarithmicDepthBuffer: boolean;
-  failIfMajorPerformanceCaveat: boolean;
 }
 
 /** GPU limits / adapter info read back after the renderer is live. */

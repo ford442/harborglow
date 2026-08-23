@@ -135,8 +135,19 @@ export default function GameShell({
         setPhysicsDebug((prev) => !prev)
       }
     }
+    const handleGpuFatal = (e: Event) => {
+      const customEvent = e as CustomEvent<string>
+      setFactoryFailed(true)
+      // Attempt to refresh the probe state from window if possible
+      const latest = getWebgpuProbe()
+      if (latest) setProbe(toWebgpuProbePublic(latest))
+    }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('gpu-fatal', handleGpuFatal)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('gpu-fatal', handleGpuFatal)
+    }
   }, [])
 
   if (!probeOk || factoryFailed) {

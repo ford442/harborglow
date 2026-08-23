@@ -10,11 +10,9 @@ export interface GameRendererOptions extends RendererDefaultsOptions {
   premultipliedAlpha?: boolean;
   /** Keep the drawing buffer readable after present — required for canvas screenshots. */
   preserveDrawingBuffer?: boolean;
-  powerPreference?: WebGLPowerPreference;
   stencil?: boolean;
   depth?: boolean;
   logarithmicDepthBuffer?: boolean;
-  failIfMajorPerformanceCaveat?: boolean;
 }
 
 /** Context defaults. See the option matrix in `docs/RENDERER.md` for per-backend support. */
@@ -23,13 +21,11 @@ export const DEFAULT_CONTEXT_OPTIONS: RendererContextOptions = {
   alpha: false,
   premultipliedAlpha: true,
   preserveDrawingBuffer: false,
-  powerPreference: 'high-performance',
   stencil: false,
   // Depth must stay on: god-rays / DOF / SSAO sample the depth buffer.
   depth: true,
   // Log depth breaks depth-texture reads in the post stack; keep it off unless z-fighting demands it.
   logarithmicDepthBuffer: false,
-  failIfMajorPerformanceCaveat: false,
 };
 
 /** Merges caller options over the defaults into a fully-resolved, inspectable set. */
@@ -40,13 +36,10 @@ export function resolveContextOptions(options: Partial<GameRendererOptions>): Re
     premultipliedAlpha: options.premultipliedAlpha ?? DEFAULT_CONTEXT_OPTIONS.premultipliedAlpha,
     preserveDrawingBuffer:
       options.preserveDrawingBuffer ?? DEFAULT_CONTEXT_OPTIONS.preserveDrawingBuffer,
-    powerPreference: options.powerPreference ?? DEFAULT_CONTEXT_OPTIONS.powerPreference,
     stencil: options.stencil ?? DEFAULT_CONTEXT_OPTIONS.stencil,
     depth: options.depth ?? DEFAULT_CONTEXT_OPTIONS.depth,
     logarithmicDepthBuffer:
       options.logarithmicDepthBuffer ?? DEFAULT_CONTEXT_OPTIONS.logarithmicDepthBuffer,
-    failIfMajorPerformanceCaveat:
-      options.failIfMajorPerformanceCaveat ?? DEFAULT_CONTEXT_OPTIONS.failIfMajorPerformanceCaveat,
   };
 }
 
@@ -77,6 +70,9 @@ export async function createGameRenderer(
   };
 
   const probe = getWebgpuProbe();
+  if (probe && probe.ready) {
+    await probe.ready;
+  }
   if (!probe || !probe.ok || !probe.device) {
     throw new WebgpuRequiredError(probe?.reason ?? 'no-gpu');
   }
@@ -85,8 +81,6 @@ export async function createGameRenderer(
   const renderer = new WebGPURenderer({
     canvas,
     antialias: ctx.antialias,
-    powerPreference:
-      ctx.powerPreference === 'default' ? undefined : ctx.powerPreference,
     alpha: ctx.alpha,
     depth: ctx.depth,
     stencil: ctx.stencil,
@@ -110,4 +104,44 @@ export async function createGameRenderer(
 
   configureRendererDefaults(renderer, defaults);
   return renderer;
+}
+
+export async function readScreenshotPixelsAsync(
+  renderer: FiberRenderer,
+  width: number,
+  height: number
+): Promise<Uint8Array | null> {
+  const anyRenderer = renderer as any;
+  const ctx = anyRenderer.backend?.getContext?.() || anyRenderer.getContext?.();
+  const device = anyRenderer.backend?.device;
+
+  if (!ctx || !device || typeof ctx.getCurrentTexture !== 'function') return null;
+
+  const texture = ctx.getCurrentTexture();
+  if (!texture) return null;
+
+  const bytesPerPixel = 4;
+  const bytesPerRow = Math.ceil((width * bytesPerPixel) / 256) * 256;
+  const bufferSize = bytesPerRow * height;
+
+  const buffer = device.createBuffer({
+    size: bufferSize,
+    usage: 1 /* MAP_READ */ | 8 /* COPY_DST */
+  });
+
+  const encoder = device.createCommandEncoder();
+  encoder.copyTextureToBuffer(
+    { texture },
+    { buffer, bytesPerRow },
+    { width, height, depthOrArrayLayers: 1 }
+  );
+  device.queue.submit([encoder.finish()]);
+
+  await buffer.mapAsync(1 /* READ */);
+  const data = new Uint8Array(buffer.getMappedRange());
+  const result = new Uint8Array(data);
+  buffer.unmap();
+  buffer.destroy();
+  
+  return result;
 }

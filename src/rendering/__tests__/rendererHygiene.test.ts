@@ -47,13 +47,11 @@ describe('resolveContextOptions', () => {
       antialias: false,
       alpha: true,
       preserveDrawingBuffer: true,
-      powerPreference: 'low-power',
       stencil: true,
     });
     expect(opts.antialias).toBe(false);
     expect(opts.alpha).toBe(true);
     expect(opts.preserveDrawingBuffer).toBe(true);
-    expect(opts.powerPreference).toBe('low-power');
     expect(opts.stencil).toBe(true);
     // Untouched keys still fall back to defaults.
     expect(opts.depth).toBe(DEFAULT_CONTEXT_OPTIONS.depth);

@@ -32,10 +32,31 @@ export interface WebgpuProbePublic {
   compute: WebgpuProbeCompute
   reason: string | null
   ignoredForceGl: boolean
+  grantedFeatures?: string[]
+  grantedLimits?: Record<string, number>
+  requestedFeatures?: string[]
+  requestedLimits?: Record<string, number>
+  ready?: Promise<void>
 }
 
 export interface WebgpuProbeOutcome extends WebgpuProbePublic {
   device: GpuDeviceLike | null
+}
+
+export const OPTIONAL_FEATURES = [
+  'float32-filterable',
+  'timestamp-query',
+  'rg11b10ufloat-renderable',
+  'texture-compression-bc',
+  'texture-compression-etc2',
+  'texture-compression-astc',
+] as const
+
+export const TARGET_LIMITS: Record<string, number> = {
+  maxTextureDimension2D: 8192,
+  maxBufferSize: 256 * 1024 * 1024,
+  maxStorageBufferBindingSize: 128 * 1024 * 1024,
+  maxComputeWorkgroupSizeX: 256,
 }
 
 export class WebgpuRequiredError extends Error {
@@ -72,6 +93,7 @@ type ProbeCanvas = {
 type ProbeAdapter = {
   info?: WebgpuProbeAdapterInfo | null
   limits?: Record<string, number>
+  features?: { has: (feature: string) => boolean; forEach?: (cb: (f: string) => void) => void }
   requestDevice: (desc?: unknown) => Promise<GpuDeviceLike>
   requestAdapterInfo?: () => Promise<WebgpuProbeAdapterInfo>
 }
@@ -96,6 +118,11 @@ export function toWebgpuProbePublic(outcome: WebgpuProbeOutcome): WebgpuProbePub
     compute: outcome.compute,
     reason: outcome.reason,
     ignoredForceGl: outcome.ignoredForceGl,
+    grantedFeatures: outcome.grantedFeatures,
+    grantedLimits: outcome.grantedLimits,
+    requestedFeatures: outcome.requestedFeatures,
+    requestedLimits: outcome.requestedLimits,
+    ready: outcome.ready,
   }
 }
 
@@ -306,16 +333,58 @@ export async function runWebgpuBootProbe(
   const adapterInfo = await readAdapterInfo(adapter)
 
   let device: GpuDeviceLike
+  const requiredLimits: Record<string, number> = {}
+  if (adapter.limits) {
+    for (const [k, wanted] of Object.entries(TARGET_LIMITS)) {
+      const have = adapter.limits[k]
+      if (have == null) continue
+      requiredLimits[k] = k.startsWith('min') ? Math.max(wanted, have) : Math.min(wanted, have)
+    }
+  }
+
+  const requestedFeatures = OPTIONAL_FEATURES.filter(f => adapter?.features?.has(f))
+
   try {
-    device = await adapter.requestDevice()
+    device = await adapter.requestDevice({
+      label: 'harborglow-gpu',
+      requiredFeatures: requestedFeatures,
+      requiredLimits,
+    })
   } catch {
-    return fail({
-      reason: 'requestDevice-rejected',
-      browser,
-      ignoredForceGl,
-      adapterInfo,
+    try {
+      device = await adapter.requestDevice({})
+    } catch {
+      return fail({
+        reason: 'requestDevice-rejected',
+        browser,
+        ignoredForceGl,
+        adapterInfo,
+      })
+    }
+  }
+
+  if (device && (device as any).lost) {
+    (device as any).lost.then((info: any) => {
+      if (info.reason === 'destroyed') return
+      if (typeof window !== 'undefined' && (window as any).webgpuProbe) {
+        (window as any).webgpuProbe.reason = 'device-lost'
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gpu-fatal', { detail: info?.message || 'Device lost' }))
+      }
     })
   }
+
+  const grantedFeatures: string[] = []
+  if ((device as any).features?.forEach) {
+    (device as any).features.forEach((f: string) => grantedFeatures.push(f))
+  } else if ((device as any).features?.has) {
+    // Fallback if no forEach, we can't easily iterate Set-like if not array, but we can check optional ones
+    OPTIONAL_FEATURES.forEach(f => {
+      if ((device as any).features.has(f)) grantedFeatures.push(f)
+    })
+  }
+  const grantedLimits = { ...((device as any).limits || adapter.limits || {}) }
 
   const limits = pickLimits(
     (device as GpuDeviceLike & { limits?: Record<string, number> }).limits ?? adapter.limits,
@@ -366,5 +435,10 @@ export async function runWebgpuBootProbe(
     reason: null,
     ignoredForceGl,
     device,
+    grantedFeatures,
+    grantedLimits,
+    requestedFeatures,
+    requestedLimits: requiredLimits,
+    ready: Promise.resolve(),
   })
 }
