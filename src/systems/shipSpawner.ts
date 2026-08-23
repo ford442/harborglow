@@ -92,6 +92,7 @@ export class ShipSpawner {
         roro: 0,
         research: 0,
         droneship: 0,
+        icebreaker: 0,
         ferry: 0,
         trawler: 0,
         horizon: 0,
@@ -160,7 +161,8 @@ export class ShipSpawner {
             ferry: 11,      // Island ferry ~55m
             trawler: 8,     // Fishing trawler ~40m
             horizon: 14,     // Deep-ocean research vessel ~70m
-            fireboat: 7      // Harbor fireboat ~35m
+            fireboat: 7,     // Harbor fireboat ~35m
+            icebreaker: 30   // Nuclear icebreaker ~150m
         }
         return lengths[type]
     }
@@ -211,9 +213,10 @@ export class ShipSpawner {
             ferry: FERRY_NAMES,
             trawler: TRAWLER_NAMES,
             horizon: HORIZON_NAMES,
-            fireboat: FIREBOAT_NAMES
+            fireboat: FIREBOAT_NAMES,
+            icebreaker: ['Yamal', 'Arktika', 'Sibir', 'Ural', 'Vaygach']
         }
-        
+
         const typeNames = names[type]
         const index = this.nameCounters[type] % typeNames.length
         const baseName = typeNames[index]
@@ -224,7 +227,7 @@ export class ShipSpawner {
     }
 
     static resetCounters() {
-        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0 }
+        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, icebreaker: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0 }
     }
 
     static getShipTypeInfo(type: ShipType) {
@@ -241,7 +244,8 @@ export class ShipSpawner {
             ferry: { name: 'Harbour Light', genre: 'Reggae / Calypso Fusion', bpm: 115, description: 'Island Hopper ferry with passenger and car decks' },
             trawler: { name: 'Saltwater', genre: 'Sea Shanty / Folk', bpm: 95, description: 'North Star fishing trawler with net gantry and fish hold' },
             horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' },
-            fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' }
+            fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' },
+            icebreaker: { name: 'Polar Aurora', genre: 'Arctic Ambient / Cinematic', bpm: 108, description: 'Rosatomflot nuclear icebreaker (Yamal-class) with escort and ice-channel light rig' }
         }
         return { ...info[type], modelName: blueprint?.name || type }
     }
