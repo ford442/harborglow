@@ -75,8 +75,20 @@ export default defineConfig(({ mode }) => ({
                     ) {
                         return 'vendor-react'
                     }
-                    // Split vendor-3d along runtime seams. three/fiber/drei BEFORE rapier so
-                    // physics WASM does not absorb the entire Three.js stack.
+                    // Split vendor-3d along runtime seams. WebGPU/TSL BEFORE the generic
+                    // three/ catch-all, or the catch-all absorbs three/webgpu + three/tsl
+                    // (both resolve under node_modules/three/) before this seam ever runs.
+                    // three/fiber/drei BEFORE rapier so physics WASM does not absorb the
+                    // entire Three.js stack.
+                    if (
+                        id.includes('three.webgpu') ||
+                        id.includes('Three.WebGPU') ||
+                        id.includes('three.tsl') ||
+                        id.includes('Three.TSL') ||
+                        id.includes('node_modules/three/src/nodes/')
+                    ) {
+                        return 'vendor-3d-webgpu'
+                    }
                     if (
                         id.includes('node_modules/three/') ||
                         id.includes('node_modules/@react-three/fiber') ||
@@ -89,15 +101,6 @@ export default defineConfig(({ mode }) => ({
                         id.includes('examples/jsm/postprocessing/')
                     ) {
                         return 'vendor-3d-post'
-                    }
-                    if (
-                        id.includes('three.webgpu') ||
-                        id.includes('Three.WebGPU') ||
-                        id.includes('three.tsl') ||
-                        id.includes('Three.TSL') ||
-                        id.includes('node_modules/three/src/nodes/')
-                    ) {
-                        return 'vendor-3d-webgpu'
                     }
                     if (
                         id.includes('node_modules/@react-three/rapier') ||

@@ -26,7 +26,7 @@ import {
   AttachmentState,
 } from '../systems/attachmentSystem'
 import { waveSystem } from '../systems/WaveSystem'
-import { stormSystem } from '../systems/StormSystem'
+import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
 import {
   towLineState,
   towLineCableConfig,
@@ -227,7 +227,7 @@ export default function ShipComponent({ ship }: ShipProps) {
 
             // --- Wind push ---
             const windForce = stormSystem.getWindForce()
-            if (windForce.lengthSq() > 0) {
+            if (windVectorLengthSq(windForce) > 0) {
                 rb.applyImpulse({ x: windForce.x * delta, y: 0, z: windForce.z * delta }, true)
             }
 
@@ -384,7 +384,8 @@ export default function ShipComponent({ ship }: ShipProps) {
             ferry: 0.07,
             trawler: 0.09,
             horizon: 0.06,
-            fireboat: 0.08
+            fireboat: 0.08,
+            icebreaker: 0.03  // Heavy nuclear hull is more stable
         }
         const bobOffset = bobOffsets[ship.type]
         const sineBob = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset

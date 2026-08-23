@@ -77,6 +77,11 @@ const FIREBOAT_NAMES = [
     'Fire Watch', 'Spray Force', 'Emergency One', 'Port Defender'
 ]
 
+const ICEBREAKER_NAMES = [
+    'Yamal', 'Arktika', 'Sibir', '50 Let Pobedy', 'Taymyr',
+    'Vaygach', 'Ural', 'Polar Vanguard', 'Northern Star', 'Rosatomflot Pride'
+]
+
 export interface SpawnShipOptions {
     position?: [number, number, number]
     name?: string
@@ -95,7 +100,8 @@ export class ShipSpawner {
         ferry: 0,
         trawler: 0,
         horizon: 0,
-        fireboat: 0
+        fireboat: 0,
+        icebreaker: 0
     }
 
     static spawnShip(type: ShipType, options?: SpawnShipOptions): Ship {
@@ -160,7 +166,8 @@ export class ShipSpawner {
             ferry: 11,      // Island ferry ~55m
             trawler: 8,     // Fishing trawler ~40m
             horizon: 14,     // Deep-ocean research vessel ~70m
-            fireboat: 7      // Harbor fireboat ~35m
+            fireboat: 7,     // Harbor fireboat ~35m
+            icebreaker: 15   // Nuclear icebreaker ~150m
         }
         return lengths[type]
     }
@@ -211,7 +218,8 @@ export class ShipSpawner {
             ferry: FERRY_NAMES,
             trawler: TRAWLER_NAMES,
             horizon: HORIZON_NAMES,
-            fireboat: FIREBOAT_NAMES
+            fireboat: FIREBOAT_NAMES,
+            icebreaker: ICEBREAKER_NAMES
         }
         
         const typeNames = names[type]
@@ -224,7 +232,7 @@ export class ShipSpawner {
     }
 
     static resetCounters() {
-        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0 }
+        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0, icebreaker: 0 }
     }
 
     static getShipTypeInfo(type: ShipType) {
@@ -241,7 +249,8 @@ export class ShipSpawner {
             ferry: { name: 'Harbour Light', genre: 'Reggae / Calypso Fusion', bpm: 115, description: 'Island Hopper ferry with passenger and car decks' },
             trawler: { name: 'Saltwater', genre: 'Sea Shanty / Folk', bpm: 95, description: 'North Star fishing trawler with net gantry and fish hold' },
             horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' },
-            fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' }
+            fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' },
+            icebreaker: { name: 'Polar Steel', genre: 'Industrial Arctic / Polar Convoy', bpm: 108, description: 'Nuclear icebreaker with escort vessel, spoon bow, and towing notch' }
         }
         return { ...info[type], modelName: blueprint?.name || type }
     }

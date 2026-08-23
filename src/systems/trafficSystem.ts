@@ -8,6 +8,7 @@ import { timeSystem, DayPhase } from './timeSystem'
 import { weatherSystem } from './weatherSystem'
 import { harborEventSystem } from './eventSystem'
 import { musicSystem } from './musicSystem'
+import { simRandom, simNowMs } from './sim/SimContext'
 
 // =============================================================================
 // TYPES & CONFIG
@@ -120,13 +121,14 @@ function generateShipName(type: ShipType): string {
         ferry: ['Island', 'Harbour', 'Bay', 'Channel', 'Coastal'],
         trawler: ['North', 'Silver', 'Iron', 'Cold', 'Deep'],
         horizon: ['Horizon', 'Abyss', 'Deep', 'Ocean', 'Trench'],
-        fireboat: ['Rescue', 'Guardian', 'Shield', 'Alert', 'Spray']
+        fireboat: ['Rescue', 'Guardian', 'Shield', 'Alert', 'Spray'],
+        icebreaker: ['Polar', 'Arktika', 'Rosatomflot', 'Nuclear', 'Yamal']
     }
     const suffixes = ['Star', 'Queen', 'Leader', 'Express', 'Glory', 'Venture', 'Pioneer']
-    
-    const prefix = prefixes[type][Math.floor(Math.random() * prefixes[type].length)]
-    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)]
-    const number = Math.floor(Math.random() * 900) + 100
+
+    const prefix = prefixes[type][Math.floor(simRandom() * prefixes[type].length)]
+    const suffix = suffixes[Math.floor(simRandom() * suffixes.length)]
+    const number = Math.floor(simRandom() * 900) + 100
     
     return type === 'container' || type === 'tanker' 
         ? `${prefix} ${suffix} ${number}`
@@ -146,14 +148,15 @@ function generateOriginDestination(type: ShipType): { origin: string; destinatio
         ferry: ['Victoria', 'Vancouver Island', 'Nanaimo', 'Horseshoe Bay', 'Swartz Bay'],
         trawler: ['Juneau', 'Kodiak', 'Dutch Harbor', 'Sitka', 'Ketchikan'],
         horizon: ['Woods Hole', 'Scripps', 'Monterey Bay', 'Hawaii', 'South Pacific'],
-        fireboat: ['Harbor Station', 'Fire Dock', 'Emergency Pier', 'Rescue Berth', 'Port Authority']
+        fireboat: ['Harbor Station', 'Fire Dock', 'Emergency Pier', 'Rescue Berth', 'Port Authority'],
+        icebreaker: ['Murmansk', 'Sabetta', 'Dudinka', 'North Pole', 'Northern Sea Route']
     }
-    
+
     const possiblePorts = ports[type]
-    const origin = possiblePorts[Math.floor(Math.random() * possiblePorts.length)]
-    let destination = possiblePorts[Math.floor(Math.random() * possiblePorts.length)]
+    const origin = possiblePorts[Math.floor(simRandom() * possiblePorts.length)]
+    let destination = possiblePorts[Math.floor(simRandom() * possiblePorts.length)]
     while (destination === origin) {
-        destination = possiblePorts[Math.floor(Math.random() * possiblePorts.length)]
+        destination = possiblePorts[Math.floor(simRandom() * possiblePorts.length)]
     }
     
     return { origin, destination }
@@ -172,10 +175,11 @@ function generateCargoType(type: ShipType): string {
         ferry: ['Passengers', 'Vehicles', 'Day Tourists'],
         trawler: ['Salmon', 'Halibut', 'Crab', 'Pollock'],
         horizon: ['Scientific Equipment', 'Research Team', 'Core Samples', 'ROV Systems'],
-        fireboat: ['Emergency Crew', 'Fire Suppression Gear', 'Rescue Equipment', 'Foam Supply']
+        fireboat: ['Emergency Crew', 'Fire Suppression Gear', 'Rescue Equipment', 'Foam Supply'],
+        icebreaker: ['Escort Convoy', 'Fuel Supplies', 'Arctic Cargo', 'Polar Research Team']
     }
     const options = cargos[type]
-    return options[Math.floor(Math.random() * options.length)]
+    return options[Math.floor(simRandom() * options.length)]
 }
 
 // =============================================================================
@@ -218,14 +222,36 @@ class TrafficSystem {
         this.queue.completed = []
         this.queue.missed = []
     }
-    
+
+    reset() {
+        this.queue = {
+            ships: [],
+            docked: null,
+            approaching: [],
+            queued: [],
+            completed: [],
+            missed: []
+        }
+        this.schedule = {
+            day: 1,
+            expectedArrivals: 6,
+            peakHours: [8, 9, 10, 17, 18, 19],
+            currentUtilization: 0
+        }
+        this.lastUpdate = 0
+        this.timePressureActive = false
+        this.densityMultiplier = 1.0
+        this.timePressureMultiplier = 1.0
+        this.simulationEvent = null
+    }
+
     private generateDaySchedule() {
         const gameHour = timeSystem.getState().hour
         const isPeakHour = this.schedule.peakHours.includes(Math.floor(gameHour))
         const weather = weatherSystem.getCurrentWeather()
         
         // Base arrivals
-        let baseArrivals = 4 + Math.floor(Math.random() * 4) // 4-8 ships per day
+        let baseArrivals = 4 + Math.floor(simRandom() * 4) // 4-8 ships per day
         
         // Adjust for peak hours
         if (isPeakHour) baseArrivals *= TRAFFIC_CONFIG.rushHourMultiplier
@@ -247,7 +273,7 @@ class TrafficSystem {
         // Pre-generate some ships for the queue
         const initialShips = Math.min(3, this.schedule.expectedArrivals)
         for (let i = 0; i < initialShips; i++) {
-            this.scheduleShipArrival(i * 30 + Math.random() * 20) // Stagger arrivals
+            this.scheduleShipArrival(i * 30 + simRandom() * 20) // Stagger arrivals
         }
     }
     
@@ -262,13 +288,13 @@ class TrafficSystem {
         // Determine ship type based on time preference
         const currentPhase = gameState.currentPhase
         const preferredTypes = SCHEDULE_PREFERENCES[currentPhase]
-        const shipType = preferredTypes[Math.floor(Math.random() * preferredTypes.length)]
+        const shipType = preferredTypes[Math.floor(simRandom() * preferredTypes.length)]
         
         // Determine priority
         let priority: ShipPriority = 'normal'
-        if (Math.random() < 0.05) priority = 'emergency'
-        else if (Math.random() < 0.15) priority = 'vip'
-        else if (Math.random() < 0.25) priority = 'priority'
+        if (simRandom() < 0.05) priority = 'emergency'
+        else if (simRandom() < 0.15) priority = 'vip'
+        else if (simRandom() < 0.25) priority = 'priority'
         
         // Calculate turnaround
         let turnaround = TRAFFIC_CONFIG.turnaroundTimes[shipType]
@@ -279,11 +305,11 @@ class TrafficSystem {
         const { origin, destination } = generateOriginDestination(shipType)
         
         const trafficShip: TrafficShip = {
-            id: `ship_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `ship_${simNowMs()}_${simRandom().toString(36).substr(2, 9)}`,
             type: shipType,
             modelName: shipType,
             position: [500, 0, 0], // Start in distance
-            length: 200 + Math.random() * 100,
+            length: 200 + simRandom() * 100,
             attachmentPoints: [], // Will be populated when spawning
             name: generateShipName(shipType),
             priority,
@@ -293,7 +319,7 @@ class TrafficSystem {
             departureDeadline: arrivalTime + turnaround,
             turnaroundMinutes: turnaround,
             timeRemaining: turnaround,
-            upgradesRequired: 6 + Math.floor(Math.random() * 4),
+            upgradesRequired: 6 + Math.floor(simRandom() * 4),
             upgradesCompleted: 0,
             reputationValue: this.calculateReputationValue(shipType, priority),
             origin,
@@ -311,7 +337,8 @@ class TrafficSystem {
         const baseValue: Record<ShipType, number> = {
             cruise: 15, container: 10, tanker: 12, bulk: 8,
             lng: 14, roro: 8, research: 20, droneship: 25,
-            ferry: 8, trawler: 6, horizon: 18, fireboat: 22
+            ferry: 8, trawler: 6, horizon: 18, fireboat: 22,
+            icebreaker: 30
         }
         const priorityMult: Record<ShipPriority, number> = {
             normal: 1, priority: 1.5, vip: 2, emergency: 3
@@ -346,8 +373,8 @@ class TrafficSystem {
         })
         
         // Check for new ship generation
-        if (this.queue.ships.length < this.schedule.expectedArrivals && Math.random() < 0.01) {
-            this.scheduleShipArrival(60 + Math.random() * 60)
+        if (this.queue.ships.length < this.schedule.expectedArrivals && simRandom() < 0.01) {
+            this.scheduleShipArrival(60 + simRandom() * 60)
         }
         
         // Update music based on time pressure
