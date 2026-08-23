@@ -208,6 +208,13 @@ export function getAudioAnalysisData(): AudioAnalysisData {
   return globalAudioData
 }
 
+// React-friendly accessor. Returns the shared, per-frame-mutated globalAudioData
+// object — capture once at render and read its fields inside useFrame (the object
+// reference is stable, so this is safe to destructure at component-body level).
+export function useAudioVisualSync(): { audioData: AudioAnalysisData } {
+  return { audioData: globalAudioData }
+}
+
 // =============================================================================
 // CORE AUDIO VISUAL SYNC SYSTEM
 // =============================================================================

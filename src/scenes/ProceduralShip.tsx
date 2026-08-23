@@ -199,13 +199,11 @@ const CruiseLinerDetails = ({ shipLength, shipWidth }: { shipLength: number; shi
           <bufferGeometry>
             <bufferAttribute
               attach="attributes-position"
-              count={30}
-              array={new Float32Array(Array.from({ length: 90 }, (_, i) => {
+              args={[new Float32Array(Array.from({ length: 90 }, (_, i) => {
                 if (i % 3 === 0) return (Math.random() - 0.5) * 2;
                 if (i % 3 === 1) return Math.random() * 7;
                 return (Math.random() - 0.5) * 2;
-              }))}
-              itemSize={3}
+              })), 3]}
             />
           </bufferGeometry>
           <pointsMaterial size={0.8} color='#666666' transparent opacity={0.4} />
