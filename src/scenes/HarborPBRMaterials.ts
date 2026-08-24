@@ -1,13 +1,12 @@
 // =============================================================================
-// HARBOR PBR MATERIALS — HarborGlow
-// Procedural weathered wood / steel / rubber for static harbor geometry.
-// Patches MeshStandardMaterial via onBeforeCompile (WebGL + WebGL2 fallback).
-// Base roughness/color also driven from store each frame for WebGPU parity.
+// HARBOR PBR MATERIALS — TSL MeshStandardNodeMaterial (wetness / rust / wood)
+// GLSL onBeforeCompile path retired; HARBOR_NOISE_GLSL is reference only.
 // =============================================================================
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import type { WebGLProgramParametersWithUniforms } from 'three/src/renderers/webgl/WebGLPrograms.js'
+import { MeshStandardNodeMaterial } from 'three/webgpu'
+import { abs, atan, clamp, float, fract, mix, positionWorld, sin, smoothstep, step, uniform, vec2, vec3 } from 'three/tsl'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
 import type { WeatherState } from '../store/gameStoreTypes'
@@ -16,46 +15,12 @@ import {
   METAL_HARBOR_KINDS,
   WOOD_HARBOR_KINDS,
 } from '../utils/lookDevControls'
+import { tsl } from '../shaders/tslCast'
+import { harborFbm, harborSnoise } from './harborNoiseTsl'
 
+/** Reference simplex/fbm GLSL (not compiled). Live noise is harborNoiseTsl.ts. */
 export const HARBOR_NOISE_GLSL = /* glsl */ `
-  vec3 harborMod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec2 harborMod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-  vec3 harborPermute(vec3 x) { return harborMod289(((x * 34.0) + 1.0) * x); }
-
-  float harborSnoise(vec2 v) {
-    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
-             -0.577350269189626, 0.024390243902439);
-    vec2 i  = floor(v + dot(v, C.yy));
-    vec2 x0 = v - i + dot(i, C.xx);
-    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-    vec4 x12 = x0.xyxy + C.xxzz;
-    x12.xy -= i1;
-    i = harborMod289(i);
-    vec3 p = harborPermute(harborPermute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-    vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
-    m = m * m;
-    m = m * m;
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
-    vec3 g;
-    g.x  = a0.x  * x0.x  + h.x  * x0.y;
-    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-    return 130.0 * dot(m, g);
-  }
-
-  float harborFbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 4; i++) {
-      value += amplitude * harborSnoise(p);
-      p *= 2.0;
-      amplitude *= 0.5;
-    }
-    return value;
-  }
+  // harborSnoise / harborFbm — see git history. TSL uses mx_noise_float.
 `
 
 export type HarborMaterialKind =
@@ -101,191 +66,17 @@ export function useHarborEnvironment(): HarborEnvironment {
   return { wetness, nightFactor: isNight ? 1 : 0, weather, isNight }
 }
 
-interface HarborUniforms {
-  uWetness: { value: number }
-  uNightFactor: { value: number }
-  uWeathering: { value: number }
-  uTime: { value: number }
-  uPuddleStrength: { value: number }
-}
-
-function injectWorldPosVarying(shader: WebGLProgramParametersWithUniforms) {
-  if (!shader.vertexShader.includes('vHarborWorldPos')) {
-    shader.vertexShader = `varying vec3 vHarborWorldPos;\n${shader.vertexShader}`
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <worldpos_vertex>',
-      `#include <worldpos_vertex>
-       vHarborWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
-    )
-  }
-  if (!shader.fragmentShader.includes('vHarborWorldPos')) {
-    shader.fragmentShader = `varying vec3 vHarborWorldPos;\n${shader.fragmentShader}`
+function createHarborUniforms(weathering: number) {
+  return {
+    uWetness: uniform(0),
+    uNightFactor: uniform(0),
+    uWeathering: uniform(weathering),
+    uTime: uniform(0),
+    uPuddleStrength: uniform(1),
   }
 }
 
-function injectHarborUniforms(shader: WebGLProgramParametersWithUniforms): HarborUniforms {
-  const uniforms: HarborUniforms = {
-    uWetness: { value: 0 },
-    uNightFactor: { value: 0 },
-    uWeathering: { value: 0.6 },
-    uTime: { value: 0 },
-    uPuddleStrength: { value: 1 },
-  }
-  shader.uniforms.uWetness = uniforms.uWetness
-  shader.uniforms.uNightFactor = uniforms.uNightFactor
-  shader.uniforms.uWeathering = uniforms.uWeathering
-  shader.uniforms.uTime = uniforms.uTime
-  shader.uniforms.uPuddleStrength = uniforms.uPuddleStrength
-  return uniforms
-}
-
-function patchColorFragment(shader: WebGLProgramParametersWithUniforms, body: string) {
-  shader.fragmentShader = shader.fragmentShader.replace(
-    '#include <color_fragment>',
-    `#include <color_fragment>
-     ${body}`
-  )
-}
-
-function buildWoodDeckPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vHarborWorldPos;
-      float plankU = wp.x * 0.5;
-      float plankFrac = fract(plankU);
-      float plankId = floor(plankU);
-      float gap = 1.0 - smoothstep(0.02, 0.05, abs(plankFrac - 0.5) - 0.44);
-      float grain = harborFbm(vec2(wp.x * 0.15, wp.z * 6.0));
-      float plankTone = 0.88 + fract(plankId * 0.173) * 0.18 + grain * 0.12;
-      diffuseColor.rgb *= plankTone;
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.35, gap);
-      float boltGrid = step(0.92, fract(plankU)) * step(0.85, 1.0 - abs(fract(wp.z * 0.14) - 0.5) * 2.0);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, boltGrid * 0.7);
-      float puddle = gap * uWetness * uPuddleStrength * (0.55 + harborSnoise(wp.xz * 0.4) * 0.25);
-      diffuseColor.rgb *= 1.0 - puddle * 0.35;
-      diffuseColor.rgb *= 1.0 - uNightFactor * 0.18;
-      roughnessFactor = clamp(roughnessFactor - puddle * 0.55 + gap * 0.08, 0.04, 1.0);
-      metalnessFactor = mix(metalnessFactor, 0.18, puddle * 0.35);
-    }
-  `
-}
-
-function buildWeatheredWoodPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vHarborWorldPos;
-      float grain = harborFbm(vec2(wp.x * 0.2, wp.z * 4.0));
-      diffuseColor.rgb *= 0.82 + grain * 0.22;
-      float scuff = smoothstep(0.45, 0.75, harborFbm(wp.xz * 0.35)) * uWeathering;
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.65, scuff * 0.35);
-      float wet = uWetness * (0.35 + grain * 0.35);
-      diffuseColor.rgb *= 1.0 - wet * 0.28;
-      roughnessFactor = clamp(roughnessFactor - wet * 0.45, 0.08, 1.0);
-    }
-  `
-}
-
-function buildCorrodedSteelPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vHarborWorldPos;
-      vec2 uv = vec2(wp.x * 0.35, wp.y * 1.8 + wp.z * 0.25);
-      float rust = harborFbm(uv * vec2(0.6, 2.4));
-      float streaks = harborFbm(vec2(uv.x * 0.25, uv.y * 8.0));
-      float rustAmt = smoothstep(0.35, 0.72, rust * streaks) * uWeathering;
-      vec3 rustColor = vec3(0.52, 0.28, 0.12);
-      diffuseColor.rgb = mix(diffuseColor.rgb, rustColor, rustAmt * 0.65);
-      float salt = smoothstep(0.55, 0.85, harborSnoise(uv * 6.0)) * uWetness * 0.35;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.82, 0.84, 0.78), salt);
-      float ropeWear = smoothstep(0.15, 0.35, wp.y) * (1.0 - smoothstep(1.2, 1.8, wp.y));
-      ropeWear *= 0.5 + 0.5 * harborSnoise(vec2(wp.x * 3.0, wp.z * 3.0));
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.55, ropeWear * 0.45);
-      roughnessFactor = clamp(roughnessFactor + rustAmt * 0.25 - salt * 0.12 - uWetness * 0.18, 0.12, 0.95);
-      metalnessFactor = clamp(metalnessFactor - rustAmt * 0.45 + salt * 0.05, 0.05, 0.9);
-    }
-  `
-}
-
-function buildPilingTimberPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vHarborWorldPos;
-      float grain = harborFbm(vec2(atan(wp.z, wp.x) * 2.0, wp.y * 0.8));
-      diffuseColor.rgb *= 0.78 + grain * 0.28;
-      float waterline = smoothstep(-0.2, -1.4, wp.y);
-      float algae = harborSnoise(vec2(wp.x * 2.0, wp.y * 4.0)) * waterline;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.18, 0.28, 0.22), algae * 0.45);
-      float rustBand = waterline * harborFbm(vec2(wp.x * 0.5, wp.y * 3.0));
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.45, 0.24, 0.1), rustBand * 0.35 * uWeathering);
-      float wet = uWetness * waterline;
-      diffuseColor.rgb *= 1.0 - wet * 0.32;
-      roughnessFactor = clamp(roughnessFactor - wet * 0.35 + waterline * 0.12, 0.2, 1.0);
-    }
-  `
-}
-
-function buildWetRubberPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec2 uv = vHarborWorldPos.xz * vec2(0.5, 2.0);
-      float ribs = 0.85 + 0.15 * sin(uv.y * 28.0 + harborSnoise(uv * 2.0) * 0.5);
-      float scuff = smoothstep(0.3, 0.75, harborFbm(uv * 4.0)) * uWeathering;
-      diffuseColor.rgb *= ribs;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.22, 0.22, 0.22), scuff * 0.55);
-      float wet = uWetness * 0.85;
-      diffuseColor.rgb *= 1.0 - wet * 0.22;
-      roughnessFactor = clamp(roughnessFactor - wet * 0.35 + scuff * 0.15, 0.55, 1.0);
-    }
-  `
-}
-
-function buildCautionStripePatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      float chip = harborFbm(vHarborWorldPos.xz * 3.5);
-      float wear = smoothstep(0.42, 0.78, chip) * uWeathering;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.08, 0.06), wear * 0.7);
-      float wet = uWetness * 0.5;
-      diffuseColor.rgb *= 1.0 - wet * 0.18;
-      roughnessFactor = clamp(roughnessFactor - wet * 0.2 + wear * 0.25, 0.25, 0.95);
-    }
-  `
-}
-
-function buildRailSteelPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vHarborWorldPos;
-      float topWear = smoothstep(0.15, 0.45, wp.y) * harborFbm(wp.xz * 0.8);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.15, topWear * 0.35);
-      float oil = smoothstep(0.55, 0.82, harborFbm(wp.xz * 1.6 + 2.7));
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.04, 0.04, 0.03), oil * 0.55 * uWeathering);
-      float scuff = harborSnoise(wp.xz * 2.2) * topWear;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.35, 0.34, 0.32), scuff * 0.25);
-      float wet = uWetness * (0.4 + topWear * 0.35);
-      diffuseColor.rgb *= 1.0 - wet * 0.2;
-      roughnessFactor = clamp(roughnessFactor - topWear * 0.22 - wet * 0.25 + oil * 0.18, 0.1, 0.85);
-      metalnessFactor = clamp(metalnessFactor + topWear * 0.12 - oil * 0.35, 0.15, 0.85);
-    }
-  `
-}
-
-const PATCH_BY_KIND: Record<HarborMaterialKind, string> = {
-  weatheredWood: buildWeatheredWoodPatch(),
-  weatheredWoodDeck: buildWoodDeckPatch(),
-  corrodedSteel: buildCorrodedSteelPatch(),
-  pilingTimber: buildPilingTimberPatch(),
-  wetRubber: buildWetRubberPatch(),
-  cautionStripe: buildCautionStripePatch(),
-  railSteel: buildRailSteelPatch(),
-}
+type HarborUniforms = ReturnType<typeof createHarborUniforms>
 
 const DEFAULTS: Record<HarborMaterialKind, Required<HarborMaterialOptions>> = {
   weatheredWood: { baseColor: '#6b4423', roughness: 0.92, metalness: 0.04, weathering: 0.55 },
@@ -297,48 +88,136 @@ const DEFAULTS: Record<HarborMaterialKind, Required<HarborMaterialOptions>> = {
   railSteel: { baseColor: '#5a5a5a', roughness: 0.38, metalness: 0.68, weathering: 0.65 },
 }
 
+function bindHarborKind(
+  mat: MeshStandardNodeMaterial,
+  kind: HarborMaterialKind,
+  u: HarborUniforms,
+  baseRough: number,
+  baseMetal: number,
+) {
+  const wp = positionWorld
+  let color = tsl(mat.colorNode ?? vec3(mat.color.r, mat.color.g, mat.color.b))
+  let roughness = tsl(float(baseRough))
+  let metalnessN = tsl(float(baseMetal))
+
+  if (kind === 'weatheredWoodDeck') {
+    const plankU = wp.x.mul(0.5)
+    const plankFrac = fract(plankU)
+    const plankId = plankU.sub(plankFrac)
+    const gap = float(1).sub(smoothstep(float(0.02), float(0.05), abs(plankFrac.sub(0.5)).sub(0.44)))
+    const grain = harborFbm(vec2(wp.x.mul(0.15), wp.z.mul(6)))
+    const plankTone = float(0.88).add(fract(plankId.mul(0.173)).mul(0.18)).add(grain.mul(0.12))
+    color = color.mul(plankTone)
+    color = mix(color, color.mul(0.35), gap)
+    const boltGrid = step(float(0.92), fract(plankU)).mul(
+      step(float(0.85), float(1).sub(abs(fract(wp.z.mul(0.14)).sub(0.5)).mul(2))),
+    )
+    color = mix(color, color.mul(0.55), boltGrid.mul(0.7))
+    const puddle = gap.mul(u.uWetness).mul(u.uPuddleStrength).mul(float(0.55).add(harborSnoise(wp.xz.mul(0.4)).mul(0.25)))
+    color = color.mul(float(1).sub(puddle.mul(0.35)))
+    color = color.mul(float(1).sub(u.uNightFactor.mul(0.18)))
+    roughness = clamp(roughness.sub(puddle.mul(0.55)).add(gap.mul(0.08)), float(0.04), float(1))
+    metalnessN = mix(metalnessN, float(0.18), puddle.mul(0.35))
+  } else if (kind === 'weatheredWood') {
+    const grain = harborFbm(vec2(wp.x.mul(0.2), wp.z.mul(4)))
+    color = color.mul(float(0.82).add(grain.mul(0.22)))
+    const scuff = smoothstep(float(0.45), float(0.75), harborFbm(wp.xz.mul(0.35))).mul(u.uWeathering)
+    color = mix(color, color.mul(0.65), scuff.mul(0.35))
+    const wet = u.uWetness.mul(float(0.35).add(grain.mul(0.35)))
+    color = color.mul(float(1).sub(wet.mul(0.28)))
+    roughness = clamp(roughness.sub(wet.mul(0.45)), float(0.08), float(1))
+  } else if (kind === 'corrodedSteel') {
+    const uvn = vec2(wp.x.mul(0.35), wp.y.mul(1.8).add(wp.z.mul(0.25)))
+    const rust = harborFbm(uvn.mul(vec2(0.6, 2.4)))
+    const streaks = harborFbm(vec2(uvn.x.mul(0.25), uvn.y.mul(8)))
+    const rustAmt = smoothstep(float(0.35), float(0.72), rust.mul(streaks)).mul(u.uWeathering)
+    color = mix(color, vec3(0.52, 0.28, 0.12), rustAmt.mul(0.65))
+    const salt = smoothstep(float(0.55), float(0.85), harborSnoise(uvn.mul(6))).mul(u.uWetness).mul(0.35)
+    color = mix(color, vec3(0.82, 0.84, 0.78), salt)
+    let ropeWear = tsl(smoothstep(float(0.15), float(0.35), wp.y).mul(float(1).sub(smoothstep(float(1.2), float(1.8), wp.y))))
+    ropeWear = ropeWear.mul(float(0.5).add(harborSnoise(vec2(wp.x.mul(3), wp.z.mul(3))).mul(0.5)))
+    color = mix(color, color.mul(0.55), ropeWear.mul(0.45))
+    roughness = clamp(roughness.add(rustAmt.mul(0.25)).sub(salt.mul(0.12)).sub(u.uWetness.mul(0.18)), float(0.12), float(0.95))
+    metalnessN = clamp(metalnessN.sub(rustAmt.mul(0.45)).add(salt.mul(0.05)), float(0.05), float(0.9))
+  } else if (kind === 'pilingTimber') {
+    const grain = harborFbm(vec2(atan(wp.z, wp.x).mul(2), wp.y.mul(0.8)))
+    color = color.mul(float(0.78).add(grain.mul(0.28)))
+    const waterline = smoothstep(float(-0.2), float(-1.4), wp.y)
+    const algae = harborSnoise(vec2(wp.x.mul(2), wp.y.mul(4))).mul(waterline)
+    color = mix(color, vec3(0.18, 0.28, 0.22), algae.mul(0.45))
+    const rustBand = waterline.mul(harborFbm(vec2(wp.x.mul(0.5), wp.y.mul(3))))
+    color = mix(color, vec3(0.45, 0.24, 0.1), rustBand.mul(0.35).mul(u.uWeathering))
+    const wet = u.uWetness.mul(waterline)
+    color = color.mul(float(1).sub(wet.mul(0.32)))
+    roughness = clamp(roughness.sub(wet.mul(0.35)).add(waterline.mul(0.12)), float(0.2), float(1))
+  } else if (kind === 'wetRubber') {
+    const uvn = vec2(wp.x, wp.z).mul(vec2(0.5, 2))
+    const ribs = float(0.85).add(sin(uvn.y.mul(28).add(harborSnoise(uvn.mul(2)).mul(0.5))).mul(0.15))
+    const scuff = smoothstep(float(0.3), float(0.75), harborFbm(uvn.mul(4))).mul(u.uWeathering)
+    color = color.mul(ribs)
+    color = mix(color, vec3(0.22, 0.22, 0.22), scuff.mul(0.55))
+    const wet = u.uWetness.mul(0.85)
+    color = color.mul(float(1).sub(wet.mul(0.22)))
+    roughness = clamp(roughness.sub(wet.mul(0.35)).add(scuff.mul(0.15)), float(0.55), float(1))
+  } else if (kind === 'cautionStripe') {
+    const chip = harborFbm(wp.xz.mul(3.5))
+    const wear = smoothstep(float(0.42), float(0.78), chip).mul(u.uWeathering)
+    color = mix(color, vec3(0.08, 0.08, 0.06), wear.mul(0.7))
+    const wet = u.uWetness.mul(0.5)
+    color = color.mul(float(1).sub(wet.mul(0.18)))
+    roughness = clamp(roughness.sub(wet.mul(0.2)).add(wear.mul(0.25)), float(0.25), float(0.95))
+  } else {
+    const topWear = smoothstep(float(0.15), float(0.45), wp.y).mul(harborFbm(wp.xz.mul(0.8)))
+    color = mix(color, color.mul(1.15), topWear.mul(0.35))
+    const oil = smoothstep(float(0.55), float(0.82), harborFbm(wp.xz.mul(1.6).add(2.7)))
+    color = mix(color, vec3(0.04, 0.04, 0.03), oil.mul(0.55).mul(u.uWeathering))
+    const scuff = harborSnoise(wp.xz.mul(2.2)).mul(topWear)
+    color = mix(color, vec3(0.35, 0.34, 0.32), scuff.mul(0.25))
+    const wet = u.uWetness.mul(float(0.4).add(topWear.mul(0.35)))
+    color = color.mul(float(1).sub(wet.mul(0.2)))
+    roughness = clamp(roughness.sub(topWear.mul(0.22)).sub(wet.mul(0.25)).add(oil.mul(0.18)), float(0.1), float(0.85))
+    metalnessN = clamp(metalnessN.add(topWear.mul(0.12)).sub(oil.mul(0.35)), float(0.15), float(0.85))
+  }
+
+  mat.colorNode = color
+  mat.roughnessNode = roughness
+  mat.metalnessNode = metalnessN
+}
+
 export function createHarborMaterial(
   kind: HarborMaterialKind,
-  options: HarborMaterialOptions = {}
-): THREE.MeshStandardMaterial {
+  options: HarborMaterialOptions = {},
+): MeshStandardNodeMaterial {
   const defaults = DEFAULTS[kind]
   const baseColor = options.baseColor ?? defaults.baseColor
   const roughness = options.roughness ?? defaults.roughness
-  const metalness = options.metalness ?? defaults.metalness
+  const metalnessVal = options.metalness ?? defaults.metalness
   const weathering = options.weathering ?? defaults.weathering
 
-  const material = new THREE.MeshStandardMaterial({
-    color: baseColor,
-    roughness,
-    metalness,
-    stencilWrite: true,
-    stencilRef: 1,
-    stencilFunc: THREE.AlwaysStencilFunc,
-    stencilZPass: THREE.ReplaceStencilOp
-  })
+  const material = new MeshStandardNodeMaterial()
+  material.color.set(baseColor)
+  material.roughness = roughness
+  material.metalness = metalnessVal
+
+  const uniforms = createHarborUniforms(weathering)
+
+  material.colorNode = vec3(material.color.r, material.color.g, material.color.b)
+  bindHarborKind(material, kind, uniforms, roughness, metalnessVal)
 
   material.userData.harborKind = kind
-  material.customProgramCacheKey = () => `harbor-${kind}-v1`
-
-  material.onBeforeCompile = (shader) => {
-    injectWorldPosVarying(shader)
-    const uniforms = injectHarborUniforms(shader)
-    uniforms.uWeathering.value = weathering
-    patchColorFragment(shader, PATCH_BY_KIND[kind])
-    material.userData.harborUniforms = uniforms
-  }
+  material.userData.harborUniforms = uniforms
 
   return material
 }
 
 function applyEnvironmentToMaterial(
-  material: THREE.MeshStandardMaterial,
+  material: MeshStandardNodeMaterial,
   env: HarborEnvironment,
   elapsed: number,
   dayColor: string,
   nightColor: string,
   kind: HarborMaterialKind,
-  baseWeathering: number
+  baseWeathering: number,
 ) {
   const lookDev = getLookDevSettings()
   const wetness = env.wetness * lookDev.surfaceWetness
@@ -362,7 +241,7 @@ function applyEnvironmentToMaterial(
   material.roughness = THREE.MathUtils.clamp(
     (material.userData.baseRoughness as number) * roughMult - wetness * 0.22,
     0.05,
-    1
+    1,
   )
   material.envMapIntensity = (env.isNight ? 0.45 : 0.85) * lookDev.envMapIntensity
 }
@@ -370,8 +249,8 @@ function applyEnvironmentToMaterial(
 export function useHarborMaterial(
   kind: HarborMaterialKind,
   options: HarborMaterialOptions = {},
-  dayNightColors?: { day: string; night: string }
-): THREE.MeshStandardMaterial {
+  dayNightColors?: { day: string; night: string },
+): MeshStandardNodeMaterial {
   const env = useHarborEnvironment()
   const defaults = DEFAULTS[kind]
   const dayColor = dayNightColors?.day ?? options.baseColor ?? defaults.baseColor
@@ -379,8 +258,7 @@ export function useHarborMaterial(
 
   const material = useMemo(
     () => createHarborMaterial(kind, options),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- kind/options identity is intentional
-    [kind, options.baseColor, options.roughness, options.metalness, options.weathering]
+    [kind, options.baseColor, options.roughness, options.metalness, options.weathering],
   )
 
   useEffect(() => {
@@ -395,7 +273,7 @@ export function useHarborMaterial(
       dayColor,
       nightColor,
       kind,
-      options.weathering ?? defaults.weathering
+      options.weathering ?? defaults.weathering,
     )
   })
 
@@ -410,7 +288,6 @@ function adjustHex(hex: string, amount: number): string {
   return `#${(0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1)}`
 }
 
-/** Instanced bolt-head positions along deck plank seams (world-local to dock group). */
 export function buildDeckBoltTransforms(count = 36): THREE.Matrix4[] {
   const matrices: THREE.Matrix4[] = []
   const dummy = new THREE.Object3D()

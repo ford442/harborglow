@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 // =============================================================================
 // GOD RAYS SHADER — screen-space radial blur toward sun/moon
-// GLSL ShaderPass for EffectComposer (WebGL2 + WebGPU compatibility layer)
+// GLSL reference only — live path is shaders/godRaysTsl.ts (TSL radial blur).
 // =============================================================================
 
 export interface GodRaysShaderUniforms {

@@ -80,7 +80,7 @@ jobs:
         run: npm ci
 
       - name: Verify three/postprocessing peer graph
-        run: npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier
+        run: npm ls three @react-three/fiber @react-three/drei @react-three/rapier
 
   gate-wasm:
     runs-on: ubuntu-latest

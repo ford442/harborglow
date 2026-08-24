@@ -89,8 +89,11 @@ export default defineConfig(({ mode }) => ({
                     ) {
                         return 'vendor-3d-webgpu'
                     }
-                    // three/fiber/drei BEFORE rapier so physics WASM does not absorb the
-                    // entire Three.js stack.
+                    if (id.includes('examples/jsm/tsl/') || id.includes('addons/tsl/')) {
+                        return 'vendor-3d-post'
+                    }
+                    // three/fiber/drei AFTER webgpu + TSL-display so bloom/ssr land in
+                    // vendor-3d-post instead of vendor-3d-core.
                     if (
                         id.includes('node_modules/three/') ||
                         id.includes('node_modules/@react-three/fiber') ||
@@ -99,19 +102,10 @@ export default defineConfig(({ mode }) => ({
                         return 'vendor-3d-core'
                     }
                     if (
-                        id.includes('node_modules/postprocessing/') ||
-                        id.includes('examples/jsm/postprocessing/')
-                    ) {
-                        return 'vendor-3d-post'
-                    }
-                    if (
                         id.includes('node_modules/@react-three/rapier') ||
                         id.includes('node_modules/@dimforge/rapier')
                     ) {
                         return 'vendor-3d-rapier'
-                    }
-                    if (id.includes('node_modules/@react-three/')) {
-                        return 'vendor-3d-core'
                     }
                     // Note: Leva and Zustand stay in main bundle.
                 },

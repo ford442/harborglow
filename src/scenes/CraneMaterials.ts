@@ -1,15 +1,34 @@
 // =============================================================================
-// CRANE MATERIALS — procedural industrial surfaces (paint, steel, glass, cable)
-// Reuses harbor noise; tuned via Visual Polish → Crane & Cable controls.
+// CRANE MATERIALS — TSL industrial surfaces (paint, steel, glass, cable)
 // =============================================================================
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import type { WebGLProgramParametersWithUniforms } from 'three/src/renderers/webgl/WebGLPrograms.js'
+import { MeshStandardNodeMaterial } from 'three/webgpu'
+import {
+  abs,
+  atan,
+  clamp,
+  float,
+  fract,
+  max,
+  mix,
+  positionWorld,
+  pow,
+  sin,
+  smoothstep,
+  step,
+  uniform,
+  uv,
+  vec2,
+  vec3,
+} from 'three/tsl'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
-import { computeHarborWetness, HARBOR_NOISE_GLSL } from './HarborPBRMaterials'
+import { computeHarborWetness } from './HarborPBRMaterials'
+import { harborFbm, harborSnoise } from './harborNoiseTsl'
 import { getLookDevSettings } from '../utils/lookDevControls'
+import { tsl } from '../shaders/tslCast'
 
 export type CraneMaterialKind =
   | 'paintedSteel'
@@ -42,148 +61,6 @@ interface CableUniforms {
   uTravel: { value: number }
 }
 
-function injectWorldPos(shader: WebGLProgramParametersWithUniforms) {
-  if (!shader.vertexShader.includes('vCraneWorldPos')) {
-    shader.vertexShader = `varying vec3 vCraneWorldPos;\n${shader.vertexShader}`
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <worldpos_vertex>',
-      `#include <worldpos_vertex>
-       vCraneWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
-    )
-  }
-  if (!shader.fragmentShader.includes('vCraneWorldPos')) {
-    shader.fragmentShader = `varying vec3 vCraneWorldPos;\n${shader.fragmentShader}`
-  }
-}
-
-function injectCraneUniforms(shader: WebGLProgramParametersWithUniforms, weathering: number): CraneUniforms {
-  const uniforms: CraneUniforms = {
-    uWetness: { value: 0 },
-    uWeathering: { value: weathering },
-    uWearAccum: { value: 0 },
-    uTime: { value: 0 },
-    uRain: { value: 0 },
-  }
-  Object.assign(shader.uniforms, uniforms)
-  return uniforms
-}
-
-function patchColor(shader: WebGLProgramParametersWithUniforms, body: string) {
-  shader.fragmentShader = shader.fragmentShader.replace(
-    '#include <color_fragment>',
-    `#include <color_fragment>\n${body}`
-  )
-}
-
-function buildPaintedSteelPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vCraneWorldPos;
-      float panelY = 1.0 - smoothstep(0.02, 0.06, abs(fract(wp.y * 0.22) - 0.5));
-      float panelX = 1.0 - smoothstep(0.02, 0.06, abs(fract(wp.x * 0.28) - 0.5));
-      float panel = max(panelY, panelX);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.62, panel * 0.45);
-      float chip = harborFbm(wp.xz * 1.8 + wp.y * 0.4);
-      float chipAmt = smoothstep(0.52, 0.8, chip) * uWeathering;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.38, 0.36, 0.34), chipAmt * 0.55);
-      float grease = smoothstep(0.35, 0.65, harborFbm(vec2(wp.x * 0.4, wp.y * 2.8))) * (0.35 + uWearAccum * 0.65);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.06, 0.05), grease * 0.5);
-      float grime = harborSnoise(wp.xz * 0.6) * uWearAccum * 0.35;
-      diffuseColor.rgb *= 1.0 - grime;
-      float wet = uWetness * (0.35 + panel * 0.25);
-      diffuseColor.rgb *= 1.0 - wet * 0.22;
-      roughnessFactor = clamp(roughnessFactor + chipAmt * 0.18 - wet * 0.28 + grease * 0.12, 0.12, 0.95);
-      metalnessFactor = clamp(metalnessFactor - chipAmt * 0.2 + wet * 0.08, 0.05, 0.75);
-    }
-  `
-}
-
-function buildStructuralSteelPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vCraneWorldPos;
-      float weld = smoothstep(0.44, 0.5, abs(fract(wp.y * 0.35) - 0.5));
-      weld += smoothstep(0.44, 0.5, abs(fract(wp.z * 0.35) - 0.5)) * 0.6;
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12, weld * 0.35);
-      float rust = harborFbm(vec2(wp.x * 0.3, wp.y * 1.4 + wp.z * 0.2));
-      float rustAmt = smoothstep(0.48, 0.78, rust) * uWeathering * (0.5 + uWearAccum * 0.5);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.48, 0.26, 0.11), rustAmt * 0.5);
-      float rivet = step(0.94, fract(wp.y * 1.1)) * step(0.88, 1.0 - abs(fract(wp.x * 0.9) - 0.5) * 2.0);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.75, rivet * 0.6);
-      float wet = uWetness * 0.55;
-      diffuseColor.rgb *= 1.0 - wet * 0.18;
-      roughnessFactor = clamp(roughnessFactor + rustAmt * 0.22 - wet * 0.2, 0.15, 0.92);
-      metalnessFactor = clamp(metalnessFactor - rustAmt * 0.35 + weld * 0.05, 0.1, 0.88);
-    }
-  `
-}
-
-function buildMachinedSteelPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vCraneWorldPos;
-      float tool = sin(wp.y * 42.0) * sin(wp.x * 38.0);
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.08, tool * 0.06);
-      float scuff = smoothstep(0.4, 0.75, harborFbm(wp.xz * 2.5)) * (0.25 + uWearAccum * 0.75);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.28, 0.27, 0.26), scuff * 0.45);
-      float contact = smoothstep(0.0, 0.25, 0.25 - wp.y) * harborSnoise(wp.xz * 4.0);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.18, 0.17, 0.16), contact * 0.35);
-      float wet = uWetness * 0.45;
-      diffuseColor.rgb *= 1.0 - wet * 0.12;
-      roughnessFactor = clamp(roughnessFactor + scuff * 0.15 - wet * 0.35 + tool * 0.02, 0.08, 0.72);
-      metalnessFactor = clamp(metalnessFactor + 0.12 - scuff * 0.25 + wet * 0.15, 0.35, 0.95);
-    }
-  `
-}
-
-function buildCabinGlassPatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vCraneWorldPos;
-      float dirt = harborFbm(wp.xy * 1.2) * 0.35 + harborFbm(wp.yz * 0.8) * 0.25;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12, 0.14, 0.16), dirt * (0.45 + uWearAccum * 0.25));
-      float streak = smoothstep(0.55, 0.95, harborFbm(vec2(wp.x * 0.5, wp.y * 6.0 + uTime * 0.05)));
-      streak *= uRain;
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.22, 0.28, 0.34), streak * 0.55);
-      float wiper = smoothstep(0.08, 0.02, abs(fract(atan(wp.y, wp.z) / 3.14159 + uTime * 0.15) - 0.5));
-      wiper *= uRain * 0.85;
-      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.15, wiper * 0.4);
-      float wet = uWetness * uRain;
-      roughnessFactor = clamp(roughnessFactor - wet * 0.55 + dirt * 0.25, 0.02, 0.65);
-      metalnessFactor = clamp(metalnessFactor + wet * 0.35, 0.2, 0.98);
-    }
-  `
-}
-
-function buildCautionStripePatch(): string {
-  return `
-    ${HARBOR_NOISE_GLSL}
-    {
-      vec3 wp = vCraneWorldPos;
-      float stripe = step(0.5, fract(wp.x * 2.8 + wp.z * 0.1));
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08, 0.08, 0.06), stripe * 0.85);
-      float chip = harborFbm(wp.xz * 4.0);
-      float wear = smoothstep(0.42, 0.78, chip) * uWeathering * (0.6 + uWearAccum * 0.4);
-      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.15, 0.14, 0.12), wear * 0.65);
-      float wet = uWetness * 0.35;
-      diffuseColor.rgb *= 1.0 - wet * 0.15;
-      roughnessFactor = clamp(roughnessFactor + wear * 0.2 - wet * 0.12, 0.28, 0.95);
-    }
-  `
-}
-
-const CRANE_PATCHES: Record<CraneMaterialKind, string> = {
-  paintedSteel: buildPaintedSteelPatch(),
-  structuralSteel: buildStructuralSteelPatch(),
-  machinedSteel: buildMachinedSteelPatch(),
-  cabinGlass: buildCabinGlassPatch(),
-  cautionStripe: buildCautionStripePatch(),
-}
-
 const CRANE_DEFAULTS: Record<CraneMaterialKind, Required<CraneMaterialOptions>> = {
   paintedSteel: { baseColor: '#d97818', roughness: 0.58, metalness: 0.38, weathering: 0.72 },
   structuralSteel: { baseColor: '#52565c', roughness: 0.52, metalness: 0.62, weathering: 0.78 },
@@ -194,83 +71,151 @@ const CRANE_DEFAULTS: Record<CraneMaterialKind, Required<CraneMaterialOptions>> 
 
 export function createCraneMaterial(
   kind: CraneMaterialKind,
-  options: CraneMaterialOptions = {}
-): THREE.MeshStandardMaterial {
+  options: CraneMaterialOptions = {},
+): MeshStandardNodeMaterial {
   const defaults = CRANE_DEFAULTS[kind]
-  const material = new THREE.MeshStandardMaterial({
-    color: options.baseColor ?? defaults.baseColor,
-    roughness: options.roughness ?? defaults.roughness,
-    metalness: options.metalness ?? defaults.metalness,
-    transparent: kind === 'cabinGlass',
-    opacity: kind === 'cabinGlass' ? 0.82 : 1,
-  })
+  const material = new MeshStandardNodeMaterial()
+  material.color.set(options.baseColor ?? defaults.baseColor)
+  material.roughness = options.roughness ?? defaults.roughness
+  material.metalness = options.metalness ?? defaults.metalness
+  material.transparent = kind === 'cabinGlass'
+  material.opacity = kind === 'cabinGlass' ? 0.82 : 1
 
+  const uWetness = uniform(0)
+  const uWeathering = uniform(options.weathering ?? defaults.weathering)
+  const uWearAccum = uniform(0)
+  const uTime = uniform(0)
+  const uRain = uniform(0)
   material.userData.craneKind = kind
-  material.customProgramCacheKey = () => `crane-${kind}-v1`
+  material.userData.craneUniforms = {
+    uWetness,
+    uWeathering,
+    uWearAccum,
+    uTime,
+    uRain,
+  } satisfies CraneUniforms
+  material.userData.baseWeathering = options.weathering ?? defaults.weathering
 
-  material.onBeforeCompile = (shader) => {
-    injectWorldPos(shader)
-    const uniforms = injectCraneUniforms(shader, options.weathering ?? defaults.weathering)
-    patchColor(shader, CRANE_PATCHES[kind])
-    material.userData.craneUniforms = uniforms
+  const wp = positionWorld
+  let color = tsl(vec3(material.color.r, material.color.g, material.color.b))
+  let roughness = tsl(float(material.roughness))
+  let metalnessN = tsl(float(material.metalness))
+
+  if (kind === 'paintedSteel') {
+    const panelY = float(1).sub(smoothstep(float(0.02), float(0.06), abs(fract(wp.y.mul(0.22)).sub(0.5))))
+    const panelX = float(1).sub(smoothstep(float(0.02), float(0.06), abs(fract(wp.x.mul(0.28)).sub(0.5))))
+    const panel = max(panelY, panelX)
+    color = mix(color, color.mul(0.62), panel.mul(0.45))
+    const chip = harborFbm(wp.xz.mul(1.8).add(wp.y.mul(0.4)))
+    const chipAmt = smoothstep(float(0.52), float(0.8), chip).mul(uWeathering)
+    color = mix(color, vec3(0.38, 0.36, 0.34), chipAmt.mul(0.55))
+    const grease = smoothstep(float(0.35), float(0.65), harborFbm(vec2(wp.x.mul(0.4), wp.y.mul(2.8)))).mul(
+      float(0.35).add(uWearAccum.mul(0.65)),
+    )
+    color = mix(color, vec3(0.07, 0.06, 0.05), grease.mul(0.5))
+    const grime = harborSnoise(wp.xz.mul(0.6)).mul(uWearAccum).mul(0.35)
+    color = color.mul(float(1).sub(grime))
+    const wet = uWetness.mul(float(0.35).add(panel.mul(0.25)))
+    color = color.mul(float(1).sub(wet.mul(0.22)))
+    roughness = clamp(roughness.add(chipAmt.mul(0.18)).sub(wet.mul(0.28)).add(grease.mul(0.12)), float(0.12), float(0.95))
+    metalnessN = clamp(metalnessN.sub(chipAmt.mul(0.2)).add(wet.mul(0.08)), float(0.05), float(0.75))
+  } else if (kind === 'structuralSteel') {
+    let weld = tsl(smoothstep(float(0.44), float(0.5), abs(fract(wp.y.mul(0.35)).sub(0.5))))
+    weld = weld.add(smoothstep(float(0.44), float(0.5), abs(fract(wp.z.mul(0.35)).sub(0.5))).mul(0.6))
+    color = mix(color, color.mul(1.12), weld.mul(0.35))
+    const rust = harborFbm(vec2(wp.x.mul(0.3), wp.y.mul(1.4).add(wp.z.mul(0.2))))
+    const rustAmt = smoothstep(float(0.48), float(0.78), rust).mul(uWeathering).mul(float(0.5).add(uWearAccum.mul(0.5)))
+    color = mix(color, vec3(0.48, 0.26, 0.11), rustAmt.mul(0.5))
+    const rivet = step(float(0.94), fract(wp.y.mul(1.1))).mul(
+      step(float(0.88), float(1).sub(abs(fract(wp.x.mul(0.9)).sub(0.5)).mul(2))),
+    )
+    color = mix(color, color.mul(0.75), rivet.mul(0.6))
+    const wet = uWetness.mul(0.55)
+    color = color.mul(float(1).sub(wet.mul(0.18)))
+    roughness = clamp(roughness.add(rustAmt.mul(0.22)).sub(wet.mul(0.2)), float(0.15), float(0.92))
+    metalnessN = clamp(metalnessN.sub(rustAmt.mul(0.35)).add(weld.mul(0.05)), float(0.1), float(0.88))
+  } else if (kind === 'machinedSteel') {
+    const tool = sin(wp.y.mul(42)).mul(sin(wp.x.mul(38)))
+    color = mix(color, color.mul(1.08), tool.mul(0.06))
+    const scuff = smoothstep(float(0.4), float(0.75), harborFbm(wp.xz.mul(2.5))).mul(float(0.25).add(uWearAccum.mul(0.75)))
+    color = mix(color, vec3(0.28, 0.27, 0.26), scuff.mul(0.45))
+    const contact = smoothstep(float(0), float(0.25), float(0.25).sub(wp.y)).mul(harborSnoise(wp.xz.mul(4)))
+    color = mix(color, vec3(0.18, 0.17, 0.16), contact.mul(0.35))
+    const wet = uWetness.mul(0.45)
+    color = color.mul(float(1).sub(wet.mul(0.12)))
+    roughness = clamp(roughness.add(scuff.mul(0.15)).sub(wet.mul(0.35)).add(tool.mul(0.02)), float(0.08), float(0.72))
+    metalnessN = clamp(metalnessN.add(0.12).sub(scuff.mul(0.25)).add(wet.mul(0.15)), float(0.35), float(0.95))
+  } else if (kind === 'cabinGlass') {
+    const dirt = harborFbm(wp.xy.mul(1.2)).mul(0.35).add(harborFbm(wp.yz.mul(0.8)).mul(0.25))
+    color = mix(color, vec3(0.12, 0.14, 0.16), dirt.mul(float(0.45).add(uWearAccum.mul(0.25))))
+    let streak = tsl(smoothstep(float(0.55), float(0.95), harborFbm(vec2(wp.x.mul(0.5), wp.y.mul(6).add(uTime.mul(0.05))))))
+    streak = streak.mul(uRain)
+    color = mix(color, vec3(0.22, 0.28, 0.34), streak.mul(0.55))
+    let wiper = tsl(smoothstep(float(0.08), float(0.02), abs(fract(atan(wp.y, wp.z).div(3.14159).add(uTime.mul(0.15))).sub(0.5))))
+    wiper = wiper.mul(uRain).mul(0.85)
+    color = mix(color, color.mul(1.15), wiper.mul(0.4))
+    const wet = uWetness.mul(uRain)
+    roughness = clamp(roughness.sub(wet.mul(0.55)).add(dirt.mul(0.25)), float(0.02), float(0.65))
+    metalnessN = clamp(metalnessN.add(wet.mul(0.35)), float(0.2), float(0.98))
+  } else {
+    const stripe = step(float(0.5), fract(wp.x.mul(2.8).add(wp.z.mul(0.1))))
+    color = mix(color, vec3(0.08, 0.08, 0.06), stripe.mul(0.85))
+    const chip = harborFbm(wp.xz.mul(4))
+    const wear = smoothstep(float(0.42), float(0.78), chip).mul(uWeathering).mul(float(0.6).add(uWearAccum.mul(0.4)))
+    color = mix(color, vec3(0.15, 0.14, 0.12), wear.mul(0.65))
+    const wet = uWetness.mul(0.35)
+    color = color.mul(float(1).sub(wet.mul(0.15)))
+    roughness = clamp(roughness.add(wear.mul(0.2)).sub(wet.mul(0.12)), float(0.28), float(0.95))
   }
 
+  material.colorNode = color
+  material.roughnessNode = roughness
+  material.metalnessNode = metalnessN
   return material
 }
 
-export function createCraneCableMaterial(): THREE.MeshStandardMaterial {
-  const material = new THREE.MeshStandardMaterial({
-    color: '#cccccc',
-    metalness: 0.78,
-    roughness: 0.32,
-  })
+export function createCraneCableMaterial(): MeshStandardNodeMaterial {
+  const material = new MeshStandardNodeMaterial()
+  material.color.set('#cccccc')
+  material.metalness = 0.78
+  material.roughness = 0.32
 
-  material.customProgramCacheKey = () => 'crane-cable-strand-v1'
+  const uTension = uniform(0)
+  const uTime = uniform(0)
+  const uWetness = uniform(0)
+  const uTwistlock = uniform(0)
+  const uHighlight = uniform(1)
+  const uTravel = uniform(0)
+  material.userData.cableUniforms = {
+    uTension,
+    uTime,
+    uWetness,
+    uTwistlock,
+    uHighlight,
+    uTravel,
+  } satisfies CableUniforms
 
-  material.onBeforeCompile = (shader) => {
-    if (!shader.vertexShader.includes('vCableUv')) {
-      shader.vertexShader = `varying vec2 vCableUv;\n${shader.vertexShader}`
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <uv_vertex>',
-        `#include <uv_vertex>
-         vCableUv = uv;`
-      )
-    }
-    if (!shader.fragmentShader.includes('vCableUv')) {
-      shader.fragmentShader = `varying vec2 vCableUv;\n${shader.fragmentShader}`
-    }
-
-    const uniforms: CableUniforms = {
-      uTension: { value: 0 },
-      uTime: { value: 0 },
-      uWetness: { value: 0 },
-      uTwistlock: { value: 0 },
-      uHighlight: { value: 1 },
-      uTravel: { value: 0 },
-    }
-    Object.assign(shader.uniforms, uniforms)
-    material.userData.cableUniforms = uniforms
-
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <color_fragment>',
-      `#include <color_fragment>
-       ${HARBOR_NOISE_GLSL}
-       {
-         float helix = sin(vCableUv.x * 95.0 + vCableUv.y * 18.0 * 3.14159);
-         float strand = 0.88 + helix * 0.12;
-         diffuseColor.rgb *= strand;
-         float sweep = pow(max(0.0, sin(vCableUv.x * 48.0 - uTravel)), 3.0);
-         diffuseColor.rgb += vec3(0.35, 0.38, 0.42) * sweep * (0.25 + uTension * 0.45) * uHighlight;
-         float stretch = 1.0 + uTension * 0.35 + uTwistlock * 0.15;
-         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.08, uTension * 0.25);
-         float wet = uWetness;
-         diffuseColor.rgb *= 1.0 - wet * 0.1;
-         roughnessFactor = clamp(roughnessFactor - sweep * 0.18 - wet * 0.25 + uTension * 0.08, 0.08, 0.72);
-         metalnessFactor = clamp(metalnessFactor + sweep * 0.15 + wet * 0.2 - uTension * 0.05, 0.45, 0.98);
-       }`
-    )
-  }
-
+  const vUv = uv()
+  const helix = sin(vUv.x.mul(95).add(vUv.y.mul(18).mul(3.14159)))
+  const strand = float(0.88).add(helix.mul(0.12))
+  let color = tsl(vec3(material.color.r, material.color.g, material.color.b).mul(strand))
+  const sweep = pow(max(float(0), sin(vUv.x.mul(48).sub(uTravel))), float(3))
+  color = color.add(vec3(0.35, 0.38, 0.42).mul(sweep).mul(float(0.25).add(uTension.mul(0.45))).mul(uHighlight))
+  color = mix(color, color.mul(1.08), uTension.mul(0.25))
+  color = color.mul(float(1).sub(uWetness.mul(0.1)))
+  const roughness = clamp(
+    float(0.32).sub(sweep.mul(0.18)).sub(uWetness.mul(0.25)).add(uTension.mul(0.08)),
+    float(0.08),
+    float(0.72),
+  )
+  const metalnessN = clamp(
+    float(0.78).add(sweep.mul(0.15)).add(uWetness.mul(0.2)).sub(uTension.mul(0.05)),
+    float(0.45),
+    float(0.98),
+  )
+  material.colorNode = color
+  material.roughnessNode = roughness
+  material.metalnessNode = metalnessN
   return material
 }
 
@@ -279,11 +224,7 @@ function computeWearAccum(): number {
   return THREE.MathUtils.clamp(count / 40, 0, 1)
 }
 
-function applyCraneUniforms(
-  material: THREE.MeshStandardMaterial,
-  elapsed: number,
-  rainIntensity: number
-) {
+function applyCraneUniforms(material: MeshStandardNodeMaterial, elapsed: number, rainIntensity: number) {
   const lookDev = getLookDevSettings()
   const weather = useGameStore.getState().weather
   const isNight = useGameStore.getState().isNight
@@ -301,14 +242,14 @@ function applyCraneUniforms(
 
 export function useCraneMaterial(
   kind: CraneMaterialKind,
-  options: CraneMaterialOptions = {}
-): THREE.MeshStandardMaterial {
+  options: CraneMaterialOptions = {},
+): MeshStandardNodeMaterial {
   const weather = useGameStore((s) => s.weather)
   const defaults = CRANE_DEFAULTS[kind]
 
   const material = useMemo(
     () => createCraneMaterial(kind, options),
-    [kind, options.baseColor, options.metalness, options.roughness, options.weathering]
+    [kind, options.baseColor, options.metalness, options.roughness, options.weathering],
   )
 
   useEffect(() => {
@@ -317,17 +258,13 @@ export function useCraneMaterial(
   }, [material, options.weathering, options.roughness, defaults])
 
   useFrame((state) => {
-    applyCraneUniforms(
-      material,
-      state.clock.elapsedTime,
-      weather === 'rain' || weather === 'storm' ? 1 : 0
-    )
+    applyCraneUniforms(material, state.clock.elapsedTime, weather === 'rain' || weather === 'storm' ? 1 : 0)
   })
 
   return material
 }
 
-export function useCraneCableMaterial(): THREE.MeshStandardMaterial {
+export function useCraneCableMaterial(): MeshStandardNodeMaterial {
   const weather = useGameStore((s) => s.weather)
   const isNight = useGameStore((s) => s.isNight)
 
@@ -348,12 +285,12 @@ export function useCraneCableMaterial(): THREE.MeshStandardMaterial {
 }
 
 export function updateCraneCableUniforms(
-  material: THREE.MeshStandardMaterial,
+  material: MeshStandardNodeMaterial,
   args: {
     tension: number
     twistlockEngaged: boolean
     elapsed: number
-  }
+  },
 ): void {
   const uniforms = material.userData.cableUniforms as CableUniforms | undefined
   if (!uniforms) return

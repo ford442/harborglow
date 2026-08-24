@@ -51,7 +51,8 @@ export default function RendererDiagnosticsMonitor({
         initialized: true,
         contextOptions,
         capabilities,
-        supportsSSR: activeBackend === 'webgl' || activeBackend === 'webgl2-fallback',
+        supportsSSR:
+          activeBackend === 'webgpu' && capabilities?.computeShaders === true,
         computeProbe,
       });
 

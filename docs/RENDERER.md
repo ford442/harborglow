@@ -104,7 +104,7 @@ Enabled by `?screenshot=1`, `?preserveDrawingBuffer=1`, or a Playwright/headless
 
 ## Post-Processing Contract
 
-`src/scenes/PostProcessing.tsx` uses the vanilla JSM `EffectComposer` stack. God-rays remain a GLSL `ShaderPass`. TSL/WGSL-only code stays behind `activeBackend === 'webgpu'`.
+`src/scenes/PostProcessing.tsx` uses Three r183 TSL `RenderPipeline` + `pass` / `bloom` / optional `ssr` (not JSM `EffectComposer`). God-rays are a TSL radial-blur node sampling the scene-pass depth texture. Quality `low` skips the pipeline and uses the default R3F present. `supportsSSR` is true only when the WebGPU compute capability is present **and** the TSL SSR pass is constructed (high/cinema).
 
 ## GPU chores vs domain compute
 

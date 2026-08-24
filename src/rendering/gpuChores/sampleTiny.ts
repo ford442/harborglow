@@ -78,13 +78,17 @@ export function sampleTinyRgba(
   }
 }
 
-export function composerColorTexture(composer: {
-  readBuffer?: { texture?: THREE.Texture }
-  writeBuffer?: { texture?: THREE.Texture }
-  renderTarget2?: { texture?: THREE.Texture }
-} | null): THREE.Texture | null {
+export function composerColorTexture(
+  composer: {
+    readBuffer?: { texture?: THREE.Texture }
+    writeBuffer?: { texture?: THREE.Texture }
+    renderTarget2?: { texture?: THREE.Texture }
+    getTexture?: (name?: string) => THREE.Texture
+  } | null,
+): THREE.Texture | null {
   if (!composer) return null
   return (
+    composer.getTexture?.('output') ??
     composer.writeBuffer?.texture ??
     composer.renderTarget2?.texture ??
     composer.readBuffer?.texture ??

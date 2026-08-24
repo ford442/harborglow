@@ -39,7 +39,7 @@ Concrete rules:
 3. **TSL is the preferred WebGPU material dialect after Phase A** (three bump unlocking `three/tsl` / `three/webgpu`). Port light-rig, god-ray, and water shading with explicit fallbacks — not a silent NodeMaterial-only fork.
 4. **`Water.tsx` stays the sole ocean authority.** FFT is a *backend* behind quality tiers (Low = Gerstner JS/WASM; High = FFT texture displacement; Cinema = higher res ± tessellation if feasible), registered/updated via existing wave bootstrap (`waves` order 120), not a revived parallel `FFTOcean` scene. Archive sketch may be mined; the loser is deleted or stays archived.
 5. **Compute is opt-in behind capability probes**, never assumed. Extend `RendererCapabilities` with `computeShaders` and `float32Filterable` before any WGSL FFT / god-ray compute lands. CPU/WASM Gerstner remains the universal fallback.
-6. **Post-processing stays on the GLSL `EffectComposer` contract until Phase A completes.** Migration to TSL/WGSL passes is a follow-up PR, gated on three + `@react-three/postprocessing` peer alignment (`docs/RENDERER.md` already documents this).
+6. **Live post is TSL `RenderPipeline`** (`pass` / `bloom` / god-rays / optional `ssr`). GLSL `EffectComposer` is retired on the WebGPU-required path (#194). A WebGL restore wave may reintroduce a GLSL reference composer; it is not a live dual renderer this phase.
 7. **Out of scope for this epic’s implementation PRs:** VR crane cab, mobile touch, light-show video export, multiplayer — track as separate epics.
 
 ### Chosen three.js target (Phase A)
