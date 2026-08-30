@@ -7,6 +7,7 @@
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
 import { wasmDSP } from './wasmDSP'
+import { OceanFFTField, type OceanFFTConfig } from './ocean/OceanFFTField'
 
 // -------------------------------------------------------------------------
 // TYPES
@@ -32,6 +33,17 @@ export interface WaveState {
   stormIntensity: number
   layers: WaveLayer[]
 }
+
+/**
+ * How often the CPU FFT field is re-transformed, in seconds. A 128² field costs
+ * ~3.8 ms per update, so it runs at 30 Hz rather than per-frame; the surface is
+ * far too slow-moving for the difference to read. See docs/systems/OCEAN_FFT.md.
+ */
+export const OCEAN_FFT_UPDATE_INTERVAL = 1 / 30
+
+/** Wind speed in m/s fed to the Phillips spectrum, from calm to full storm. */
+const FFT_WIND_CALM = 6
+const FFT_WIND_STORM = 17
 
 // -------------------------------------------------------------------------
 // DEFAULT WAVE LAYERS
@@ -81,6 +93,10 @@ class WaveSystem {
   private listeners: Set<(state: WaveState) => void> = new Set()
   private tempVec2 = new THREE.Vector2()
   private tempVec3 = new THREE.Vector3()
+  /** Non-null only on the `high`+ quality tier. See `setOceanFFT`. */
+  private oceanFFT: OceanFFTField | null = null
+  private fftAccumulator = 0
+  private fftDirty = false
 
   constructor() {
     this.state = {
@@ -116,7 +132,84 @@ class WaveSystem {
       })
     }
 
+    this.updateOceanFFT(delta)
     this.notifyListeners()
+  }
+
+  // =====================================================================
+  // FFT OCEAN (high quality tier)
+  // =====================================================================
+
+  /**
+   * Enable or disable the Phillips/IFFT ocean.
+   *
+   * While enabled it *replaces* the Gerstner layer sum in every height query,
+   * so buoyancy, foam and the water shader all read the same surface. Gerstner
+   * stays the `low`/`medium` path and is restored the moment this is disabled.
+   *
+   * @param seed deterministic seed for h̃₀; pass the sim seed so replays match.
+   */
+  setOceanFFT(enabled: boolean, config: Partial<OceanFFTConfig> = {}): OceanFFTField | null {
+    if (!enabled) {
+      this.oceanFFT = null
+      this.fftAccumulator = 0
+      this.fftDirty = false
+      return null
+    }
+
+    const wantsRebuild = !this.oceanFFT || (config.size !== undefined && config.size !== this.oceanFFT.size)
+    if (wantsRebuild) {
+      this.oceanFFT = new OceanFFTField({ ...config, ...this.windParams() })
+      this.fftAccumulator = 0
+      this.fftDirty = true
+    } else {
+      this.oceanFFT!.setParams({ ...config, ...this.windParams() })
+    }
+    return this.oceanFFT
+  }
+
+  /** The live FFT field, or null on the Gerstner tiers. */
+  getOceanFFT(): OceanFFTField | null {
+    return this.oceanFFT
+  }
+
+  /**
+   * True when the field was re-transformed since the last `consumeOceanFFTDirty`.
+   * Water uses it to skip redundant texture uploads on frames that reused the
+   * previous transform.
+   */
+  consumeOceanFFTDirty(): boolean {
+    const dirty = this.fftDirty
+    this.fftDirty = false
+    return dirty
+  }
+
+  /** Wind heading/speed for the spectrum, derived from the storm intensity. */
+  private windParams(): Pick<OceanFFTConfig, 'windDirection' | 'windSpeed' | 'amplitude'> {
+    const store = useGameStore.getState()
+    const storm = this.state.stormIntensity
+    const gust = Math.min(1, store.windStrength / 20)
+    return {
+      windDirection: store.windDirection,
+      windSpeed: FFT_WIND_CALM + (FFT_WIND_STORM - FFT_WIND_CALM) * Math.max(storm, gust),
+      amplitude: this.state.params.amplitude,
+    }
+  }
+
+  private updateOceanFFT(delta: number) {
+    const field = this.oceanFFT
+    if (!field) return
+
+    field.setParams(this.windParams())
+
+    this.fftAccumulator += delta
+    if (this.fftAccumulator < OCEAN_FFT_UPDATE_INTERVAL) return
+    // Quantise rather than zero the accumulator so the field's clock stays a
+    // pure function of accumulated sim time (replay determinism).
+    const steps = Math.floor(this.fftAccumulator / OCEAN_FFT_UPDATE_INTERVAL)
+    this.fftAccumulator -= steps * OCEAN_FFT_UPDATE_INTERVAL
+    field.update(this.state.time)
+    this.fftDirty = true
   }
 
   // =====================================================================
@@ -126,8 +219,16 @@ class WaveSystem {
   /**
    * Get water surface height at world position (x, z) at current time.
    * This is the exact JS mirror of the vertex shader displacement.
+   *
+   * `time` applies to the Gerstner tier only. The FFT tier holds a single
+   * transformed time slice, so it always answers for "now" — every in-tree
+   * caller already passes `waveSystem.getTime()`.
    */
   getWaterHeight(x: number, z: number, time = this.state.time): number {
+    // FFT tier: read the same IFFT grid the shader displaces by, so hull
+    // buoyancy and the visible surface cannot drift apart.
+    if (this.oceanFFT) return this.oceanFFT.heightAt(x, z)
+
     let height = 0
     const stormAmp = 1 + this.state.stormIntensity * 2.0
     const globalAmp = this.state.params.amplitude
@@ -163,6 +264,8 @@ class WaveSystem {
     }
 
     const outHeights = out ?? new Float32Array(count)
+    if (this.oceanFFT) return this.oceanFFT.heightBatch(xs, zs, outHeights)
+
     outHeights.fill(0)
 
     const stormAmp = 1 + this.state.stormIntensity * 2.0
@@ -329,6 +432,9 @@ class WaveSystem {
   }
 
   reset() {
+    this.oceanFFT = null
+    this.fftAccumulator = 0
+    this.fftDirty = false
     this.state.time = 0
     this.state.params = { amplitude: 1.0, speed: 1.0, chaos: 0.0 }
     this.state.stormIntensity = 0

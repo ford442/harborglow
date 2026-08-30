@@ -120,16 +120,23 @@ export function updateGodRay(material: MeshStandardNodeMaterial, time: number) {
 }
 
 /**
- * Builds the WGSL compute shader nodes for the FFT ocean simulation.
- * Returns a TSL texture2D node representing the displacement/normal map.
+ * Builds a minimal storage-texture compute pass: every texel is written with
+ * its own normalised UV.
+ *
+ * This is a **device capability probe**, not an ocean. It exists so
+ * `computeDiagnostics` can prove that this renderer really executes a compute
+ * shader and really writes a StorageTexture, before anything else commits to
+ * the GPU path. The ocean simulation itself lives in `src/systems/ocean/`
+ * (CPU/WASM tier) and, once device features are negotiated (#199), in the
+ * WGSL butterfly passes — neither of which goes through here.
+ *
+ * The renderer must execute the returned node explicitly with
+ * `renderer.computeAsync(computeNode)`.
  */
-export function buildOceanFFTNode(width = 256, height = 256) {
+export function buildStorageTextureProbeNode(width = 256, height = 256) {
   const displacementTex = new THREE.StorageTexture(width, height)
   displacementTex.type = THREE.HalfFloatType
 
-  // This is the deterministic storage-texture write pass used as the
-  // foundation for the quality-gated FFT backend. The renderer must execute
-  // it explicitly with renderer.computeAsync(computeNode).
   const writeDisplacement = Fn(() => {
     const posX = instanceIndex.mod(width)
     const posY = instanceIndex.div(width)
