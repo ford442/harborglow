@@ -45,6 +45,11 @@ driven from `MainScene` `useFrame`:
 Storm escalation, waves, economy-adjacent traffic, and wildlife therefore
 do not change with monitor refresh rate.
 
+The `high`-tier FFT ocean rides on the same contract: its spectrum is seeded
+through `Rng.fork()` (which does not advance the sim RNG) and its transform
+cadence is driven by accumulated `SIM_DT`, so enabling it cannot change the sim
+hash. See [OCEAN_FFT.md](./OCEAN_FFT.md#determinism).
+
 ## Replay file
 
 ```json

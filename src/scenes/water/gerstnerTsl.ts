@@ -23,6 +23,7 @@ import {
   sin,
   smoothstep,
   step,
+  textureLevel,
   uniform,
   uniformArray,
   vec2,
@@ -34,6 +35,8 @@ import { tsl } from '../../shaders/tslCast'
 
 export type WaterTslUserData = {
   uTime: { value: number }
+  /** Present only on FFT-tier materials. Blends FFT displacement 0→1. */
+  uFftStrength?: { value: number }
   uCameraPos: { value: THREE.Vector3 }
   uSunDir: { value: THREE.Vector3 }
   uSunColor: { value: THREE.Color }
@@ -76,12 +79,27 @@ function initWaveArrays() {
   return { amps, freqs, speeds, steep, dirs }
 }
 
+export interface WaterFftOptions {
+  /** RGBA half-float displacement map: R = Dx, G = height, B = Dz. */
+  texture: THREE.Texture
+  /** Metres per texture tile — the same `patchSize` the field was built with. */
+  patchSize: number
+  /** Grid resolution, used to pick the finite-difference step for normals. */
+  size: number
+}
+
 export function createWaterNodeMaterial(opts: {
   isNight: boolean
   weather: string
   waveAmp: number
   waveSpeed: number
   stormIntensity: number
+  /**
+   * When supplied, the 4-layer Gerstner swell is replaced by this FFT
+   * displacement field. Omitted on `low`/`medium`, which keeps their node
+   * graph byte-identical to the pre-FFT material.
+   */
+  fft?: WaterFftOptions
 }): MeshStandardNodeMaterial {
   const { amps, freqs, speeds, steep, dirs } = initWaveArrays()
 
@@ -124,7 +142,20 @@ export function createWaterNodeMaterial(opts: {
   const uPropWashPower = uniform(0)
   const uWashAsymmetry = uniform(0)
 
-  const getWaveHeight = (worldPos: any, t: any) => {
+  const uFftStrength = uniform(opts.fft ? 1 : 0)
+  const fftPatchSize = opts.fft ? opts.fft.patchSize : 1
+
+  /**
+   * Sample the FFT patch. `uv = worldXZ / patchSize` tiles because the texture
+   * uses RepeatWrapping. `textureLevel(..., 0)` is mandatory here: this runs in
+   * the vertex stage, where implicit-derivative sampling is illegal in WGSL.
+   */
+  const sampleFft = (worldPos: any) =>
+    opts.fft
+      ? textureLevel(opts.fft.texture, worldPos.div(float(fftPatchSize)), float(0))
+      : null
+
+  const getGerstnerHeight = (worldPos: any, t: any) => {
     const stormAmp = float(1).add(uStormIntensity.mul(2))
     let height = tsl(float(0))
     for (let i = 0; i < MAX_WAVE_LAYERS; i++) {
@@ -138,6 +169,24 @@ export function createWaterNodeMaterial(opts: {
       height = tsl(height.add(amp.mul(sin(phase)).add(steepness.mul(0))))
     }
     return height
+  }
+
+  /**
+   * Vertical displacement for the active tier. On the FFT tier this is the
+   * green channel of the displacement map — the exact grid that
+   * `OceanFFTField.heightAt()` bilinearly samples on the CPU for buoyancy.
+   */
+  const getWaveHeight = (worldPos: any, t: any) => {
+    const fft = sampleFft(worldPos)
+    if (!fft) return getGerstnerHeight(worldPos, t)
+    return tsl(fft.y.mul(uFftStrength))
+  }
+
+  /** Horizontal "choppy" displacement (FFT tier only; zero under Gerstner). */
+  const getWaveHorizontal = (worldPos: any) => {
+    const fft = sampleFft(worldPos)
+    if (!fft) return vec2(0, 0)
+    return vec2(fft.x, fft.z).mul(uFftStrength)
   }
 
   const getRippleDetail = (worldPos: any, t: any) => {
@@ -201,8 +250,14 @@ export function createWaterNodeMaterial(opts: {
     return sternFoam.mul(0.85).add(edgeFoam).mul(uPropWashPower).mul(active).mul(aheadMask).mul(float(1).add(t.mul(0)))
   }
 
+  // A plane's bilinear texel is piecewise-linear, so on the FFT tier the
+  // finite-difference step has to straddle texels or every quad reads flat.
+  const gridStep = opts.fft ? opts.fft.patchSize / opts.fft.size : 0
+  const normalDelta = opts.fft ? Math.max(0.3, gridStep) : 0.3
+  const foamDelta = opts.fft ? Math.max(0.5, gridStep) : 0.5
+
   const getFoam = (worldPos: any, t: any, h: any) => {
-    const delta = float(0.5)
+    const delta = float(foamDelta)
     const hL = getWaveHeight(worldPos.add(vec2(delta.negate(), 0)), t)
     const hR = getWaveHeight(worldPos.add(vec2(delta, 0)), t)
     const hD = getWaveHeight(worldPos.add(vec2(0, delta.negate())), t)
@@ -216,7 +271,7 @@ export function createWaterNodeMaterial(opts: {
   }
 
   const getWaveNormal = (worldPos: any, t: any) => {
-    const delta = float(0.3)
+    const delta = float(normalDelta)
     const hL = getWaveHeight(worldPos.add(vec2(delta.negate(), 0)), t)
     const hR = getWaveHeight(worldPos.add(vec2(delta, 0)), t)
     const hD = getWaveHeight(worldPos.add(vec2(0, delta.negate())), t)
@@ -236,15 +291,22 @@ export function createWaterNodeMaterial(opts: {
   const elevation = getWaveHeight(worldPos2d, uTime)
     .add(getRippleDetail(worldPos2d, uTime))
     .add(getTugWakeDisp(worldPos2d, uTime))
+  const horizontal = getWaveHorizontal(worldPos2d)
+
+  // Water is a planeGeometry (local XY, normal +Z) rotated −90° about X, so
+  // local axes map to world as x→+X, y→−Z, z→+Y. Elevation therefore belongs
+  // on local Z; putting it on local Y displaces the sheet sideways and leaves
+  // the surface visually flat.
+  const localOffset = vec3(horizontal.x, horizontal.y.negate(), elevation)
 
   const mat = new MeshStandardNodeMaterial()
   mat.transparent = true
   mat.depthWrite = true
   mat.side = THREE.DoubleSide
   mat.lights = false
-  mat.positionNode = positionLocal.add(vec3(0, elevation, 0))
+  mat.positionNode = positionLocal.add(localOffset)
 
-  const displacedWorld = modelWorldMatrix.mul(vec4(positionLocal.add(vec3(0, elevation, 0)), 1))
+  const displacedWorld = modelWorldMatrix.mul(vec4(positionLocal.add(localOffset), 1))
   const vWorldPos = vec3(displacedWorld.x, displacedWorld.y, displacedWorld.z)
   const vNormal = normalize(getWaveNormal(worldPos2d, uTime))
   const vFoam = getFoam(worldPos2d, uTime, elevation).add(getTugWakeFoam(worldPos2d, uTime))
@@ -329,6 +391,7 @@ export function createWaterNodeMaterial(opts: {
 
   mat.userData = {
     uTime,
+    uFftStrength,
     uCameraPos,
     uSunDir,
     uSunColor,

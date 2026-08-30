@@ -3,7 +3,7 @@
 // Gerstner displacement via TSL MeshStandardNodeMaterial. WaveSystem uniforms.
 // =============================================================================
 
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import * as THREE from 'three'
 import { MeshStandardNodeMaterial } from 'three/webgpu'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -13,6 +13,8 @@ import { tugboatWakeState } from '../systems/TugboatWakeSystem'
 import { useMusicPulse } from '../hooks/useMusicPulse'
 import { MAX_DYNAMIC_LIGHTS, MAX_WAVE_LAYERS } from './water/gerstnerHeight'
 import { createWaterNodeMaterial, type WaterTslUserData } from './water/gerstnerTsl'
+import { createOceanFFTTexture, type OceanFFTTexture } from './water/oceanFFTTexture'
+import { OCEAN_FFT_SIZE_BY_QUALITY, oceanFFTSeed } from '../systems/ocean'
 
 interface WaterProps {
   isNight?: boolean
@@ -50,6 +52,37 @@ export default function Water({ isNight = true }: WaterProps) {
 
   const segments = quality === 'high' ? 512 : quality === 'medium' ? 256 : 128
 
+  // Quality gate. `low`/`medium` never build a field, so their material graph
+  // and per-frame cost are unchanged from the pre-FFT Gerstner ocean.
+  const fftSize = OCEAN_FFT_SIZE_BY_QUALITY[quality] ?? 0
+
+  const fftTextureRef = useRef<OceanFFTTexture | null>(null)
+  const fft = useMemo(() => {
+    fftTextureRef.current?.dispose()
+    fftTextureRef.current = null
+
+    if (fftSize === 0) {
+      waveSystem.setOceanFFT(false)
+      return undefined
+    }
+
+    const field = waveSystem.setOceanFFT(true, { size: fftSize, seed: oceanFFTSeed() })
+    if (!field) return undefined
+
+    const packed = createOceanFFTTexture(field)
+    fftTextureRef.current = packed
+    return { texture: packed.texture, patchSize: field.patchSize, size: field.size }
+  }, [fftSize])
+
+  useEffect(
+    () => () => {
+      fftTextureRef.current?.dispose()
+      fftTextureRef.current = null
+      waveSystem.setOceanFFT(false)
+    },
+    [],
+  )
+
   const material = useMemo(() => {
     const mat = createWaterNodeMaterial({
       isNight,
@@ -57,6 +90,7 @@ export default function Water({ isNight = true }: WaterProps) {
       waveAmp: waveParams.amplitude,
       waveSpeed: waveParams.speed,
       stormIntensity,
+      fft,
     })
     materialRef.current = mat
     const layers = waveSystem.getLayersForShader()
@@ -71,12 +105,19 @@ export default function Water({ isNight = true }: WaterProps) {
       }
     }
     return mat
-  }, [isNight, weather, waveParams.amplitude, waveParams.speed, stormIntensity])
+  }, [isNight, weather, waveParams.amplitude, waveParams.speed, stormIntensity, fft])
 
   useFrame(() => {
     const mat = materialRef.current
     if (!mat) return
     const u = waterUserData(mat)
+
+    // WaveSystem re-transforms the field on its own cadence (30 Hz); only
+    // re-pack the texture on frames where it actually changed.
+    const field = waveSystem.getOceanFFT()
+    if (field && fftTextureRef.current && waveSystem.consumeOceanFFTDirty()) {
+      fftTextureRef.current.sync(field)
+    }
 
     const nightBlend = isNight
       ? 1
