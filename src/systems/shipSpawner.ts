@@ -2,6 +2,7 @@ import { useGameStore, ShipType, Ship, AttachmentPoint } from '../store/useGameS
 import { getBlueprint } from '../types/ShipBlueprint'
 import { getShipModelAttachmentPose, isShipModelAvailable } from '../ships/shipModelCache'
 import { isGlbAllowedForQuality } from '../ships/shipModelContract'
+import { simRandom, simNowMs } from './sim/SimContext'
 
 // Ship name generators
 const CRUISE_NAMES = [
@@ -108,7 +109,7 @@ export class ShipSpawner {
         }
 
         const name = options?.name ?? this.generateShipName(type)
-        const id = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+        const id = `${type}-${simNowMs()}-${simRandom().toString(36).substr(2, 5)}`
 
         // Generate attachment points from GLB nodes when cached, else blueprint parts.
         // Gated on the same quality rule the renderer uses: at 'low' the hull is
@@ -175,8 +176,8 @@ export class ShipSpawner {
         const maxAttempts = 50
         
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const x = (Math.random() - 0.5) * 40
-            const z = (Math.random() - 0.5) * 20
+            const x = (simRandom() - 0.5) * 40
+            const z = (simRandom() - 0.5) * 20
             const position: [number, number, number] = [x, 0, z]
             
             let valid = true
