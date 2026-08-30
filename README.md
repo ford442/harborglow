@@ -148,8 +148,14 @@ src/
 ## 🚀 Development
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (reproducible; use after lockfile changes)
+npm ci
+
+# Run CI merge gates locally before pushing (~3–5 min)
+npm run verify
+
+# Faster check: lockfile + typecheck + lint only (~30–60s)
+npm run verify:fast
 
 # Start development server
 npm run dev
@@ -159,10 +165,16 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Optional: run verify automatically before every push
+npm run setup:pre-push-hook
+# Skip once: git push --no-verify
 ```
 
+`npm run verify` mirrors **7 of 8** CI merge gates (lockfile → typecheck → lint → test → dev-transform smoke → build). It does **not** run `gate-wasm` (Emscripten rebuild of `public/wasm/`). Touching `cpp/` or WASM binaries requires the full WASM gate — see [AGENTS.md](AGENTS.md) § CI merge gates.
+
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+ and npm 10+ (see `package.json` `engines`)
 - Recommended: Browser with WebGPU support (Chrome 113+, Edge 113+)
 - WebGL/R3F fallback is deferred; a failed probe hard-fails (see docs/RENDERER.md)
 

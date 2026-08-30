@@ -476,7 +476,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 
 | Job | Command | What it catches |
 |------|---------|-----------------|
-| `gate-lockfile` | `npm ci` + `npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three`/`postprocessing` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
+| `gate-lockfile` | `npm ci` + `npm ls three @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
 | `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
 | `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
@@ -487,15 +487,35 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
 | `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
 
-Run locally before pushing — **from a clean install**, since an existing `node_modules` can mask a
-`package-lock.json` that no longer matches `package.json` (`npm install` silently repairs and
-re-hoists a stale lock without you noticing; only `npm ci` against the committed lock proves it's
-reproducible):
+### Local verify (`npm run verify`)
+
+Run the same merge gates locally before pushing (fail-fast, cheapest first):
 
 ```bash
-rm -rf node_modules && npm ci && npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier
-npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build
+rm -rf node_modules && npm ci   # once per lockfile change, or when deps look wrong
+npm run verify                  # ~3–5 min on a typical dev machine
 ```
+
+`npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
+
+- **`gate-wasm`** — requires Emscripten 6.0.6. If you changed `cpp/` or `public/wasm/`, run locally: `npm run build:wasm && make -C cpp test && npm run check:wasm && git diff --exit-code -- public/wasm`
+- **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)
+
+The lockfile step uses `npm ci --dry-run` (npm 10 semantics; npm 11 alone may miss incomplete lockfiles). Host npm ≥ 11 triggers an automatic `npx npm@10.9.2` for that step only.
+
+`ALLOW_MISSING_EMSDK=1` is set for the build step so contributors without Emscripten get the same skip CI uses; verify prints a banner that WASM rebuild was not checked.
+
+**Faster subset** (~30–60s): `npm run verify:fast` — lockfile + typecheck + lint only (skips test, smoke, build).
+
+**Opt-in pre-push hook** (nothing committed under `.git/hooks/`):
+
+```bash
+npm run setup:pre-push-hook   # installs scripts/pre-push.hook → .git/hooks/pre-push
+git push --no-verify          # skip once
+rm .git/hooks/pre-push        # remove
+```
+
+After a lockfile edit, run `rm -rf node_modules && npm ci` once — an existing `node_modules` from `npm install` can mask drift that `npm ci --dry-run` still catches, but a clean install proves reproducibility.
 
 **Report-only / not in CI (yet):** `npm audit` advisories.
 
@@ -623,7 +643,7 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `previ
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
 ### CI locally
-- Run the full merge gate matrix: `npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build`.
+- Run merge gates locally: `npm run verify` (or `npm run verify:fast` for a quick check).
 - `npm run smoke:dev-transform` boots a short-lived Vite dev server and fetches every module under `src/scenes/` and `src/store/` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses. `npm run test:dev-transform` is an alias.
 
 ### Other notes
