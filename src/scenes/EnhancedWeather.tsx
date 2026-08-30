@@ -222,27 +222,12 @@ function MistBanks({ intensity = 0.5 }: { intensity?: number }) {
   return (
     <mesh ref={mistRef} position={[0, 4, 0]}>
       <boxGeometry args={[180, 12, 180]} />
-      <shaderMaterial
+      <meshBasicMaterial
+        color="#d9ebff"
         transparent
+        opacity={intensity * 0.12}
         depthWrite={false}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          varying vec2 vUv;
-          float noise(vec2 p) {
-            return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-          }
-          void main() {
-            float n = noise(vUv * 10.0);
-            float alpha = n * 0.15 * (1.0 - abs(vUv.y - 0.5) * 2.0);
-            gl_FragColor = vec4(0.85, 0.92, 1.0, alpha);
-          }
-        `}
+        side={THREE.DoubleSide}
       />
     </mesh>
   )

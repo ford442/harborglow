@@ -251,69 +251,39 @@ function GodRay({
   intensity: number
   color: THREE.Color
 }) {
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null)
   const meshRef = useRef<THREE.Mesh>(null)
   
   useEffect(() => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uIntensity.value = intensity
-      materialRef.current.uniforms.uColor.value = color
+      materialRef.current.opacity = Math.max(0.05, intensity * 0.6)
+      materialRef.current.color.copy(color)
     }
   }, [intensity, color])
   
   useFrame((state) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 3) * intensity * 0.15
+      materialRef.current.opacity = Math.max(0.04, intensity * 0.55 * pulse)
     }
     if (meshRef.current) {
-      const pulse = 1 + Math.sin(state.clock.elapsedTime * 3) * intensity * 0.15
-      meshRef.current.scale.set(1, pulse, 1)
+      const scalePulse = 1 + Math.sin(state.clock.elapsedTime * 3) * intensity * 0.15
+      meshRef.current.scale.set(1, scalePulse, 1)
     }
   })
   
   return (
     <mesh ref={meshRef} position={[position.x, -5, position.z]} rotation={[0, angle, 0]}>
       <cylinderGeometry args={[0.5, 3, 15, 8, 1, true]} />
-      <shaderMaterial
+      <meshBasicMaterial
         ref={materialRef}
+        color={color}
         transparent
         depthWrite={false}
         side={THREE.DoubleSide}
         blending={THREE.AdditiveBlending}
-        uniforms={{
-          uColor: { value: color },
-          uIntensity: { value: intensity },
-          uTime: { value: 0 }
-        }}
-        vertexShader={`
-          varying vec2 vUv;
-          varying float vDepth;
-          uniform float uTime;
-          
-          void main() {
-            vUv = uv;
-            vec4 worldPos = modelMatrix * vec4(position, 1.0);
-            vDepth = 1.0 - (worldPos.y + 10.0) / 15.0;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform vec3 uColor;
-          uniform float uIntensity;
-          uniform float uTime;
-          varying vec2 vUv;
-          varying float vDepth;
-          
-          void main() {
-            float fade = smoothstep(0.0, 0.3, vUv.y) * (1.0 - smoothstep(0.7, 1.0, vUv.y));
-            fade *= vDepth;
-            
-            float noise = sin(vUv.x * 10.0 + vUv.y * 5.0 + uTime) * 0.1 + 0.9;
-            
-            vec3 color = uColor * uIntensity * fade * noise;
-            gl_FragColor = vec4(color, fade * uIntensity * 0.6);
-          }
-        `}
+        opacity={Math.max(0.05, intensity * 0.6)}
+        toneMapped={false}
       />
     </mesh>
   )
@@ -557,69 +527,30 @@ function BubbleField({ bubbles }: { bubbles: MarineLife[] }) {
  * Caustics Plane - Animated light patterns on seafloor
  */
 function CausticsPlane({ intensity }: { intensity: number }) {
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null)
   const { audioData } = useAudioVisualSync()
   
   useFrame((state) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      materialRef.current.uniforms.uAudioBass.value = audioData?.bass ?? 0
-      materialRef.current.uniforms.uAudioEnergy.value = audioData?.energy ?? 0
+      const bass = audioData?.bass ?? 0
+      const energy = audioData?.energy ?? 0
+      const pulse = 0.8 + Math.sin(state.clock.elapsedTime * (1 + energy * 2)) * 0.2
+      const brightness = (0.3 + bass * 0.8) * intensity * pulse
+      materialRef.current.opacity = Math.max(0, 0.22 * brightness)
+      materialRef.current.color.setRGB(0.05 + brightness * 0.2, 0.18 + brightness * 0.3, 0.4 + brightness * 0.35)
     }
   })
   
   return (
     <mesh position={[0, -15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[200, 200]} />
-      <shaderMaterial
+      <meshBasicMaterial
         ref={materialRef}
+        color="#1a4470"
         transparent
         depthWrite={false}
-        uniforms={{
-          uTime: { value: 0 },
-          uIntensity: { value: intensity },
-          uAudioBass: { value: 0 },
-          uAudioEnergy: { value: 0 }
-        }}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform float uTime;
-          uniform float uIntensity;
-          uniform float uAudioBass;
-          uniform float uAudioEnergy;
-          varying vec2 vUv;
-          
-          float caustic(vec2 uv, float time) {
-            float c = 0.0;
-            vec2 p = uv * 8.0;
-            
-            for (int i = 0; i < 3; i++) {
-              float fi = float(i);
-              p.x += sin(p.y + time * (0.5 + fi * 0.1) + fi * 2.0) * 0.5;
-              p.y += cos(p.x + time * (0.3 + fi * 0.15) + fi * 1.5) * 0.5;
-            }
-            
-            c = sin(p.x) * sin(p.y);
-            c = smoothstep(0.0, 1.0, c);
-            
-            return c;
-          }
-          
-          void main() {
-            float time = uTime * (1.0 + uAudioEnergy * 2.0);
-            float c = caustic(vUv, time);
-            vec3 baseColor = vec3(0.008, 0.031, 0.078);
-            vec3 brightColor = vec3(0.25, 0.5, 0.75);
-            vec3 color = mix(baseColor, brightColor, c) * (1.0 + uAudioBass * 0.8) * uIntensity;
-            gl_FragColor = vec4(color, c * 0.3 * uIntensity);
-          }
-        `}
+        opacity={0.08 * intensity}
+        toneMapped={false}
       />
     </mesh>
   )
