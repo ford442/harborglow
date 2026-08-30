@@ -1,6 +1,6 @@
 // =============================================================================
 // HARBOR PBR MATERIALS — TSL MeshStandardNodeMaterial (wetness / rust / wood)
-// GLSL onBeforeCompile path retired; HARBOR_NOISE_GLSL is reference only.
+// Legacy GLSL patch path retired.
 // =============================================================================
 
 import { useEffect, useMemo } from 'react'
@@ -17,11 +17,6 @@ import {
 } from '../utils/lookDevControls'
 import { tsl } from '../shaders/tslCast'
 import { harborFbm, harborSnoise } from './harborNoiseTsl'
-
-/** Reference simplex/fbm GLSL (not compiled). Live noise is harborNoiseTsl.ts. */
-export const HARBOR_NOISE_GLSL = /* glsl */ `
-  // harborSnoise / harborFbm — see git history. TSL uses mx_noise_float.
-`
 
 export type HarborMaterialKind =
   | 'weatheredWood'

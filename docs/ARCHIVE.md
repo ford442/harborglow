@@ -42,3 +42,17 @@ Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any
 | `MonitorSystem.tsx` | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
 
 Recover from git history before the deletion commit if needed.
+
+## Retired dead GLSL shader modules (`src/scenes/`) (Aug 2026)
+
+Removed during issue #208 follow-up work for #198 after a reachability audit
+confirmed zero runtime imports.
+
+| Former file | Notes |
+|-------------|-------|
+| `ShipMaterials.tsx` | Unused ship material pack (7 `<shaderMaterial>` sites), never imported |
+| `lightRigs/LightRigTypes.tsx` | Unused light rig component set (`LEDStripArray`, `MovingHeadSpotlight`, `LaserProjector`, `StrobeBank`, `NeonTubeArrangement`) |
+| `lightRigs/FogEffect.tsx` | Unused fog helper component |
+
+The two remaining control-booth GLSL helper materials are intentionally deferred
+until the R3F v10 + drei v11 migration enables drei's WebGPU material path.
