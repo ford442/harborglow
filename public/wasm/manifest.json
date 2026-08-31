@@ -30,5 +30,5 @@
       "sha256": "bb8f86c94c8758a0cc0b7c92ab06ad36feffe06a7bfc6dea46776d2265532064"
     }
   },
-  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.6 (ce75e06884093bcefb86a6b8fd56a5d62a4cc245)"
+  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.3 (283e2d130132859fde6a4e4c87fd254b38127651)"
 }
