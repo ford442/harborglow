@@ -46,6 +46,26 @@ function computeSourceMd5() {
   return hash.digest('hex')
 }
 
+// `harborglow_audio_shared_simd.wasm` is compiled with -mrelaxed-simd
+// (cpp/Makefile). Runtimes without relaxed SIMD reject it at compile time with
+// a raw V8 CompileError that says nothing about the toolchain, so translate it
+// into an actionable message rather than letting it escape as a crash.
+function compileBinary(binary, bytes) {
+  try {
+    return new WebAssembly.Module(bytes)
+  } catch (error) {
+    if (error instanceof WebAssembly.CompileError && /relaxed[- ]simd/i.test(error.message)) {
+      fail(
+        `${binary} uses relaxed-SIMD opcodes that this runtime cannot validate ` +
+        `(node ${process.versions.node}). Use Node >= 22, or re-run with ` +
+        `\`node --experimental-relaxed-simd scripts/check-wasm.mjs\`. ` +
+        `Original error: ${error.message}`,
+      )
+    }
+    throw error
+  }
+}
+
 function assertExports(module, expected, label) {
   const exports = new Set(WebAssembly.Module.exports(module).map(({ name }) => name))
   const missing = expected.filter((name) => !exports.has(name))
@@ -79,7 +99,7 @@ for (const binary of binaryPaths) {
       record.sha256 !== digest(bytes, 'sha256')) {
     fail(`${binary} differs from committed manifest; run npm run build:wasm`)
   }
-  modules.set(binary, { bytes, module: new WebAssembly.Module(bytes) })
+  modules.set(binary, { bytes, module: compileBinary(binary, bytes) })
 }
 
 const core = modules.get(binaryPaths[0])
