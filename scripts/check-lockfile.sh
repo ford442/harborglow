@@ -8,6 +8,7 @@
 #
 # Uses npm 10 semantics when the host npm is ≥ 11 — npm 11 is lenient on
 # incomplete lockfiles (see cce01c3 / 0610f3e esbuild@0.28.2 regression).
+# CI runs Node 22, which ships npm 10.9.x, so npm 10 is the reference.
 # =============================================================================
 
 set -euo pipefail
