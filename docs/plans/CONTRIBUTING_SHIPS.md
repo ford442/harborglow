@@ -44,7 +44,11 @@ Placeholder box dumps (dev only — do **not** commit over authored heroes):
 npm run generate:ship-glb
 ```
 
-Compress before committing (`gltf-transform draco` only — preserves `Empty_HP_*` hierarchy; do not run `optimize`/`flatten`):
+Compression is optional (`gltf-transform meshopt` only — preserves `Empty_HP_*`
+hierarchy; do not run `optimize`/`flatten`). **Never Draco**: its decoder needs a
+separately hosted WASM bundle, so a Draco hull would need a third-party CDN at
+runtime and `npm run models:verify` rejects it. The meshopt decoder ships inside
+three.
 
 ```bash
 npm run models:compress
@@ -141,7 +145,7 @@ See also `src/ships/shipModelContract.ts`.
 | Socket map | Every `attachmentPoints` id listed in `model.attachmentSocketMap` |
 | Emissive slots | Mesh/material names `emissive_*` or `glow_*` |
 | Materials | `MeshStandardMaterial` (WebGL + WebGPU parity) |
-| Compression | Draco + Meshopt supported (`useGLTF(url, true, true)`) |
+| Compression | Uncompressed or meshopt (`useGLTF(url, false, true)`). **Draco is rejected by `models:verify`** |
 
 ### Hardpoint naming
 
@@ -202,11 +206,13 @@ enforces gzip of each committed file (`scripts/check-glb-size.mjs`):
 | Triangles (LOD0) | 8–40k cruise, 8–30k container/tanker, 3–25k fireboat | LOD1/LOD2 stay procedural, so LOD0 is the only authored cost |
 | Gzip size (hero) | **≤ 1.5 MB** gzip — `cruise`, `container`, `tanker` | Keeps the "Loading ship models…" stage short on a 20 Mbit link |
 | Gzip size (stretch) | **≤ 800 kB** gzip — LNG, fireboat, bulk, roro, research, droneship, ferry, trawler, horizon, icebreaker | Same load-screen budget for the rest of the fleet |
-| Materials | ≤ 8 per hull, ≤ 3 named emissive *families* (many panes may share) | Each unique slot clones per ship instance |
+| Draw calls | **≤ 64 primitives per hull**, **≤ 320 across the fleet** — gated by `models:verify` | A primitive is a draw call, and the whole fleet can be docked at once |
+| Materials | **≤ 24 per hull** (gated); aim for ≤ 8, ≤ 3 named emissive *families* | Each unique slot clones per ship instance; atlasing should pull this down |
+| Surface model | **Lit PBR** (`MeshStandardMaterial` / metal-rough). Not `KHR_materials_unlit` | The current placeholders are unlit and read flat under the harbour night lighting and light-show emissive drive — an authored hull must respond to both |
 | Textures | ≤ 2× 2048² | Mid-range laptop GPU budget |
 
 Measure with `npm run models:inspect -- public/models/cruise_liner.glb`, and
-compress with `npm run models:compress` (Draco) before committing. Size-only:
+optionally compress with `npm run models:compress` (meshopt) before committing. Size-only:
 `npm run models:check-size`.
 
 ## The Vessel Blueprint Protocol (v1.0)

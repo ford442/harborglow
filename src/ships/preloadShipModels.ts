@@ -59,7 +59,7 @@ async function loadAndCacheShipModel(shipType: ShipType, url: string): Promise<v
   })
 
   // Warm drei cache so in-scene useGLTF hits the same asset.
-  await useGLTF.preload(url, true, true)
+  await useGLTF.preload(url, false, true)
 }
 
 function markUnavailable(shipType: ShipType, url: string): void {
@@ -159,6 +159,6 @@ export function preloadPriorityShipModels(): void {
   for (const contract of listGlbContracts()) {
     const url = getShipModelUrl(contract.shipType)
     if (!url || !getShipModelCacheEntry(contract.shipType)?.available) continue
-    useGLTF.preload(url, true, true)
+    useGLTF.preload(url, false, true)
   }
 }

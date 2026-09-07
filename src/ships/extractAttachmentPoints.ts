@@ -4,35 +4,25 @@
 
 import * as THREE from 'three'
 import type { ShipModelAttachmentPose } from './shipModelContract'
-import { SHIP_ATTACH_PREFIX } from './shipModelContract'
+import { socketCandidateNames } from './shipSocketResolution.mjs'
 
+/**
+ * Resolve one blueprint attachment id to a scene node using the shared
+ * candidate order (socket map → exact name → `attach_` prefix). The order lives
+ * in `shipSocketResolution.mjs` so `verify-ship-glb.mjs` gates exactly what the
+ * runtime accepts.
+ */
 function resolveAttachmentNode(
   root: THREE.Object3D,
   attachmentId: string,
-  /** GLB node name → blueprint attachment id (inverted lookup below). */
+  /** GLB node name → blueprint attachment id. */
   socketMap: Record<string, string> = {},
 ): THREE.Object3D | null {
-  // An explicit socket map wins over name conventions.
-  for (const [nodeName, mappedId] of Object.entries(socketMap)) {
-    if (mappedId !== attachmentId) continue
-    const mapped = root.getObjectByName(nodeName)
-    if (mapped) return mapped
+  for (const name of socketCandidateNames(attachmentId, socketMap)) {
+    const node = root.getObjectByName(name)
+    if (node) return node
   }
-
-  const direct = root.getObjectByName(attachmentId)
-  if (direct) return direct
-
-  const prefixed = root.getObjectByName(`${SHIP_ATTACH_PREFIX}${attachmentId}`)
-  if (prefixed) return prefixed
-
-  let found: THREE.Object3D | null = null
-  root.traverse((child) => {
-    if (found) return
-    if (child.name === attachmentId || child.name === `${SHIP_ATTACH_PREFIX}${attachmentId}`) {
-      found = child
-    }
-  })
-  return found
+  return null
 }
 
 /**

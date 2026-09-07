@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import * as THREE from 'three'
 import { SHIP_BLUEPRINTS, getBlueprint } from '../../types/ShipBlueprint'
+import { extractAttachmentPoints } from '../extractAttachmentPoints'
+import { resolveSocketName, socketCandidateNames } from '../shipSocketResolution.mjs'
 import {
   getShipModelUrl,
   getShipGlbContract,
@@ -57,5 +60,63 @@ describe('Ship Models', () => {
   it('resolves icebreaker and the legacy icebreaker-yamal blueprint id', () => {
     expect(getBlueprint('icebreaker')?.id).toBe('icebreaker')
     expect(getBlueprint('icebreaker-yamal')?.id).toBe('icebreaker')
+  })
+})
+
+/**
+ * The validator (scripts/verify-ship-glb.mjs) and the runtime resolver both
+ * consume shipSocketResolution.mjs. These tests pin the shared order so a model
+ * that verifies green is a model that binds at runtime, and vice versa.
+ */
+describe('socket resolution (shared by verifier and runtime)', () => {
+  function sceneWith(names: string[]): THREE.Object3D {
+    const root = new THREE.Object3D()
+    root.name = 'test_root'
+    for (const name of names) {
+      const child = new THREE.Object3D()
+      child.name = name
+      child.position.set(1, 2, 3)
+      root.add(child)
+    }
+    return root
+  }
+
+  it('prefers the socket map, then the bare id, then the attach_ prefix', () => {
+    expect(socketCandidateNames('stack1', { Empty_HP_Funnel: 'stack1' })).toEqual([
+      'Empty_HP_Funnel',
+      'stack1',
+      'attach_stack1',
+    ])
+    expect(socketCandidateNames('stack1')).toEqual(['stack1', 'attach_stack1'])
+  })
+
+  it('resolves a socket-mapped node (the path all 12 committed models use)', () => {
+    const socketMap = { Empty_HP_Funnel: 'stack1' }
+    const names = ['Empty_HP_Funnel']
+    expect(resolveSocketName('stack1', names, socketMap)).toBe('Empty_HP_Funnel')
+
+    const poses = extractAttachmentPoints(sceneWith(names), ['stack1'], socketMap)
+    expect(poses.stack1?.position).toEqual([1, 2, 3])
+  })
+
+  it('resolves a convention-named model with no socket map, bare and prefixed', () => {
+    // This is the path the validator used to reject while the runtime accepted it.
+    expect(resolveSocketName('stack1', ['stack1'])).toBe('stack1')
+    expect(resolveSocketName('stack1', ['attach_stack1'])).toBe('attach_stack1')
+
+    expect(extractAttachmentPoints(sceneWith(['stack1']), ['stack1']).stack1?.position).toEqual([1, 2, 3])
+    expect(
+      extractAttachmentPoints(sceneWith(['attach_stack1']), ['stack1']).stack1?.position,
+    ).toEqual([1, 2, 3])
+  })
+
+  it('falls back to a convention name when the socket map points elsewhere', () => {
+    const socketMap = { Empty_HP_Other: 'someOtherId' }
+    expect(resolveSocketName('stack1', ['stack1'], socketMap)).toBe('stack1')
+  })
+
+  it('reports an unbindable attachment as null and omits it from extracted poses', () => {
+    expect(resolveSocketName('stack1', ['unrelated'], { Empty_HP_Missing: 'stack1' })).toBeNull()
+    expect(extractAttachmentPoints(sceneWith(['unrelated']), ['stack1'])).toEqual({})
   })
 })
