@@ -20,7 +20,7 @@ function applyShadowFlags(object: THREE.Object3D): void {
 }
 
 function GlbShipModelInner({ url, scale, yOffset }: { url: string; scale: number; yOffset: number }) {
-  const { scene } = useGLTF(url, true, true)
+  const { scene } = useGLTF(url, false, true)
   const isNight = useGameStore((state) => state.isNight)
   const lightIntensity = useGameStore((state) => state.lightIntensity)
 
