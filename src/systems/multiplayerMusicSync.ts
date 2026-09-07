@@ -1,35 +1,29 @@
-// =============================================================================
-// MULTIPLAYER MUSIC SYNC — Start/stop local Tone.js tracks from network patches
-// =============================================================================
-
-import { useGameStore } from '../store/useGameStore';
-import { musicSystem } from './musicSystem';
-import { lightingSystem } from './lightingSystem';
+import { useGameStore, selectIsShipFullyUpgraded } from '../store/useGameStore'
+import { musicSystem } from './musicSystem'
+import { lightingSystem } from './lightingSystem'
+import { getSim } from './sim/SimContext'
 
 /**
- * Diff musicPlaying records from a network patch and drive local playback.
- * Spectators generate audio locally; no audio bytes cross the wire.
+ * Start/stop local Tone.js from sim-driven store flags.
+ * Transport offset is simTime so host and spectator share the beat, not wall clock.
  */
-export function syncSpectatorMusic(
-    prev: Record<string, boolean>,
-    next: Record<string, boolean>,
-): void {
-    const store = useGameStore.getState();
-    const allShipIds = new Set([...Object.keys(prev), ...Object.keys(next)]);
+export function maybeStartShipMusic(shipId: string): void {
+  const store = useGameStore.getState()
+  const ship = store.ships.find((s) => s.id === shipId)
+  if (!ship) return
+  if (!selectIsShipFullyUpgraded(store, shipId)) return
+  if (store.musicPlaying.get(shipId)) return
 
-    for (const shipId of allShipIds) {
-        const wasPlaying = prev[shipId] ?? false;
-        const isPlaying = next[shipId] ?? false;
-        if (wasPlaying === isPlaying) continue;
+  store.setMusicPlaying(shipId, true)
+  lightingSystem.startHarborShow(shipId, ship.type)
+  void musicSystem.startMusic(ship.type, getSim().simTime)
+}
 
-        const ship = store.ships.find((s) => s.id === shipId);
-        if (!ship) continue;
-
-        if (isPlaying) {
-            void musicSystem.startMusic(ship.type);
-            lightingSystem.startHarborShow(shipId, ship.type);
-        } else {
-            musicSystem.stopMusic(ship.type);
-        }
+export function syncLocalMusicFromStore(): void {
+  const store = useGameStore.getState()
+  for (const ship of store.ships) {
+    if (selectIsShipFullyUpgraded(store, ship.id) && !store.musicPlaying.get(ship.id)) {
+      maybeStartShipMusic(ship.id)
     }
+  }
 }

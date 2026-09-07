@@ -6,6 +6,7 @@
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
 import { calcMagneticFalloff } from '../utils/physicsMath'
 import { swaySystem } from './swaySystem'
+import { recordHostInput } from './sim/hostInput'
 
 // Attachment point states
 export type AttachmentState = 'available' | 'hovered' | 'snapping' | 'installing' | 'installed'
@@ -301,6 +302,7 @@ export function triggerInstallation(
     swayPercent: swaySystem.getState().magnitude,
     damage: 0,
   })
+  recordHostInput('upgrade.install', { shipId, partName }, { alreadyApplied: true })
   
   const event: InstallationEvent = {
     shipId,

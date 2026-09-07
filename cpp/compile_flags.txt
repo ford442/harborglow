@@ -1,0 +1,22 @@
+# clangd / clang-tidy fallback when compile_commands.json is absent.
+# Matches the em++ reactor so DSP_EXPORT and SIMD intrinsic macros resolve.
+# Native objects use -std=c++17 / -std=c11; see Makefile and compile_commands.
+--target=wasm32
+-std=c++17
+-I.
+-msimd128
+-matomics
+-mbulk-memory
+-Wall
+-Wextra
+-Wshadow
+-Wconversion
+-Werror=return-type
+-DDSP_EXPORT=
+-DEMSCRIPTEN_KEEPALIVE=
+
+# Audio SIMD artifact only (harborglow_audio_shared_simd.wasm): -mrelaxed-simd.
+# Do not add it here; it is not used on the core reactor. V8 must enable
+# relaxed SIMD to validate that artifact (Node 20 WebAssembly.Module fails;
+# Node 22+ typically succeeds). Generate a full database:
+#   make -C cpp compile-commands

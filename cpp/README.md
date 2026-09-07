@@ -10,7 +10,7 @@ math from the main TypeScript game loop.
 |---|---|
 | `dsp_mix(a, b, t)` | Linear interpolation |
 | `dsp_clamp(x, lo, hi)` | Value clamping |
-| `dsp_remap(v, lo1, hi1, lo2, hi2)` | Range remapping |
+| `dsp_remap(v, lo1, hi1, lo2, hi2)` | Range remapping (`lo2` if `|hi1-lo1| < 1e-20`) |
 | `dsp_smooth_step(t)` | Cubic smoothstep |
 | `dsp_smoother_step(t)` | Ken Perlin's smoother-step |
 | `dsp_sin_approx(x)` | Fast sine (Bhaskara I, ~0.1 % error, [0, π]) |
@@ -52,7 +52,10 @@ source ~/emsdk/emsdk_env.sh
 # 2. Build from this directory
 cd /path/to/harborglow/cpp
 ./build.sh          # optimised release (fails if em++ is missing)
-./build.sh debug    # debug + sanitizers
+./build.sh debug    # DWARF + ASSERTIONS (no ASan on standalone WASM)
+make debug-native   # host ASan/UBSan tests
+make compile-commands  # gitignored cpp/compile_commands.json for clangd
+make tidy           # optional clang-tidy (does not fail CI)
 ./build.sh clean    # remove artifacts
 ./build.sh --allow-missing-emsdk   # skip compile when em++ is absent
 ```
@@ -96,7 +99,31 @@ drift.
 - Core SIMD artifact: `-O3 -flto -msimd128`. Shared audio builds keep a
   fixed 32 MiB imported memory plus a scalar / `-msimd128 -mrelaxed-simd`
   pair.
+- **`-mrelaxed-simd` is load-bearing.** It is used only on
+  `harborglow_audio_shared_simd.wasm`. `scripts/check-wasm.mjs` compiles every
+  committed artifact with `new WebAssembly.Module(bytes)`. Node 20’s V8 does
+  not enable relaxed SIMD, so that check fails with an opaque
+  `WebAssembly.CompileError`. Use Node 22+ (or a V8 with relaxed SIMD) for
+  `npm run check:wasm`. Do not drop the flag without an AudioWorklet SIMD
+  regression test.
+- Warnings: native `make test` uses `-Wall -Wextra -Wshadow -Wconversion -Werror`.
+  em++ uses the same warnings non-fatally. The ring buffer is compiled with
+  `emcc -std=c11` (not fed to `em++` as a `.c` file). Remaining em++ notes:
+  `PTHREAD_POOL_SIZE` and `MAXIMUM_MEMORY` are unused-command-line-arguments
+  on `STANDALONE_WASM` (no JS glue / no `ALLOW_MEMORY_GROWTH`); they stay as
+  documented intent, not dropped in this PR.
 - **Not used at runtime:** MODULARIZE / `harborglow_dsp.js` glue.
+- Shared audio: `-pthread -s PTHREAD_POOL_SIZE=0` plus `-matomics -mbulk-memory`
+  for imported SharedArrayBuffer. Pool size 0 means no pthread workers; dropping
+  `-pthread` is a follow-up after AudioWorklet regression tests.
+- **clangd:** `make compile-commands` writes gitignored `compile_commands.json`
+  (native `-std=c++17`/`-std=c11` plus em++-shaped wasm32 entries). Editors
+  without that file use committed `compile_flags.txt` (`--target=wasm32`,
+  `-msimd128`, `-matomics`, `-mbulk-memory`, empty `DSP_EXPORT` /
+  `EMSCRIPTEN_KEEPALIVE` macros).
+- **Debug:** `make debug` / `make debug-wasm` is DWARF + `ASSERTIONS` only.
+  ASan + `SAFE_HEAP` need JS glue and a growing heap; they are not valid on
+  `STANDALONE_WASM` + `--no-entry`. Host sanitizers: `make debug-native`.
 
 ## Benchmarks
 

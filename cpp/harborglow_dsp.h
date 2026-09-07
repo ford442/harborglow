@@ -7,8 +7,8 @@
 //   • Gerstner wave height queries used by Ship buoyancy and Water shaders
 //   • Fast trigonometry approximations (sin, smoothstep, etc.)
 //
-// All exported symbols use C linkage and EMSCRIPTEN_KEEPALIVE so that they
-// are reachable from JavaScript via Module.cwrap() / Module._function().
+// All exported symbols use C linkage and EMSCRIPTEN_KEEPALIVE. Runtime load
+// is raw WebAssembly.instantiate (no Emscripten JS glue / Module.cwrap).
 // =============================================================================
 
 #pragma once
@@ -25,7 +25,10 @@ extern "C" float dsp_mix(float a, float b, float t);
 /** Clamp x to the closed interval [lo, hi]. */
 extern "C" float dsp_clamp(float x, float lo, float hi);
 
-/** Remap v from input range [lo1, hi1] to output range [lo2, hi2]. */
+/**
+ * Remap v from input range [lo1, hi1] to output range [lo2, hi2].
+ * Returns lo2 when |hi1 − lo1| is below 1e-20 (degenerate input span).
+ */
 extern "C" float dsp_remap(float v, float lo1, float hi1, float lo2, float hi2);
 
 /** Cubic smoothstep for t ∈ [0, 1]: 3t² − 2t³. */

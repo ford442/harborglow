@@ -32,18 +32,9 @@ export function syncSystemModeLifecycle(state: ModeLifecycleState): void {
         multiplayerRole = 'offline',
     } = state
 
-    // Spectators receive all state from host — pause every simulation group.
-    if (multiplayerRole === 'spectator') {
-        systemRegistry.pauseGroup('core')
-        systemRegistry.pauseGroup('crane')
-        systemRegistry.pauseGroup('traffic')
-        systemRegistry.pauseGroup('ambient')
-        systemRegistry.pauseGroup('harbor-events')
-        systemRegistry.pauseGroup('storm')
-        return
-    }
+    void multiplayerRole
 
-    // Ensure core ticks resume when leaving spectator mode
+    // Ensure core ticks resume (spectators run the same seeded sim as the host)
     systemRegistry.resumeGroup('core')
 
     // Crane physics only while operating the gantry (or on-foot near crane).
@@ -61,6 +52,13 @@ export function syncSystemModeLifecycle(state: ModeLifecycleState): void {
         systemRegistry.resumeGroup('storm')
     } else {
         systemRegistry.pauseGroup('storm')
+    }
+
+    const iceTicks = activeMission?.type === 'ice-escort' && activeMission.status === 'active'
+    if (iceTicks) {
+        systemRegistry.resumeGroup('ice')
+    } else {
+        systemRegistry.pauseGroup('ice')
     }
 
     // Sandbox harbor traffic; pause during focused training drills.

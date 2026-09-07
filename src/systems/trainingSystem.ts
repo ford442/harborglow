@@ -13,6 +13,7 @@ import {
 } from './trainingObjectiveEvaluator'
 import { ShipSpawner } from './shipSpawner'
 import { stormSystem } from './StormSystem'
+import { startIceEscort } from './ice/iceEscortMission'
 
 // =============================================================================
 // TRAINING MODULE TYPES
@@ -27,6 +28,7 @@ export type TrainingModuleId =
   | 'twin-screw-differential' // Tugboat Module 2: Differential thrust
   | 'acoustic-handshake' // Tugboat Module 3: Acoustic handshake protocol
   | 'storm-rescue'     // Tugboat Module 4: Controlled storm tow
+  | 'ice-escort'       // Tugboat Module 5: Polar channel for Yamal
   | 'multi-crane'      // Module 5: Multi-Crane Coordination
   | 'emergency'        // Module 6: Emergency Response
   | 'light-show'       // Module 7: Advanced Light Show Install
@@ -36,6 +38,7 @@ export const TUGBOAT_TRAINING_MODULE_IDS: TrainingModuleId[] = [
   'twin-screw-differential',
   'acoustic-handshake',
   'storm-rescue',
+  'ice-escort',
 ]
 
 export function isTugboatTrainingModule(moduleId: TrainingModuleId): boolean {
@@ -353,13 +356,42 @@ export const TRAINING_MODULES: TrainingModule[] = [
     ],
     rewards: {
       reputation: 170,
-      unlocks: ['tugmaster-storm-stripe', 'salvage-dispatch-priority']
+      unlocks: ['tugmaster-storm-stripe', 'salvage-dispatch-priority', 'ice-escort-module']
     },
     tutorial: [
       { id: 'storm-brief', title: 'Storm Briefing', message: 'Conditions are rough, but controlled. Keep decisions calm and deliberate.', voiceLine: 'training_storm_warning' },
       { id: 'shear-warning', title: 'Shear and Drift', message: 'Cross-shear will pull your tow line sideways. Correct early, not late.', position: 'left' },
       { id: 'cav-limit', title: 'Throttle Discipline', message: 'Avoid prolonged cavitation. A clean prop saves your line and your mission.', position: 'right' },
       { id: 'rescue-run', title: 'Rescue Run', message: 'Complete the full storm escort to Berth Gamma.', waitForAction: true, actionType: 'move' }
+    ]
+  },
+
+  // ============================================================================
+  // TUGBOAT MODULE 5: Ice Escort
+  // ============================================================================
+  {
+    id: 'ice-escort',
+    title: 'Polar Ice Escort',
+    description: 'Helm Yamal through pack ice and hold a channel while a client hull transits to Polar Berth Gamma.',
+    difficulty: 5,
+    estimatedTime: 14,
+    shipType: 'icebreaker',
+    weather: 'fog',
+    timeOfDay: 2,
+    prerequisites: ['storm-rescue'],
+    objectives: [
+      { id: 'break-channel', title: 'Break Channel', description: 'Ram a navigable lane through the pack toward the berth' },
+      { id: 'hold-station', title: 'Hold Station', description: 'Keep the icebreaker in the corridor while the client advances' },
+      { id: 'client-berth', title: 'Client Berth', description: 'Deliver the client hull to Polar Berth Gamma without grounding' }
+    ],
+    rewards: {
+      reputation: 200,
+      unlocks: ['arctic-booth-chrome', 'yamal-escort-stripe']
+    },
+    tutorial: [
+      { id: 'ice-brief', title: 'Pack Ice Briefing', message: 'This is not a tow. You are the icebreaker. Cut the channel; the client follows open water.' },
+      { id: 'ram-ice', title: 'Ram Discipline', message: 'Speed breaks floes. Heavy ice at high speed damages the hull.', position: 'left' },
+      { id: 'client-follow', title: 'Client Transit', message: 'The client grounds if it meets unbroken ice. Clear ahead of its track.', position: 'right', waitForAction: true, actionType: 'move' }
     ]
   },
 
@@ -490,6 +522,7 @@ export const DEFAULT_TRAINING_PROGRESS: TrainingProgress = {
     'twin-screw-differential': 'locked',
     'acoustic-handshake': 'locked',
     'storm-rescue': 'locked',
+    'ice-escort': 'locked',
     'multi-crane': 'locked',
     'emergency': 'locked',
     'light-show': 'locked'
@@ -1057,6 +1090,10 @@ export function setupTrainingScenario(moduleId: TrainingModuleId): void {
     const secondary = ShipSpawner.spawnShip('container', { position: [30, 0, 2] })
     store.setCurrentShip(primary.id)
     trainingSystem.setTrainingShipIds(primary.id, secondary.id)
+    break
+  }
+  case 'ice-escort': {
+    startIceEscort({ seed: 204 })
     break
   }
   case 'emergency': {

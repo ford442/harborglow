@@ -17,6 +17,12 @@
 //   const h = wasmDSP.waveHeight(x, z, t, amp, freq, speed, dx, dz)
 // =============================================================================
 
+import { fft2d as jsFft2d } from './ocean/fft2d'
+
+const HULL_NORMAL_DELTA = 0.3
+const HULL_MAX_COUNT = 256
+const HULL_MAX_LAYERS = 16
+
 // ---------------------------------------------------------------------------
 // Public interface — mirrors the exports of harborglow_dsp.wasm
 // ---------------------------------------------------------------------------
@@ -30,7 +36,7 @@ export interface HarborGlowDSPExports {
 
   /**
    * Remap v from input range [lo1, hi1] to output range [lo2, hi2].
-   * No clamping applied; extrapolation is allowed.
+   * Returns lo2 when |hi1 − lo1| is below 1e-20.
    */
   dsp_remap(v: number, lo1: number, hi1: number, lo2: number, hi2: number): number
 
@@ -64,6 +70,20 @@ export interface HarborGlowDSPExports {
   dsp_audio_rms(dataPtr: number, count: number): number
 
   dsp_fft_r2c(inputPtr: number, outRealPtr: number, outImagPtr: number, log2N: number): void
+
+  dsp_fft2d(rePtr: number, imPtr: number, n: number, inverse: number): void
+
+  dsp_hull_sample_batch(
+    xsPtr: number, zsPtr: number, count: number, time: number,
+    layersPtr: number, nLayers: number,
+    outHeightsPtr: number, outNormalsPtr: number,
+  ): void
+
+  dsp_heightfield_sample_batch(
+    gridPtr: number, n: number, patchSize: number,
+    xsPtr: number, zsPtr: number, count: number,
+    outHeightsPtr: number, outNormalsPtr: number,
+  ): void
 
   dsp_convolver_create(impulsePtr: number, impulseLength: number): number
   dsp_convolver_process(handle: number, inputPtr: number, outputPtr: number, count: number): void
@@ -102,6 +122,9 @@ interface RawWasmInstance {
   dsp_additive_block: HarborGlowDSPExports['dsp_additive_block']
   dsp_audio_rms: (dataPtr: number, count: number) => number
   dsp_fft_r2c: HarborGlowDSPExports['dsp_fft_r2c']
+  dsp_fft2d: HarborGlowDSPExports['dsp_fft2d']
+  dsp_hull_sample_batch: HarborGlowDSPExports['dsp_hull_sample_batch']
+  dsp_heightfield_sample_batch: HarborGlowDSPExports['dsp_heightfield_sample_batch']
   dsp_convolver_create: HarborGlowDSPExports['dsp_convolver_create']
   dsp_convolver_process: HarborGlowDSPExports['dsp_convolver_process']
   dsp_convolver_reset: HarborGlowDSPExports['dsp_convolver_reset']
@@ -199,6 +222,66 @@ function jsFftR2C(
   }
 }
 
+function wrapGridIndex(value: number, n: number): number {
+  const wrapped = value % n
+  return wrapped < 0 ? wrapped + n : wrapped
+}
+
+function sampleHeightfieldJs(
+  grid: ArrayLike<number>, n: number, patchSize: number, x: number, z: number,
+): number {
+  const cellsPerMetre = n / patchSize
+  const gx = x * cellsPerMetre
+  const gz = z * cellsPerMetre
+  const x0 = Math.floor(gx)
+  const z0 = Math.floor(gz)
+  const tx = gx - x0
+  const tz = gz - z0
+  const col0 = wrapGridIndex(x0, n)
+  const col1 = wrapGridIndex(x0 + 1, n)
+  const row0 = wrapGridIndex(z0, n)
+  const row1 = wrapGridIndex(z0 + 1, n)
+  const h00 = grid[row0 * n + col0]
+  const h10 = grid[row0 * n + col1]
+  const h01 = grid[row1 * n + col0]
+  const h11 = grid[row1 * n + col1]
+  const top = h00 + (h10 - h00) * tx
+  const bottom = h01 + (h11 - h01) * tx
+  return top + (bottom - top) * tz
+}
+
+function writeNormal(hL: number, hR: number, hD: number, hU: number, out: Float32Array, i: number) {
+  let nx = hL - hR
+  let ny = 2 * HULL_NORMAL_DELTA
+  let nz = hD - hU
+  const len = Math.hypot(nx, ny, nz)
+  if (len > 1e-12) {
+    nx /= len
+    ny /= len
+    nz /= len
+  } else {
+    nx = 0
+    ny = 1
+    nz = 0
+  }
+  out[i * 3] = nx
+  out[i * 3 + 1] = ny
+  out[i * 3 + 2] = nz
+}
+
+function gerstnerSumJs(
+  x: number, z: number, time: number, layers: ArrayLike<number>, nLayers: number,
+): number {
+  let height = 0
+  for (let layer = 0; layer < nLayers; layer++) {
+    const o = layer * 5
+    height += jsExports.dsp_wave_height(
+      x, z, time, layers[o], layers[o + 1], layers[o + 2], layers[o + 3], layers[o + 4],
+    )
+  }
+  return height
+}
+
 /** Tiny WASM module that returns v128; used to feature-detect SIMD. */
 const WASM_SIMD_PROBE = new Uint8Array([
   0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8,
@@ -221,7 +304,10 @@ function isDev(): boolean {
 const jsExports: HarborGlowDSPExports = {
   dsp_mix:   (a, b, t)                    => a + (b - a) * t,
   dsp_clamp: (x, lo, hi)                  => Math.min(Math.max(x, lo), hi),
-  dsp_remap: (v, lo1, hi1, lo2, hi2)      => lo2 + (v - lo1) / (hi1 - lo1) * (hi2 - lo2),
+  dsp_remap: (v, lo1, hi1, lo2, hi2) => {
+    if (Math.abs(hi1 - lo1) < 1e-20) return lo2
+    return lo2 + (v - lo1) / (hi1 - lo1) * (hi2 - lo2)
+  },
   dsp_smooth_step: (t) => {
     const tc = Math.min(Math.max(t, 0), 1)
     return tc * tc * (3 - 2 * tc)
@@ -272,6 +358,9 @@ const jsExports: HarborGlowDSPExports = {
   dsp_fft_r2c: (_inputPtr, _outRealPtr, _outImagPtr, _log2N) => {
     void _inputPtr; void _outRealPtr; void _outImagPtr; void _log2N
   },
+  dsp_fft2d: () => {},
+  dsp_hull_sample_batch: () => {},
+  dsp_heightfield_sample_batch: () => {},
   dsp_convolver_create: () => 0,
   dsp_convolver_process: () => {},
   dsp_convolver_reset: () => {},
@@ -295,6 +384,11 @@ class WasmDSPSystem {
   private _batchScratch: Float32Array | null = null
   private _heapScratchPtr = 0
   private _heapScratchFloats = 0
+  private _heightfieldPtr = 0
+  private _heightfieldFloats = 0
+  private _heightfieldN = 0
+  private _heightfieldPatch = 0
+  private _heightfieldJs: Float32Array | null = null
   private _simd = false
 
   // -------------------------------------------------------------------------
@@ -611,6 +705,145 @@ class WasmDSPSystem {
   }
 
   /**
+   * In-place complex 2-D FFT matching `src/systems/ocean/fft2d.ts`.
+   */
+  fft2d(re: Float32Array, im: Float32Array, n: number, inverse: boolean): void {
+    if (this._raw) {
+      const raw = this._raw
+      const cells = n * n
+      const ptr = this.ensureHeapScratch(cells * 2)
+      const rePtr = ptr
+      const imPtr = ptr + cells * 4
+      new Float32Array(raw.memory.buffer, rePtr, cells).set(re.subarray(0, cells))
+      new Float32Array(raw.memory.buffer, imPtr, cells).set(im.subarray(0, cells))
+      raw.dsp_fft2d(rePtr, imPtr, n, inverse ? 1 : 0)
+      re.set(new Float32Array(raw.memory.buffer, rePtr, cells))
+      im.set(new Float32Array(raw.memory.buffer, imPtr, cells))
+      return
+    }
+    jsFft2d(re, im, n, inverse)
+  }
+
+  hullSampleBatch(
+    xs: Float32Array | ArrayLike<number>,
+    zs: Float32Array | ArrayLike<number>,
+    time: number,
+    layers: Float32Array | ArrayLike<number>,
+    nLayers: number,
+    outHeights: Float32Array,
+    outNormals: Float32Array,
+  ): void {
+    const count = xs.length
+    if (count !== zs.length) {
+      throw new Error('hullSampleBatch: xs and zs must have equal length')
+    }
+    if (count < 1 || count > HULL_MAX_COUNT) return
+    if (nLayers < 1 || nLayers > HULL_MAX_LAYERS) return
+
+    if (this._raw) {
+      const raw = this._raw
+      const layerFloats = nLayers * 5
+      const ptr = this.ensureHeapScratch(count * 2 + layerFloats + count + count * 3)
+      const xsPtr = ptr
+      const zsPtr = ptr + count * 4
+      const layersPtr = zsPtr + count * 4
+      const hPtr = layersPtr + layerFloats * 4
+      const nPtr = hPtr + count * 4
+      const heap = new Float32Array(raw.memory.buffer)
+      const xsOff = xsPtr / 4
+      const zsOff = zsPtr / 4
+      const layOff = layersPtr / 4
+      for (let i = 0; i < count; i++) {
+        heap[xsOff + i] = xs[i]
+        heap[zsOff + i] = zs[i]
+      }
+      for (let i = 0; i < layerFloats; i++) heap[layOff + i] = layers[i]
+      raw.dsp_hull_sample_batch(xsPtr, zsPtr, count, time, layersPtr, nLayers, hPtr, nPtr)
+      outHeights.set(heap.subarray(hPtr / 4, hPtr / 4 + count))
+      outNormals.set(heap.subarray(nPtr / 4, nPtr / 4 + count * 3))
+      return
+    }
+
+    for (let i = 0; i < count; i++) {
+      const x = xs[i]
+      const z = zs[i]
+      outHeights[i] = gerstnerSumJs(x, z, time, layers, nLayers)
+      writeNormal(
+        gerstnerSumJs(x - HULL_NORMAL_DELTA, z, time, layers, nLayers),
+        gerstnerSumJs(x + HULL_NORMAL_DELTA, z, time, layers, nLayers),
+        gerstnerSumJs(x, z - HULL_NORMAL_DELTA, time, layers, nLayers),
+        gerstnerSumJs(x, z + HULL_NORMAL_DELTA, time, layers, nLayers),
+        outNormals, i,
+      )
+    }
+  }
+
+  uploadHeightfield(grid: Float32Array, n: number, patchSize: number): void {
+    this._heightfieldN = n
+    this._heightfieldPatch = patchSize
+    this._heightfieldJs = grid
+    if (!this._raw) return
+    const raw = this._raw
+    const floats = n * n
+    if (this._heightfieldFloats < floats) {
+      if (this._heightfieldPtr) raw.free(this._heightfieldPtr)
+      this._heightfieldPtr = raw.malloc(floats * 4)
+      this._heightfieldFloats = floats
+    }
+    new Float32Array(raw.memory.buffer, this._heightfieldPtr, floats).set(grid)
+  }
+
+  heightfieldSampleBatch(
+    xs: Float32Array | ArrayLike<number>,
+    zs: Float32Array | ArrayLike<number>,
+    outHeights: Float32Array,
+    outNormals: Float32Array,
+  ): void {
+    const count = xs.length
+    const n = this._heightfieldN
+    const patch = this._heightfieldPatch
+    if (count !== zs.length || n < 2 || patch <= 0) return
+    if (count < 1 || count > HULL_MAX_COUNT) return
+
+    if (this._raw && this._heightfieldPtr) {
+      const raw = this._raw
+      const ptr = this.ensureHeapScratch(count * 2 + count + count * 3)
+      const xsPtr = ptr
+      const zsPtr = ptr + count * 4
+      const hPtr = zsPtr + count * 4
+      const nPtr = hPtr + count * 4
+      const heap = new Float32Array(raw.memory.buffer)
+      const xsOff = xsPtr / 4
+      const zsOff = zsPtr / 4
+      for (let i = 0; i < count; i++) {
+        heap[xsOff + i] = xs[i]
+        heap[zsOff + i] = zs[i]
+      }
+      raw.dsp_heightfield_sample_batch(
+        this._heightfieldPtr, n, patch, xsPtr, zsPtr, count, hPtr, nPtr,
+      )
+      outHeights.set(heap.subarray(hPtr / 4, hPtr / 4 + count))
+      outNormals.set(heap.subarray(nPtr / 4, nPtr / 4 + count * 3))
+      return
+    }
+
+    const grid = this._heightfieldJs
+    if (!grid) return
+    for (let i = 0; i < count; i++) {
+      const x = xs[i]
+      const z = zs[i]
+      outHeights[i] = sampleHeightfieldJs(grid, n, patch, x, z)
+      writeNormal(
+        sampleHeightfieldJs(grid, n, patch, x - HULL_NORMAL_DELTA, z),
+        sampleHeightfieldJs(grid, n, patch, x + HULL_NORMAL_DELTA, z),
+        sampleHeightfieldJs(grid, n, patch, x, z - HULL_NORMAL_DELTA),
+        sampleHeightfieldJs(grid, n, patch, x, z + HULL_NORMAL_DELTA),
+        outNormals, i,
+      )
+    }
+  }
+
+  /**
    * Scratch buffer for accumulating multi-layer batch results without
    * allocating each frame (WaveSystem uses this).
    */
@@ -660,7 +893,8 @@ class WasmDSPSystem {
       'dsp_sin_approx', 'dsp_sin_full',
       'dsp_wave_height', 'dsp_wave_height_batch',
       'dsp_additive_synth_sample', 'dsp_additive_block',
-      'dsp_audio_rms', 'dsp_fft_r2c',
+      'dsp_audio_rms', 'dsp_fft_r2c', 'dsp_fft2d',
+      'dsp_hull_sample_batch', 'dsp_heightfield_sample_batch',
       'dsp_convolver_create', 'dsp_convolver_process',
       'dsp_convolver_reset', 'dsp_convolver_destroy',
       'dsp_generate_room_ir',
@@ -676,6 +910,8 @@ class WasmDSPSystem {
     this._simd = simd
     this._heapScratchPtr = 0
     this._heapScratchFloats = 0
+    this._heightfieldPtr = 0
+    this._heightfieldFloats = 0
     this._status = 'ready'
   }
 

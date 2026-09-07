@@ -14,7 +14,7 @@ behind it, not a second scene authority.
 
 | Preset | Displacement | Height queries (Rapier / foam / tug) |
 |---|---|---|
-| `low` / `medium` | Gerstner (`gerstnerTsl` + `WaveSystem` / `dsp_wave_height_batch`) | `waveHeightBatch` WASM |
+| `low` / `medium` | Gerstner (`gerstnerTsl` + `WaveSystem` / `dsp_hull_sample_batch`) | `getHullSampleBatch` / `waveHeightBatch` WASM |
 | `high` | FFT 128² height + choppy displacement texture | `OceanFFTField.heightAt()` — bilinear read of the *same* IFFT grid |
 | `cinema` | FFT 256² | same |
 
@@ -31,7 +31,7 @@ renderer.
 
 | File | Role |
 |---|---|
-| `fft2d.ts` | Radix-2 Cooley-Tukey. Strided 1-D lines + separable 2-D row/column. |
+| `fft2d.ts` | Radix-2 Cooley-Tukey (JS fallback). WASM `dsp_fft2d` is preferred when the reactor is ready. |
 | `OceanFFTField.ts` | Phillips spectrum, time evolution, IFFT, CPU sampling. |
 | `index.ts` | Quality mapping and the deterministic seed. |
 | `../../scenes/water/oceanFFTTexture.ts` | Packs the field into a tiling `DataTexture`. |

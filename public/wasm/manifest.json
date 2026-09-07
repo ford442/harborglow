@@ -1,33 +1,33 @@
 {
   "schema": 1,
-  "sourceMd5": "ce9bc5f2efa3deb5c6ea7d2a1ec169c0",
+  "sourceMd5": "9f8e1526324659daeefe1131a65d929e",
   "sources": {
-    "cpp/harborglow_dsp.cpp": "9785bec28a32e28080746dcdd6a3c01a",
-    "cpp/harborglow_dsp.h": "76d4dd38e6870cffb85f87e47d103530",
+    "cpp/harborglow_dsp.cpp": "e76692230ff9d9c3968f7d4c54d809cb",
+    "cpp/harborglow_dsp.h": "8839668e63a40cf1c714497091cb5dae",
     "cpp/harborglow_audio_engine.cpp": "1ef7e0a78661f5d1d99fcdde2cbff444",
     "cpp/harborglow_audio_engine.h": "7f85feafb80b0a619743e156c7944683",
     "cpp/dsp_ring_buffer.c": "a197f45ea81ad7f4afe1cb8e5ca164eb",
     "cpp/dsp_ring_buffer.h": "32e9be526cb8e319fe7bf8df3449db59",
-    "cpp/Makefile": "4177f1ff1613ef4e4b1dde68689b2a13",
-    "cpp/build.sh": "159d9c5863c26df4e486ca71c6077511",
+    "cpp/Makefile": "80ba86ab8d37f1811410cfcdcc869960",
+    "cpp/build.sh": "1107747b9ec3ea7c24d8eba3a4c0fc32",
     "scripts/wasm-exports.mjs": "42f962e2da23334b4cd7652fdf029f5e"
   },
   "binaries": {
     "public/wasm/harborglow_dsp.wasm": {
-      "bytes": 25501,
-      "sha256": "4fe75e0651d0f4d29f84ed0c9db18987a1625172b8cbdff62f8dbf8906dff4b6"
+      "bytes": 26534,
+      "sha256": "8dc07735291c51b5c2e7779675cf26b017b61e071c5cf4782a185132f34d449f"
     },
     "public/wasm/harborglow_dsp_simd.wasm": {
-      "bytes": 28013,
-      "sha256": "5507a6e939053ac09198fd3d4eddfb5d7172f945f9c54a2074339a5229de00ee"
+      "bytes": 29031,
+      "sha256": "db52cf0b35a3a28d30ec40f0bffe4c244845c698f4349b66d4edd511732b8871"
     },
     "public/wasm/harborglow_audio_shared.wasm": {
-      "bytes": 48699,
-      "sha256": "885fd73744fa1f4942fc0b4c57aa620cbab9ca7152f1d2abdf9fbeca4039990c"
+      "bytes": 49715,
+      "sha256": "67e5449ee3ce871a6f7518e519d8b1c3d0a77c1cf7826158aad5d8acce9fb30b"
     },
     "public/wasm/harborglow_audio_shared_simd.wasm": {
-      "bytes": 51648,
-      "sha256": "bb8f86c94c8758a0cc0b7c92ab06ad36feffe06a7bfc6dea46776d2265532064"
+      "bytes": 52650,
+      "sha256": "f2cb453c3692d25df73c6bd0fdd9e1abeabeac8c1c2d67521194e9061ee48e13"
     }
   },
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.6 (ce75e06884093bcefb86a6b8fd56a5d62a4cc245)"

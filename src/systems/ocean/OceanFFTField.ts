@@ -27,6 +27,7 @@
 
 import { Rng } from '../sim/Rng'
 import { fft2d } from './fft2d'
+import { wasmDSP } from '../wasmDSP'
 
 /** Gravitational acceleration used for the deep-water dispersion relation. */
 export const GRAVITY = 9.81
@@ -308,8 +309,13 @@ export class OceanFFTField {
       }
     }
 
-    fft2d(this.heightRe, this.heightIm, n, true)
-    if (wantsChoppy) fft2d(this.dispRe, this.dispIm, n, true)
+    if (wasmDSP.isWasmActive) {
+      wasmDSP.fft2d(this.heightRe, this.heightIm, n, true)
+      if (wantsChoppy) wasmDSP.fft2d(this.dispRe, this.dispIm, n, true)
+    } else {
+      fft2d(this.heightRe, this.heightIm, n, true)
+      if (wantsChoppy) fft2d(this.dispRe, this.dispIm, n, true)
+    }
 
     // Centre shift: indexing k from −N/2 leaves a (−1)^(row+col) factor.
     let sumSq = 0

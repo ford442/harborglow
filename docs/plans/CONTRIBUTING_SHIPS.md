@@ -12,7 +12,9 @@ Any AI (Jules, Gemini, Claude, Cursor, Copilot, etc.) can add new vessels to the
 
 ### GLB hulls (authored fleet)
 
-Hero + stretch hulls ship as retopo'd GLBs in `public/models/`:
+Hero + stretch hulls ship as retopo'd GLBs in `public/models/` (see
+[`public/models/README.md`](../../public/models/README.md) for generator vs
+future artist attribution).
 
 | Ship type | GLB file | Fallback |
 |-----------|----------|----------|
@@ -21,14 +23,19 @@ Hero + stretch hulls ship as retopo'd GLBs in `public/models/`:
 | `tanker` | `oil_tanker.glb` | Procedural blueprint |
 | `fireboat` | `fireboat.glb` | Procedural blueprint |
 | `lng` | `lng_carrier.glb` | Procedural blueprint |
+| `icebreaker` | `icebreaker.glb` (not committed) | Procedural Yamal |
 
 If a GLB is missing or fails to load, HarborGlow keeps the procedural hull — no crash.
+
+**Do not** add `icebreaker: 'icebreaker.glb'` to `SHIP_MODEL_FILENAMES` until
+`public/models/icebreaker.glb` exists. `npm run models:verify` exist-gates that
+pair so procedural-only PRs stay green.
 
 **Author / regenerate** retopo'd heroes (lofted hulls, emissive slots, `Empty_HP_*` hardpoints):
 
 ```bash
 npm run models:author
-node scripts/verify-ship-glb.mjs
+npm run models:verify
 ```
 
 Placeholder box dumps (dev only — do **not** commit over authored heroes):
@@ -150,8 +157,24 @@ hardpoints — not convention fallbacks.
 4. Name night-lit meshes `emissive_windows`, `glow_funnel`, etc.
 5. Root the hierarchy under `{shipId}_root`.
 6. Export as GLB to `public/models/{filename}` (see `src/ships/shipModelRegistry.ts`).
-7. Run `npm run models:compress`, then `node scripts/verify-ship-glb.mjs`.
+7. Run `npm run models:compress`, then `npm run models:verify` (sockets + gzip size + icebreaker exist-gate).
 8. Verify snap alignment in-game: `?renderer=webgl` spawn ship → crane install; repeat with `?renderer=webgpu`.
+
+### Icebreaker (Yamal) GLB contract
+
+Procedural until `public/models/icebreaker.glb` lands. When it does, in the same
+commit:
+
+1. Add `icebreaker: 'icebreaker.glb'` to `SHIP_MODEL_FILENAMES` in
+   `src/ships/shipModelRegistry.ts`.
+2. Add a `model` block on the `icebreaker` blueprint with
+   `url: "./models/icebreaker.glb"` and `attachmentSocketMap` covering all eight
+   upgrade ids: `funnelMain`, `heliDeck`, `towingNotch`, `bridge`,
+   `secondaryCrane`, `secondaryStack`, `mastArray`, `spoonBow`.
+3. Root node `icebreaker_root`, bow **+Z**, origin waterline amidships, at least
+   eight `Empty_HP_*` empties whose names match the socket map keys.
+4. Stretch gzip budget (≤ 800 kB). Flip the Vitest “icebreaker has no GLB”
+   assertion in `src/ships/__tests__/shipModels.test.ts`.
 
 ### Regenerating retopo placeholders from code
 
@@ -171,17 +194,20 @@ lands, keeping the same root/hardpoint/socket-map names. Do **not** overwrite wi
 ### Asset budget
 
 GLBs are fetched during the loading screen, so their weight is startup latency,
-not bundle size. Budget per hero hull:
+not the Vite JS bundle (`bundle-budget.json` does not apply). `npm run models:verify`
+enforces gzip of each committed file (`scripts/check-glb-size.mjs`):
 
 | Metric | Budget | Why |
 |--------|--------|-----|
 | Triangles (LOD0) | 8–40k cruise, 8–30k container/tanker, 3–25k fireboat | LOD1/LOD2 stay procedural, so LOD0 is the only authored cost |
-| File size (compressed) | **≤ 1.5 MB** per hull, ≤ 5 MB for the full authored set | Keeps the "Loading ship models…" stage short on a 20 Mbit link |
+| Gzip size (hero) | **≤ 1.5 MB** gzip — `cruise`, `container`, `tanker` | Keeps the "Loading ship models…" stage short on a 20 Mbit link |
+| Gzip size (stretch) | **≤ 800 kB** gzip — LNG, fireboat, bulk, roro, research, droneship, ferry, trawler, horizon, icebreaker | Same load-screen budget for the rest of the fleet |
 | Materials | ≤ 8 per hull, ≤ 3 named emissive *families* (many panes may share) | Each unique slot clones per ship instance |
 | Textures | ≤ 2× 2048² | Mid-range laptop GPU budget |
 
 Measure with `npm run models:inspect -- public/models/cruise_liner.glb`, and
-compress with `npm run models:compress` (Draco) before committing.
+compress with `npm run models:compress` (Draco) before committing. Size-only:
+`npm run models:check-size`.
 
 ## The Vessel Blueprint Protocol (v1.0)
 

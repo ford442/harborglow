@@ -18,6 +18,8 @@ import {
     simScheduler,
     serializeReplay,
     parseReplay,
+    applyReplayInput,
+    recordHostInput,
 } from '../../systems/sim'
 import { resetDeterministicSystems } from '../../systems/sim/headless'
 import {
@@ -144,15 +146,7 @@ export function useLevaControls(config: LevaControlsConfig) {
                 }
                 const file = parseReplay(raw)
                 simScheduler.loadReplay(file, (entry) => {
-                    if (entry.action === 'storm.start') {
-                        const duration = typeof entry.payload === 'number'
-                            ? entry.payload
-                            : (entry.payload as { duration?: number } | null)?.duration ?? 180
-                        stormSystem.start(duration)
-                    }
-                    if (entry.action === 'storm.stop') {
-                        stormSystem.stop()
-                    }
+                    applyReplayInput(entry)
                 })
                 resetDeterministicSystems()
             },
@@ -584,11 +578,9 @@ export function useLevaControls(config: LevaControlsConfig) {
             onChange: (value: boolean) => {
                 useGameStore.getState().setStormActive(value)
                 if (value) {
-                    stormSystem.start(180)
-                    simScheduler.record('storm.start', { duration: 180 })
+                    recordHostInput('storm.start', { duration: 180 })
                 } else {
-                    stormSystem.stop()
-                    simScheduler.record('storm.stop', null)
+                    recordHostInput('storm.stop', null)
                 }
             }
         },
@@ -666,9 +658,22 @@ export function useLevaControls(config: LevaControlsConfig) {
                             berthRadius: target.berthRadius,
                         })
                         stormSystem.start(180)
+                        recordHostInput('storm.start', { duration: 180 }, { alreadyApplied: true })
                         console.log('🆘 Storm Rescue mission started!')
                     }
                 }, 100)
+            }
+        },
+        'Start Ice Escort': {
+            value: false,
+            folder: 'Storm System',
+            onChange: () => {
+                const store = useGameStore.getState()
+                if (store.operationMode !== 'tugboat') {
+                    store.setOperationMode('tugboat')
+                }
+                recordHostInput('mission.iceEscort.start', { seed: 204 })
+                console.log('Ice-escort mission started')
             }
         },
         // Tugboat Mode Controls

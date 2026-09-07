@@ -26,6 +26,7 @@ Lower `order` runs first. Gaps leave room for insertions.
 | 30 | `lighting` | `core` | Beat-synced dock lighting |
 | 40 | `weather` | `core` | Weather state machine |
 | 50 | `sway` | `crane` | Crane hook pendulum physics |
+| 52 | `crane-player` | `crane` | Player crane kinematics from recorded axes |
 | 55 | `crane-b` | `crane` | NPC Crane B for multi-crane training (`shouldTick` gated) |
 | 60 | `wildlife` | `ambient` | Whales, dolphins, sharks |
 | 70 | `ambient-marine-life` | `ambient` | Density-driven schools / particles |
@@ -34,6 +35,7 @@ Lower `order` runs first. Gaps leave room for insertions.
 | 100 | `dynamic-events` | `harbor-events` | Scripted harbor story beats |
 | 110 | `experimental-tech` | `harbor-events` | Booth-tier experimental upgrades |
 | 120 | `waves` | `core` | FFT ocean + physics sync |
+| 125 | `ice` | `ice` | Polar pack layout + client transit (`IceFieldSystem`) |
 | 130 | `storm` | `storm` | Tugboat / emergency training storms |
 
 ## System groups & mode pausing
@@ -46,6 +48,7 @@ Lower `order` runs first. Gaps leave room for insertions.
 | `ambient` | `gameMode === 'training'` |
 | `harbor-events` | Training mode **or** `activeMission.status === 'active'` |
 | `storm` | Not in tugboat mode and not emergency crane training |
+| `ice` | No active `ice-escort` mission |
 
 `storm` also defines a `shouldTick` guard so updates only run when tugboat helm or emergency training is active, even if the group is resumed.
 

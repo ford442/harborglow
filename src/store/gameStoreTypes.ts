@@ -206,7 +206,7 @@ export { WaveParams }
 
 export interface Mission {
     id: string
-    type: 'storm_rescue' | 'salvage'
+    type: 'storm_rescue' | 'salvage' | 'ice-escort'
     targetShipType: ShipType
     targetShipId: string
     timeLimit: number
@@ -224,6 +224,10 @@ export interface Mission {
     acceptedFee?: number
     reputationReward?: number
     failurePenalty?: number
+    iceSeed?: number
+    iceConcentration?: number
+    clientShipId?: string
+    channelClearance?: number
 }
 
 export interface MissionObjective {
@@ -237,6 +241,7 @@ export interface TugboatCareerStats {
     totalTonsAssisted: number
     cleanTows: number
     nightRescues: number
+    iceEscorts: number
 }
 
 /**
@@ -435,7 +440,7 @@ export interface ChatMessage {
     ts: number
 }
 
-/** Wire-format state broadcast host → spectators at 10 Hz. */
+/** Leftover v1 wire projection (no longer broadcast). Kept for store tests / debug overlays. */
 export interface NetworkSyncState {
     // Base (matches getSerializableState)
     ships: Ship[]
@@ -860,7 +865,7 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
     isMoving: false,
     heaterActive: true,
     iceBuildup: 0.3,
-    boothTier: 3, // Default to Arctic tier for demo
+    boothTier: 1,
     currentHarbor: 'rotterdam', // Default harbor
     multiviewMode: 'single' as MultiviewMode,
     underwaterIntensity: 1,
@@ -940,6 +945,7 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
         totalTonsAssisted: 0,
         cleanTows: 0,
         nightRescues: 0,
+        iceEscorts: 0,
     },
     tugboatUpgrades: {
         heavy_tow_winch: false,
@@ -1092,6 +1098,7 @@ export const getSerializableState = (state: GameState): StorageGameState => ({
     salvageSuccessfulTows: state.salvageSuccessfulTows,
     tugboatCareerStats: state.tugboatCareerStats,
     tugboatUpgrades: state.tugboatUpgrades,
+    boothTier: state.boothTier,
     waveParams: state.waveParams,
     harborCredits: state.harborCredits,
     unlockedShopItems: state.unlockedShopItems,

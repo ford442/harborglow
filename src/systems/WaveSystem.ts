@@ -162,6 +162,9 @@ class WaveSystem {
       this.oceanFFT = new OceanFFTField({ ...config, ...this.windParams() })
       this.fftAccumulator = 0
       this.fftDirty = true
+      wasmDSP.uploadHeightfield(
+        this.oceanFFT.heights, this.oceanFFT.size, this.oceanFFT.patchSize,
+      )
     } else {
       this.oceanFFT!.setParams({ ...config, ...this.windParams() })
     }
@@ -209,6 +212,7 @@ class WaveSystem {
     const steps = Math.floor(this.fftAccumulator / OCEAN_FFT_UPDATE_INTERVAL)
     this.fftAccumulator -= steps * OCEAN_FFT_UPDATE_INTERVAL
     field.update(this.state.time)
+    wasmDSP.uploadHeightfield(field.heights, field.size, field.patchSize)
     this.fftDirty = true
   }
 
@@ -289,6 +293,43 @@ class WaveSystem {
     }
 
     return outHeights
+  }
+
+  /**
+   * Batch hull probes: heights plus finite-difference normals (count × 3).
+   * Uses the active spectrum (FFT heightfield or Gerstner layers).
+   */
+  getHullSampleBatch(
+    xs: Float32Array | number[],
+    zs: Float32Array | number[],
+    outHeights: Float32Array,
+    outNormals: Float32Array,
+    time = this.state.time,
+  ): void {
+    const count = xs.length
+    if (count !== zs.length) {
+      throw new Error('getHullSampleBatch: xs and zs must have equal length')
+    }
+
+    if (this.oceanFFT) {
+      wasmDSP.heightfieldSampleBatch(xs, zs, outHeights, outNormals)
+      return
+    }
+
+    const stormAmp = 1 + this.state.stormIntensity * 2.0
+    const globalAmp = this.state.params.amplitude
+    const nLayers = this.state.layers.length
+    const packed = wasmDSP.getBatchScratch(nLayers * 5)
+    for (let i = 0; i < nLayers; i++) {
+      const layer = this.state.layers[i]
+      const o = i * 5
+      packed[o] = layer.amplitude * globalAmp * stormAmp
+      packed[o + 1] = layer.frequency
+      packed[o + 2] = layer.speed * this.state.params.speed
+      packed[o + 3] = layer.direction[0]
+      packed[o + 4] = layer.direction[1]
+    }
+    wasmDSP.hullSampleBatch(xs, zs, time, packed, nLayers, outHeights, outNormals)
   }
 
   /**

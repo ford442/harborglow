@@ -53,6 +53,20 @@ describe('syncSystemModeLifecycle', () => {
         expect(systemRegistry.isGroupPaused('traffic')).toBe(true)
     })
 
+    it('does not pause core for spectators (they run the seeded sim)', () => {
+        syncSystemModeLifecycle({
+            operationMode: 'crane',
+            gameMode: 'sandbox',
+            currentTrainingModule: null,
+            activeMission: null,
+            multiplayerRole: 'spectator',
+        })
+
+        expect(systemRegistry.isGroupPaused('core')).toBe(false)
+        expect(systemRegistry.isGroupPaused('crane')).toBe(false)
+        expect(systemRegistry.isGroupPaused('storm')).toBe(true)
+    })
+
     it('pauses harbor-events during an active mission', () => {
         syncSystemModeLifecycle({
             operationMode: 'tugboat',
@@ -94,6 +108,7 @@ describe('ensureMainSceneSystemsRegistered', () => {
             'lighting',
             'weather',
             'sway',
+            'crane-player',
             'crane-b',
             'wildlife',
             'ambient-marine-life',
@@ -102,6 +117,7 @@ describe('ensureMainSceneSystemsRegistered', () => {
             'dynamic-events',
             'experimental-tech',
             'waves',
+            'ice',
             'storm',
         ])
     })
@@ -110,6 +126,6 @@ describe('ensureMainSceneSystemsRegistered', () => {
         ensureMainSceneSystemsRegistered()
         ensureMainSceneSystemsRegistered()
 
-        expect(systemRegistry.getRegisteredIds()).toHaveLength(14)
+        expect(systemRegistry.getRegisteredIds()).toHaveLength(16)
     })
 })

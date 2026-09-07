@@ -78,7 +78,9 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
                 totalTonsAssisted: 0,
                 cleanTows: 0,
                 nightRescues: 0,
+                iceEscorts: 0,
             },
+            boothTier: 1,
             tugboatUpgrades: {
                 heavy_tow_winch: false,
                 cavitation_suppression_jets: false,
@@ -178,7 +180,9 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
                     totalTonsAssisted: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.totalTonsAssisted ?? 0,
                     cleanTows: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.cleanTows ?? 0,
                     nightRescues: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.nightRescues ?? 0,
+                    iceEscorts: (saved as StorageGameState & { tugboatCareerStats?: TugboatCareerStats }).tugboatCareerStats?.iceEscorts ?? 0,
                 },
+                boothTier: saved.boothTier === 2 || saved.boothTier === 3 ? saved.boothTier : 1,
                 tugboatUpgrades: {
                     heavy_tow_winch: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.heavy_tow_winch ?? false,
                     cavitation_suppression_jets: (saved as StorageGameState & { tugboatUpgrades?: TugboatUpgradeState }).tugboatUpgrades?.cavitation_suppression_jets ?? false,

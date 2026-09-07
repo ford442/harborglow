@@ -49,6 +49,7 @@ export type GameState = {
     totalTonsAssisted?: number;
     cleanTows?: number;
     nightRescues?: number;
+    iceEscorts?: number;
   };
   tugboatUpgrades?: {
     heavy_tow_winch?: boolean;

@@ -1,21 +1,23 @@
 # HarborGlow 🚢✨
 
-HarborGlow — a satisfying crane-operator + boat-light-upgrade game with three signature vessel types, synchronized music, and spectacular light shows.
+HarborGlow — a satisfying crane-operator + boat-light-upgrade game with a living harbor fleet, synchronized music, and spectacular light shows.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![WebGPU](https://img.shields.io/badge/WebGPU-enabled-green.svg)
 
 ## 🎮 Gameplay
 
-Spawn different ship types, use the crane to install glowing light rigs, and enjoy synchronized music + lyrics when fully upgraded.
+Spawn different ship types, use the crane to install glowing light rigs, and enjoy synchronized music + lyrics when fully upgraded. Tugboat mode includes storm rescue, salvage contracts, and a polar **ice-escort** where you helm Yamal through pack ice.
 
-### The Three Vessels
+### Hero vessels
 
 | Ship | Name | Music Style | Light Show |
 |------|------|-------------|------------|
 | 🚢 **Mega Cruise Liner** | *Ocean Symphony* | Orchestral + Choir Synth | Multi-deck balcony LEDs, giant funnel array, water-curtain stern |
 | ⬛ **Ultra Container Vessel** | *Neon Stack* | Future Bass / Techno | 20+ container stacks, full LED billboard sides |
 | ⛽ **VLCC Oil Tanker** | *Flame Runner* | Dubstep / Industrial | Flare stack fire-effect, hull wash lighting |
+
+The sandbox fleet also includes bulk, LNG, RoRo, research, droneship, ferry, trawler, horizon, fireboat, and **Nuclear Icebreaker Yamal** (Polar Steel). Ice-escort training unlocks after storm-rescue.
 
 ### Ship Details
 

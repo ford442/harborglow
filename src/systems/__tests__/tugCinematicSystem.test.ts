@@ -163,7 +163,7 @@ describe('tugCinematicSystem', () => {
       endEvents.push((e as CustomEvent<TugCinematicDetail>).detail)
     })
 
-    triggerTugWinCinematic({ totalTonsAssisted: 400, cleanTows: 3, nightRescues: 1 })
+    triggerTugWinCinematic({ totalTonsAssisted: 400, cleanTows: 3, nightRescues: 1, iceEscorts: 0 })
 
     // Immediate start event
     expect(startEvents).toHaveLength(1)

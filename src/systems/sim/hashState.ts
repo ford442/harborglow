@@ -7,7 +7,9 @@ import { trafficSystem } from '../trafficSystem'
 import { wildlifeSystem } from '../wildlifeSystem'
 import { harborEventSystem } from '../eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../dynamicEventSystem'
+import { useGameStore } from '../../store/useGameStore'
 import { getSim } from './SimContext'
+import { iceFieldSystem } from '../ice/IceFieldSystem'
 
 function round(value: number, digits = 5): number {
   const scale = 10 ** digits
@@ -17,6 +19,7 @@ function round(value: number, digits = 5): number {
 /** Canonical snapshot of the deterministic sim core for hashing / replay checks. */
 export function captureSimSnapshot(): Record<string, unknown> {
   const sim = getSim()
+  const store = useGameStore.getState()
   const storm = stormSystem.getState()
   const waves = waveSystem.getState()
   const time = timeSystem.getState()
@@ -57,6 +60,34 @@ export function captureSimSnapshot(): Record<string, unknown> {
     wildlife: wildlifeSystem.snapshotIds(),
     events: harborEventSystem.snapshotIds(),
     dynamic: dynamicEventSystem.snapshotIds(),
+    crane: {
+      x: round(store.spreaderPos.x, 4),
+      y: round(store.spreaderPos.y, 4),
+      z: round(store.spreaderPos.z, 4),
+      rot: round(store.spreaderRotation, 4),
+      depth: round(store.cableDepth, 4),
+      trolley: round(store.trolleyPosition, 4),
+      twistlock: store.twistlockEngaged,
+    },
+    ice: (() => {
+      const ice = iceFieldSystem.snapshot()
+      return {
+        active: ice.active,
+        seed: ice.seed,
+        concentration: round(ice.concentration, 5),
+        clientProgress: round(ice.clientProgress, 5),
+        clientX: round(ice.clientX, 4),
+        clientZ: round(ice.clientZ, 4),
+        grounded: ice.grounded,
+        docked: ice.docked,
+        breakerDamage: round(ice.breakerDamage, 4),
+        health: ice.health,
+      }
+    })(),
+    ships: [...store.ships.map((s) => s.id)].sort(),
+    upgrades: store.installedUpgrades
+      .map((u) => `${u.shipId}:${u.partName}`)
+      .sort(),
   }
 }
 

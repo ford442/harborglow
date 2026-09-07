@@ -56,7 +56,9 @@ float dsp_clamp(float x, float lo, float hi) {
 
 extern "C" DSP_EXPORT
 float dsp_remap(float v, float lo1, float hi1, float lo2, float hi2) {
-    return lo2 + (v - lo1) / (hi1 - lo1) * (hi2 - lo2);
+    const float span = hi1 - lo1;
+    if (std::fabs(span) < 1e-20f) return lo2;
+    return lo2 + (v - lo1) / span * (hi2 - lo2);
 }
 
 extern "C" DSP_EXPORT
@@ -324,7 +326,8 @@ int dsp_generate_room_ir(
          reflection < sizeof(early_delays) / sizeof(early_delays[0]);
          ++reflection) {
         const int index = static_cast<int>(
-            early_delays[reflection] * sample_rate * (1.0f + room_index * 0.35f));
+            early_delays[reflection] * sample_rate *
+            (1.0f + static_cast<float>(room_index) * 0.35f));
         if (index < length) {
             output[index] += room.early_gain /
                 static_cast<float>(reflection + 2);

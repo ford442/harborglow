@@ -47,6 +47,7 @@ int main() {
     expect_near("clamp lo", dsp_clamp(-2.0f, 0.0f, 1.0f), 0.0f, 0.0f);
     expect_near("clamp hi", dsp_clamp(4.0f, 0.0f, 1.0f), 1.0f, 0.0f);
     expect_near("remap", dsp_remap(0.5f, 0.0f, 1.0f, 0.0f, 100.0f), 50.0f, 1e-5f);
+    expect_near("remap degenerate", dsp_remap(3.0f, 5.0f, 5.0f, 0.0f, 100.0f), 0.0f, 0.0f);
     expect_near("smoothstep 0.5", dsp_smooth_step(0.5f), 0.5f, 1e-6f);
     expect_near("smootherstep 0.5", dsp_smoother_step(0.5f), 0.5f, 1e-6f);
     expect_near("sin_approx pi/2", dsp_sin_approx(1.57079632679f), 1.0f, 2e-3f);

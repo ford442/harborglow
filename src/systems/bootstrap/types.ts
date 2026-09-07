@@ -30,6 +30,7 @@ export type SystemGroup =
     | 'ambient'
     | 'harbor-events'
     | 'storm'
+    | 'ice'
 
 // =============================================================================
 // SYSTEM TICK CONTRACT

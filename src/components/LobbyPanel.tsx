@@ -152,7 +152,7 @@ export default function LobbyPanel() {
 
       {isSpectator && (
         <div style={{ padding: '6px 8px', background: 'rgba(255,149,0,0.1)', borderRadius: '4px', fontSize: '10px', color: '#ff9500' }}>
-          Spectating — crane controls disabled
+          Spectating — same sim tick + host inputs (crane commands disabled)
         </div>
       )}
 
@@ -160,6 +160,11 @@ export default function LobbyPanel() {
         <button type="button" style={buttonStyle} onClick={handleCreateRoom} disabled={creating}>
           {creating ? 'Creating…' : 'Create shared harbor'}
         </button>
+      )}
+      {multiplayerRole === 'offline' && (
+        <div style={{ fontSize: '10px', color: '#888', lineHeight: 1.4 }}>
+          Starts a fresh seeded sim. Spectators catch up from the input log, not 10 Hz poses.
+        </div>
       )}
 
       {isHost && roomId && (

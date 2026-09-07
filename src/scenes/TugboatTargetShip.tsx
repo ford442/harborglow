@@ -22,6 +22,11 @@ import {
   N_SEGMENTS,
   N_POINTS,
 } from '../systems/TowLineSystem'
+import {
+  scratchVec3a, scratchQuat, scratchEuler,
+  hullScratchXs, hullScratchZs, hullScratchYs,
+  hullScratchHeights, hullScratchNormals,
+} from '../utils/scratch'
 
 // =============================================================================
 // CONSTANTS
@@ -191,8 +196,8 @@ export default function TugboatTargetShip({
     // --- Multi-point hull current profile (crosscurrents + eddies) ---
     // Sample at bow, mid, and stern to produce net force + differential yaw torque.
     const rot = rb.rotation()
-    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
-    const euler = new THREE.Euler().setFromQuaternion(quat)
+    const quat = scratchQuat.set(rot.x, rot.y, rot.z, rot.w)
+    const euler = scratchEuler.setFromQuaternion(quat)
     const pos = rb.translation()
 
     const crosscurrentScale = stormSystem.crosscurrentStrength
@@ -239,20 +244,22 @@ export default function TugboatTargetShip({
       currentDrift: [hullCurrent.x + simpleCurrent.x, hullCurrent.z + simpleCurrent.z],
     })
 
-    const xs = new Float32Array(PROBE_OFFSETS.length)
-    const zs = new Float32Array(PROBE_OFFSETS.length)
-    const ys = new Float32Array(PROBE_OFFSETS.length)
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    const nProbes = PROBE_OFFSETS.length
+    const xs = hullScratchXs.subarray(0, nProbes)
+    const zs = hullScratchZs.subarray(0, nProbes)
+    const ys = hullScratchYs.subarray(0, nProbes)
+    const heights = hullScratchHeights.subarray(0, nProbes)
+    const normals = hullScratchNormals.subarray(0, nProbes * 3)
+    for (let i = 0; i < nProbes; i++) {
       const offset = PROBE_OFFSETS[i]
-      const localOff = new THREE.Vector3(offset.x, 0, offset.z)
-      localOff.applyQuaternion(quat)
-      xs[i] = pos.x + localOff.x
-      zs[i] = pos.z + localOff.z
-      ys[i] = pos.y + localOff.y
+      scratchVec3a.set(offset.x, 0, offset.z).applyQuaternion(quat)
+      xs[i] = pos.x + scratchVec3a.x
+      zs[i] = pos.z + scratchVec3a.z
+      ys[i] = pos.y + scratchVec3a.y
     }
-    const heights = waveSystem.getWaterHeightBatch(xs, zs, time)
+    waveSystem.getHullSampleBatch(xs, zs, heights, normals, time)
 
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    for (let i = 0; i < nProbes; i++) {
       const waterH = heights[i]
       const probeY = ys[i]
       const submerged = waterH - 2.5 - probeY

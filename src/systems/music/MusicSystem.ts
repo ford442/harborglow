@@ -191,7 +191,7 @@ class MusicSystem {
         return getBandInfo(shipType)
     }
 
-    async startMusic(shipType: ShipType) {
+    async startMusic(shipType: ShipType, offsetSeconds = 0) {
         await this.initializeAudio()
         const roomByShip: Record<ShipType, AcousticSpace> = {
             cruise: 'ship-hall',
@@ -212,6 +212,9 @@ class MusicSystem {
         const transport = this.transports.get(shipType)
         if (transport) {
             transport.start()
+            if (offsetSeconds > 0) {
+                transport.seconds = offsetSeconds
+            }
         }
     }
 

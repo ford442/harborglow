@@ -45,6 +45,9 @@ describe('Ship Models', () => {
     }
   })
 
+  // Invert this test when public/models/icebreaker.glb is committed: expect
+  // getShipModelSettings('icebreaker') and isGlbCapableShipType('icebreaker').
+  // models:verify exist-gates SHIP_MODEL_FILENAMES.icebreaker to that file.
   it('icebreaker has no GLB and falls back to procedural without throwing', () => {
     expect(() => getShipModelSettings('icebreaker')).not.toThrow()
     expect(getShipModelSettings('icebreaker')).toBeNull()

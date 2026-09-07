@@ -95,6 +95,7 @@ describe('salvage dispatch contracts', () => {
     const store = useGameStore.getState()
     store.addMoney(2000)
     store.addReputation(1200)
+    useGameStore.setState({ boothTier: 2 })
 
     const boughtSearchlight = useGameStore.getState().purchaseTugboatUpgrade('searchlight_rig')
     const boughtDynamic = useGameStore.getState().purchaseTugboatUpgrade('dynamic_positioning_assist')

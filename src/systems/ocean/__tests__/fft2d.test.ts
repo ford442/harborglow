@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Fft1D, fft2d, getFftPlan } from '../fft2d'
+import { wasmDSP } from '../../wasmDSP'
 
 /** Naive O(N⁴) 2-D DFT, used as ground truth for one output bin. */
 function naiveBin(
@@ -83,5 +84,23 @@ describe('fft2d', () => {
 
   it('rejects undersized buffers', () => {
     expect(() => fft2d(new Float32Array(4), new Float32Array(4), 8, false)).toThrow(/64 elements/)
+  })
+
+  it('JS fft2d matches wasmDSP.fft2d fallback (same kernel)', () => {
+    const n = 8
+    const reA = new Float32Array(n * n)
+    const imA = new Float32Array(n * n)
+    for (let i = 0; i < n * n; i++) {
+      reA[i] = Math.sin(i * 1.1)
+      imA[i] = Math.cos(i * 0.7)
+    }
+    const reB = reA.slice()
+    const imB = imA.slice()
+    fft2d(reA, imA, n, false)
+    wasmDSP.fft2d(reB, imB, n, false)
+    for (let i = 0; i < n * n; i++) {
+      expect(reB[i]).toBeCloseTo(reA[i], 5)
+      expect(imB[i]).toBeCloseTo(imA[i], 5)
+    }
   })
 })

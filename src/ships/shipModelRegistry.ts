@@ -17,7 +17,11 @@ import {
 
 const MODEL_BASE = './models'
 
-/** Filename convention: snake_case matching legacy TODO list + stretch fleet */
+/**
+ * Filename convention: snake_case matching legacy TODO list + stretch fleet.
+ * Do not add `icebreaker: 'icebreaker.glb'` until `public/models/icebreaker.glb`
+ * exists — `npm run models:verify` exist-gates that pair so procedural-only PRs stay green.
+ */
 export const SHIP_MODEL_FILENAMES: Record<string, string> = {
   cruise: 'cruise_liner.glb',
   container: 'container_vessel.glb',

@@ -109,15 +109,21 @@ export default function MissionHUD() {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '20px' }}>🆘</span>
+          <span style={{ fontSize: '20px' }}>{activeMission.type === 'ice-escort' ? '❄️' : '🆘'}</span>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#ff7755' }}>
-              {activeMission.type === 'salvage' ? 'Legacy Salvage Contract' : 'Storm Rescue'}
+            <div style={{ fontSize: '14px', fontWeight: 700, color: activeMission.type === 'ice-escort' ? '#9fdcff' : '#ff7755' }}>
+              {activeMission.type === 'salvage'
+                ? 'Legacy Salvage Contract'
+                : activeMission.type === 'ice-escort'
+                  ? 'Polar Ice Escort'
+                  : 'Storm Rescue'}
             </div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)' }}>
               {activeMission.type === 'salvage'
                 ? `Recover ${activeMission.vesselLabel} for ${activeMission.factionLabel}`
-                : `Guide the ${activeMission.targetShipType} to safety`}
+                : activeMission.type === 'ice-escort'
+                  ? 'Clear a channel while Yamal holds the pack'
+                  : `Guide the ${activeMission.targetShipType} to safety`}
             </div>
           </div>
           <div
@@ -135,7 +141,7 @@ export default function MissionHUD() {
           </div>
         </div>
 
-        {activeMission.type === 'salvage' && (
+        {(activeMission.type === 'salvage' || activeMission.type === 'ice-escort') && (
           <div
             style={{
               display: 'flex',
@@ -154,6 +160,15 @@ export default function MissionHUD() {
               {activeMission.briefing}
             </span>
           </div>
+        )}
+
+        {activeMission.type === 'ice-escort' && (
+          <ProgressBar
+            label="Channel Clearance"
+            value={(activeMission.channelClearance ?? 0) * 100}
+            max={100}
+            color="linear-gradient(90deg, #7ecbff, #e8f6ff)"
+          />
         )}
 
         {/* Timer */}
