@@ -173,3 +173,32 @@ extern "C" void dsp_wave_height_batch(
     const float* xs, const float* zs, float time,
     float amp, float freq, float speed, float dirX, float dirZ,
     float* out_heights, int count);
+
+/**
+ * In-place N×N complex 2-D FFT (row-major, unnormalised).
+ *
+ * N must be a power of two in [2, 4096]. inverse = 0 uses e^(−iθ);
+ * inverse ≠ 0 uses e^(+iθ). inverse(forward(x)) == x · N².
+ */
+extern "C" void dsp_fft2d(float* re, float* im, int n, int inverse);
+
+/**
+ * Sample stacked Gerstner layers at many hull probes.
+ *
+ * @p layers is n_layers × 5 floats: amp, freq, speed, dirX, dirZ.
+ * Writes @p count heights and @p count packed xyz normals.
+ * No-ops when count or n_layers is outside [1, 256] / [1, 16].
+ */
+extern "C" void dsp_hull_sample_batch(
+    const float* xs, const float* zs, int count, float time,
+    const float* layers, int n_layers,
+    float* out_heights, float* out_normals);
+
+/**
+ * Bilinear sample of a wrapping N×N heightfield covering @p patch_size metres.
+ * Writes heights and packed xyz normals for @p count probes.
+ */
+extern "C" void dsp_heightfield_sample_batch(
+    const float* grid, int n, float patch_size,
+    const float* xs, const float* zs, int count,
+    float* out_heights, float* out_normals);

@@ -544,3 +544,213 @@ void dsp_fft_r2c(const float* input, float* out_real, float* out_imag, int log2N
         out_imag[N - k] = -im;
     }
 }
+
+// ---------------------------------------------------------------------------
+// 2-D COMPLEX FFT  (matches src/systems/ocean/fft2d.ts)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+constexpr int FFT2D_MIN = 2;
+constexpr int FFT2D_MAX = 4096;
+constexpr int HULL_MAX_COUNT = 256;
+constexpr int HULL_MAX_LAYERS = 16;
+constexpr float HULL_NORMAL_DELTA = 0.3f;
+
+struct Fft2dPlan {
+    int n = 0;
+    std::vector<int> rev;
+    std::vector<float> cos;
+    std::vector<float> sin;
+};
+
+Fft2dPlan fft2d_plans[FFT_MAX_LOG2 + 1];
+
+bool is_power_of_two(int n) {
+    return n >= 2 && (n & (n - 1)) == 0;
+}
+
+int log2_pow2(int n) {
+    int log = 0;
+    while ((1 << log) < n) ++log;
+    return log;
+}
+
+const Fft2dPlan& ensure_fft2d_plan(int n) {
+    const int log2N = log2_pow2(n);
+    Fft2dPlan& plan = fft2d_plans[log2N];
+    if (plan.n == n) return plan;
+
+    plan.n = n;
+    plan.rev.resize(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        int rev = 0;
+        for (int bit = 0; bit < log2N; ++bit) {
+            if ((i >> bit) & 1) rev |= 1 << (log2N - 1 - bit);
+        }
+        plan.rev[static_cast<std::size_t>(i)] = rev;
+    }
+
+    const int half = n / 2;
+    plan.cos.resize(static_cast<std::size_t>(half));
+    plan.sin.resize(static_cast<std::size_t>(half));
+    for (int j = 0; j < half; ++j) {
+        const double theta = 2.0 * static_cast<double>(PI) * static_cast<double>(j) /
+            static_cast<double>(n);
+        plan.cos[static_cast<std::size_t>(j)] = static_cast<float>(std::cos(theta));
+        plan.sin[static_cast<std::size_t>(j)] = static_cast<float>(std::sin(theta));
+    }
+    return plan;
+}
+
+void fft1d_strided(
+        float* re, float* im, int n, int offset, int stride, int inverse,
+        const Fft2dPlan& plan) {
+    for (int i = 0; i < n; ++i) {
+        const int j = plan.rev[static_cast<std::size_t>(i)];
+        if (j <= i) continue;
+        const int a = offset + i * stride;
+        const int b = offset + j * stride;
+        const float tr = re[a];
+        const float ti = im[a];
+        re[a] = re[b];
+        im[a] = im[b];
+        re[b] = tr;
+        im[b] = ti;
+    }
+
+    const float sign = inverse ? 1.0f : -1.0f;
+    for (int len = 2; len <= n; len <<= 1) {
+        const int half_len = len >> 1;
+        const int twiddle_step = n / len;
+        for (int base = 0; base < n; base += len) {
+            for (int j = 0, tw = 0; j < half_len; ++j, tw += twiddle_step) {
+                const float wr = plan.cos[static_cast<std::size_t>(tw)];
+                const float wi = sign * plan.sin[static_cast<std::size_t>(tw)];
+                const int a = offset + (base + j) * stride;
+                const int b = offset + (base + j + half_len) * stride;
+                const float xr = re[b] * wr - im[b] * wi;
+                const float xi = re[b] * wi + im[b] * wr;
+                re[b] = re[a] - xr;
+                im[b] = im[a] - xi;
+                re[a] += xr;
+                im[a] += xi;
+            }
+        }
+    }
+}
+
+float gerstner_sum(
+        float x, float z, float time, const float* layers, int n_layers) {
+    float height = 0.0f;
+    for (int layer = 0; layer < n_layers; ++layer) {
+        const float* L = layers + layer * 5;
+        height += dsp_wave_height(x, z, time, L[0], L[1], L[2], L[3], L[4]);
+    }
+    return height;
+}
+
+void write_normal(
+        float hL, float hR, float hD, float hU, float* out, int i) {
+    float nx = hL - hR;
+    float ny = 2.0f * HULL_NORMAL_DELTA;
+    float nz = hD - hU;
+    const float len = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (len > 1e-12f) {
+        nx /= len;
+        ny /= len;
+        nz /= len;
+    } else {
+        nx = 0.0f;
+        ny = 1.0f;
+        nz = 0.0f;
+    }
+    out[i * 3] = nx;
+    out[i * 3 + 1] = ny;
+    out[i * 3 + 2] = nz;
+}
+
+int wrap_grid_index(int value, int n) {
+    int wrapped = value % n;
+    if (wrapped < 0) wrapped += n;
+    return wrapped;
+}
+
+float sample_heightfield(
+        const float* grid, int n, float patch_size, float x, float z) {
+    const float cells_per_metre = static_cast<float>(n) / patch_size;
+    const float gx = x * cells_per_metre;
+    const float gz = z * cells_per_metre;
+    const int x0 = static_cast<int>(std::floor(gx));
+    const int z0 = static_cast<int>(std::floor(gz));
+    const float tx = gx - static_cast<float>(x0);
+    const float tz = gz - static_cast<float>(z0);
+    const int col0 = wrap_grid_index(x0, n);
+    const int col1 = wrap_grid_index(x0 + 1, n);
+    const int row0 = wrap_grid_index(z0, n);
+    const int row1 = wrap_grid_index(z0 + 1, n);
+    const float h00 = grid[row0 * n + col0];
+    const float h10 = grid[row0 * n + col1];
+    const float h01 = grid[row1 * n + col0];
+    const float h11 = grid[row1 * n + col1];
+    const float top = h00 + (h10 - h00) * tx;
+    const float bottom = h01 + (h11 - h01) * tx;
+    return top + (bottom - top) * tz;
+}
+
+}  // namespace
+
+extern "C" DSP_EXPORT
+void dsp_fft2d(float* re, float* im, int n, int inverse) {
+    if (!re || !im) return;
+    if (!is_power_of_two(n) || n < FFT2D_MIN || n > FFT2D_MAX) return;
+    const Fft2dPlan& plan = ensure_fft2d_plan(n);
+    for (int row = 0; row < n; ++row) {
+        fft1d_strided(re, im, n, row * n, 1, inverse, plan);
+    }
+    for (int col = 0; col < n; ++col) {
+        fft1d_strided(re, im, n, col, n, inverse, plan);
+    }
+}
+
+extern "C" DSP_EXPORT
+void dsp_hull_sample_batch(
+        const float* xs, const float* zs, int count, float time,
+        const float* layers, int n_layers,
+        float* out_heights, float* out_normals) {
+    if (!xs || !zs || !layers || !out_heights || !out_normals) return;
+    if (count < 1 || count > HULL_MAX_COUNT) return;
+    if (n_layers < 1 || n_layers > HULL_MAX_LAYERS) return;
+    for (int i = 0; i < count; ++i) {
+        const float x = xs[i];
+        const float z = zs[i];
+        out_heights[i] = gerstner_sum(x, z, time, layers, n_layers);
+        write_normal(
+            gerstner_sum(x - HULL_NORMAL_DELTA, z, time, layers, n_layers),
+            gerstner_sum(x + HULL_NORMAL_DELTA, z, time, layers, n_layers),
+            gerstner_sum(x, z - HULL_NORMAL_DELTA, time, layers, n_layers),
+            gerstner_sum(x, z + HULL_NORMAL_DELTA, time, layers, n_layers),
+            out_normals, i);
+    }
+}
+
+extern "C" DSP_EXPORT
+void dsp_heightfield_sample_batch(
+        const float* grid, int n, float patch_size,
+        const float* xs, const float* zs, int count,
+        float* out_heights, float* out_normals) {
+    if (!grid || !xs || !zs || !out_heights || !out_normals) return;
+    if (n < 2 || patch_size <= 0.0f) return;
+    if (count < 1 || count > HULL_MAX_COUNT) return;
+    for (int i = 0; i < count; ++i) {
+        const float x = xs[i];
+        const float z = zs[i];
+        out_heights[i] = sample_heightfield(grid, n, patch_size, x, z);
+        write_normal(
+            sample_heightfield(grid, n, patch_size, x - HULL_NORMAL_DELTA, z),
+            sample_heightfield(grid, n, patch_size, x + HULL_NORMAL_DELTA, z),
+            sample_heightfield(grid, n, patch_size, x, z - HULL_NORMAL_DELTA),
+            sample_heightfield(grid, n, patch_size, x, z + HULL_NORMAL_DELTA),
+            out_normals, i);
+    }
+}

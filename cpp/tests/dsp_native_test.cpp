@@ -103,6 +103,37 @@ int main() {
     expect_near("n=2 dc", pair_re[0], 4.0f, 1e-6f);
     expect_near("n=2 nyquist", pair_re[1], 2.0f, 1e-6f);
 
+    const int n2 = 8;
+    const int cells = n2 * n2;
+    std::vector<float> fft_re(static_cast<std::size_t>(cells));
+    std::vector<float> fft_im(static_cast<std::size_t>(cells), 0.0f);
+    std::vector<float> orig(static_cast<std::size_t>(cells));
+    for (int i = 0; i < cells; ++i) {
+        orig[static_cast<std::size_t>(i)] = std::sin(static_cast<float>(i) * 1.1f);
+        fft_re[static_cast<std::size_t>(i)] = orig[static_cast<std::size_t>(i)];
+    }
+    dsp_fft2d(fft_re.data(), fft_im.data(), n2, 0);
+    dsp_fft2d(fft_re.data(), fft_im.data(), n2, 1);
+    const float scale = static_cast<float>(cells);
+    for (int i = 0; i < cells; ++i) {
+        char label[40];
+        std::snprintf(label, sizeof(label), "fft2d roundtrip[%d]", i);
+        expect_near(label, fft_re[static_cast<std::size_t>(i)] / scale,
+            orig[static_cast<std::size_t>(i)], 1e-4f);
+        expect_near("fft2d imag", fft_im[static_cast<std::size_t>(i)] / scale, 0.0f, 1e-4f);
+    }
+
+    float hull_xs[4] = {0.0f, 1.0f, 2.0f, 3.0f};
+    float hull_zs[4] = {0.0f, 0.5f, -1.0f, 2.0f};
+    float layers[5] = {1.2f, 0.4f, 0.8f, 0.6f, 0.8f};
+    float hull_h[4] = {};
+    float hull_n[12] = {};
+    dsp_hull_sample_batch(hull_xs, hull_zs, 4, 0.5f, layers, 1, hull_h, hull_n);
+    for (int i = 0; i < 4; ++i) {
+        expect_near("hull height", hull_h[i], dsp_wave_height(
+            hull_xs[i], hull_zs[i], 0.5f, 1.2f, 0.4f, 0.8f, 0.6f, 0.8f), 1e-5f);
+    }
+
     if (failures) {
         std::fprintf(stderr, "%d assertion(s) failed\n", failures);
         return 1;
