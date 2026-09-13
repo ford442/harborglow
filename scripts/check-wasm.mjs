@@ -48,11 +48,18 @@ function computeSourceMd5() {
   return hash.digest('hex')
 }
 
-// The `toolchain` field is provenance, not decoration: gate-wasm rebuilds the
-// artifacts with the Emscripten release pinned in ci.yml and then runs
-// `git diff --exit-code -- public/wasm`, so a manifest naming any other release
-// fails that step ~2 minutes into CI. Read the pin from the workflow itself so
-// there is one source of truth.
+/**
+ * Reads the Emscripten release that `gate-wasm` pins, from the workflow itself.
+ *
+ * The `toolchain` field is provenance, not decoration: gate-wasm rebuilds the
+ * artifacts with the pinned release and then runs
+ * `git diff --exit-code -- public/wasm`, so a manifest naming any other release
+ * fails that step ~2 minutes into CI. Reading the pin here keeps one source of
+ * truth rather than a copy in this script.
+ *
+ * @returns {string|null} the pinned version, or null if the workflow or the
+ *   `setup-emsdk` step cannot be read.
+ */
 function pinnedEmsdkVersion() {
   if (!existsSync(workflowPath)) return null
   const lines = readFileSync(workflowPath, 'utf8').split('\n')
@@ -65,11 +72,25 @@ function pinnedEmsdkVersion() {
   return null
 }
 
+/**
+ * Whether a toolchain string names exactly this version, so that 6.0.6 does not
+ * match 6.0.60 or 16.0.6.
+ *
+ * @param {string} toolchain full `em++ --version` first line, as the manifest stores it.
+ * @param {string} version dotted version to look for.
+ * @returns {boolean}
+ */
 function namesVersion(toolchain, version) {
   const escaped = version.replace(/\./g, '\\.')
   return new RegExp(`(?:^|[^\\d.])${escaped}(?:[^\\d.]|$)`).test(toolchain)
 }
 
+/**
+ * The Emscripten release on this machine, when the compiler is installed.
+ *
+ * @returns {string|null} the first line of `em++ --version`, or null when the
+ *   compiler is absent — the artifacts stay verifiable without it.
+ */
 function localEmscriptenVersion() {
   try {
     return execFileSync('em++', ['--version'], { encoding: 'utf8' }).split('\n')[0].trim()
@@ -78,10 +99,17 @@ function localEmscriptenVersion() {
   }
 }
 
-// Catches both failure modes the repo has actually hit: a hand-edited manifest
-// (three times now), and a `npm run build:wasm` run against an emsdk that is not
-// the pinned one. Set ALLOW_WASM_TOOLCHAIN_DRIFT=1 to downgrade to a warning
-// while iterating locally — CI never sets it.
+/**
+ * Fails when the committed manifest's provenance would not survive `gate-wasm`.
+ *
+ * Catches both failure modes the repo has actually hit: a hand-edited manifest
+ * (three times now), and a `npm run build:wasm` run against an emsdk that is
+ * not the pinned one. Set ALLOW_WASM_TOOLCHAIN_DRIFT=1 to downgrade the failure
+ * to a warning while iterating locally — CI never sets it.
+ *
+ * @param {{ toolchain?: string }} manifest parsed public/wasm/manifest.json.
+ * @returns {void} throws via fail() on drift, unless the escape hatch is set.
+ */
 function checkToolchainProvenance(manifest) {
   const pinned = pinnedEmsdkVersion()
   if (!pinned) return
