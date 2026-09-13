@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -7,6 +8,7 @@ import { coreExports, engineExports } from './wasm-exports.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const manifestPath = join(root, 'public/wasm/manifest.json')
+const workflowPath = join(root, '.github/workflows/ci.yml')
 const sourcePaths = [
   'cpp/harborglow_dsp.cpp',
   'cpp/harborglow_dsp.h',
@@ -46,6 +48,72 @@ function computeSourceMd5() {
   return hash.digest('hex')
 }
 
+// The `toolchain` field is provenance, not decoration: gate-wasm rebuilds the
+// artifacts with the Emscripten release pinned in ci.yml and then runs
+// `git diff --exit-code -- public/wasm`, so a manifest naming any other release
+// fails that step ~2 minutes into CI. Read the pin from the workflow itself so
+// there is one source of truth.
+function pinnedEmsdkVersion() {
+  if (!existsSync(workflowPath)) return null
+  const lines = readFileSync(workflowPath, 'utf8').split('\n')
+  const anchor = lines.findIndex((line) => /uses:\s*mymindstorm\/setup-emsdk@/.test(line))
+  if (anchor === -1) return null
+  for (const line of lines.slice(anchor + 1, anchor + 6)) {
+    const match = line.match(/^\s*version:\s*["']?([\w.]+)["']?\s*$/)
+    if (match) return match[1]
+  }
+  return null
+}
+
+function namesVersion(toolchain, version) {
+  const escaped = version.replace(/\./g, '\\.')
+  return new RegExp(`(?:^|[^\\d.])${escaped}(?:[^\\d.]|$)`).test(toolchain)
+}
+
+function localEmscriptenVersion() {
+  try {
+    return execFileSync('em++', ['--version'], { encoding: 'utf8' }).split('\n')[0].trim()
+  } catch {
+    return null
+  }
+}
+
+// Catches both failure modes the repo has actually hit: a hand-edited manifest
+// (three times now), and a `npm run build:wasm` run against an emsdk that is not
+// the pinned one. Set ALLOW_WASM_TOOLCHAIN_DRIFT=1 to downgrade to a warning
+// while iterating locally — CI never sets it.
+function checkToolchainProvenance(manifest) {
+  const pinned = pinnedEmsdkVersion()
+  if (!pinned) return
+  const claimed = manifest.toolchain ?? 'unknown'
+  const lenient = process.env.ALLOW_WASM_TOOLCHAIN_DRIFT === '1'
+  const local = localEmscriptenVersion()
+
+  if (!namesVersion(claimed, pinned)) {
+    const message =
+      `public/wasm/manifest.json claims toolchain "${claimed}", but ci.yml pins ` +
+      `emsdk ${pinned}, so gate-wasm's "Reject stale generated artifacts" step ` +
+      `will fail. This file is generated — do not hand-edit it. ` +
+      (local
+        ? `This machine has "${local}"; install the pinned release ` +
+          `(\`emsdk install ${pinned} && emsdk activate ${pinned}\`) and re-run ` +
+          `\`npm run build:wasm\`.`
+        : `Rebuild with the pinned release via \`npm run build:wasm\`, or restore ` +
+          `the committed manifest.`)
+    if (!lenient) fail(message)
+    console.warn(`check-wasm: WARNING ${message}`)
+    return
+  }
+
+  if (local && !namesVersion(local, pinned)) {
+    console.warn(
+      `check-wasm: WARNING this machine has "${local}" but ci.yml pins emsdk ` +
+      `${pinned}. The committed manifest is correct, but \`npm run build:wasm\` ` +
+      `here will rewrite it with the wrong provenance and CI will reject it.`,
+    )
+  }
+}
+
 // `harborglow_audio_shared_simd.wasm` is compiled with -mrelaxed-simd
 // (cpp/Makefile). Runtimes without relaxed SIMD reject it at compile time with
 // a raw V8 CompileError that says nothing about the toolchain, so translate it
@@ -83,8 +151,8 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 if (manifest.sourceMd5 !== computeSourceMd5()) {
   fail('source digest differs from committed WASM manifest; run npm run build:wasm')
 }
+checkToolchainProvenance(manifest)
 
-const { execFileSync } = await import('node:child_process')
 execFileSync(process.execPath, [join(root, 'scripts/wasm-exports.mjs'), '--check'], {
   stdio: 'inherit',
 })
