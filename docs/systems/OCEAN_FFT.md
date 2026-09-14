@@ -1,11 +1,11 @@
 # FFT ocean (quality-gated)
 
 The `high` quality tier replaces HarborGlow's 4-layer Gerstner swell with a
-Phillips-spectrum FFT ocean. `low` and `medium` are untouched.
-
-This is the CPU/WASM half of [ADR 0001](../adr/0001-webgpu-tsl-vs-glsl-first.md)
-Phase C. The GPU butterfly passes are a follow-up, gated on device feature
-negotiation (#199) — see [Deferred](#deferred-to-the-gpu-pr).
+Phillips-spectrum FFT ocean. `low` and `medium` are untouched. When the boot
+probe reports `compute === 'passed'` and `?no_gpu_compute` is off, **high and
+cinema displacement IFFT run as a WGSL Stockham compute pass** on the adopted
+probe device (ADR 0001 Phase C, issue #219). The CPU/WASM path remains the
+hull-probe source of truth and the fallback on SwiftShader / kill-switch.
 
 `src/scenes/Water.tsx` remains the only mounted ocean. FFT is a *backend*
 behind it, not a second scene authority.
@@ -15,26 +15,30 @@ behind it, not a second scene authority.
 | Preset | Displacement | Height queries (Rapier / foam / tug) |
 |---|---|---|
 | `low` / `medium` | Gerstner (`gerstnerTsl` + `WaveSystem` / `dsp_hull_sample_batch`) | `getHullSampleBatch` / `waveHeightBatch` WASM |
-| `high` | FFT 128² height + choppy displacement texture | `OceanFFTField.heightAt()` — bilinear read of the *same* IFFT grid |
-| `cinema` | FFT 256² | same |
+| `high` | FFT 128² — GPU Stockham when gated, else CPU/WASM | `OceanFFTField.heightAt()` — bilinear read of the *same* IFFT grid |
+| `cinema` | FFT 256² **GPU-only** | same 256² CPU/WASM grid (never a 128 stand-in) |
 
-`cinema` is not a `QualityPreset` the store models yet. When it lands, add the
-row to `OCEAN_FFT_SIZE_BY_QUALITY` in `src/systems/ocean/index.ts`; nothing else
-changes. A 256² transform costs ~17 ms on the CPU, so it is gated on the GPU
-path rather than shipped on this one.
+`cinema` is an **ocean-only** tier, not a store `QualityPreset`. Opt in with
+`?ocean=cinema` or the Leva **Ocean / Cinema 256** toggle. If the GPU gate is
+closed, cinema falls back to 128² (high) and logs once — a 256² JS IFFT is
+never scheduled as the visual path.
 
 ## Pipeline
 
 `src/systems/ocean/` is pure math — no THREE, no store, no clock, no
 `Math.random` — so the headless determinism harness can run it without a
-renderer.
+renderer. GPU code lives under `src/scenes/water/`.
 
 | File | Role |
 |---|---|
-| `fft2d.ts` | Radix-2 Cooley-Tukey (JS fallback). WASM `dsp_fft2d` is preferred when the reactor is ready. |
-| `OceanFFTField.ts` | Phillips spectrum, time evolution, IFFT, CPU sampling. |
-| `index.ts` | Quality mapping and the deterministic seed. |
-| `../../scenes/water/oceanFFTTexture.ts` | Packs the field into a tiling `DataTexture`. |
+| `fft2d.ts` | Radix-2 Cooley-Tukey **reference**. WASM `dsp_fft2d` / `dsp_fft2d_r2c` match this kernel. |
+| `stockham2d.ts` | Self-sorting Stockham schedule; oracle for the WGSL butterflies. |
+| `OceanFFTField.ts` | Phillips spectrum, time evolution, CPU/WASM IFFT, CPU sampling. Copies `spectrumH*` / `spectrumD*` before the in-place IFFT for the GPU. |
+| `index.ts` | Quality mapping (`resolveOceanFftSize`) and the deterministic seed. |
+| `oceanGpuGate.ts` | `canUseGpuOceanFft` / `parseOceanCinema`. |
+| `../../scenes/water/oceanFFTTexture.ts` | CPU fallback: packs the field into a tiling `DataTexture`. |
+| `../../scenes/water/oceanFftWgsl.ts` | Stockham + centre-shift pack WGSL. |
+| `../../scenes/water/oceanFFTCompute.ts` | Adopt-only device, `computeAsync` StorageTexture alloc, butterfly + pack. |
 
 Following Tessendorf, *Simulating Ocean Water*:
 
@@ -49,14 +53,17 @@ Following Tessendorf, *Simulating Ocean Water*:
    leaves behind.
 
 Two inverse transforms per update, not three: `D̃x + i·D̃z` rides in one complex
-grid, because both are real fields and the IFFT is linear.
+grid, because both are real fields and the IFFT is linear. Height IFFT uses
+`dsp_fft2d_r2c(..., inverse)` / `fft2dC2R` (Hermitian → real); choppy stays
+full complex `dsp_fft2d`.
 
-### Why not `dsp_fft_r2c`
+### `dsp_fft2d_r2c`
 
-The C++ core's existing entry point is a *packed real-to-complex 1-D* transform
-capped at N ≤ 4096. An ocean needs a *2-D complex* transform of the spectrum
-grid, which that signature cannot express. See [Deferred](#deferred-to-the-gpu-pr)
-for the planned `dsp_fft2d_r2c` export.
+Full N×N layout, **not** packed N×(N/2+1). Packed r2c would be a second
+convention the JS reference does not speak. `inverse = 0` copies `real_in` into
+`re`, zeros `im`, then forward `dsp_fft2d`. `inverse ≠ 0` is c2r (inverse
+`dsp_fft2d`). Twiddles are C++ `float`; JS `Fft1D` uses `Float64Array` — the
+Vitest bound is 1e-4, not bit-identical.
 
 ### FFT convention
 
@@ -71,6 +78,28 @@ so `inverse(forward(x)) === x · N²` on a 2-D grid. This matches Tessendorf's
 `h(x,t) = Σ_k h̃(k,t)·e^(i k·x)`, where amplitude is carried by the Phillips
 constant instead. Callers wanting a normalised IDFT divide by N² themselves.
 
+## GPU path
+
+Gate (all must hold):
+
+- `getWebgpuProbe().compute === 'passed'`
+- `?no_gpu_compute` is not `1` / `true` (this **does** force ocean FFT onto
+  CPU/WASM; gpuChores image helpers keep their own use of the same flag)
+- `renderer.computeAsync` exists
+- `adoptComputeDevice(renderer)` returns the probe-owned device — **never**
+  `requestAdapter` / `requestDevice`
+
+`float32-filterable` is **not** required: displacement stays `rgba16float`.
+
+Butterflies: raw WGSL on the adopted device, one submit per Stockham stage so
+the uniform buffer is not overwritten mid-encoder. Pack writes a Three
+`StorageTexture` allocated via `renderer.computeAsync` (same contract as
+`buildStorageTextureProbeNode`). Dispatch is fire-and-forget — no `await` and
+no `mapAsync` on the frame path.
+
+On WGSL / validation failure the session latches to the CPU `DataTexture` pack
+and warns once.
+
 ## The buoyancy contract
 
 **Rule: hull probes and the water shader read the same field.** Everything
@@ -78,17 +107,20 @@ below exists to make that true without a GPU readback.
 
 `WaveSystem.getWaterHeight()` / `getWaterHeightBatch()` short-circuit to
 `OceanFFTField.heightAt()` whenever a field is active. That is a bilinear read
-of the same `heights` grid that gets packed into the displacement texture, so
-`Tugboat.tsx` buoyancy, `FoamSystem`, `Ship.tsx` bob and the visible surface
-cannot drift apart.
+of the same `heights` grid the CPU/WASM IFFT just wrote. When the GPU path is
+on, the visual texture is a Stockham IFFT of the **same frequency-domain copy**
+(`spectrumH*` / `spectrumD*`); hull still uses the CPU grid. Iteration 1
+therefore runs both IFFTs — duplicate work, correct buoyancy.
+
+`dsp_ocean_displace_batch` bilinear-samples height + Dx + Dz together (WASM
+fast path for `OceanFFTField.displaceBatch` / `heightBatch`).
 
 Rejected alternatives:
 
 - **GPU readback.** Correct by construction, but a `mapAsync` on the render
-  path stalls the frame. Not worth it when the CPU already holds the grid.
+  path stalls the frame.
 - **Second analytic evaluation.** Evaluating the spectrum again at hull points
-  would be a *different* approximation of the same field, and the two would
-  diverge as soon as either side was tuned.
+  would be a *different* approximation of the same field.
 
 Two approximations are deliberate and worth knowing about:
 
@@ -113,8 +145,9 @@ The FFT ocean is inside the [deterministic sim core](./DETERMINISM.md), so:
   cannot shift the sim hash — asserted in
   `src/systems/ocean/__tests__/oceanDeterminism.test.ts`.
 - The field is not part of `captureSimSnapshot()`. The headless harness hashes
-  identically whether the FFT tier is on or off, which is what keeps the GPU
-  path (a future, non-bit-exact backend) out of the replay fingerprint.
+  identically whether the FFT tier is on or off, which keeps the GPU path (not
+  bit-exact vs Cooley-Tukey) out of the replay fingerprint. **With the GPU
+  path off (Vitest / Node / `?no_gpu_compute=1`) the hash is unchanged.**
 - Field updates are throttled to 30 Hz by an accumulator driven by `SIM_DT`, so
   the cadence is a pure function of accumulated sim time, not of frame rate.
 
@@ -124,65 +157,49 @@ sessions and replays from wandering into an unrepresentative sea state.
 
 ## Frame-time budget
 
-Measured on Node 22 / x64, 128² grid:
+Re-measured 2026-09-14 on Node 22 / x64 (mean of 15 `OceanFFTField.update`
+calls after warmup, plus `createOceanFFTTexture.sync`). GPU butterfly time
+needs a real WebGPU adapter; SwiftShader / this environment hits the WebGPU
+fatal overlay, so GPU ms are **not measurable here**.
 
-| Stage | Cost |
-|---|---|
-| Field update (2 × IFFT + spectrum evolution) | ~3.8–4.4 ms |
-| Texture pack (float → half, 16 384 texels) | ~0.44 ms |
-| `heightBatch` × 64 hull probes | ~5 µs |
+| Grid | Stage | Before (CPU visual) | After (CPU hull + GPU visual when gated) |
+|---|---|---|---|
+| 128² | Field update (2 × IFFT + spectrum) | 5.70 ms | same (hull still CPU/WASM) |
+| 128² | Texture pack (half-float upload) | 1.07 ms | 0 on GPU path (WGSL pack) |
+| 128² | Amortised at 60 fps / 30 Hz field | 3.4 ms/frame | 2.85 ms/frame CPU + GPU submit |
+| 256² | Field update | 24.0 ms JS (never the visual path) | GPU visual; hull still this 256² IFFT |
+| 256² | Texture pack | 1.79 ms (CPU fallback only) | WGSL pack, no CPU half conversion |
+| either | `heightBatch` × 64 hull probes | ~0.16 ms JS | `dsp_ocean_displace_batch` when WASM |
 
-The field runs at 30 Hz (`OCEAN_FFT_UPDATE_INTERVAL`), not per frame, so the
-amortised cost at 60 fps is **~2.4 ms/frame**. The texture is re-packed only on
-frames where `consumeOceanFFTDirty()` reports a new transform.
+The field still runs at 30 Hz (`OCEAN_FFT_UPDATE_INTERVAL`). The CPU
+`DataTexture` is packed only when the GPU gate is closed.
 
-Two notes on that trade:
-
-- 30 Hz is invisible on water this slow-moving, and it is the single biggest
-  lever available before the GPU path lands.
-- Hull sampling gets *cheaper*, not more expensive: one bilinear read replaces
-  a 4-layer Gerstner sum per probe.
-
-Bundle impact, gzip: `MainScene` 96.55 → 97.21 KB, `GameShell` 141.58 → 144.05 KB,
-`index` unchanged. No new dependency — the transform is ~150 lines in tree.
+No new dependency — in-tree radix-2 only.
 
 ## Texture format
 
-RGBA **half-float**, `R = Dx`, `G = height`, `B = Dz`, with `RepeatWrapping` so
-`uv = worldXZ / patchSize` tiles without an explicit `fract()`.
+RGBA **half-float**, `R = Dx`, `G = height`, `B = Dz`. The vertex shader samples
+`fract(worldXZ / patchSize)` with `textureLevel(..., 0)` so a GPU
+`StorageTexture` without `RepeatWrapping` still tiles. Implicit-derivative
+sampling is illegal in the vertex stage.
 
 Half-float on purpose: `rgba16float` is filterable in core WebGPU, so the water
-vertex shader samples it with `LinearFilter` without negotiating the
-`float32-filterable` device feature (#199). Displacement is a few metres,
-comfortably inside half precision (±0.001 m at these magnitudes).
-
-The shader samples with `textureLevel(..., 0)`. This is mandatory, not
-stylistic: the sample happens in the vertex stage, where implicit-derivative
-sampling is illegal in WGSL.
+vertex shader can use `LinearFilter` without negotiating `float32-filterable`.
+Displacement is a few metres, comfortably inside half precision (±0.001 m).
 
 ## `?no_gpu_compute=1`
 
-Unaffected. That switch is helpers-only, and this tier never touches the GPU —
-the FFT runs on the CPU and uploads a `DataTexture`. The ocean stays fully
-functional on SwiftShader and anywhere `computeShaders` probes as unsupported.
+**Forces the CPU/WASM ocean FFT** (DataTexture pack). gpuChores image helpers
+also honour this flag. God-rays keep their own gates.
 
 `buildStorageTextureProbeNode()` (formerly `buildOceanFFTNode`) is a device
 capability probe that writes normalised UV to a 4×4 storage texture. It was
-never an ocean and is not one now; it was renamed so it cannot be mistaken for
-this system.
+never an ocean and is not one now; `OceanFFTCompute` uses the same
+`computeAsync` + `StorageTexture` allocation trick, then writes Tessendorf
+displacement into that texture.
 
-## Deferred to the GPU PR
+## Deferred
 
-- **WGSL butterfly passes** → `StorageTexture` height + normal, executed with
-  `renderer.computeAsync` on the same device as the probe (adopt, never
-  `requestDevice`). Gated on `computeShaders === 'passed'` and, if the
-  displacement is filtered as float32, on a granted `float32-filterable`.
-- **`dsp_fft2d_r2c` / `dsp_ocean_displace_batch`** in `harborglow_dsp.cpp`,
-  wired through `wasmDSP.ts` + `scripts/wasm-exports.mjs`. Not in this PR
-  because `check-wasm.mjs` verifies an MD5 of the C++ sources against the
-  committed `public/wasm/manifest.json` and asserts each export exists in the
-  binaries — so adding a C++ export without an Emscripten toolchain to rebuild
-  and re-manifest the `.wasm` artifacts would break `npm run build`. The JS
-  transform is the reference implementation the export will have to match;
-  scalar first, `-msimd128` as a follow-up.
 - **Cinema tessellation**, only if it fits the frame budget.
+- Dropping the duplicate CPU IFFT once a non-stalling hull grid is proven
+  (not `mapAsync` on the frame path).

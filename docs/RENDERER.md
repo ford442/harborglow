@@ -115,7 +115,8 @@ Rules:
 
 1. **One device.** Probe owns `requestDevice()`. Helpers adopt `WebGPURenderer.backend.device`. After a **failed** probe they must not call `requestDevice()`.
 2. **No dual-hot GL+WebGPU.** There is no GL scene this phase.
-3. **`?no_gpu_compute=1`** kills **helpers only**. FFT / god-rays keep their own gates.
+3. **`?no_gpu_compute=1`** kills gpuChores image helpers **and** forces the
+   ocean FFT onto the CPU/WASM path (issue #219). God-rays keep their own gates.
 4. Backend order: WebGPU (boot probe ok + compute probe `passed`) → WASM → JS.
 5. Histogram readback is **256 bins** only.
 

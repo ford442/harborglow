@@ -17,7 +17,7 @@
 //   const h = wasmDSP.waveHeight(x, z, t, amp, freq, speed, dx, dz)
 // =============================================================================
 
-import { fft2d as jsFft2d } from './ocean/fft2d'
+import { fft2d as jsFft2d, fft2dR2C as jsFft2dR2C, fft2dC2R as jsFft2dC2R } from './ocean/fft2d'
 
 const HULL_NORMAL_DELTA = 0.3
 const HULL_MAX_COUNT = 256
@@ -73,6 +73,10 @@ export interface HarborGlowDSPExports {
 
   dsp_fft2d(rePtr: number, imPtr: number, n: number, inverse: number): void
 
+  dsp_fft2d_r2c(
+    realInPtr: number, rePtr: number, imPtr: number, n: number, inverse: number,
+  ): void
+
   dsp_hull_sample_batch(
     xsPtr: number, zsPtr: number, count: number, time: number,
     layersPtr: number, nLayers: number,
@@ -83,6 +87,13 @@ export interface HarborGlowDSPExports {
     gridPtr: number, n: number, patchSize: number,
     xsPtr: number, zsPtr: number, count: number,
     outHeightsPtr: number, outNormalsPtr: number,
+  ): void
+
+  dsp_ocean_displace_batch(
+    heightPtr: number, dispXPtr: number, dispZPtr: number,
+    n: number, patchSize: number,
+    xsPtr: number, zsPtr: number, count: number,
+    outDxPtr: number, outHPtr: number, outDzPtr: number,
   ): void
 
   dsp_convolver_create(impulsePtr: number, impulseLength: number): number
@@ -123,8 +134,10 @@ interface RawWasmInstance {
   dsp_audio_rms: (dataPtr: number, count: number) => number
   dsp_fft_r2c: HarborGlowDSPExports['dsp_fft_r2c']
   dsp_fft2d: HarborGlowDSPExports['dsp_fft2d']
+  dsp_fft2d_r2c: HarborGlowDSPExports['dsp_fft2d_r2c']
   dsp_hull_sample_batch: HarborGlowDSPExports['dsp_hull_sample_batch']
   dsp_heightfield_sample_batch: HarborGlowDSPExports['dsp_heightfield_sample_batch']
+  dsp_ocean_displace_batch: HarborGlowDSPExports['dsp_ocean_displace_batch']
   dsp_convolver_create: HarborGlowDSPExports['dsp_convolver_create']
   dsp_convolver_process: HarborGlowDSPExports['dsp_convolver_process']
   dsp_convolver_reset: HarborGlowDSPExports['dsp_convolver_reset']
@@ -359,8 +372,10 @@ const jsExports: HarborGlowDSPExports = {
     void _inputPtr; void _outRealPtr; void _outImagPtr; void _log2N
   },
   dsp_fft2d: () => {},
+  dsp_fft2d_r2c: () => {},
   dsp_hull_sample_batch: () => {},
   dsp_heightfield_sample_batch: () => {},
+  dsp_ocean_displace_batch: () => {},
   dsp_convolver_create: () => 0,
   dsp_convolver_process: () => {},
   dsp_convolver_reset: () => {},
@@ -724,6 +739,104 @@ class WasmDSPSystem {
     jsFft2d(re, im, n, inverse)
   }
 
+  /**
+   * 2-D real-to-complex matching `fft2dR2C` in fft2d.ts (full N×N layout).
+   */
+  fft2dR2C(realIn: Float32Array, re: Float32Array, im: Float32Array, n: number): void {
+    if (this._raw) {
+      const raw = this._raw
+      const cells = n * n
+      const ptr = this.ensureHeapScratch(cells * 3)
+      const inPtr = ptr
+      const rePtr = ptr + cells * 4
+      const imPtr = ptr + cells * 8
+      new Float32Array(raw.memory.buffer, inPtr, cells).set(realIn.subarray(0, cells))
+      raw.dsp_fft2d_r2c(inPtr, rePtr, imPtr, n, 0)
+      re.set(new Float32Array(raw.memory.buffer, rePtr, cells))
+      im.set(new Float32Array(raw.memory.buffer, imPtr, cells))
+      return
+    }
+    jsFft2dR2C(realIn, re, im, n)
+  }
+
+  /**
+   * 2-D complex-to-real inverse matching `fft2dC2R`.
+   */
+  fft2dC2R(re: Float32Array, im: Float32Array, n: number): void {
+    if (this._raw) {
+      const raw = this._raw
+      const cells = n * n
+      const ptr = this.ensureHeapScratch(cells * 2)
+      const rePtr = ptr
+      const imPtr = ptr + cells * 4
+      new Float32Array(raw.memory.buffer, rePtr, cells).set(re.subarray(0, cells))
+      new Float32Array(raw.memory.buffer, imPtr, cells).set(im.subarray(0, cells))
+      raw.dsp_fft2d_r2c(0, rePtr, imPtr, n, 1)
+      re.set(new Float32Array(raw.memory.buffer, rePtr, cells))
+      im.set(new Float32Array(raw.memory.buffer, imPtr, cells))
+      return
+    }
+    jsFft2dC2R(re, im, n)
+  }
+
+  oceanDisplaceBatch(
+    height: Float32Array,
+    dispX: Float32Array,
+    dispZ: Float32Array,
+    n: number,
+    patchSize: number,
+    xs: Float32Array | ArrayLike<number>,
+    zs: Float32Array | ArrayLike<number>,
+    outDx: Float32Array,
+    outH: Float32Array,
+    outDz: Float32Array,
+  ): void {
+    const count = xs.length
+    if (count !== zs.length) {
+      throw new Error('oceanDisplaceBatch: xs and zs must have equal length')
+    }
+    if (count < 1 || count > HULL_MAX_COUNT) return
+    if (n < 2 || patchSize <= 0) return
+
+    if (this._raw) {
+      const raw = this._raw
+      const cells = n * n
+      const ptr = this.ensureHeapScratch(cells * 3 + count * 5)
+      const hPtr = ptr
+      const dxPtr = ptr + cells * 4
+      const dzPtr = dxPtr + cells * 4
+      const xsPtr = dzPtr + cells * 4
+      const zsPtr = xsPtr + count * 4
+      const outDxPtr = zsPtr + count * 4
+      const outHPtr = outDxPtr + count * 4
+      const outDzPtr = outHPtr + count * 4
+      new Float32Array(raw.memory.buffer, hPtr, cells).set(height.subarray(0, cells))
+      new Float32Array(raw.memory.buffer, dxPtr, cells).set(dispX.subarray(0, cells))
+      new Float32Array(raw.memory.buffer, dzPtr, cells).set(dispZ.subarray(0, cells))
+      const heap = new Float32Array(raw.memory.buffer)
+      const xsOff = xsPtr / 4
+      const zsOff = zsPtr / 4
+      for (let i = 0; i < count; i++) {
+        heap[xsOff + i] = xs[i]
+        heap[zsOff + i] = zs[i]
+      }
+      raw.dsp_ocean_displace_batch(
+        hPtr, dxPtr, dzPtr, n, patchSize, xsPtr, zsPtr, count,
+        outDxPtr, outHPtr, outDzPtr,
+      )
+      outDx.set(heap.subarray(outDxPtr / 4, outDxPtr / 4 + count))
+      outH.set(heap.subarray(outHPtr / 4, outHPtr / 4 + count))
+      outDz.set(heap.subarray(outDzPtr / 4, outDzPtr / 4 + count))
+      return
+    }
+
+    for (let i = 0; i < count; i++) {
+      outDx[i] = sampleHeightfieldJs(dispX, n, patchSize, xs[i], zs[i])
+      outH[i] = sampleHeightfieldJs(height, n, patchSize, xs[i], zs[i])
+      outDz[i] = sampleHeightfieldJs(dispZ, n, patchSize, xs[i], zs[i])
+    }
+  }
+
   hullSampleBatch(
     xs: Float32Array | ArrayLike<number>,
     zs: Float32Array | ArrayLike<number>,
@@ -893,8 +1006,9 @@ class WasmDSPSystem {
       'dsp_sin_approx', 'dsp_sin_full',
       'dsp_wave_height', 'dsp_wave_height_batch',
       'dsp_additive_synth_sample', 'dsp_additive_block',
-      'dsp_audio_rms', 'dsp_fft_r2c', 'dsp_fft2d',
+      'dsp_audio_rms', 'dsp_fft_r2c', 'dsp_fft2d', 'dsp_fft2d_r2c',
       'dsp_hull_sample_batch', 'dsp_heightfield_sample_batch',
+      'dsp_ocean_displace_batch',
       'dsp_convolver_create', 'dsp_convolver_process',
       'dsp_convolver_reset', 'dsp_convolver_destroy',
       'dsp_generate_room_ir',

@@ -12,6 +12,7 @@ import {
   dot,
   exp,
   float,
+  fract,
   length,
   max,
   mix,
@@ -146,13 +147,14 @@ export function createWaterNodeMaterial(opts: {
   const fftPatchSize = opts.fft ? opts.fft.patchSize : 1
 
   /**
-   * Sample the FFT patch. `uv = worldXZ / patchSize` tiles because the texture
-   * uses RepeatWrapping. `textureLevel(..., 0)` is mandatory here: this runs in
-   * the vertex stage, where implicit-derivative sampling is illegal in WGSL.
+   * Sample the FFT patch. `uv = fract(worldXZ / patchSize)` tiles even when the
+   * GPU StorageTexture lacks RepeatWrapping. `textureLevel(..., 0)` is mandatory
+   * here: this runs in the vertex stage, where implicit-derivative sampling is
+   * illegal in WGSL.
    */
   const sampleFft = (worldPos: any) =>
     opts.fft
-      ? textureLevel(opts.fft.texture, worldPos.div(float(fftPatchSize)), float(0))
+      ? textureLevel(opts.fft.texture, fract(worldPos.div(float(fftPatchSize))), float(0))
       : null
 
   const getGerstnerHeight = (worldPos: any, t: any) => {

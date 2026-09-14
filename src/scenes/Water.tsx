@@ -3,10 +3,11 @@
 // Gerstner displacement via TSL MeshStandardNodeMaterial. WaveSystem uniforms.
 // =============================================================================
 
-import { useRef, useMemo, useEffect } from 'react'
+import { useRef, useMemo, useEffect, useState } from 'react'
 import * as THREE from 'three'
 import { MeshStandardNodeMaterial } from 'three/webgpu'
 import { useFrame, useThree } from '@react-three/fiber'
+import { useControls } from 'leva'
 import { useGameStore } from '../store/useGameStore'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState } from '../systems/TugboatWakeSystem'
@@ -14,7 +15,13 @@ import { useMusicPulse } from '../hooks/useMusicPulse'
 import { MAX_DYNAMIC_LIGHTS, MAX_WAVE_LAYERS } from './water/gerstnerHeight'
 import { createWaterNodeMaterial, type WaterTslUserData } from './water/gerstnerTsl'
 import { createOceanFFTTexture, type OceanFFTTexture } from './water/oceanFFTTexture'
-import { OCEAN_FFT_SIZE_BY_QUALITY, oceanFFTSeed } from '../systems/ocean'
+import { OceanFFTCompute } from './water/oceanFFTCompute'
+import {
+  canUseGpuOceanFft,
+  oceanFFTSeed,
+  parseOceanCinema,
+  resolveOceanFftSize,
+} from '../systems/ocean'
 
 interface WaterProps {
   isNight?: boolean
@@ -34,7 +41,7 @@ function waterUserData(mat: MeshStandardNodeMaterial): WaterTslUserData {
 export default function Water({ isNight = true }: WaterProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const materialRef = useRef<MeshStandardNodeMaterial | null>(null)
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
 
   const weather = useGameStore((s) => s.weather)
   const quality = useGameStore((s) => s.qualityPreset)
@@ -50,17 +57,37 @@ export default function Water({ isNight = true }: WaterProps) {
   const musicPulse = useMusicPulse(bpm)
   const musicActive = Array.from(musicPlaying.values()).some(Boolean)
 
+  const { 'Cinema 256': cinemaLeva } = useControls('Ocean', {
+    'Cinema 256': false,
+  })
+
   const segments = quality === 'high' ? 512 : quality === 'medium' ? 256 : 128
 
-  // Quality gate. `low`/`medium` never build a field, so their material graph
-  // and per-frame cost are unchanged from the pre-FFT Gerstner ocean.
-  const fftSize = OCEAN_FFT_SIZE_BY_QUALITY[quality] ?? 0
+  const gpuLatchedOff = useRef(false)
+  const [gpuEpoch, setGpuEpoch] = useState(0)
+  const gpuEligible = canUseGpuOceanFft(gl) && !gpuLatchedOff.current
+  const wantCinema = cinemaLeva || parseOceanCinema()
+  const fftSize = resolveOceanFftSize(quality, { cinema: wantCinema, gpu: gpuEligible })
 
   const fftTextureRef = useRef<OceanFFTTexture | null>(null)
+  const gpuComputeRef = useRef<OceanFFTCompute | null>(null)
+  const cinemaWarned = useRef(false)
+
+  useEffect(() => {
+    if (wantCinema && quality !== 'low' && quality !== 'medium' && !gpuEligible && !cinemaWarned.current) {
+      cinemaWarned.current = true
+      console.warn('[oceanFFT] cinema 256² requires GPU compute; staying on 128² CPU/WASM')
+    }
+  }, [wantCinema, quality, gpuEligible])
+
   const fft = useMemo(() => {
     fftTextureRef.current?.dispose()
     fftTextureRef.current = null
+    gpuComputeRef.current?.dispose()
+    gpuComputeRef.current = null
 
+    // gpuEpoch retriggers after a GPU init failure latches to CPU/WASM.
+    void gpuEpoch
     if (fftSize === 0) {
       waveSystem.setOceanFFT(false)
       return undefined
@@ -69,15 +96,40 @@ export default function Water({ isNight = true }: WaterProps) {
     const field = waveSystem.setOceanFFT(true, { size: fftSize, seed: oceanFFTSeed() })
     if (!field) return undefined
 
+    if (gpuEligible) {
+      const gpu = new OceanFFTCompute(field.size)
+      gpuComputeRef.current = gpu
+      return { texture: gpu.texture as unknown as THREE.Texture, patchSize: field.patchSize, size: field.size }
+    }
+
     const packed = createOceanFFTTexture(field)
     fftTextureRef.current = packed
     return { texture: packed.texture, patchSize: field.patchSize, size: field.size }
-  }, [fftSize])
+    // gpuEpoch retriggers after a GPU init failure latches to CPU/WASM.
+  }, [fftSize, gpuEligible, gpuEpoch])
+
+  useEffect(() => {
+    const gpu = gpuComputeRef.current
+    if (!gpu) return
+    let cancelled = false
+    void gpu.init(gl).then((ok) => {
+      if (cancelled) return
+      if (!ok) {
+        gpuLatchedOff.current = true
+        setGpuEpoch((epoch) => epoch + 1)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [fft, gl])
 
   useEffect(
     () => () => {
       fftTextureRef.current?.dispose()
       fftTextureRef.current = null
+      gpuComputeRef.current?.dispose()
+      gpuComputeRef.current = null
       waveSystem.setOceanFFT(false)
     },
     [],
@@ -112,11 +164,23 @@ export default function Water({ isNight = true }: WaterProps) {
     if (!mat) return
     const u = waterUserData(mat)
 
-    // WaveSystem re-transforms the field on its own cadence (30 Hz); only
-    // re-pack the texture on frames where it actually changed.
+    // WaveSystem re-transforms the field on its own cadence (30 Hz). GPU
+    // displacement is packed by WGSL; CPU/WASM fallback re-packs a DataTexture.
+    // Dirty is left set while GPU init is in flight so the first ready frame
+    // still uploads.
     const field = waveSystem.getOceanFFT()
-    if (field && fftTextureRef.current && waveSystem.consumeOceanFFTDirty()) {
-      fftTextureRef.current.sync(field)
+    const gpu = gpuComputeRef.current
+    if (field) {
+      if (gpu) {
+        if (gpu.ready && waveSystem.consumeOceanFFTDirty()) {
+          if (!gpu.dispatch(field) && gpu.failedToInit) {
+            gpuLatchedOff.current = true
+            setGpuEpoch((epoch) => epoch + 1)
+          }
+        }
+      } else if (fftTextureRef.current && waveSystem.consumeOceanFFTDirty()) {
+        fftTextureRef.current.sync(field)
+      }
     }
 
     const nightBlend = isNight

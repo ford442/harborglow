@@ -159,3 +159,30 @@ export function fft2d(
     plan.transform(re, im, col, n, inverse)
   }
 }
+
+/**
+ * 2-D real-to-complex: real N×N → full Hermitian complex N×N (same layout as
+ * `fft2d`, not packed N×(N/2+1)). Equivalent to `im.fill(0)` then `fft2d(..., false)`.
+ */
+export function fft2dR2C(
+  realIn: Float32Array,
+  re: Float32Array,
+  im: Float32Array,
+  n: number,
+): void {
+  const total = n * n
+  if (realIn.length < total || re.length < total || im.length < total) {
+    throw new Error(`fft2dR2C: buffers must hold ${total} elements`)
+  }
+  re.set(realIn.subarray(0, total))
+  im.fill(0, 0, total)
+  fft2d(re, im, n, false)
+}
+
+/**
+ * 2-D complex-to-real inverse (Hermitian input). Writes the real spatial field
+ * into `re`; `im` is ~0. Same unnormalised convention as `fft2d(..., true)`.
+ */
+export function fft2dC2R(re: Float32Array, im: Float32Array, n: number): void {
+  fft2d(re, im, n, true)
+}

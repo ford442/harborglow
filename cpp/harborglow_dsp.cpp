@@ -714,6 +714,24 @@ void dsp_fft2d(float* re, float* im, int n, int inverse) {
 }
 
 extern "C" DSP_EXPORT
+void dsp_fft2d_r2c(
+        const float* real_in, float* re, float* im, int n, int inverse) {
+    if (!re || !im) return;
+    if (!is_power_of_two(n) || n < FFT2D_MIN || n > FFT2D_MAX) return;
+    if (inverse) {
+        dsp_fft2d(re, im, n, 1);
+        return;
+    }
+    if (!real_in) return;
+    const int cells = n * n;
+    for (int i = 0; i < cells; ++i) {
+        re[i] = real_in[i];
+        im[i] = 0.0f;
+    }
+    dsp_fft2d(re, im, n, 0);
+}
+
+extern "C" DSP_EXPORT
 void dsp_hull_sample_batch(
         const float* xs, const float* zs, int count, float time,
         const float* layers, int n_layers,
@@ -752,5 +770,24 @@ void dsp_heightfield_sample_batch(
             sample_heightfield(grid, n, patch_size, x, z - HULL_NORMAL_DELTA),
             sample_heightfield(grid, n, patch_size, x, z + HULL_NORMAL_DELTA),
             out_normals, i);
+    }
+}
+
+extern "C" DSP_EXPORT
+void dsp_ocean_displace_batch(
+        const float* height, const float* disp_x, const float* disp_z,
+        int n, float patch_size,
+        const float* xs, const float* zs, int count,
+        float* out_dx, float* out_h, float* out_dz) {
+    if (!height || !disp_x || !disp_z || !xs || !zs) return;
+    if (!out_dx || !out_h || !out_dz) return;
+    if (n < 2 || patch_size <= 0.0f) return;
+    if (count < 1 || count > HULL_MAX_COUNT) return;
+    for (int i = 0; i < count; ++i) {
+        const float x = xs[i];
+        const float z = zs[i];
+        out_dx[i] = sample_heightfield(disp_x, n, patch_size, x, z);
+        out_h[i] = sample_heightfield(height, n, patch_size, x, z);
+        out_dz[i] = sample_heightfield(disp_z, n, patch_size, x, z);
     }
 }

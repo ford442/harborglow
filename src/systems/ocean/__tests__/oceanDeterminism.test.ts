@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { waveSystem, OCEAN_FFT_UPDATE_INTERVAL } from '../../WaveSystem'
-import { oceanFFTSeed, OCEAN_FFT_SIZE_BY_QUALITY } from '../index'
+import { oceanFFTSeed, OCEAN_FFT_SIZE_BY_QUALITY, resolveOceanFftSize } from '../index'
 import { createSimContext, setSim, getSim, SIM_DT } from '../../sim/SimContext'
 import { hashSimSnapshot } from '../../sim/hashState'
 import { runHeadlessTicks } from '../../sim/headless'
@@ -86,7 +86,12 @@ describe('FFT ocean determinism', () => {
   it('gates the field on the quality preset', () => {
     expect(OCEAN_FFT_SIZE_BY_QUALITY.low).toBe(0)
     expect(OCEAN_FFT_SIZE_BY_QUALITY.medium).toBe(0)
-    expect(OCEAN_FFT_SIZE_BY_QUALITY.high).toBeGreaterThan(0)
+    expect(OCEAN_FFT_SIZE_BY_QUALITY.high).toBe(128)
+    expect(OCEAN_FFT_SIZE_BY_QUALITY.cinema).toBe(256)
+    expect(resolveOceanFftSize('high')).toBe(128)
+    expect(resolveOceanFftSize('high', { cinema: true, gpu: false })).toBe(128)
+    expect(resolveOceanFftSize('high', { cinema: true, gpu: true })).toBe(256)
+    expect(resolveOceanFftSize('low', { cinema: true, gpu: true })).toBe(0)
   })
 
   it('keeps batch and single height queries consistent on the FFT tier', () => {

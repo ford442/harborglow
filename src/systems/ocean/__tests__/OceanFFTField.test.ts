@@ -143,4 +143,34 @@ describe('OceanFFTField sampling (buoyancy contract)', () => {
     const field = new OceanFFTField(SMALL)
     expect(() => field.setParams({ size: 64 })).toThrow(/size is fixed/)
   })
+
+  it('displaceBatch agrees with heightAt / displacementAt', () => {
+    const field = new OceanFFTField({ ...SMALL, seed: 9 })
+    field.update(1)
+    const xs = Float32Array.from([0, 12.5, -33.25])
+    const zs = Float32Array.from([0, -4.5, 61.75])
+    const batch = field.displaceBatch(xs, zs)
+    for (let i = 0; i < xs.length; i++) {
+      const d = field.displacementAt(xs[i], zs[i])
+      expect(batch.h[i]).toBeCloseTo(field.heightAt(xs[i], zs[i]), 5)
+      expect(batch.dx[i]).toBeCloseTo(d[0], 5)
+      expect(batch.dz[i]).toBeCloseTo(d[1], 5)
+    }
+  })
+
+  it('exposes a frequency-domain copy for the GPU butterflies', () => {
+    const field = new OceanFFTField({ ...SMALL, seed: 4 })
+    field.update(2)
+    expect(field.spectrumHRe.length).toBe(field.size * field.size)
+    expect(field.spectrumHRe).not.toBe(field.heights)
+    // Spatial heights are the centred IFFT of the spectrum, so they differ.
+    let same = true
+    for (let i = 0; i < field.heights.length; i++) {
+      if (field.heights[i] !== field.spectrumHRe[i]) {
+        same = false
+        break
+      }
+    }
+    expect(same).toBe(false)
+  })
 })

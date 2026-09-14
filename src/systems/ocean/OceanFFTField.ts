@@ -26,7 +26,7 @@
 // =============================================================================
 
 import { Rng } from '../sim/Rng'
-import { fft2d } from './fft2d'
+import { fft2d, fft2dC2R } from './fft2d'
 import { wasmDSP } from '../wasmDSP'
 
 /** Gravitational acceleration used for the deep-water dispersion relation. */
@@ -97,11 +97,20 @@ export class OceanFFTField {
   private kxNorm: Float32Array
   private kzNorm: Float32Array
 
-  // Per-frame scratch.
+  // Per-frame scratch (in-place IFFT workspace).
   private heightRe: Float32Array
   private heightIm: Float32Array
   private dispRe: Float32Array
   private dispIm: Float32Array
+
+  /**
+   * Frequency-domain h̃ / D̃ copied *before* the in-place IFFT so the GPU
+   * butterflies can consume the same spectrum the CPU hull grid was built from.
+   */
+  readonly spectrumHRe: Float32Array
+  readonly spectrumHIm: Float32Array
+  readonly spectrumDRe: Float32Array
+  readonly spectrumDIm: Float32Array
 
   /** Vertical displacement, row-major `idx = row * N + col` (row = +Z, col = +X). */
   readonly heights: Float32Array
@@ -113,6 +122,8 @@ export class OceanFFTField {
   private lastTime = Number.NaN
   /** Root-mean-square surface elevation of the most recent `update()`, metres. */
   private rms = 0
+  private probeDx = new Float32Array(0)
+  private probeDz = new Float32Array(0)
 
   constructor(config: Partial<OceanFFTConfig> = {}) {
     this.config = { ...DEFAULT_OCEAN_FFT_CONFIG, ...config }
@@ -131,6 +142,10 @@ export class OceanFFTField {
     this.heightIm = new Float32Array(cells)
     this.dispRe = new Float32Array(cells)
     this.dispIm = new Float32Array(cells)
+    this.spectrumHRe = new Float32Array(cells)
+    this.spectrumHIm = new Float32Array(cells)
+    this.spectrumDRe = new Float32Array(cells)
+    this.spectrumDIm = new Float32Array(cells)
     this.heights = new Float32Array(cells)
     this.displacementX = new Float32Array(cells)
     this.displacementZ = new Float32Array(cells)
@@ -309,11 +324,21 @@ export class OceanFFTField {
       }
     }
 
+    this.spectrumHRe.set(this.heightRe)
+    this.spectrumHIm.set(this.heightIm)
+    if (wantsChoppy) {
+      this.spectrumDRe.set(this.dispRe)
+      this.spectrumDIm.set(this.dispIm)
+    } else {
+      this.spectrumDRe.fill(0)
+      this.spectrumDIm.fill(0)
+    }
+
     if (wasmDSP.isWasmActive) {
-      wasmDSP.fft2d(this.heightRe, this.heightIm, n, true)
+      wasmDSP.fft2dC2R(this.heightRe, this.heightIm, n)
       if (wantsChoppy) wasmDSP.fft2d(this.dispRe, this.dispIm, n, true)
     } else {
-      fft2d(this.heightRe, this.heightIm, n, true)
+      fft2dC2R(this.heightRe, this.heightIm, n)
       if (wantsChoppy) fft2d(this.dispRe, this.dispIm, n, true)
     }
 
@@ -399,9 +424,52 @@ export class OceanFFTField {
     zs: ArrayLike<number>,
     out: Float32Array = new Float32Array(xs.length),
   ): Float32Array {
+    if (wasmDSP.isWasmActive && xs.length > 0) {
+      this.ensureProbeScratch(xs.length)
+      wasmDSP.oceanDisplaceBatch(
+        this.heights, this.displacementX, this.displacementZ,
+        this.n, this.config.patchSize, xs, zs,
+        this.probeDx, out, this.probeDz,
+      )
+      return out
+    }
     for (let i = 0; i < xs.length; i++) {
       out[i] = this.sampleGrid(this.heights, xs[i], zs[i])
     }
     return out
+  }
+
+  /**
+   * Batch choppy + height query. Writes dx/h/dz so hull probes can match the
+   * shader's (Dx, h, Dz) texel without a GPU readback.
+   */
+  displaceBatch(
+    xs: ArrayLike<number>,
+    zs: ArrayLike<number>,
+    outDx: Float32Array = new Float32Array(xs.length),
+    outH: Float32Array = new Float32Array(xs.length),
+    outDz: Float32Array = new Float32Array(xs.length),
+  ): { dx: Float32Array; h: Float32Array; dz: Float32Array } {
+    if (wasmDSP.isWasmActive && xs.length > 0) {
+      wasmDSP.oceanDisplaceBatch(
+        this.heights, this.displacementX, this.displacementZ,
+        this.n, this.config.patchSize, xs, zs,
+        outDx, outH, outDz,
+      )
+      return { dx: outDx, h: outH, dz: outDz }
+    }
+    for (let i = 0; i < xs.length; i++) {
+      outDx[i] = this.sampleGrid(this.displacementX, xs[i], zs[i])
+      outH[i] = this.sampleGrid(this.heights, xs[i], zs[i])
+      outDz[i] = this.sampleGrid(this.displacementZ, xs[i], zs[i])
+    }
+    return { dx: outDx, h: outH, dz: outDz }
+  }
+
+  private ensureProbeScratch(count: number): void {
+    if (this.probeDx.length < count) {
+      this.probeDx = new Float32Array(count)
+      this.probeDz = new Float32Array(count)
+    }
   }
 }

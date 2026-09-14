@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "sourceMd5": "de7cbaec87d2be0e9edc78815d651d09",
+  "sourceMd5": "8d5609efa617bd9a9094b50551237719",
   "sources": {
-    "cpp/harborglow_dsp.cpp": "4e54aeb88a66ac3d9d05bb1082e1e2e4",
-    "cpp/harborglow_dsp.h": "1f576ead58140db02806664e13402e50",
+    "cpp/harborglow_dsp.cpp": "6d269ca12de6fca8405c139e74b309f9",
+    "cpp/harborglow_dsp.h": "7d67f3e1c65a71e7b237d6c44f0c5f29",
     "cpp/harborglow_audio_engine.cpp": "1ef7e0a78661f5d1d99fcdde2cbff444",
     "cpp/harborglow_audio_engine.h": "7f85feafb80b0a619743e156c7944683",
     "cpp/dsp_ring_buffer.c": "a197f45ea81ad7f4afe1cb8e5ca164eb",
@@ -14,20 +14,20 @@
   },
   "binaries": {
     "public/wasm/harborglow_dsp.wasm": {
-      "bytes": 29269,
-      "sha256": "b0292fe85e3e7aba03054ae7eb0f3595fa0ca021e6856e8a7f9ff12ed0e9d17e"
+      "bytes": 30082,
+      "sha256": "bd12481935eb86a0ba2e631b61d502c11bf242869cc321254d950528ec1edd80"
     },
     "public/wasm/harborglow_dsp_simd.wasm": {
-      "bytes": 33460,
-      "sha256": "bd4dd1a10480639d51367f09c2e1cbfe1a839f3fec55fd6d8db4fb1973708ebf"
+      "bytes": 34402,
+      "sha256": "ed56fc3ecf836f64998f683eaff8c14368b53149e18d584c2a02ca11f51a2f60"
     },
     "public/wasm/harborglow_audio_shared.wasm": {
-      "bytes": 52491,
-      "sha256": "0245374717078a0c70a2d67274000691800e9ba2f2ff41860c4ed7e4764c1bea"
+      "bytes": 53325,
+      "sha256": "a22bd2df02ea06f88718de541876707d3ab3984d43e667ce307b97dc896b72d2"
     },
     "public/wasm/harborglow_audio_shared_simd.wasm": {
-      "bytes": 57110,
-      "sha256": "7fcca5749757906231c3eab81ecff61a49e971e0ac32d167ab614723e51fc26e"
+      "bytes": 58073,
+      "sha256": "0b0a0efa3929912ead3c4f3073b1ebbeb423ad891a3cfbda07e78893e34fd4f6"
     }
   },
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.6 (ce75e06884093bcefb86a6b8fd56a5d62a4cc245)"

@@ -123,6 +123,42 @@ int main() {
         expect_near("fft2d imag", fft_im[static_cast<std::size_t>(i)] / scale, 0.0f, 1e-4f);
     }
 
+    std::vector<float> r2c_re(static_cast<std::size_t>(cells));
+    std::vector<float> r2c_im(static_cast<std::size_t>(cells), 0.0f);
+    dsp_fft2d_r2c(orig.data(), r2c_re.data(), r2c_im.data(), n2, 0);
+    std::vector<float> ref_re = orig;
+    std::vector<float> ref_im(static_cast<std::size_t>(cells), 0.0f);
+    dsp_fft2d(ref_re.data(), ref_im.data(), n2, 0);
+    for (int i = 0; i < cells; ++i) {
+        expect_near("r2c re", r2c_re[static_cast<std::size_t>(i)],
+            ref_re[static_cast<std::size_t>(i)], 1e-5f);
+        expect_near("r2c im", r2c_im[static_cast<std::size_t>(i)],
+            ref_im[static_cast<std::size_t>(i)], 1e-5f);
+    }
+    dsp_fft2d_r2c(nullptr, r2c_re.data(), r2c_im.data(), n2, 1);
+    for (int i = 0; i < cells; ++i) {
+        expect_near("r2c c2r", r2c_re[static_cast<std::size_t>(i)] / scale,
+            orig[static_cast<std::size_t>(i)], 1e-4f);
+    }
+
+    float grid[16];
+    float dx[16];
+    float dz[16];
+    for (int i = 0; i < 16; ++i) {
+        grid[i] = static_cast<float>(i);
+        dx[i] = static_cast<float>(i) * 0.1f;
+        dz[i] = static_cast<float>(i) * -0.2f;
+    }
+    float px[2] = {0.0f, 2.5f};
+    float pz[2] = {0.0f, 0.0f};
+    float out_dx[2] = {};
+    float out_h[2] = {};
+    float out_dz[2] = {};
+    dsp_ocean_displace_batch(grid, dx, dz, 4, 4.0f, px, pz, 2, out_dx, out_h, out_dz);
+    expect_near("displace h0", out_h[0], 0.0f, 1e-5f);
+    expect_near("displace dx0", out_dx[0], 0.0f, 1e-5f);
+    expect_near("displace h1", out_h[1], 2.5f, 1e-4f);
+
     float hull_xs[4] = {0.0f, 1.0f, 2.0f, 3.0f};
     float hull_zs[4] = {0.0f, 0.5f, -1.0f, 2.0f};
     float layers[5] = {1.2f, 0.4f, 0.8f, 0.6f, 0.8f};

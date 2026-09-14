@@ -1,6 +1,6 @@
 # ADR 0001 — WebGPU TSL materials + FFT ocean (vs GLSL-first)
 
-- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165)); **runtime WebGL/R3F fallback deferred** by foundation [#194](https://github.com/ford442/harborglow/issues/194) (2026-08)
+- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165)); **runtime WebGL/R3F fallback deferred** by foundation [#194](https://github.com/ford442/harborglow/issues/194) (2026-08). **Phase C GPU displacement** landed with issue #219 (WGSL Stockham on the adopted probe device; CPU/WASM hull grid + fallback; cinema 256² is an ocean-only GPU tier, not a store `QualityPreset`).
 - **Date:** 2026-08-03
 - **Deciders:** HarborGlow graphics / foundation track
 - **Related:** [`docs/RENDERER.md`](../RENDERER.md), [`docs/plans/feature-plan.md`](../plans/feature-plan.md), [`docs/ARCHIVE.md`](../ARCHIVE.md), [`docs/systems/SYSTEM_BOOTSTRAP.md`](../systems/SYSTEM_BOOTSTRAP.md), child-issue specs in [`docs/plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md`](../plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md)
@@ -17,7 +17,7 @@ What remains aspirational from the feature plan and research synthesis:
 |------|--------|------------|
 | Materials | `lightShowNodes.ts` → `MeshStandardMaterial` / GLSL god-ray | TSL node materials on WebGPU |
 | Post | Vanilla JSM `EffectComposer` (GLSL only) | Dual-path; compute/TSL only behind capability gates |
-| Ocean | Gerstner JS/WASM via `Water.tsx` | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
+| Ocean | Gerstner JS/WASM via `Water.tsx`; high/cinema FFT (GPU Stockham when gated) | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
 | three.js | Exact `0.183.1` with matching `@types/three`; WebGPU via `three/webgpu` and TSL via `three/tsl` | Keep the exact baseline until the postprocessing peer ceiling moves |
 | Caps probe | `maxTextureSize`, `maxAnisotropy`, `preserveDrawingBuffer`, `adapterInfo` | Also `computeShaders`, `float32Filterable` |
 
