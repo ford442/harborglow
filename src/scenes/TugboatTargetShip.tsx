@@ -6,7 +6,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import type { RefObject } from 'react'
 import * as THREE from 'three'
-import * as Tone from 'tone'
+import { Instrument, unlockAudio } from '../systems/audio/voices'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
@@ -373,7 +373,7 @@ export default function TugboatTargetShip({
         // Detach in store (mission logic handled upstream)
         storeState.signalTowLineSnap()
 
-        // Play snap audio via Tone.js (fire and forget)
+        // Play snap audio (fire and forget)
         playSnapAudio()
 
         towLineState.active        = false
@@ -458,36 +458,27 @@ export default function TugboatTargetShip({
 
 // =============================================================================
 // SNAP AUDIO
-// Fire-and-forget Tone.js burst when the cable parts.  Noise → distortion →
-// lowpass filter gives a convincing metallic "twang + recoil".
+// Fire-and-forget burst when the cable parts: a short noise "twang" over a
+// sub-bass membrane thud for the recoil.
 // =============================================================================
+
+let snapNoise: Instrument | null = null
+let snapThud: Instrument | null = null
 
 async function playSnapAudio(): Promise<void> {
   try {
-    await Tone.start()
-    const now = Tone.now() + 0.02
-    const filter = new Tone.Filter(700, 'lowpass').toDestination()
-    const dist   = new Tone.Distortion(0.65).connect(filter)
-    const env    = new Tone.AmplitudeEnvelope({
-      attack:  0.001,
-      decay:   0.28,
-      sustain: 0,
-      release: 0.18,
-    }).connect(dist)
-    const noise = new Tone.Noise('pink').connect(env).start(now)
-    env.triggerAttack(now)
-    env.triggerRelease(now + 0.12)
+    await unlockAudio()
+    snapNoise ??= new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.001, decay: 0.28, sustain: 0, release: 0.18 },
+    })
     // Sub-bass thud for "whip recoil" feel
-    const thud = new Tone.MembraneSynth({
-      pitchDecay: 0.06,
-      octaves:    4,
+    snapThud ??= new Instrument({
+      waveform: 'membrane',
       envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
-    }).toDestination()
-    thud.triggerAttackRelease('C1', '8n', now)
-    setTimeout(() => {
-      noise.stop(); noise.dispose()
-      env.dispose(); dist.dispose(); filter.dispose(); thud.dispose()
-    }, 900)
+    })
+    snapNoise.play(160, 0.12, { delay: 0.02 })
+    snapThud.play('C1', '8n', { delay: 0.02 })
   } catch {
     // Audio context may not be available in test/SSR environments — ignore
   }

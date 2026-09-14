@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
-import { fileURLToPath } from 'node:url'
 
 const isolationHeaders = {
     'Cross-Origin-Opener-Policy': 'same-origin',
@@ -21,13 +20,6 @@ export default defineConfig(({ mode }) => ({
         }),
     ].filter(Boolean),
     base: './',
-    resolve: {
-        // Keep existing Tone-shaped system APIs while running every procedural
-        // synth/effect through the WASM AudioWorklet backend.
-        alias: {
-            tone: fileURLToPath(new URL('./src/systems/audio/toneCompat.ts', import.meta.url)),
-        },
-    },
     // Ensure .wasm files in public/ are served with the correct MIME type
     assetsInclude: ['**/*.wasm'],
     server: {
@@ -63,9 +55,6 @@ export default defineConfig(({ mode }) => ({
                 // first - putting all of react/react-dom inside vendor-3d and forcing the
                 // whole 3D bundle to load eagerly before the app could render anything.
                 manualChunks(id) {
-                    if (id.includes('node_modules/tone/')) {
-                        return 'vendor-audio'
-                    }
                     // React/ReactDOM/Scheduler get their own chunk, kept out of vendor-3d,
                     // to avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED errors.
                     if (
@@ -146,7 +135,6 @@ export default defineConfig(({ mode }) => ({
             '@react-three/fiber',
             '@react-three/drei',
             'zustand',
-            'tone',
         ],
         exclude: ['@react-three/rapier'], // Heavy, lazy load instead
         // three's WebGPU modules (crawled via the lazy WebGPURenderer import) use
@@ -160,15 +148,5 @@ export default defineConfig(({ mode }) => ({
         include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
         exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
         setupFiles: ['./src/test/setup.ts'],
-        server: {
-            deps: {
-                // Tone 14's ESM build uses extensionless relative imports
-                // ("./core/Global"), which Node's ESM loader rejects. Inlining
-                // routes it through Vite's resolver — the same path the browser
-                // build already takes — so store suites that touch the game
-                // store (which imports Tone transitively) can load at all.
-                inline: ['tone'],
-            },
-        },
     },
 }))

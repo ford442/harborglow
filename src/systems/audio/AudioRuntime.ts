@@ -104,6 +104,8 @@ export class AudioRuntime {
   private contextValue: AudioContext | null = null
   private workletNode: AudioWorkletNode | null = null
   private fallbackAnalyser: AnalyserNode | null = null
+  private masterGain: GainNode | null = null
+  private masterMuted = false
   private fallbackWaveform = new Float32Array(256)
   private fallbackSpectrum = new Uint8Array(128)
   private memory: WebAssembly.Memory | null = null
@@ -172,6 +174,9 @@ export class AudioRuntime {
     }
 
     this.contextValue = new AudioContextConstructor()
+    this.masterGain = this.contextValue.createGain()
+    this.masterGain.gain.value = this.masterMuted ? 0 : 1
+    this.masterGain.connect(this.contextValue.destination)
     const supportsShared = typeof SharedArrayBuffer !== 'undefined' &&
       typeof Atomics !== 'undefined' &&
       globalThis.crossOriginIsolated === true &&
@@ -226,7 +231,7 @@ export class AudioRuntime {
       })
 
       this.workletNode = node
-      node.connect(this.contextValue.destination)
+      node.connect(this.masterGain ?? this.contextValue.destination)
       this.commandWriter = new SharedRingWriter(
         this.memory, COMMAND_RING_PTR, COMMAND_CAPACITY, COMMAND_BYTES, layout)
       this.analysisReader = new SharedRingReader(
@@ -340,6 +345,18 @@ export class AudioRuntime {
     this.setEffects({ room, roomMix })
   }
 
+  /** Silence (or restore) everything the engine and sample players output. */
+  setMasterMuted(muted: boolean): void {
+    this.masterMuted = muted
+    if (this.masterGain && this.contextValue) {
+      this.masterGain.gain.setTargetAtTime(muted ? 0 : 1, this.contextValue.currentTime, 0.02)
+    }
+  }
+
+  get isMasterMuted(): boolean {
+    return this.masterMuted
+  }
+
   getAnalysis(): AudioAnalysisSnapshot {
     while (this.analysisReader?.pop((view) => {
       this.analysis = decodeAnalysis(view)
@@ -387,7 +404,7 @@ export class AudioRuntime {
     if (!this.contextValue || this.fallbackAnalyser) return
     this.fallbackAnalyser = this.contextValue.createAnalyser()
     this.fallbackAnalyser.fftSize = 256
-    this.fallbackAnalyser.connect(this.contextValue.destination)
+    this.fallbackAnalyser.connect(this.masterGain ?? this.contextValue.destination)
   }
 
   private startFallbackVoice(
@@ -426,6 +443,8 @@ export class AudioRuntime {
     this.memory = null
     this.fallbackAnalyser?.disconnect()
     this.fallbackAnalyser = null
+    this.masterGain?.disconnect()
+    this.masterGain = null
     this.statusValue = 'idle'
     this.initPromise = null
   }

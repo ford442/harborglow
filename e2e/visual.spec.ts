@@ -1,18 +1,21 @@
 import { test } from '@playwright/test'
 
 /**
- * Harbor pixel snapshots are deferred until WebGL/R3F restore or a WebGPU CI
- * runner. SwiftShader in this job has no WebGPU; the app hard-fails instead
- * of rendering a GL harbor. See e2e/webgpu-probe.spec.ts and docs/RENDERER.md.
+ * Harbor pixel snapshots need a WebGPU adapter; this job runs SwiftShader, where
+ * the app hard-fails to the overlay (covered by e2e/webgpu-probe.spec.ts).
+ *
+ * Skipped by decision, not by default: docs/adr/0002-harbor-visual-review-without-gpu-ci.md
+ * makes a human-reviewed WebGPU still mandatory on src/scenes/** until a GPU
+ * runner lands. Capture on a real WebGPU session with
+ * `window.harborglowDebug.captureCanvasPng()` (?screenshot=1).
  */
-test.describe('Visual regression (deferred)', () => {
-  test.skip(true, 'WebGL harbor baselines deferred — WebGPU required this phase (#194)')
+test.describe('Visual regression (WebGPU runner pending — ADR 0002)', () => {
+  test.skip(
+    true,
+    'No WebGPU in CI: visual review is mandatory per docs/adr/0002-harbor-visual-review-without-gpu-ci.md',
+  )
 
-  test('harbor overview canvas matches snapshot', async () => {
-    // skipped
-  })
-
-  test('wireframe toggle (G) changes rendered pixels', async () => {
-    // skipped
+  test('dock + water + one lit rig still matches snapshot', async () => {
+    // Unskip on a WebGPU runner: boot /?screenshot=1, await harborglowDebug.captureCanvasPng().
   })
 })

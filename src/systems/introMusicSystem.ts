@@ -1,5 +1,6 @@
-import * as Tone from 'tone'
 import { audioVisualSync } from './audioVisualSync'
+import { BeatTransport, scheduleLoop, scheduleSequence } from './audio/transport'
+import { Instrument, SamplePlayer, unlockAudio } from './audio/voices'
 
 // =============================================================================
 // INTRO MUSIC SYSTEM — HarborGlow
@@ -14,18 +15,18 @@ const INTRO_BPM = 140
 /** Current playback mode of the intro music system. */
 type IntroMode = 'idle' | 'title' | 'loading' | 'fading'
 
+const wait = (seconds: number) => new Promise((r) => setTimeout(r, seconds * 1000))
+
 class IntroMusicSystem {
-  private player: Tone.Player | null = null
-  private loopPlayer: Tone.Player | null = null
-  private volume: Tone.Volume | null = null
+  private player: SamplePlayer | null = null
+  private loopPlayer: SamplePlayer | null = null
   private mode: IntroMode = 'idle'
   private isInitialized = false
-  private fileExists = { intro: false, loop: false }
 
-  // Procedural fallback synths
-  private fallbackSynths: any[] = []
-  private fallbackEffects: any[] = []
-  private fallbackTransportId: number | null = null
+  // Procedural fallback. Menu music plays before the sim runs, so it keeps
+  // its own audio-clocked transport instead of the shared sim-clocked one.
+  private readonly fallbackTransport = new BeatTransport()
+  private fallbackSynths: Instrument[] = []
 
   // ---------------------------------------------------------------------------
   // INITIALIZATION
@@ -33,13 +34,13 @@ class IntroMusicSystem {
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return
-    await Tone.start()
+    await unlockAudio()
 
     // Try to load AI-generated assets
     await this.loadPlayers()
 
     // If no assets, prepare procedural fallback
-    if (!this.fileExists.intro) {
+    if (!this.player) {
       this.initializeFallbackSynths()
     }
 
@@ -47,54 +48,26 @@ class IntroMusicSystem {
     audioVisualSync.setBPM(INTRO_BPM)
 
     this.isInitialized = true
-    console.log(`🎵 IntroMusicSystem initialized (mode: ${this.fileExists.intro ? 'AI audio' : 'procedural fallback'})`)
+    console.log(`🎵 IntroMusicSystem initialized (mode: ${this.player ? 'AI audio' : 'procedural fallback'})`)
   }
 
   private async loadPlayers(): Promise<void> {
-    const testAndLoad = async (url: string): Promise<boolean> => {
+    const tryLoad = async (url: string): Promise<SamplePlayer | null> => {
       try {
-        const response = await fetch(url, { method: 'HEAD' })
-        return response.ok
-      } catch {
-        return false
+        const head = await fetch(url, { method: 'HEAD' })
+        if (!head.ok) return null
+        const player = new SamplePlayer(url, { loop: true })
+        await player.load()
+        return player.loaded ? player : null
+      } catch (error) {
+        console.warn(`🎵 IntroMusicSystem: could not load ${url}`, error)
+        return null
       }
     }
 
-    const [introExists, loopExists] = await Promise.all([
-      testAndLoad(INTRO_TRACK_URL),
-      testAndLoad(LOOP_TRACK_URL),
-    ])
-
-    this.fileExists.intro = introExists
-    this.fileExists.loop = loopExists
-
-    if (introExists) {
-      this.player = new Tone.Player({
-        url: INTRO_TRACK_URL,
-        loop: true,
-        autostart: false,
-        fadeIn: 0.5,
-        fadeOut: 1.0,
-      })
-      this.player.sync()
-    }
-
-    if (loopExists) {
-      this.loopPlayer = new Tone.Player({
-        url: LOOP_TRACK_URL,
-        loop: true,
-        autostart: false,
-        fadeIn: 0.5,
-        fadeOut: 1.0,
-      })
-      this.loopPlayer.sync()
-    }
-
-    // Shared volume node for crossfading
-    this.volume = new Tone.Volume(-Infinity).toDestination()
-
-    if (this.player) this.player.connect(this.volume)
-    if (this.loopPlayer) this.loopPlayer.connect(this.volume)
+    const [intro, loop] = await Promise.all([tryLoad(INTRO_TRACK_URL), tryLoad(LOOP_TRACK_URL)])
+    this.player = intro
+    this.loopPlayer = loop
   }
 
   // ---------------------------------------------------------------------------
@@ -102,117 +75,83 @@ class IntroMusicSystem {
   // ---------------------------------------------------------------------------
 
   private initializeFallbackSynths(): void {
-    const reverb = new Tone.Reverb({ decay: 4, preDelay: 0.2, wet: 0.35 }).toDestination()
-    const chorus = new Tone.Chorus({ frequency: 2, delayTime: 3.5, depth: 0.5, wet: 0.3 }).connect(reverb)
-    const limiter = new Tone.Limiter(-2).connect(chorus)
-
-    this.fallbackEffects.push(reverb, chorus, limiter)
-
-    // Supersaw lead
-    const lead = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'fatsawtooth', count: 5, spread: 20 },
-      envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 },
-    }).connect(limiter)
-    lead.volume.value = -10
-    this.fallbackSynths.push(lead)
-
-    // M1-style piano
-    const piano = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.8 },
-    }).connect(chorus)
-    piano.volume.value = -12
-    this.fallbackSynths.push(piano)
-
-    // Off-beat bass
-    const bass = new Tone.MonoSynth({
-      oscillator: { type: 'square' },
-      envelope: { attack: 0.001, decay: 0.2, sustain: 0.8, release: 0.3 },
-      filter: { Q: 2, type: 'lowpass', rolloff: -24 },
-    }).connect(limiter)
-    bass.volume.value = -6
-    this.fallbackSynths.push(bass)
-
-    // 909-ish kick
-    const kick = new Tone.MembraneSynth({
-      pitchDecay: 0.05,
-      octaves: 4,
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 },
-    }).connect(limiter)
-    kick.volume.value = -4
-    this.fallbackSynths.push(kick)
-
-    // Hi-hats
-    const hats = new Tone.MetalSynth({
-      envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-      harmonicity: 5.1,
-      modulationIndex: 32,
-      resonance: 4000,
-      octaves: 1.5,
-    }).connect(limiter)
-    hats.volume.value = -16
-    this.fallbackSynths.push(hats)
+    this.fallbackSynths = [
+      // Supersaw lead
+      new Instrument({
+        waveform: 'supersaw',
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.4, release: 0.5 },
+        volumeDb: -10,
+      }),
+      // M1-style piano
+      new Instrument({
+        waveform: 'triangle',
+        envelope: { attack: 0.005, decay: 0.3, sustain: 0.2, release: 0.8 },
+        volumeDb: -12,
+      }),
+      // Off-beat bass
+      new Instrument({
+        waveform: 'square',
+        envelope: { attack: 0.001, decay: 0.2, sustain: 0.8, release: 0.3 },
+        volumeDb: -6,
+      }),
+      // 909-ish kick
+      new Instrument({
+        waveform: 'membrane',
+        envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 },
+        volumeDb: -4,
+      }),
+      // Hi-hats
+      new Instrument({
+        waveform: 'metal',
+        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 },
+        volumeDb: -16,
+      }),
+    ]
   }
 
   private startFallback(): void {
-    const transport = Tone.getTransport()
-    transport.bpm.value = INTRO_BPM
+    const transport = this.fallbackTransport
+    transport.cancel()
+    transport.bpm = INTRO_BPM
 
     const [lead, piano, bass, kick, hats] = this.fallbackSynths
 
     // Lead melody (drop section)
-    const leadPart = new Tone.Sequence((time, note) => {
-      if (note) lead?.triggerAttackRelease(note, '8n', time)
-    }, ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', null])
-    leadPart.loop = true
+    scheduleSequence(transport, ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', null], 1, (_beat, note) => {
+      lead?.play(note, '8n')
+    })
 
     // Piano chords
-    const pianoPart = new Tone.Part((time, value) => {
-      piano?.triggerAttackRelease(value.notes, value.duration, time)
-    }, [
-      { time: '0:0', notes: ['C4', 'E4', 'G4'], duration: '2n' },
-      { time: '2:0', notes: ['F4', 'A4', 'C5'], duration: '2n' },
-    ])
-    pianoPart.loop = true
-    pianoPart.loopEnd = '4:0'
+    scheduleLoop(transport, [
+      { beat: 0, notes: ['C4', 'E4', 'G4'] },
+      { beat: 8, notes: ['F4', 'A4', 'C5'] },
+    ], 16, (_beat, chord) => {
+      piano?.play(chord.notes, '2n')
+    })
 
     // Off-beat bass
-    const bassPart = new Tone.Sequence((time, note) => {
-      if (note) bass?.triggerAttackRelease(note, '16n', time)
-    }, [null, 'C2', null, 'C2', null, 'G2', null, 'G2'])
-    bassPart.loop = true
+    scheduleSequence(transport, [null, 'C2', null, 'C2', null, 'G2', null, 'G2'], 1, (_beat, note) => {
+      bass?.play(note, '16n')
+    })
 
     // Kick on beat
-    const kickPart = new Tone.Sequence(() => {
-      kick?.triggerAttackRelease('C1', '8n')
-    }, ['C1', null, 'C1', null])
-    kickPart.loop = true
+    scheduleSequence(transport, ['C1', null, 'C1', null], 1, (_beat, note) => {
+      kick?.play(note, '8n')
+    })
 
     // Hats on off-beats
-    const hatPart = new Tone.Sequence((time) => {
-      hats?.triggerAttackRelease('32n', time)
-    }, [null, 'C5', null, 'C5'])
-    hatPart.loop = true
+    scheduleSequence(transport, [null, 'C5', null, 'C5'], 1, () => {
+      hats?.play(240, '32n')
+    })
 
-    // Start everything
-    leadPart.start(0)
-    pianoPart.start(0)
-    bassPart.start(0)
-    kickPart.start(0)
-    hatPart.start(0)
-
-    transport.start()
+    transport.start({ clock: 'audio', atBeat: 0 })
     this.mode = 'title'
   }
 
   private stopFallback(): void {
-    Tone.getTransport().stop()
-    Tone.getTransport().cancel()
-    this.fallbackSynths.forEach((s: any) => {
-      if (typeof s.releaseAll === 'function') s.releaseAll()
-      else if (typeof s.triggerRelease === 'function') s.triggerRelease()
-    })
+    this.fallbackTransport.stop()
+    this.fallbackTransport.cancel()
+    this.fallbackSynths.forEach((s) => s.release())
     this.mode = 'idle'
   }
 
@@ -233,9 +172,10 @@ class IntroMusicSystem {
 
     this.mode = 'title'
 
-    if (this.player && this.fileExists.intro) {
+    if (this.player) {
+      this.player.fadeTo(-Infinity, 0)
       this.player.start()
-      if (this.volume) this.volume.volume.rampTo(0, 1.0)
+      this.player.fadeTo(0, 1.0)
     } else {
       this.startFallback()
     }
@@ -251,23 +191,24 @@ class IntroMusicSystem {
     if (this.mode === 'loading') return
     this.mode = 'loading'
 
-    if (this.loopPlayer && this.fileExists.loop) {
+    if (this.loopPlayer) {
       // Crossfade: ramp down current, swap, ramp up
-      if (this.volume) {
-        this.volume.volume.rampTo(-20, 0.5)
-        await new Promise((r) => setTimeout(r, 500))
-      }
+      this.player?.fadeTo(-20, 0.5)
+      await wait(0.5)
       this.player?.stop()
       this.stopFallback()
+      this.mode = 'loading'
+      this.loopPlayer.fadeTo(-Infinity, 0)
       this.loopPlayer.start()
-      if (this.volume) this.volume.volume.rampTo(0, 1.0)
-    } else if (this.player && this.fileExists.intro) {
+      this.loopPlayer.fadeTo(0, 1.0)
+    } else if (this.player) {
       // No loop asset — just keep playing the intro track quieter
-      if (this.volume) this.volume.volume.rampTo(-6, 1.0)
+      this.player.fadeTo(-6, 1.0)
     } else {
-      // Procedural fallback — continue playing, maybe filter down
+      // Procedural fallback — restart the pattern for the loading screen
       this.stopFallback()
       this.startFallback()
+      this.mode = 'loading'
     }
 
     console.log('▶️ IntroMusicSystem: playing loading loop')
@@ -277,11 +218,11 @@ class IntroMusicSystem {
   async fadeOut(duration = 2.0): Promise<void> {
     if (this.mode === 'idle') return
 
-    if (this.volume) {
-      this.volume.volume.rampTo(-Infinity, duration)
-    }
+    this.mode = 'fading'
+    this.player?.fadeTo(-Infinity, duration)
+    this.loopPlayer?.fadeTo(-Infinity, duration)
 
-    await new Promise((r) => setTimeout(r, duration * 1000))
+    await wait(duration)
 
     this.player?.stop()
     this.loopPlayer?.stop()
@@ -296,7 +237,6 @@ class IntroMusicSystem {
     this.player?.stop()
     this.loopPlayer?.stop()
     this.stopFallback()
-    if (this.volume) this.volume.volume.value = -Infinity
     this.mode = 'idle'
   }
 
@@ -316,9 +256,11 @@ class IntroMusicSystem {
     this.stop()
     this.player?.dispose()
     this.loopPlayer?.dispose()
-    this.volume?.dispose()
+    this.fallbackTransport.dispose()
     this.fallbackSynths.forEach((s) => s.dispose())
-    this.fallbackEffects.forEach((e) => e.dispose())
+    this.player = null
+    this.loopPlayer = null
+    this.fallbackSynths = []
     this.isInitialized = false
   }
 }

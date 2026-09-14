@@ -1,12 +1,12 @@
 /* eslint-disable no-restricted-syntax -- wall-clock / audio / network; see docs/systems/DETERMINISM.md */
 // =============================================================================
 // CRANE SOUND SYSTEM - HarborGlow
-// Realistic crane operation sounds using Tone.js
+// Realistic crane operation sounds on the WASM AudioRuntime
 // Hydraulics, trolley, winch, rope tension creaks, impact sounds
 // =============================================================================
 
-import * as Tone from 'tone'
 import { audioRuntime } from './audio/AudioRuntime'
+import { Drone, Instrument, unlockAudio } from './audio/voices'
 
 // =============================================================================
 // SOUND STATE & CONFIG
@@ -52,31 +52,29 @@ const craneState: CraneState = {
 }
 
 // =============================================================================
-// SYNTH INSTANCES
+// VOICE INSTANCES
 // =============================================================================
 
-// Hydraulic pump - low rumble that modulates with movement
-let hydraulicSynth: Tone.NoiseSynth | null = null
-let hydraulicFilter: Tone.AutoFilter | null = null
+// Hydraulic pump - low noise rumble that swells with movement
+let hydraulicDrone: Drone | null = null
 
 // Trolley motor - whirring mechanical sound
-let trolleySynth: Tone.Oscillator | null = null
-let trolleyLFO: Tone.LFO | null = null
+let trolleyDrone: Drone | null = null
 
 // Winch motor - higher pitched winding sound
-let winchSynth: Tone.Oscillator | null = null
-let winchLFO: Tone.LFO | null = null
+let winchDrone: Drone | null = null
 
-// Rope creak - filtered noise that responds to tension
-let ropeSynth: Tone.NoiseSynth | null = null
-let ropeFilter: Tone.Filter | null = null
+// Rope creak - noise burst that responds to tension
+let ropeSynth: Instrument | null = null
 
 // Impact sounds - metallic hits
-let impactSynth: Tone.MetalSynth | null = null
-let lockSynth: Tone.MembraneSynth | null = null
+let impactSynth: Instrument | null = null
+let lockSynth: Instrument | null = null
 
 // Brake squeal
-let brakeSynth: Tone.NoiseSynth | null = null
+let brakeSynth: Instrument | null = null
+
+const IMPACT_ENVELOPE = { attack: 0.001, decay: 0.3, release: 0.2 }
 
 // =============================================================================
 // INITIALIZATION
@@ -86,121 +84,73 @@ function initSynths() {
   if (!config.enabled) return
   audioRuntime.setAcousticSpace('crane-cab', 0.32)
 
-  // Hydraulic system - brown noise with lowpass filter
-  if (!hydraulicSynth) {
-    hydraulicFilter = new Tone.AutoFilter({
-      frequency: 0.5,
-      baseFrequency: 100,
-      octaves: 2,
-      depth: 0.5,
-      type: 'sine'
-    }).toDestination()
-    
-    hydraulicSynth = new Tone.NoiseSynth({
-      noise: { type: 'brown' },
-      envelope: {
-        attack: 0.5,
-        decay: 0.1,
-        sustain: 1,
-        release: 1
-      }
-    }).connect(hydraulicFilter)
-    
-    hydraulicSynth.volume.value = config.masterVolume - 10
+  // Hydraulic system - noise bed
+  if (!hydraulicDrone) {
+    hydraulicDrone = new Drone({
+      waveform: 'noise',
+      frequency: 100,
+      volumeDb: config.masterVolume - 10,
+      attack: 0.5,
+      release: 1,
+    })
   }
 
-  // Trolley - sawtooth with vibrato
-  if (!trolleySynth) {
-    trolleySynth = new Tone.Oscillator({
-      type: 'sawtooth',
-      frequency: 80
-    }).toDestination()
-    
-    trolleyLFO = new Tone.LFO(5, 75, 85).connect(trolleySynth.frequency)
-    trolleyLFO.start()
-    
-    trolleySynth.volume.value = config.masterVolume - 15
-    trolleySynth.volume.value = -Infinity // Start silent
+  // Trolley - sawtooth motor whine
+  if (!trolleyDrone) {
+    trolleyDrone = new Drone({
+      waveform: 'sawtooth',
+      frequency: 80,
+      volumeDb: config.masterVolume - 15,
+      attack: 0.3,
+      release: 0.5,
+    })
   }
 
-  // Winch - square wave with FM
-  if (!winchSynth) {
-    winchSynth = new Tone.Oscillator({
-      type: 'square',
-      frequency: 120
-    }).toDestination()
-    
-    winchLFO = new Tone.LFO(10, 115, 125).connect(winchSynth.frequency)
-    winchLFO.start()
-    
-    winchSynth.volume.value = config.masterVolume - 18
-    winchSynth.volume.value = -Infinity // Start silent
+  // Winch - square wave winding
+  if (!winchDrone) {
+    winchDrone = new Drone({
+      waveform: 'square',
+      frequency: 120,
+      volumeDb: config.masterVolume - 18,
+      attack: 0.3,
+      release: 0.5,
+    })
   }
 
-  // Rope creak - pink noise with resonant filter
+  // Rope creak - noise burst
   if (!ropeSynth) {
-    ropeFilter = new Tone.Filter(400, 'lowpass').toDestination()
-    
-    ropeSynth = new Tone.NoiseSynth({
-      noise: { type: 'pink' },
-      envelope: {
-        attack: 0.1,
-        decay: 0.5,
-        sustain: 0.3,
-        release: 1
-      }
-    }).connect(ropeFilter)
-    
-    ropeSynth.volume.value = config.masterVolume - 12
+    ropeSynth = new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.1, decay: 0.5, sustain: 0.3, release: 1 },
+      volumeDb: config.masterVolume - 12,
+    })
   }
 
   // Impact sounds
   if (!impactSynth) {
-    impactSynth = new Tone.MetalSynth({
-      envelope: {
-        attack: 0.001,
-        decay: 0.3,
-        release: 0.2
-      },
-      harmonicity: 5.1,
-      modulationIndex: 32,
-      resonance: 4000,
-      octaves: 1.5
-    }).toDestination()
-    
-    impactSynth.volume.value = config.masterVolume - 5
+    impactSynth = new Instrument({
+      waveform: 'metal',
+      envelope: { ...IMPACT_ENVELOPE },
+      volumeDb: config.masterVolume - 5,
+    })
   }
 
   // Lock sound - mechanical click
   if (!lockSynth) {
-    lockSynth = new Tone.MembraneSynth({
-      pitchDecay: 0.02,
-      octaves: 1,
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: 0.001,
-        decay: 0.1,
-        sustain: 0,
-        release: 0.1
-      }
-    }).toDestination()
-    
-    lockSynth.volume.value = config.masterVolume - 3
+    lockSynth = new Instrument({
+      waveform: 'membrane',
+      envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
+      volumeDb: config.masterVolume - 3,
+    })
   }
 
   // Brake squeal
   if (!brakeSynth) {
-    brakeSynth = new Tone.NoiseSynth({
-      noise: { type: 'white' },
-      envelope: {
-        attack: 0.1,
-        decay: 0.5,
-        sustain: 0,
-        release: 0.3
-      }
-    }).toDestination()
-    
-    brakeSynth.volume.value = config.masterVolume - 8
+    brakeSynth = new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.1, decay: 0.5, sustain: 0, release: 0.3 },
+      volumeDb: config.masterVolume - 8,
+    })
   }
 }
 
@@ -210,23 +160,21 @@ function initSynths() {
 
 export async function startHydraulicMovement(intensity: number = 0.5) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   craneState.isMovingHorizontal = true
   craneState.speed = intensity
   
   // Fade in hydraulic sound
-  const targetVol = config.masterVolume - 10 + (intensity * 5)
-  hydraulicSynth?.volume.rampTo(targetVol, 0.5)
-  hydraulicSynth?.triggerAttack()
+  hydraulicDrone?.setVolumeDb(config.masterVolume - 10 + (intensity * 5))
+  hydraulicDrone?.start()
   
   // Start trolley sound with pitch based on speed
-  if (trolleySynth) {
-    const baseFreq = 60 + intensity * 60
-    trolleySynth.frequency.rampTo(baseFreq, 0.2)
-    trolleySynth.volume.rampTo(config.masterVolume - 15 + intensity * 5, 0.3)
-    trolleySynth.start()
+  if (trolleyDrone) {
+    trolleyDrone.setFrequency(60 + intensity * 60)
+    trolleyDrone.setVolumeDb(config.masterVolume - 15 + intensity * 5)
+    trolleyDrone.start()
   }
 }
 
@@ -235,34 +183,32 @@ export async function stopHydraulicMovement() {
   
   craneState.isMovingHorizontal = false
   
-  // Fade out
-  hydraulicSynth?.volume.rampTo(-Infinity, 1)
-  setTimeout(() => hydraulicSynth?.triggerRelease(), 1000)
+  // Fade out on the drone release envelopes
+  hydraulicDrone?.stop()
   
   // Stop trolley
-  trolleySynth?.volume.rampTo(-Infinity, 0.5)
-  setTimeout(() => trolleySynth?.stop(), 500)
+  trolleyDrone?.stop()
 }
 
 export async function startWinchMovement(direction: 'up' | 'down', intensity: number = 0.5) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   craneState.isMovingVertical = true
   craneState.speed = intensity
   
-  if (winchSynth) {
+  if (winchDrone) {
     const baseFreq = direction === 'up' ? 150 : 100
-    winchSynth.frequency.rampTo(baseFreq + intensity * 50, 0.2)
-    winchSynth.volume.rampTo(config.masterVolume - 18 + intensity * 6, 0.3)
-    winchSynth.start()
+    winchDrone.setFrequency(baseFreq + intensity * 50)
+    winchDrone.setVolumeDb(config.masterVolume - 18 + intensity * 6)
+    winchDrone.start()
   }
   
   // Hydraulic assist for heavy loads
   if (intensity > 0.7) {
-    hydraulicSynth?.volume.rampTo(config.masterVolume - 8, 0.3)
-    hydraulicSynth?.triggerAttack()
+    hydraulicDrone?.setVolumeDb(config.masterVolume - 8)
+    hydraulicDrone?.start()
   }
 }
 
@@ -271,12 +217,10 @@ export async function stopWinchMovement() {
   
   craneState.isMovingVertical = false
   
-  winchSynth?.volume.rampTo(-Infinity, 0.5)
-  setTimeout(() => winchSynth?.stop(), 500)
+  winchDrone?.stop()
   
   if (!craneState.isMovingHorizontal) {
-    hydraulicSynth?.volume.rampTo(-Infinity, 0.5)
-    setTimeout(() => hydraulicSynth?.triggerRelease(), 500)
+    hydraulicDrone?.stop()
   }
 }
 
@@ -292,32 +236,25 @@ export async function updateRopeTension(tension: number, loadWeight: number) {
   
   // Play creaking sounds when tension is high
   if (tension > 0.6 && Math.random() < tension * 0.1) {
-    await Tone.start()
+    await unlockAudio()
     initSynths()
     
-    if (ropeSynth && ropeFilter) {
-      // Higher tension = higher filter frequency = tighter sound
-      const filterFreq = 200 + tension * 800
-      ropeFilter.frequency.rampTo(filterFreq, 0.1)
-      
+    if (ropeSynth) {
       // Randomize volume based on load weight
-      const creakVol = config.masterVolume - 12 + (loadWeight * 0.2)
-      ropeSynth.volume.value = creakVol
-      
-      ropeSynth.triggerAttackRelease('16n')
+      ropeSynth.volumeDb = config.masterVolume - 12 + (loadWeight * 0.2)
+      ropeSynth.play(200 + tension * 800, '16n')
     }
   }
 }
 
 export async function playRopeStrain(intensity: number = 0.5) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
-  if (ropeSynth && ropeFilter) {
-    ropeFilter.frequency.value = 600 + intensity * 1000
-    ropeSynth.volume.value = config.masterVolume - 8
-    ropeSynth.triggerAttackRelease('8n')
+  if (ropeSynth) {
+    ropeSynth.volumeDb = config.masterVolume - 8
+    ropeSynth.play(600 + intensity * 1000, '8n')
   }
 }
 
@@ -327,79 +264,65 @@ export async function playRopeStrain(intensity: number = 0.5) {
 
 export async function playContainerImpact(size: 'small' | 'medium' | 'large' = 'medium') {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
-  
-  const now = Tone.now()
   
   // Main impact
   const decay = size === 'small' ? 0.2 : size === 'large' ? 0.5 : 0.3
-  impactSynth?.set({ envelope: { decay } })
-  impactSynth?.triggerAttackRelease('8n', now)
+  if (impactSynth) impactSynth.envelope = { ...IMPACT_ENVELOPE, decay }
+  impactSynth?.play(240, '8n')
   
   // Secondary impact (echo)
-  setTimeout(() => {
-    lockSynth?.triggerAttackRelease('C2', '16n')
-  }, 100)
+  lockSynth?.play('C2', '16n', { delay: 0.1 })
 }
 
 export async function playTwistlockEngage() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
-  const now = Tone.now()
-  
   // Mechanical click
-  lockSynth?.triggerAttackRelease('C3', '32n', now)
+  lockSynth?.play('C3', '32n')
   
   // Metal scrape
-  impactSynth?.triggerAttackRelease('32n', now + 0.05)
+  impactSynth?.play(240, '32n', { delay: 0.05 })
 }
 
 export async function playTwistlockDisengage() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   // Unlock sound - higher pitch
-  lockSynth?.triggerAttackRelease('E3', '32n')
+  lockSynth?.play('E3', '32n')
 }
 
 /** Heavier mechanical lock clunk on rig bind — distinct from twistlock engage. */
 export async function playInstallationLock() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
 
-  const now = Tone.now()
-
   // Low thud
-  lockSynth?.triggerAttackRelease('G1', '16n', now)
+  lockSynth?.play('G1', '16n')
 
   // Metal clank layered below the lighter twistlock cue
   if (impactSynth) {
-    impactSynth.set({
-      envelope: { attack: 0.001, decay: 0.45, release: 0.25 },
-      harmonicity: 4.2,
-      resonance: 2800,
-    })
-    impactSynth.triggerAttackRelease('8n', now + 0.03)
+    impactSynth.envelope = { attack: 0.001, decay: 0.45, release: 0.25 }
+    impactSynth.play(200, '8n', { delay: 0.03 })
   }
 }
 
 export async function playSpreaderCollision() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
-  const now = Tone.now()
-  
   // Heavy metal hit
-  impactSynth?.triggerAttackRelease('16n', now)
+  impactSynth?.play(240, '16n')
   
   // Brake squeal
-  brakeSynth?.triggerAttackRelease('8n', now + 0.05)
+  brakeSynth?.play(160, '8n', { delay: 0.05 })
 }
 
 // =============================================================================
@@ -408,14 +331,14 @@ export async function playSpreaderCollision() {
 
 export async function playBrakeEngage(intensity: number = 0.5) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   if (intensity > 0.7) {
-    if (brakeSynth) brakeSynth.volume.value = config.masterVolume - 8
-    brakeSynth?.triggerAttackRelease('16n')
+    if (brakeSynth) brakeSynth.volumeDb = config.masterVolume - 8
+    brakeSynth?.play(160, '16n')
   } else {
-    lockSynth?.triggerAttackRelease('G2', '32n')
+    lockSynth?.play('G2', '32n')
   }
 }
 
@@ -426,13 +349,13 @@ export async function playBrakeEngage(intensity: number = 0.5) {
 export function setCraneSoundVolume(volumeDb: number) {
   config.masterVolume = volumeDb
   
-  if (hydraulicSynth) hydraulicSynth.volume.value = volumeDb - 10
-  if (trolleySynth) trolleySynth.volume.value = volumeDb - 15
-  if (winchSynth) winchSynth.volume.value = volumeDb - 18
-  if (ropeSynth) ropeSynth.volume.value = volumeDb - 12
-  if (impactSynth) impactSynth.volume.value = volumeDb - 5
-  if (lockSynth) lockSynth.volume.value = volumeDb - 3
-  if (brakeSynth) brakeSynth.volume.value = volumeDb - 8
+  hydraulicDrone?.setVolumeDb(volumeDb - 10)
+  trolleyDrone?.setVolumeDb(volumeDb - 15)
+  winchDrone?.setVolumeDb(volumeDb - 18)
+  if (ropeSynth) ropeSynth.volumeDb = volumeDb - 12
+  if (impactSynth) impactSynth.volumeDb = volumeDb - 5
+  if (lockSynth) lockSynth.volumeDb = volumeDb - 3
+  if (brakeSynth) brakeSynth.volumeDb = volumeDb - 8
 }
 
 export function setCraneSoundsEnabled(enabled: boolean) {
@@ -444,37 +367,23 @@ export function setCraneSoundsEnabled(enabled: boolean) {
 }
 
 export function stopAllSounds() {
-  hydraulicSynth?.triggerRelease()
-  hydraulicSynth?.volume.rampTo(-Infinity, 0.1)
-  
-  trolleySynth?.stop()
-  winchSynth?.stop()
+  hydraulicDrone?.stop()
+  trolleyDrone?.stop()
+  winchDrone?.stop()
   
   ropeSynth?.dispose()
   ropeSynth = null
 }
 
 export function disposeCraneSounds() {
-  hydraulicSynth?.dispose()
-  hydraulicFilter?.dispose()
-  trolleySynth?.dispose()
-  trolleyLFO?.dispose()
-  winchSynth?.dispose()
-  winchLFO?.dispose()
-  ropeSynth?.dispose()
-  ropeFilter?.dispose()
+  stopAllSounds()
   impactSynth?.dispose()
   lockSynth?.dispose()
   brakeSynth?.dispose()
   
-  hydraulicSynth = null
-  hydraulicFilter = null
-  trolleySynth = null
-  trolleyLFO = null
-  winchSynth = null
-  winchLFO = null
-  ropeSynth = null
-  ropeFilter = null
+  hydraulicDrone = null
+  trolleyDrone = null
+  winchDrone = null
   impactSynth = null
   lockSynth = null
   brakeSynth = null

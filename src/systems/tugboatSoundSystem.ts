@@ -8,11 +8,12 @@
 //   • Intelligent ducking during cavitation events
 //   • Musical stingers for tow-line attach/detach and acoustic handshake
 //
-// Follows the singleton + direct-mutation + Tone pattern used throughout the
-// codebase (CavitationSystem, craneSoundSystem, commsSystem).
+// Follows the singleton + direct-mutation pattern used throughout the
+// codebase (CavitationSystem, craneSoundSystem, commsSystem), on the WASM
+// AudioRuntime voices.
 // =============================================================================
 
-import * as Tone from 'tone'
+import { Drone, Instrument, isAudioRunning, unlockAudio } from './audio/voices'
 import { useGameStore } from '../store/useGameStore'
 
 // -------------------------------------------------------------------------
@@ -61,22 +62,18 @@ const NIGHT_WATCH_MOTIF: Array<[string, number]> = [
 // -------------------------------------------------------------------------
 
 class TugboatSoundSystem {
-  // Engine thrum chain
-  private thrumOsc: Tone.Oscillator | null = null
-  private thrumLFO: Tone.LFO | null = null
-  private thrumFilter: Tone.Filter | null = null
-  private thrumGain: Tone.Volume | null = null
+  // Engine thrum — a drone whose pitch follows RPM and level follows RPM + ducking
+  private thrum: Drone | null = null
+  /** Phase (rad) of the slow "breathing" wobble applied to the thrum pitch. */
+  private thrumBreathPhase = 0
 
-  // VHF radio static chain
-  private radioNoise: Tone.NoiseSynth | null = null
-  private radioBandpass: Tone.Filter | null = null
-  private radioGain: Tone.Volume | null = null
+  // VHF radio static — short bandpassed-noise hits (pitched noise voice)
+  private radioNoise: Instrument | null = null
   private radioTimer = 0
   private radioNextInterval = 0
 
   // Night-watch motif
-  private motifSynth: Tone.Synth | null = null
-  private motifGain: Tone.Volume | null = null
+  private motifSynth: Instrument | null = null
   private motifTimer = 0
   private motifNextInterval = 0
 
@@ -85,6 +82,7 @@ class TugboatSoundSystem {
   private initialized = false
   private enabled = true
   private ducked = false
+  private rpmFrac = 0
   private masterVolumeOffset = 0  // additional offset from setMasterVolume()
 
   // -------------------------------------------------------------------------
@@ -93,72 +91,32 @@ class TugboatSoundSystem {
 
   private async ensureReady(): Promise<void> {
     if (this.initialized) return
-    if (Tone.context.state !== 'running') {
-      await Tone.start()
+    if (!isAudioRunning()) {
+      await unlockAudio()
     }
 
     // ---- Engine Thrum ----
-    this.thrumGain = new Tone.Volume(TUG_AUDIO_CONFIG.masterVolume)
-    this.thrumFilter = new Tone.Filter({
-      type: 'lowpass',
-      frequency: 220,
-      rolloff: -24,
-    })
-    this.thrumOsc = new Tone.Oscillator({
-      type: 'triangle',
+    this.thrum = new Drone({
+      waveform: 'triangle',
       frequency: TUG_AUDIO_CONFIG.thrumBaseFreq,
+      volumeDb: TUG_AUDIO_CONFIG.masterVolume,
+      attack: TUG_AUDIO_CONFIG.rampTime,
+      release: TUG_AUDIO_CONFIG.rampTime * 2,
     })
-    // Gentle LFO on the oscillator frequency for "breathing" quality
-    this.thrumLFO = new Tone.LFO({
-      frequency: 0.28,
-      min: TUG_AUDIO_CONFIG.thrumBaseFreq - 3,
-      max: TUG_AUDIO_CONFIG.thrumBaseFreq + 3,
-      type: 'sine',
-    })
-
-    this.thrumGain.toDestination()
-    this.thrumFilter.connect(this.thrumGain)
-    this.thrumOsc.connect(this.thrumFilter)
-    this.thrumLFO.connect(this.thrumOsc.frequency)
-
-    this.thrumLFO.start()
-    // Oscillator starts silent — start() called in start()
 
     // ---- VHF Radio Static ----
-    this.radioGain = new Tone.Volume(TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.radioVolume)
-    this.radioBandpass = new Tone.Filter({
-      type: 'bandpass',
-      frequency: 1900,
-      Q: 3.5,
+    this.radioNoise = new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.01, decay: 0.12, sustain: 0, release: 0.08 },
+      volumeDb: TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.radioVolume,
     })
-    this.radioNoise = new Tone.NoiseSynth({
-      noise: { type: 'white' },
-      envelope: {
-        attack: 0.01,
-        decay: 0.12,
-        sustain: 0,
-        release: 0.08,
-      },
-    })
-
-    this.radioGain.toDestination()
-    this.radioBandpass.connect(this.radioGain)
-    this.radioNoise.connect(this.radioBandpass)
 
     // ---- Night-Watch Motif ----
-    this.motifGain = new Tone.Volume(TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.motifVolume)
-    this.motifSynth = new Tone.Synth({
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.28,
-        decay: 0.4,
-        sustain: 0.3,
-        release: 1.4,
-      },
+    this.motifSynth = new Instrument({
+      waveform: 'triangle',
+      envelope: { attack: 0.28, decay: 0.4, sustain: 0.3, release: 1.4 },
+      volumeDb: TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.motifVolume,
     })
-
-    this.motifGain.toDestination()
-    this.motifSynth.connect(this.motifGain)
 
     // Randomise first intervals so multiple sessions feel different
     this.radioNextInterval = this._randomInterval(
@@ -185,24 +143,19 @@ class TugboatSoundSystem {
     this.running = true
     this.radioTimer = 0
     this.motifTimer = 0
+    this.rpmFrac = 0
 
-    // Fade engine thrum in
-    if (this.thrumOsc && this.thrumGain) {
-      this.thrumOsc.start()
-      this.thrumGain.volume.rampTo(TUG_AUDIO_CONFIG.masterVolume + this.masterVolumeOffset, TUG_AUDIO_CONFIG.rampTime)
-    }
+    // Engine thrum fades in over the drone's attack
+    this.thrum?.setVolumeDb(this._thrumVolume())
+    this.thrum?.start()
   }
 
   stop(): void {
     if (!this.running) return
     this.running = false
 
-    if (this.thrumOsc && this.thrumGain) {
-      this.thrumGain.volume.rampTo(-Infinity, TUG_AUDIO_CONFIG.rampTime * 2)
-      setTimeout(() => {
-        try { this.thrumOsc?.stop() } catch { /* ignore */ }
-      }, (TUG_AUDIO_CONFIG.rampTime * 2 + 0.1) * 1000)
-    }
+    // Drone release gives the fade-out
+    this.thrum?.stop()
   }
 
   // -------------------------------------------------------------------------
@@ -223,38 +176,22 @@ class TugboatSoundSystem {
     if (!musicEnabled) return
 
     const avgAbsRpm = (Math.abs(portRpm) + Math.abs(starboardRpm)) / 2
-    const rpmFrac = Math.min(1, avgAbsRpm / 100)
-
-    // ---- Engine thrum modulation ----
-    if (this.thrumOsc && this.thrumGain && this.thrumLFO) {
-      const targetFreq =
-        TUG_AUDIO_CONFIG.thrumBaseFreq +
-        rpmFrac * (TUG_AUDIO_CONFIG.thrumMaxFreq - TUG_AUDIO_CONFIG.thrumBaseFreq)
-      // LFO pivots around the target frequency
-      this.thrumLFO.min = targetFreq - 3
-      this.thrumLFO.max = targetFreq + 3
-
-      // Volume scales slightly with RPM (idle is quieter than running)
-      const targetVol =
-        TUG_AUDIO_CONFIG.masterVolume +
-        this.masterVolumeOffset +
-        rpmFrac * 5
-      this.thrumGain.volume.rampTo(targetVol, 0.18)
-    }
+    this.rpmFrac = Math.min(1, avgAbsRpm / 100)
 
     // ---- Cavitation ducking ----
-    const shouldDuck = cavIntensity > TUG_AUDIO_CONFIG.cavitationDuckThreshold
-    if (shouldDuck !== this.ducked) {
-      this.ducked = shouldDuck
-      const duckOffset = shouldDuck ? -TUG_AUDIO_CONFIG.cavitationDuckAmount : 0
-      this.thrumGain?.volume.rampTo(
-        TUG_AUDIO_CONFIG.masterVolume + this.masterVolumeOffset + rpmFrac * 5 + duckOffset,
-        TUG_AUDIO_CONFIG.rampTime,
-      )
-      this.motifGain?.volume.rampTo(
-        TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.motifVolume + this.masterVolumeOffset + duckOffset,
-        TUG_AUDIO_CONFIG.rampTime,
-      )
+    this.ducked = cavIntensity > TUG_AUDIO_CONFIG.cavitationDuckThreshold
+
+    // ---- Engine thrum modulation ----
+    if (this.thrum) {
+      const targetFreq =
+        TUG_AUDIO_CONFIG.thrumBaseFreq +
+        this.rpmFrac * (TUG_AUDIO_CONFIG.thrumMaxFreq - TUG_AUDIO_CONFIG.thrumBaseFreq)
+      // Slow ±3 Hz "breathing" around the target frequency
+      this.thrumBreathPhase = (this.thrumBreathPhase + delta * 0.28 * Math.PI * 2) % (Math.PI * 2)
+      this.thrum.setFrequency(targetFreq + Math.sin(this.thrumBreathPhase) * 3)
+
+      // Volume scales slightly with RPM (idle is quieter than running)
+      this.thrum.setVolumeDb(this._thrumVolume())
     }
 
     // ---- VHF radio crackle ----
@@ -265,7 +202,7 @@ class TugboatSoundSystem {
         TUG_AUDIO_CONFIG.radioIntervalMin,
         TUG_AUDIO_CONFIG.radioIntervalMax,
       )
-      void this._triggerRadioCrackle()
+      this._triggerRadioCrackle()
     }
 
     // ---- Night-watch motif ----
@@ -276,7 +213,7 @@ class TugboatSoundSystem {
         TUG_AUDIO_CONFIG.motifIntervalMin,
         TUG_AUDIO_CONFIG.motifIntervalMax,
       )
-      void this._playNightWatchMotif()
+      this._playNightWatchMotif()
     }
   }
 
@@ -290,7 +227,7 @@ class TugboatSoundSystem {
     const { musicEnabled } = useGameStore.getState()
     if (!musicEnabled) return
     await this.ensureReady()
-    void this._playStinger([
+    this._playStinger([
       ['C4', 0.00, '8n'],
       ['G4', 0.18, '8n'],
       ['E5', 0.36, '4n'],
@@ -303,7 +240,7 @@ class TugboatSoundSystem {
     const { musicEnabled } = useGameStore.getState()
     if (!musicEnabled) return
     await this.ensureReady()
-    void this._playStinger([
+    this._playStinger([
       ['E4', 0.00, '8n'],
       ['C4', 0.16, '8n'],
       ['G3', 0.32, '4n'],
@@ -316,7 +253,7 @@ class TugboatSoundSystem {
     const { musicEnabled } = useGameStore.getState()
     if (!musicEnabled) return
     await this.ensureReady()
-    void this._playStinger([
+    this._playStinger([
       ['C4', 0.00, '4n'],
       ['E4', 0.06, '4n'],
       ['G4', 0.12, '4n'],
@@ -330,7 +267,7 @@ class TugboatSoundSystem {
     const { musicEnabled } = useGameStore.getState()
     if (!musicEnabled) return
     await this.ensureReady()
-    void this._playStinger([
+    this._playStinger([
       ['G4', 0.00, '4n'],
       ['C5', 0.28, '2n'],
     ], -22)
@@ -348,12 +285,7 @@ class TugboatSoundSystem {
   setMasterVolume(offsetDb: number): void {
     this.masterVolumeOffset = offsetDb
     if (!this.initialized || !this.running) return
-    const rampTime = TUG_AUDIO_CONFIG.rampTime
-    const base = TUG_AUDIO_CONFIG.masterVolume + offsetDb
-    const duckOffset = this.ducked ? -TUG_AUDIO_CONFIG.cavitationDuckAmount : 0
-    this.thrumGain?.volume.rampTo(base + duckOffset, rampTime)
-    this.motifGain?.volume.rampTo(base + TUG_AUDIO_CONFIG.motifVolume + duckOffset, rampTime)
-    this.radioGain?.volume.rampTo(base + TUG_AUDIO_CONFIG.radioVolume, rampTime)
+    this.thrum?.setVolumeDb(this._thrumVolume())
   }
 
   isRunning(): boolean { return this.running }
@@ -363,29 +295,36 @@ class TugboatSoundSystem {
   // PRIVATE HELPERS
   // -------------------------------------------------------------------------
 
-  private async _triggerRadioCrackle(): Promise<void> {
-    if (!this.radioNoise || !this.radioGain) return
-    if (Tone.context.state !== 'running') return
+  private _duckOffset(): number {
+    return this.ducked ? -TUG_AUDIO_CONFIG.cavitationDuckAmount : 0
+  }
+
+  private _thrumVolume(): number {
+    return TUG_AUDIO_CONFIG.masterVolume + this.masterVolumeOffset + this.rpmFrac * 5 + this._duckOffset()
+  }
+
+  private _triggerRadioCrackle(): void {
+    if (!this.radioNoise) return
 
     // Brief burst of VHF static — multiple short hits simulate signal fragments
     const burstCount = 1 + Math.floor(Math.random() * 3)
     const baseVol = TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.radioVolume + this.masterVolumeOffset
-    this.radioGain.volume.value = baseVol + (Math.random() - 0.5) * 4
+    this.radioNoise.volumeDb = baseVol + (Math.random() - 0.5) * 4
 
     for (let i = 0; i < burstCount; i++) {
       const delay = i * (0.06 + Math.random() * 0.08)
       const dur = 0.04 + Math.random() * 0.09
-      try {
-        this.radioNoise.triggerAttackRelease(dur, Tone.now() + delay)
-      } catch { /* ignore audio context edge cases */ }
+      // ~1.9 kHz: the old bandpass centre
+      this.radioNoise.play(1900, dur, { delay })
     }
   }
 
-  private async _playNightWatchMotif(): Promise<void> {
+  private _playNightWatchMotif(): void {
     if (!this.motifSynth) return
-    if (Tone.context.state !== 'running') return
 
-    const now = Tone.now()
+    this.motifSynth.volumeDb =
+      TUG_AUDIO_CONFIG.masterVolume + TUG_AUDIO_CONFIG.motifVolume + this.masterVolumeOffset + this._duckOffset()
+
     // Randomly play a 2-5 note subset of the full motif for variety
     const startIdx = Math.floor(Math.random() * (NIGHT_WATCH_MOTIF.length - 2))
     const endIdx = startIdx + 2 + Math.floor(Math.random() * 3)
@@ -393,42 +332,27 @@ class TugboatSoundSystem {
 
     for (const [note, offset] of phrase) {
       const dur = 0.8 + Math.random() * 0.5
-      try {
-        this.motifSynth.triggerAttackRelease(note, dur, now + offset)
-      } catch { /* ignore */ }
+      this.motifSynth.play(note, dur, { delay: offset })
     }
   }
 
   /**
-   * Fire-and-forget polyphonic stinger using ephemeral PolySynth voices.
-   * Each entry is [note, timeOffset_s, duration_toneTime].
+   * Fire-and-forget polyphonic stinger. Each call gets its own instrument so
+   * overlapping stingers keep their own level.
+   * Each entry is [note, timeOffset_s, duration_noteValue].
    */
-  private async _playStinger(
+  private _playStinger(
     notes: Array<[string, number, string]>,
     volumeDb: number,
-  ): Promise<void> {
-    if (Tone.context.state !== 'running') return
-
-    try {
-      const gain = new Tone.Volume(volumeDb)
-      const synth = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.04, decay: 0.3, sustain: 0.2, release: 1.2 },
-      })
-      synth.connect(gain)
-      gain.toDestination()
-
-      const now = Tone.now()
-      for (const [note, offset, dur] of notes) {
-        synth.triggerAttackRelease(note, dur, now + offset)
-      }
-
-      // Dispose after the stinger is done (generous buffer)
-      const maxOffset = Math.max(...notes.map(([, off]) => off))
-      setTimeout(() => {
-        try { synth.dispose(); gain.dispose() } catch { /* ignore */ }
-      }, (maxOffset + 2.5) * 1000)
-    } catch { /* audio context edge case */ }
+  ): void {
+    const synth = new Instrument({
+      waveform: 'triangle',
+      envelope: { attack: 0.04, decay: 0.3, sustain: 0.2, release: 1.2 },
+      volumeDb,
+    })
+    for (const [note, offset, dur] of notes) {
+      synth.play(note, dur, { delay: offset })
+    }
   }
 
   private _randomInterval(min: number, max: number): number {

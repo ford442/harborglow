@@ -2,11 +2,11 @@
 // =============================================================================
 // CAVITATION SYSTEM — HarborGlow Tugboat Mode
 // Realistic propeller cavitation detection, thrust penalty, amber alarm state,
-// and distinct metallic/bitcrushed acoustic chatter using Tone.js.
-// Follows singleton + direct-mutation + Tone pattern of commsSystem / craneSoundSystem.
+// and distinct metallic acoustic chatter on the WASM AudioRuntime voices.
+// Follows singleton + direct-mutation pattern of commsSystem / craneSoundSystem.
 // =============================================================================
 
-import * as Tone from 'tone'
+import { Instrument, isAudioRunning, unlockAudio } from './audio/voices'
 import { useGameStore } from '../store/useGameStore'
 
 // -------------------------------------------------------------------------
@@ -59,10 +59,8 @@ export const cavitationState: CavitationState = {
 // -------------------------------------------------------------------------
 
 class CavitationSystem {
-  private chatterSynth: Tone.MetalSynth | null = null
-  private distortion: Tone.Distortion | null = null
-  private highpass: Tone.Filter | null = null
-  private compressor: Tone.Compressor | null = null
+  private chatterSynth: Instrument | null = null
+  private growlSynth: Instrument | null = null
 
   private portCavitating = false
   private starboardCavitating = false
@@ -81,39 +79,24 @@ class CavitationSystem {
   // -------------------------------------------------------------------------
 
   private async ensureReady(): Promise<void> {
-    if (Tone.context.state !== 'running') {
-      await Tone.start()
+    if (!isAudioRunning()) {
+      await unlockAudio()
     }
     if (this.chatterSynth) return
 
-    // MetalSynth gives excellent metallic clack / bell character
-    this.chatterSynth = new Tone.MetalSynth({
-      envelope: {
-        attack: 0.0008,
-        decay: 0.038,
-        release: 0.018,
-      },
-      harmonicity: 3.9,
-      modulationIndex: 28,
-      resonance: 4200,
-      octaves: 1.6,
+    // Metal waveform gives the metallic clack / bell character
+    this.chatterSynth = new Instrument({
+      waveform: 'metal',
+      envelope: { attack: 0.0008, decay: 0.038, sustain: 0, release: 0.018 },
+      volumeDb: CAVITATION_CONFIG.masterVolume,
     })
-    this.chatterSynth.frequency.value = 6200
-    this.chatterSynth.volume.value = CAVITATION_CONFIG.masterVolume
 
-    // Heavy distortion + filtering to get "bitcrushed" nasty industrial chatter
-    this.distortion = new Tone.Distortion(0.92)
-    this.highpass = new Tone.Filter(1850, 'highpass')
-    this.compressor = new Tone.Compressor(-18, 6)
-
-    // Chain: Metal -> Distortion -> HP -> Compressor -> Destination
-    this.chatterSynth.connect(this.distortion)
-    this.distortion.connect(this.highpass)
-    this.highpass.connect(this.compressor)
-    this.compressor.toDestination()
-
-    // Occasional low growl layer (brown noise burst) for "loading up" feel
-    // (created on-demand in triggerBurst for variety)
+    // Occasional low growl layer (noise burst) for "loading up" feel
+    this.growlSynth = new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.04 },
+      volumeDb: CAVITATION_CONFIG.masterVolume + 6,
+    })
   }
 
   // -------------------------------------------------------------------------
@@ -232,24 +215,24 @@ class CavitationSystem {
   }
 
   private triggerBurst(avgRpm: number, intensity: number): void {
-    if (!this.chatterSynth || !this.distortion || !this.highpass) return
+    if (!this.chatterSynth) return
 
     const rpmNorm = Math.min(1, Math.abs(avgRpm) / 92)
 
-    // Slightly lower frequency + more "crunch" at high intensity
-    const freq = 4800 + rpmNorm * 2100 - intensity * 1400
-    this.chatterSynth.frequency.value = Math.max(2100, freq)
+    // Slightly lower resonance + more "crunch" at high intensity. The metal
+    // waveform stacks partials at ~5x-9x the fundamental, so divide the
+    // resonance target down to a fundamental.
+    const resonance = Math.max(2100, 4800 + rpmNorm * 2100 - intensity * 1400)
 
     // Random micro-variation so it never feels robotic
     const detune = (Math.random() - 0.5) * 0.7
     const volJitter = (Math.random() - 0.5) * 2.5
 
-    const baseVol = CAVITATION_CONFIG.masterVolume + intensity * 5.5 + volJitter
-    this.chatterSynth.volume.value = baseVol
+    this.chatterSynth.volumeDb = CAVITATION_CONFIG.masterVolume + intensity * 5.5 + volJitter
 
     // Very short, hard strike — the "clack"
     const dur = 0.018 + intensity * 0.011 + Math.random() * 0.008
-    this.chatterSynth.triggerAttackRelease(dur, Tone.now() + detune * 0.0015)
+    this.chatterSynth.play(resonance / 7, dur, { delay: Math.max(0, detune * 0.0015) })
 
     // Occasional nasty low "growl" layer on high-intensity cavitation (one side only)
     if (intensity > 0.72 && Math.random() < 0.18) {
@@ -258,35 +241,11 @@ class CavitationSystem {
   }
 
   private spawnGrowlBurst(intensity: number): void {
-    // Ephemeral brown-noise growl for "prop loading / venting" texture
-    try {
-      const growl = new Tone.NoiseSynth({
-        noise: { type: 'brown' },
-        envelope: {
-          attack: 0.001,
-          decay: 0.07 + intensity * 0.04,
-          sustain: 0,
-          release: 0.04,
-        },
-        volume: CAVITATION_CONFIG.masterVolume + 6 + intensity * 4,
-      })
-
-      const lp = new Tone.Filter(420 + intensity * 180, 'lowpass')
-      const dist = new Tone.Distortion(0.6 + intensity * 0.3)
-
-      growl.connect(dist)
-      dist.connect(lp)
-      lp.toDestination()
-
-      growl.triggerAttackRelease(0.06 + Math.random() * 0.03, Tone.now())
-
-      // Auto cleanup to avoid leaking voices
-      setTimeout(() => {
-        try { growl.dispose(); lp.dispose(); dist.dispose() } catch {}
-      }, 420)
-    } catch {
-      // Audio context edge case — ignore
-    }
+    // Short noise growl for "prop loading / venting" texture
+    if (!this.growlSynth) return
+    this.growlSynth.envelope = { attack: 0.001, decay: 0.07 + intensity * 0.04, sustain: 0, release: 0.04 }
+    this.growlSynth.volumeDb = CAVITATION_CONFIG.masterVolume + 6 + intensity * 4
+    this.growlSynth.play(420 + intensity * 180, 0.06 + Math.random() * 0.03)
   }
 
   // -------------------------------------------------------------------------
@@ -343,9 +302,7 @@ class CavitationSystem {
       })
     } catch {}
 
-    if (this.chatterSynth) {
-      this.chatterSynth.volume.rampTo(-99, 0.08)
-    }
+    // Chatter/growl strikes are sub-100 ms one-shots; nothing sustains to silence.
   }
 
   setEnabled(enabled: boolean): void {

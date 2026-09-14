@@ -91,14 +91,37 @@ Gate (all must hold):
 
 `float32-filterable` is **not** required: displacement stays `rgba16float`.
 
-Butterflies: raw WGSL on the adopted device, one submit per Stockham stage so
-the uniform buffer is not overwritten mid-encoder. Pack writes a Three
-`StorageTexture` allocated via `renderer.computeAsync` (same contract as
-`buildStorageTextureProbeNode`). Dispatch is fire-and-forget — no `await` and
-no `mapAsync` on the frame path.
+Butterflies: raw WGSL on the adopted device. Stage params never change, so
+`init()` writes one 16-byte uniform buffer per Stockham stage and builds every
+ping-pong bind group once (step *k* reads A → B when *k* is even; after
+2·log₂N steps the result is back in A, which the pack group binds). A dispatch
+is two spectrum `writeBuffer`s, one pack-params write, **one compute pass and
+one submit**. Pack writes a Three `StorageTexture` allocated via
+`renderer.computeAsync` (same contract as `buildStorageTextureProbeNode`).
+Dispatch is fire-and-forget — no `await` and no `mapAsync` on the frame path.
 
-On WGSL / validation failure the session latches to the CPU `DataTexture` pack
-and warns once.
+WGSL compile and pipeline validation errors are *asynchronous* — they never
+throw — so `init()` builds buffers, shaders, pipelines and bind groups inside
+`validation` + `out-of-memory` error scopes and awaits them. Any error latches
+the session to the CPU `DataTexture` pack and warns once. (Before this, a bad
+shader reported `ready` and left a flat ocean under bobbing hulls.)
+
+### Parity on a real device
+
+`e2e/ocean-gpu-parity.spec.ts` drives `OceanFFTCompute` on Chromium's
+SwiftShader WebGPU adapter (`--use-webgpu-adapter=swiftshader`) through a Vite
+dev server, reads the texture back **in the test only**, and asserts it equals
+`OceanFFTField.heights` / `displacementX` / `displacementZ`:
+
+| Grid | max \|h\| | max \|Δh\| | max \|ΔD\| |
+|---|---|---|---|
+| 128² | 2.88 m | 1.6 mm | 1.1 mm |
+| 256² | 2.98 m | 2.0 mm | 1.4 mm |
+
+The residual is half-float quantisation (2⁻⁹ m for \|h\| ∈ [2, 4)); the bound
+is 5 mm. The same spec injects a renamed WGSL entry point and asserts `init()`
+refuses the GPU path. The app's boot probe still rejects SwiftShader, so this
+does not change what CI users see; it skips when no adapter exists.
 
 ## The buoyancy contract
 
@@ -173,6 +196,18 @@ fatal overlay, so GPU ms are **not measurable here**.
 
 The field still runs at 30 Hz (`OCEAN_FFT_UPDATE_INTERVAL`). The CPU
 `DataTexture` is packed only when the GPU gate is closed.
+
+GPU-path **main-thread** cost of `OceanFFTCompute.dispatch()` (interleave +
+uploads + encode + submit), mean of 20 calls, Chromium/SwiftShader, three runs
+each — noisy, so ranges:
+
+| Grid | Per-stage submits + per-call bind groups (initial) | Static bind groups, one submit (current) |
+|---|---|---|
+| 128² | 1.26–3.15 ms (15 submits, 29 bind groups) | 0.87–1.41 ms (1 submit, 0 bind groups) |
+| 256² | 2.44–5.92 ms (17 submits, 33 bind groups) | 1.64–3.87 ms |
+
+Butterfly execution time on a hardware adapter is still unmeasured here;
+SwiftShader wall-clock is not representative.
 
 No new dependency — in-tree radix-2 only.
 

@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import * as THREE from 'three'
-import * as Tone from 'tone'
+import { Instrument } from '../systems/audio/voices'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
 
@@ -300,25 +300,28 @@ export function UnderwaterGodRays({ intensity, shipPosition }: GodRaysProps) {
 // SOUND EFFECTS HELPER
 // =============================================================================
 
+let upgradeSounds: { chime: Instrument; fanfare: Instrument; sparkle: Instrument; bass: Instrument } | null = null
+
+function getUpgradeSounds() {
+  upgradeSounds ??= {
+    chime: new Instrument({ volumeDb: -10 }),
+    fanfare: new Instrument({ volumeDb: -5 }),
+    sparkle: new Instrument({ waveform: 'metal', envelope: { decay: 0.4, release: 0.2 }, volumeDb: -15 }),
+    bass: new Instrument({ waveform: 'membrane', volumeDb: -10 }),
+  }
+  return upgradeSounds
+}
+
 export function useUpgradeSounds() {
   const playInstallSound = useCallback(async () => {
     try {
-      const synth = new Tone.PolySynth(Tone.Synth).toDestination()
-      synth.volume.value = -10
+      const { chime, sparkle } = getUpgradeSounds()
       
-      // Play a pleasant chord — schedule slightly ahead to avoid past-time errors
-      synth.triggerAttackRelease(['C5', 'E5', 'G5'], '8n', Tone.now() + 0.05)
+      // Play a pleasant chord
+      chime.play(['C5', 'E5', 'G5'], '8n', { delay: 0.05 })
       
       // Add a sparkle effect
-      const sparkle = new Tone.MetalSynth({
-        harmonicity: 12,
-        resonance: 800,
-        modulationIndex: 20,
-        envelope: { decay: 0.4, release: 0.2 },
-        volume: -15,
-      }).toDestination()
-      
-      sparkle.triggerAttackRelease('32n', '+0.1')
+      sparkle.play(240, '32n', { delay: 0.1 })
     } catch (e) {
       console.warn('Audio not available:', e)
     }
@@ -326,21 +329,18 @@ export function useUpgradeSounds() {
   
   const playCelebrationSound = useCallback(async () => {
     try {
-      const synth = new Tone.PolySynth(Tone.Synth).toDestination()
-      synth.volume.value = -5
+      const { fanfare, bass } = getUpgradeSounds()
       
-      // Fanfare — lookahead buffer so bass (created below) isn't scheduled in the past
-      const now = Tone.now() + 0.05
-      synth.triggerAttackRelease('C4', '8n', now)
-      synth.triggerAttackRelease('E4', '8n', now + 0.1)
-      synth.triggerAttackRelease('G4', '8n', now + 0.2)
-      synth.triggerAttackRelease('C5', '2n', now + 0.3)
+      // Fanfare
+      const start = 0.05
+      fanfare.play('C4', '8n', { delay: start })
+      fanfare.play('E4', '8n', { delay: start + 0.1 })
+      fanfare.play('G4', '8n', { delay: start + 0.2 })
+      fanfare.play('C5', '2n', { delay: start + 0.3 })
       
       // Add bass
-      const bass = new Tone.MembraneSynth().toDestination()
-      bass.volume.value = -10
-      bass.triggerAttackRelease('C2', '4n', now)
-      bass.triggerAttackRelease('G2', '4n', now + 0.4)
+      bass.play('C2', '4n', { delay: start })
+      bass.play('G2', '4n', { delay: start + 0.4 })
     } catch (e) {
       console.warn('Audio not available:', e)
     }

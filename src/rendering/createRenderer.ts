@@ -1,14 +1,22 @@
 import type { Renderer as FiberRenderer } from '@react-three/fiber';
+import { canvasAlphaModeFor } from './canvasSurface';
 import { configureRendererDefaults, type RendererDefaultsOptions } from './rendererDefaults';
 import type { RendererContextOptions, RendererPreference } from './types';
-import { getWebgpuProbe, publishWebgpuProbe, WebgpuRequiredError } from './webgpuProbe';
+import {
+  getWebgpuProbe,
+  onWebgpuDeviceLost,
+  publishWebgpuProbe,
+  reportWebgpuDeviceLost,
+  WebgpuRequiredError,
+} from './webgpuProbe';
 
 export interface GameRendererOptions extends RendererDefaultsOptions {
   preference: RendererPreference;
   antialias?: boolean;
   alpha?: boolean;
+  /** Ignored: derived from `alpha` (WebGPU `alphaMode`). Kept for diagnostics shape. */
   premultipliedAlpha?: boolean;
-  /** Keep the drawing buffer readable after present — required for canvas screenshots. */
+  /** WebGL-era flag; a WebGPU no-op. Screenshots use `readScreenshotPixelsAsync`. */
   preserveDrawingBuffer?: boolean;
   stencil?: boolean;
   depth?: boolean;
@@ -18,8 +26,9 @@ export interface GameRendererOptions extends RendererDefaultsOptions {
 /** Context defaults. See the option matrix in `docs/RENDERER.md` for per-backend support. */
 export const DEFAULT_CONTEXT_OPTIONS: RendererContextOptions = {
   antialias: true,
+  // Opaque harbor → swapchain `alphaMode: 'opaque'`. See "Canvas surface" in docs/RENDERER.md.
   alpha: false,
-  premultipliedAlpha: true,
+  premultipliedAlpha: false,
   preserveDrawingBuffer: false,
   stencil: false,
   // Depth must stay on: god-rays / DOF / SSAO sample the depth buffer.
@@ -28,12 +37,17 @@ export const DEFAULT_CONTEXT_OPTIONS: RendererContextOptions = {
   logarithmicDepthBuffer: false,
 };
 
-/** Merges caller options over the defaults into a fully-resolved, inspectable set. */
+/**
+ * Merges caller options over the defaults into a fully-resolved, inspectable set.
+ * `premultipliedAlpha` is not an input: it reports what WebGPU will do, which is
+ * premultiplied exactly when `alpha` is on.
+ */
 export function resolveContextOptions(options: Partial<GameRendererOptions>): RendererContextOptions {
+  const alpha = options.alpha ?? DEFAULT_CONTEXT_OPTIONS.alpha;
   return {
     antialias: options.antialias ?? DEFAULT_CONTEXT_OPTIONS.antialias,
-    alpha: options.alpha ?? DEFAULT_CONTEXT_OPTIONS.alpha,
-    premultipliedAlpha: options.premultipliedAlpha ?? DEFAULT_CONTEXT_OPTIONS.premultipliedAlpha,
+    alpha,
+    premultipliedAlpha: canvasAlphaModeFor(alpha) === 'premultiplied',
     preserveDrawingBuffer:
       options.preserveDrawingBuffer ?? DEFAULT_CONTEXT_OPTIONS.preserveDrawingBuffer,
     stencil: options.stencil ?? DEFAULT_CONTEXT_OPTIONS.stencil,
@@ -46,6 +60,10 @@ export function resolveContextOptions(options: Partial<GameRendererOptions>): Re
 type DisposableRenderer = FiberRenderer & {
   backend?: { isWebGPUBackend?: boolean };
   dispose?: () => void;
+  setAnimationLoop?: (callback: null) => void;
+  onDeviceLost?: (info: { message?: string; reason?: string | null }) => void;
+  _onDeviceLost?: (info: unknown) => void;
+  _isDeviceLost?: boolean;
 };
 
 /**
@@ -55,6 +73,9 @@ type DisposableRenderer = FiberRenderer & {
  * that device into WebGPURenderer so Three does not request a second one.
  * A WebGL2 fallback (explicit WebGLRenderer or Three's getFallback) is not
  * returned — dispose and throw instead.
+ *
+ * On device loss the renderer is disposed here (R3F's unmount never calls
+ * `gl.dispose()`); GameShell then replaces the `<Canvas>` with the overlay.
  */
 export async function createGameRenderer(
   canvas: HTMLCanvasElement,
@@ -75,6 +96,14 @@ export async function createGameRenderer(
   }
   if (!probe || !probe.ok || !probe.device) {
     throw new WebgpuRequiredError(probe?.reason ?? 'no-gpu');
+  }
+
+  const expectedAlphaMode = canvasAlphaModeFor(ctx.alpha);
+  if (probe.canvas && probe.canvas.alphaMode !== expectedAlphaMode) {
+    console.warn(
+      `🖥️ probe validated alphaMode '${probe.canvas.alphaMode}' but the renderer will configure ` +
+        `'${expectedAlphaMode}' (alpha: ${ctx.alpha}); see docs/RENDERER.md "Canvas surface"`
+    );
   }
 
   const { WebGPURenderer } = await import('three/webgpu');
@@ -102,46 +131,31 @@ export async function createGameRenderer(
     throw new WebgpuRequiredError('webgl2-fallback');
   }
 
+  // Three's backend also watches device.lost; route it through the one probe path
+  // (idempotent with the probe's own watcher) instead of only setting _isDeviceLost.
+  disposable.onDeviceLost = (info) => {
+    reportWebgpuDeviceLost({
+      reason: info?.reason || 'unknown',
+      message: info?.message || 'Device lost',
+    });
+  };
+  const unsubscribe = onWebgpuDeviceLost(() => {
+    unsubscribe();
+    disposeLostRenderer(disposable);
+  });
+
   configureRendererDefaults(renderer, defaults);
   return renderer;
 }
 
-export async function readScreenshotPixelsAsync(
-  renderer: FiberRenderer,
-  width: number,
-  height: number
-): Promise<Uint8Array | null> {
-  const anyRenderer = renderer as any;
-  const ctx = anyRenderer.backend?.getContext?.() || anyRenderer.getContext?.();
-  const device = anyRenderer.backend?.device;
-
-  if (!ctx || !device || typeof ctx.getCurrentTexture !== 'function') return null;
-
-  const texture = ctx.getCurrentTexture();
-  if (!texture) return null;
-
-  const bytesPerPixel = 4;
-  const bytesPerRow = Math.ceil((width * bytesPerPixel) / 256) * 256;
-  const bufferSize = bytesPerRow * height;
-
-  const buffer = device.createBuffer({
-    size: bufferSize,
-    usage: 1 /* MAP_READ */ | 8 /* COPY_DST */
-  });
-
-  const encoder = device.createCommandEncoder();
-  encoder.copyTextureToBuffer(
-    { texture },
-    { buffer, bytesPerRow },
-    { width, height, depthOrArrayLayers: 1 }
-  );
-  device.queue.submit([encoder.finish()]);
-
-  await buffer.mapAsync(1 /* READ */);
-  const data = new Uint8Array(buffer.getMappedRange());
-  const result = new Uint8Array(data);
-  buffer.unmap();
-  buffer.destroy();
-  
-  return result;
+function disposeLostRenderer(renderer: DisposableRenderer): void {
+  // Any render R3F issues before the Canvas unmounts early-returns on this flag.
+  renderer._isDeviceLost = true;
+  renderer.setAnimationLoop?.(null);
+  try {
+    renderer.dispose?.();
+  } catch (err) {
+    // Disposing GPU resources on a lost device can throw; the renderer is dead either way.
+    console.warn('🖥️ dispose after device loss threw', err);
+  }
 }

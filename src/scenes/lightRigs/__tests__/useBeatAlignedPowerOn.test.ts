@@ -1,18 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('tone', () => {
-  const transport = {
-    state: 'stopped',
-    scheduleRepeat: vi.fn(),
-    seconds: 0,
-    bpm: { value: 120 }
-  }
-
-  return {
-    getTransport: () => transport
-  }
-})
-
 import { advanceBeatAlignedPowerOn, startBeatAlignedPowerOn } from '../useBeatAlignedPowerOn'
 
 describe('beat-aligned power-on', () => {
@@ -66,5 +53,26 @@ describe('beat-aligned power-on', () => {
     vi.advanceTimersByTime(500)
 
     expect(onStart).not.toHaveBeenCalled()
+  })
+})
+
+describe('beat-aligned power-on with a running transport', () => {
+  it('schedules the start on the sequencer and cancels it on cleanup', () => {
+    const onStart = vi.fn()
+    const scheduleCue = vi.fn(() => 7)
+    const cancelCue = vi.fn()
+    const cleanup = startBeatAlignedPowerOn({
+      transportStarted: true,
+      beatOffset: 2,
+      onStart,
+      scheduleCue,
+      cancelCue
+    })
+
+    expect(scheduleCue).toHaveBeenCalledWith(2, onStart)
+    expect(onStart).not.toHaveBeenCalled()
+
+    cleanup()
+    expect(cancelCue).toHaveBeenCalledWith(7)
   })
 })

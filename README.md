@@ -81,13 +81,13 @@ After fully upgrading a ship:
 
 ## 🎵 Music System
 
-Each ship type has a unique Tone.js audio setup:
+Audio is synthesized by an in-tree C++ engine compiled to WASM and run in an AudioWorklet. Each ship type has its own instruments and bus effects:
 
-- **Cruise**: PolySynth with sawtooth wave → Chorus → Reverb
-- **Container**: FM synth + MembraneSynth kick + MetalSynth hats
-- **Tanker**: MetalSynth + NoiseSynth + LFO-filtered sub bass
+- **Cruise**: sawtooth lead + triangle pad + sine bass, chorus + hall reverb
+- **Container**: FM lead + membrane kick + metallic hats, beat-synced delay
+- **Tanker**: metallic hits + noise + sawtooth sub, bitcrushed
 
-Lyrics are synchronized to the Transport position and displayed above each ship.
+Lyrics are keyed to the beat transport (clocked by sim time) and displayed above each ship.
 
 ## 📸 Screenshots
 
@@ -116,7 +116,7 @@ To add screenshots:
 - **React Three Fiber** - React renderer for Three.js
 - **Rapier** - Physics engine for crane interactions
 - **Zustand** - State management
-- **Tone.js** - Audio synthesis and sequencing
+- **WASM AudioWorklet** - In-tree audio synthesis (`cpp/`) and beat transport
 - **Leva** - In-game debug controls
 
 ### Renderer (WebGPU required)
@@ -143,7 +143,7 @@ src/
 ├── store/
 │   └── useGameStore.ts      # Zustand game state
 └── systems/
-    ├── musicSystem.ts       # Tone.js music + lyrics
+    ├── musicSystem.ts       # Ship music + lyrics
     └── shipSpawner.ts       # Ship factory with attachment points
 ```
 
@@ -205,7 +205,7 @@ npm run setup:pre-push-hook
 ## 🎨 Credits
 
 - Built with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
-- Audio powered by [Tone.js](https://tonejs.github.io/)
+- Audio powered by an in-tree WASM AudioWorklet engine
 - Physics by [Rapier](https://rapier.rs/)
 - UI controls by [Leva](https://github.com/pmndrs/leva)
 

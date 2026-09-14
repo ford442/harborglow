@@ -20,8 +20,9 @@ export type ShadowQuality = 'off' | 'basic' | 'pcf' | 'soft';
 export interface RendererContextOptions {
   antialias: boolean;
   alpha: boolean;
+  /** Derived, not requested: WebGPU `alphaMode` is `premultiplied` iff `alpha`. */
   premultipliedAlpha: boolean;
-  /** Required for reliable canvas.toDataURL() screenshots (Playwright / agents). */
+  /** WebGL-era flag, recorded for diagnostics; a WebGPU no-op. Use `readScreenshotPixelsAsync`. */
   preserveDrawingBuffer: boolean;
   stencil: boolean;
   depth: boolean;

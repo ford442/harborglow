@@ -5,7 +5,7 @@
 // Harbor ambience, seagulls, distant ships, waves, foghorns
 // =============================================================================
 
-import * as Tone from 'tone'
+import { Drone, Instrument, unlockAudio } from './audio/voices'
 import { timeSystem } from './timeSystem'
 import { useGameStore } from '../store/useGameStore'
 
@@ -42,33 +42,29 @@ const TIME_PHASES = {
 // SYNTH INSTANCES
 // =============================================================================
 
-// Ocean waves - filtered noise
-let waveSynth: Tone.NoiseSynth | null = null
-let waveFilter: Tone.Filter | null = null
-let waveLFO: Tone.LFO | null = null
+// Ocean waves - noise bed
+let waveDrone: Drone | null = null
 
 // Harbor ambience - distant industrial sounds
-let harborSynth: Tone.NoiseSynth | null = null
-let harborFilter: Tone.Filter | null = null
+let harborDrone: Drone | null = null
 
-// Seagulls - FM synth for bird calls
-let birdSynth: Tone.Synth | null = null
-let birdFilter: Tone.Filter | null = null
-let birdPanner: Tone.Panner | null = null
+// Seagulls - triangle bird calls
+let birdSynth: Instrument | null = null
 
-// Distant foghorn - low oscillator
-let foghornSynth: Tone.Oscillator | null = null
+// Distant foghorn - low sine blasts
+let foghornSynth: Instrument | null = null
 
 // Distant ship engines - low rumble
-let shipEngineSynth: Tone.Oscillator | null = null
-let shipEngineLFO: Tone.LFO | null = null
+let shipEngineDrone: Drone | null = null
 
-// Wind - filtered noise
-let windSynth: Tone.NoiseSynth | null = null
-let windFilter: Tone.Filter | null = null
+// Ship horn - low sawtooth blast
+let shipHornSynth: Instrument | null = null
+
+// Wind - noise bed
+let windDrone: Drone | null = null
 
 // Night ambience - subtle drone
-let nightDrone: Tone.Oscillator | null = null
+let nightDrone: Drone | null = null
 
 // =============================================================================
 // INITIALIZATION
@@ -77,112 +73,96 @@ let nightDrone: Tone.Oscillator | null = null
 function initSynths() {
   if (!config.enabled) return
 
-  // Ocean waves - pink noise with slow LFO filter
-  if (!waveSynth) {
-    waveFilter = new Tone.Filter(400, 'lowpass').toDestination()
-    
-    waveSynth = new Tone.NoiseSynth({
-      noise: { type: 'pink' },
-      envelope: {
-        attack: 2,
-        decay: 1,
-        sustain: 1,
-        release: 3
-      }
-    }).connect(waveFilter)
-    
-    // Wave motion - filter sweeps
-    waveLFO = new Tone.LFO(0.1, 200, 600).connect(waveFilter.frequency)
-    waveLFO.start()
-    
-    waveSynth.volume.value = config.masterVolume - 5
+  // Ocean waves - noise with slow swell
+  if (!waveDrone) {
+    waveDrone = new Drone({
+      waveform: 'noise',
+      frequency: 400,
+      volumeDb: config.masterVolume - 5,
+      attack: 2,
+      release: 3,
+    })
   }
 
-  // Harbor ambience - brown noise with lowpass
-  if (!harborSynth) {
-    harborFilter = new Tone.Filter(800, 'lowpass').toDestination()
-    
-    harborSynth = new Tone.NoiseSynth({
-      noise: { type: 'brown' },
-      envelope: {
-        attack: 3,
-        decay: 2,
-        sustain: 1,
-        release: 5
-      }
-    }).connect(harborFilter)
-    
-    harborSynth.volume.value = config.masterVolume - 10
+  // Harbor ambience - low noise
+  if (!harborDrone) {
+    harborDrone = new Drone({
+      waveform: 'noise',
+      frequency: 800,
+      volumeDb: config.masterVolume - 10,
+      attack: 3,
+      release: 5,
+    })
   }
 
-  // Seagulls - triangle wave with filter
+  // Seagulls - triangle wave
   if (!birdSynth) {
-    birdPanner = new Tone.Panner(0).toDestination()
-    birdFilter = new Tone.Filter(2000, 'bandpass')
-    birdFilter.connect(birdPanner)
-    
-    birdSynth = new Tone.Synth({
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.05,
-        decay: 0.3,
-        sustain: 0.2,
-        release: 0.5
-      }
-    }).connect(birdFilter)
-    
-    birdSynth.volume.value = config.masterVolume - 8
+    birdSynth = new Instrument({
+      waveform: 'triangle',
+      envelope: { attack: 0.05, decay: 0.3, sustain: 0.2, release: 0.5 },
+      volumeDb: config.masterVolume - 8,
+    })
   }
 
   // Foghorn - sine wave, very low
   if (!foghornSynth) {
-    foghornSynth = new Tone.Oscillator({
-      type: 'sine',
-      frequency: 65
-    }).toDestination()
-    
-    foghornSynth.volume.value = -Infinity // Start silent
+    foghornSynth = new Instrument({
+      waveform: 'sine',
+      envelope: { attack: 0.5, decay: 0, sustain: 1, release: 1 },
+      volumeDb: config.masterVolume - 10,
+    })
   }
 
-  // Ship engines - sawtooth with filter
-  if (!shipEngineSynth) {
-    shipEngineSynth = new Tone.Oscillator({
-      type: 'sawtooth',
-      frequency: 45
-    }).toDestination()
-    
-    shipEngineLFO = new Tone.LFO(0.2, 40, 50).connect(shipEngineSynth.frequency)
-    shipEngineLFO.start()
-    
-    shipEngineSynth.volume.value = -Infinity // Start silent
+  // Ship engines - sawtooth rumble, silent until weather sets a level
+  if (!shipEngineDrone) {
+    shipEngineDrone = new Drone({
+      waveform: 'sawtooth',
+      frequency: 45,
+      volumeDb: -Infinity,
+      attack: 1,
+      release: 2,
+    })
   }
 
-  // Wind - white noise with variable filter
-  if (!windSynth) {
-    windFilter = new Tone.Filter(300, 'highpass').toDestination()
-    
-    windSynth = new Tone.NoiseSynth({
-      noise: { type: 'white' },
-      envelope: {
-        attack: 3,
-        decay: 2,
-        sustain: 1,
-        release: 4
-      }
-    }).connect(windFilter)
-    
-    windSynth.volume.value = -Infinity // Start silent
+  if (!shipHornSynth) {
+    shipHornSynth = new Instrument({
+      waveform: 'sawtooth',
+      envelope: { attack: 0.3, decay: 0, sustain: 1, release: 2 },
+    })
+  }
+
+  // Wind - noise, silent until weather sets a level
+  if (!windDrone) {
+    windDrone = new Drone({
+      waveform: 'noise',
+      frequency: 300,
+      volumeDb: -Infinity,
+      attack: 3,
+      release: 4,
+    })
   }
 
   // Night drone - subtle low sine
   if (!nightDrone) {
-    nightDrone = new Tone.Oscillator({
-      type: 'sine',
-      frequency: 55
-    }).toDestination()
-    
-    nightDrone.volume.value = -Infinity // Start silent
+    nightDrone = new Drone({
+      waveform: 'sine',
+      frequency: 55,
+      volumeDb: -Infinity,
+      attack: 3,
+      release: 3,
+    })
   }
+}
+
+/** Fade a drone to `db`, starting it when audible and stopping it at -Infinity. */
+function fadeDrone(drone: Drone | null, db: number) {
+  if (!drone) return
+  if (!Number.isFinite(db)) {
+    drone.stop()
+    return
+  }
+  drone.setVolumeDb(db)
+  drone.start()
 }
 
 // =============================================================================
@@ -203,7 +183,7 @@ function getTimePhase(hour: number): keyof typeof TIME_PHASES {
 
 export async function updateAmbientForTime(hour: number, weather: string) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
 
   const phase = getTimePhase(hour)
@@ -215,35 +195,30 @@ export async function updateAmbientForTime(hour: number, weather: string) {
     case 'night':
       baseVolume = config.masterVolume + config.nightVolume * 10
       updateNightAmbience(1)
-      updateDayAmbience(0)
       updateBirdActivity(0)
       break
       
     case 'dawn':
       baseVolume = config.masterVolume + config.dayVolume * 5
       updateNightAmbience(0.3)
-      updateDayAmbience(0.5)
       updateBirdActivity(0.6)
       break
       
     case 'day':
       baseVolume = config.masterVolume + config.dayVolume * 10
       updateNightAmbience(0)
-      updateDayAmbience(1)
       updateBirdActivity(1)
       break
       
     case 'golden':
       baseVolume = config.masterVolume + config.dayVolume * 8
       updateNightAmbience(0.2)
-      updateDayAmbience(0.8)
       updateBirdActivity(0.7)
       break
       
     case 'dusk':
       baseVolume = config.masterVolume + config.nightVolume * 5
       updateNightAmbience(0.6)
-      updateDayAmbience(0.5)
       updateBirdActivity(0.3)
       break
   }
@@ -251,34 +226,15 @@ export async function updateAmbientForTime(hour: number, weather: string) {
   // Weather adjustments
   updateWeatherAmbience(weather, phase)
 
-  // Apply master volume
-  if (waveSynth) waveSynth.volume.rampTo(baseVolume - 5, 2)
-  if (harborSynth) harborSynth.volume.rampTo(baseVolume - 10, 2)
+  // Apply master volume (one write per update — each level change re-voices the drone)
+  waveDrone?.setVolumeDb(baseVolume - 5)
+  harborDrone?.setVolumeDb(baseVolume - 10)
 }
 
 function updateNightAmbience(intensity: number) {
   if (!nightDrone) return
   
-  if (intensity > 0) {
-    const targetVol = config.masterVolume - 20 + (intensity * 10)
-    nightDrone.volume.rampTo(targetVol, 3)
-    nightDrone.start()
-  } else {
-    nightDrone.volume.rampTo(-Infinity, 3)
-    setTimeout(() => nightDrone?.stop(), 3000)
-  }
-}
-
-function updateDayAmbience(intensity: number) {
-  if (!waveSynth || !harborSynth) return
-  
-  // Waves are always present but vary in intensity
-  const waveVol = config.masterVolume - 5 + (intensity * 5)
-  waveSynth.volume.rampTo(waveVol, 2)
-  
-  // Harbor sounds during day
-  const harborVol = config.masterVolume - 10 + (intensity * 8)
-  harborSynth.volume.rampTo(harborVol, 2)
+  fadeDrone(nightDrone, intensity > 0 ? config.masterVolume - 20 + (intensity * 10) : -Infinity)
 }
 
 // =============================================================================
@@ -286,21 +242,19 @@ function updateDayAmbience(intensity: number) {
 // =============================================================================
 
 function updateWeatherAmbience(weather: string, phase: string) {
-  if (!windSynth || !shipEngineSynth) return
+  if (!windDrone || !shipEngineDrone) return
   
   switch (weather) {
     case 'storm':
       // Strong wind, distant ships seek harbor
-      windSynth?.volume.rampTo(config.masterVolume - 5, 2)
-      windFilter?.frequency.rampTo(1000, 3)
-      shipEngineSynth?.volume.rampTo(config.masterVolume - 15, 1)
+      fadeDrone(windDrone, config.masterVolume - 5)
+      fadeDrone(shipEngineDrone, config.masterVolume - 15)
       break
       
     case 'rain':
       // Moderate wind
-      windSynth?.volume.rampTo(config.masterVolume - 10, 2)
-      windFilter?.frequency.rampTo(600, 3)
-      shipEngineSynth?.volume.rampTo(config.masterVolume - 20, 1)
+      fadeDrone(windDrone, config.masterVolume - 10)
+      fadeDrone(shipEngineDrone, config.masterVolume - 20)
       break
       
     case 'fog':
@@ -308,13 +262,13 @@ function updateWeatherAmbience(weather: string, phase: string) {
       if (phase === 'night' || phase === 'dawn' || phase === 'dusk') {
         playFoghorn()
       }
-      windSynth?.volume.rampTo(config.masterVolume - 15, 2)
-      shipEngineSynth?.volume.rampTo(config.masterVolume - 18, 1)
+      fadeDrone(windDrone, config.masterVolume - 15)
+      fadeDrone(shipEngineDrone, config.masterVolume - 18)
       break
       
     default: // clear
-      windSynth?.volume.rampTo(-Infinity, 3)
-      shipEngineSynth?.volume.rampTo(config.masterVolume - 25, 2)
+      fadeDrone(windDrone, -Infinity)
+      fadeDrone(shipEngineDrone, config.masterVolume - 25)
   }
 }
 
@@ -356,82 +310,60 @@ export async function playBirdCall(
   spatial?: BirdCallSpatialContext
 ) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
-  
-  const now = Tone.now()
 
   if (birdSynth && !spatial) {
-    birdSynth.volume.value = config.masterVolume - 8
+    birdSynth.volumeDb = config.masterVolume - 8
   }
 
-  // Optional simple spatialization (left/right pan + distance attenuation).
-  if (spatial && birdPanner && birdSynth) {
+  // Optional simple distance attenuation.
+  if (spatial && birdSynth) {
     const [sx, , sz] = spatial.sourcePosition
     const [lx, , lz] = spatial.listenerPosition
     const dx = sx - lx
     const dz = sz - lz
     const distance = Math.sqrt(dx * dx + dz * dz)
-    const pan = Math.max(-1, Math.min(1, dx / 45))
     const attenuation = Math.max(0.2, Math.min(1, 1 - distance / 140))
 
-    birdPanner.pan.rampTo(pan, 0.05)
-    birdSynth.volume.value = config.masterVolume - 16 + attenuation * 10
+    birdSynth.volumeDb = config.masterVolume - 16 + attenuation * 10
   }
   
   if (type === 'seagull') {
-    // Classic seagull cry
-    birdSynth?.triggerAttackRelease('C5', '8n', now)
-    birdSynth?.frequency.rampTo('G5', 0.1, now)
-    birdSynth?.frequency.rampTo('C5', 0.2, now + 0.1)
+    // Classic seagull cry - C5 up to G5 and back
+    birdSynth?.play('C5', 0.1)
+    birdSynth?.play('G5', 0.1, { delay: 0.1 })
+    birdSynth?.play('C5', 0.15, { delay: 0.2 })
   } else {
     // Distant bird
-    if (birdSynth && !spatial) birdSynth.volume.value = config.masterVolume - 15
-    birdSynth?.triggerAttackRelease('E5', '4n', now)
+    if (birdSynth && !spatial) birdSynth.volumeDb = config.masterVolume - 15
+    birdSynth?.play('E5', '4n')
   }
 }
 
 export async function playFoghorn() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   if (!foghornSynth) return
   
-  const now = Tone.now()
-  
-  // Two-tone foghorn
-  foghornSynth.volume.rampTo(config.masterVolume - 10, 0.5, now)
-  foghornSynth.frequency.setValueAtTime(65, now)
-  
-  // First blast
-  foghornSynth.start(now)
-  foghornSynth.stop(now + 2)
-  
-  // Second blast after gap
-  foghornSynth.start(now + 3)
-  foghornSynth.stop(now + 5)
-  
-  // Fade out
-  foghornSynth.volume.rampTo(-Infinity, 1, now + 5)
+  // Two-tone foghorn: two blasts with a gap
+  foghornSynth.volumeDb = config.masterVolume - 10
+  foghornSynth.play(65, 2)
+  foghornSynth.play(65, 2, { delay: 3 })
 }
 
 export async function playShipHorn(distance: 'near' | 'far' = 'far') {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
-  if (!shipEngineSynth) return
-  
-  const vol = distance === 'near' ? config.masterVolume - 10 : config.masterVolume - 20
-  const now = Tone.now()
+  if (!shipHornSynth) return
   
   // Low ship horn
-  shipEngineSynth.volume.rampTo(vol, 0.3, now)
-  shipEngineSynth.frequency.setValueAtTime(85, now)
-  shipEngineSynth.start(now)
-  shipEngineSynth.stop(now + 3)
-  shipEngineSynth.volume.rampTo(-Infinity, 2, now + 3)
+  shipHornSynth.volumeDb = distance === 'near' ? config.masterVolume - 10 : config.masterVolume - 20
+  shipHornSynth.play(85, 3)
 }
 
 // =============================================================================
@@ -475,34 +407,21 @@ const RADIO_CHATTERS: RadioChatter[] = [
   { id: 'tr4', text: 'Instructor override - resetting scenario', priority: 'normal', type: 'training' }
 ]
 
-let radioSynth: Tone.Synth | null = null
-let radioEffect: Tone.Distortion | null = null
+let radioSynth: Instrument | null = null
 
 function initRadioSynth() {
   if (radioSynth) return
   
-  // Radio distortion effect
-  radioEffect = new Tone.Distortion({
-    distortion: 0.3,
-    wet: 0.4
-  }).toDestination()
-  
-  radioSynth = new Tone.Synth({
-    oscillator: { type: 'sawtooth' },
-    envelope: {
-      attack: 0.01,
-      decay: 0.1,
-      sustain: 0.8,
-      release: 0.3
-    }
-  }).connect(radioEffect)
-  
-  radioSynth.volume.value = config.masterVolume - 5
+  radioSynth = new Instrument({
+    waveform: 'sawtooth',
+    envelope: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
+    volumeDb: config.masterVolume - 5,
+  })
 }
 
 export async function playRadioChatter(chatterType?: RadioChatter['type']) {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initRadioSynth()
   
   // Filter by type if specified
@@ -514,18 +433,14 @@ export async function playRadioChatter(chatterType?: RadioChatter['type']) {
   const chatter = pool[Math.floor(Math.random() * pool.length)]
   if (!chatter) return
   
-  const now = Tone.now()
-  
   // Radio squelch sound
-  radioSynth?.triggerAttackRelease('A4', '32n', now)
+  radioSynth?.play('A4', '32n')
   
   // In a real implementation, this would play actual voice audio
   // For now we simulate with tones of different lengths based on text
   const duration = Math.min(2, chatter.text.length / 30)
   
-  setTimeout(() => {
-    radioSynth?.triggerAttackRelease('C4', duration, Tone.now())
-  }, 100)
+  radioSynth?.play('C4', duration, { delay: 0.1 })
   
   console.log(`📻 [${chatter.priority.toUpperCase()}] ${chatter.text}`)
   
@@ -548,12 +463,12 @@ export function startRadioChatterLoop(intervalSeconds: number = 45) {
 
 export async function startAmbientSystem() {
   if (!config.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   
   // Start base ambience
-  waveSynth?.triggerAttack()
-  harborSynth?.triggerAttack()
+  waveDrone?.start()
+  harborDrone?.start()
   
   // Start time-based updates
   timeSystem.subscribe((state) => {
@@ -567,13 +482,11 @@ export async function startAmbientSystem() {
 }
 
 export function stopAmbientSystem() {
-  waveSynth?.triggerRelease()
-  harborSynth?.triggerRelease()
-  windSynth?.triggerRelease()
-  
+  waveDrone?.stop()
+  harborDrone?.stop()
+  windDrone?.stop()
   nightDrone?.stop()
-  foghornSynth?.stop()
-  shipEngineSynth?.stop()
+  shipEngineDrone?.stop()
   
   if (birdInterval) clearTimeout(birdInterval)
   if (foghornInterval) clearInterval(foghornInterval)
@@ -596,30 +509,18 @@ export function setAmbientEnabled(enabled: boolean) {
 export function disposeAmbientSounds() {
   stopAmbientSystem()
   
-  waveSynth?.dispose()
-  waveFilter?.dispose()
-  waveLFO?.dispose()
-  harborSynth?.dispose()
-  harborFilter?.dispose()
   birdSynth?.dispose()
-  birdFilter?.dispose()
-  birdPanner?.dispose()
   foghornSynth?.dispose()
-  shipEngineSynth?.dispose()
-  shipEngineLFO?.dispose()
-  windSynth?.dispose()
-  windFilter?.dispose()
-  nightDrone?.dispose()
+  shipHornSynth?.dispose()
   radioSynth?.dispose()
-  radioEffect?.dispose()
   
-  waveSynth = null
-  harborSynth = null
+  waveDrone = null
+  harborDrone = null
   birdSynth = null
-  birdPanner = null
   foghornSynth = null
-  shipEngineSynth = null
-  windSynth = null
+  shipEngineDrone = null
+  shipHornSynth = null
+  windDrone = null
   nightDrone = null
   radioSynth = null
 }

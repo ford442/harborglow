@@ -3,7 +3,7 @@
 // Timed storm escalation with wind forces, lightning, thunder, and rain density.
 // =============================================================================
 
-import * as Tone from 'tone'
+import { Instrument, gainToDb, unlockAudio } from './audio/voices'
 import { useGameStore } from '../store/useGameStore'
 import { weatherSystem } from './weatherSystem'
 import { simRandom, simNowMs } from './sim/SimContext'
@@ -45,7 +45,8 @@ class StormSystem {
   private windDirCurrent: number = 0
   private lastLightning: number = 0
   private lightningEnd: number = 0
-  private thunderSynth: Tone.NoiseSynth | null = null
+  private thunderSynth: Instrument | null = null
+  private crackSynth: Instrument | null = null
   private thunderDelay: number = 0
 
   /** Multiplier for wind shear torque on large vessels (tunable via Leva). */
@@ -128,43 +129,36 @@ class StormSystem {
 
   private initThunderSynth() {
     if (this.thunderSynth) return
-    this.thunderSynth = new Tone.NoiseSynth({
-      noise: { type: 'brown' },
+    this.thunderSynth = new Instrument({
+      waveform: 'noise',
       envelope: {
         attack: 0.01,
         decay: 0.4,
         sustain: 0,
         release: 1.2,
       },
-      volume: -5,
-    }).toDestination()
-
-    // Low rumble filter
-    const filter = new Tone.Filter(200, 'lowpass').toDestination()
-    this.thunderSynth.connect(filter)
+      volumeDb: -5,
+    })
+    this.crackSynth = new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 },
+    })
   }
 
   private async playThunder(intensity: number, rumbleDuration: number) {
     try {
       this.initThunderSynth()
-      await Tone.start()
+      await unlockAudio()
       if (!this.thunderSynth) return
 
-      const vol = Tone.gainToDb(Math.min(1, intensity * 0.8 + 0.2))
-      this.thunderSynth.volume.rampTo(vol, 0.01)
-      this.thunderSynth.triggerAttackRelease(
-        rumbleDuration,
-        Tone.now() + this.thunderDelay
-      )
+      const vol = gainToDb(Math.min(1, intensity * 0.8 + 0.2))
+      this.thunderSynth.volumeDb = vol
+      this.thunderSynth.play(160, rumbleDuration, { delay: this.thunderDelay })
 
       // Secondary crack for high intensity
-      if (intensity > 0.6) {
-        const crack = new Tone.NoiseSynth({
-          noise: { type: 'white' },
-          envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.1 },
-          volume: vol + 3,
-        }).toDestination()
-        crack.triggerAttackRelease(0.05, Tone.now() + this.thunderDelay + 0.05)
+      if (intensity > 0.6 && this.crackSynth) {
+        this.crackSynth.volumeDb = vol + 3
+        this.crackSynth.play(160, 0.05, { delay: this.thunderDelay + 0.05 })
       }
     } catch {
       // Audio context may not be started; ignore

@@ -1,9 +1,9 @@
 // =============================================================================
 // SOUND EFFECTS SYSTEM - HarborGlow Phase 9
-// Audio feedback for attachment interactions using Tone.js
+// Audio feedback for attachment interactions
 // =============================================================================
 
-import * as Tone from 'tone'
+import { Instrument, setMasterMuted, unlockAudio } from './audio/voices'
 import { RigType } from './attachmentSystem'
 
 // Sound effect types
@@ -28,117 +28,87 @@ let globalConfig: SoundConfig = {
 }
 
 // Synth instances (lazy initialized)
-let snapSynth: Tone.MembraneSynth | null = null
-let installSynth: Tone.PolySynth | null = null
-let tensionSynth: Tone.AMSynth | null = null
-let twistlockSynth: Tone.MetalSynth | null = null
-let celebrationSynth: Tone.PolySynth | null = null
-let queueHumSynth: Tone.NoiseSynth | null = null
-let queueHumFilter: Tone.Filter | null = null
+let snapSynth: Instrument | null = null
+let installSynth: Instrument | null = null
+let tensionSynth: Instrument | null = null
+let twistlockSynth: Instrument | null = null
+let celebrationSynth: Instrument | null = null
+let queueHumSynth: Instrument | null = null
 
 // Initialize synths
 function initSynths() {
   if (!globalConfig.enabled) return
   
   // Snap enter/exit - low thrum
-  if (!snapSynth) {
-    snapSynth = new Tone.MembraneSynth({
-      pitchDecay: 0.05,
-      octaves: 2,
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: 0.01,
-        decay: 0.2,
-        sustain: 0.1,
-        release: 0.5,
-      },
-      volume: globalConfig.volume - 5,
-    }).toDestination()
-  }
+  snapSynth ??= new Instrument({
+    waveform: 'membrane',
+    envelope: {
+      attack: 0.01,
+      decay: 0.2,
+      sustain: 0.1,
+      release: 0.5,
+    },
+    volumeDb: globalConfig.volume - 5,
+  })
   
   // Installation sounds - pleasant chime
-  if (!installSynth) {
-    installSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'triangle' },
-      envelope: {
-        attack: 0.02,
-        decay: 0.3,
-        sustain: 0.2,
-        release: 1,
-      },
-      volume: globalConfig.volume,
-    }).toDestination()
-  }
+  installSynth ??= new Instrument({
+    waveform: 'triangle',
+    envelope: {
+      attack: 0.02,
+      decay: 0.3,
+      sustain: 0.2,
+      release: 1,
+    },
+    volumeDb: globalConfig.volume,
+  })
   
   // Tension warning - rising pitch
-  if (!tensionSynth) {
-    tensionSynth = new Tone.AMSynth({
-      harmonicity: 3,
-      detune: 0,
-      oscillator: { type: 'sine' },
-      envelope: {
-        attack: 0.1,
-        decay: 0.1,
-        sustain: 1,
-        release: 0.5,
-      },
-      modulation: { type: 'square' },
-      modulationEnvelope: {
-        attack: 0.5,
-        decay: 0,
-        sustain: 1,
-        release: 0.5,
-      },
-      volume: globalConfig.volume - 10,
-    }).toDestination()
-  }
+  tensionSynth ??= new Instrument({
+    waveform: 'fm',
+    envelope: {
+      attack: 0.1,
+      decay: 0.1,
+      sustain: 1,
+      release: 0.5,
+    },
+    volumeDb: globalConfig.volume - 10,
+  })
   
   // Twistlock - mechanical click
-  if (!twistlockSynth) {
-    twistlockSynth = new Tone.MetalSynth({
-      envelope: {
-        attack: 0.001,
-        decay: 0.1,
-        release: 0.01,
-      },
-      harmonicity: 5.1,
-      modulationIndex: 32,
-      resonance: 4000,
-      octaves: 1.5,
-      volume: globalConfig.volume - 8,
-    }).toDestination()
-  }
+  twistlockSynth ??= new Instrument({
+    waveform: 'metal',
+    envelope: {
+      attack: 0.001,
+      decay: 0.1,
+      release: 0.01,
+    },
+    volumeDb: globalConfig.volume - 8,
+  })
   
   // Celebration - fanfare
-  if (!celebrationSynth) {
-    celebrationSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'fmsine' },
-      envelope: {
-        attack: 0.05,
-        decay: 0.3,
-        sustain: 0.4,
-        release: 1.5,
-      },
-      volume: globalConfig.volume - 2,
-    }).toDestination()
-  }
+  celebrationSynth ??= new Instrument({
+    waveform: 'fm',
+    envelope: {
+      attack: 0.05,
+      decay: 0.3,
+      sustain: 0.4,
+      release: 1.5,
+    },
+    volumeDb: globalConfig.volume - 2,
+  })
 
-  if (!queueHumFilter) {
-    queueHumFilter = new Tone.Filter(800, 'lowpass')
-  }
-
-  if (!queueHumSynth) {
-    queueHumSynth = new Tone.NoiseSynth({
-      noise: { type: 'pink' },
-      envelope: {
-        attack: 0.01,
-        decay: 0.08,
-        sustain: 0.6,
-        release: 0.2,
-      },
-      volume: globalConfig.volume - 18,
-    }).connect(queueHumFilter).toDestination()
-  }
+  // Queue travel hum - held noise bed
+  queueHumSynth ??= new Instrument({
+    waveform: 'noise',
+    envelope: {
+      attack: 0.01,
+      decay: 0.08,
+      sustain: 0.6,
+      release: 0.2,
+    },
+    volumeDb: globalConfig.volume - 18,
+  })
 }
 
 // Play sound effect
@@ -149,23 +119,21 @@ export async function playSound(
   if (!globalConfig.enabled) return
   
   // Ensure audio context is started
-  await Tone.start()
+  await unlockAudio()
   initSynths()
-  
-  const now = Tone.now()
   
   switch (type) {
     case 'snapEnter':
-      snapSynth?.triggerAttackRelease('C2', '8n', now)
+      snapSynth?.play('C2', '8n')
       break
       
     case 'snapExit':
-      snapSynth?.triggerAttackRelease('A1', '16n', now)
+      snapSynth?.play('A1', '16n')
       break
       
     case 'installStart':
       // Mechanical click
-      twistlockSynth?.triggerAttackRelease('32n', now)
+      twistlockSynth?.play(240, '32n')
       break
       
     case 'installComplete': {
@@ -179,29 +147,27 @@ export async function playSound(
       }
       
       const chord = chords[params?.rigType || 'rgb_matrix']
-      installSynth?.triggerAttackRelease(chord, '4n', now)
+      installSynth?.play(chord, '4n')
       
       // Add sparkle
-      setTimeout(() => {
-        celebrationSynth?.triggerAttackRelease(['C6', 'E6'], '8n')
-      }, 100)
+      celebrationSynth?.play(['C6', 'E6'], '8n', { delay: 0.1 })
       break
     }
       
     case 'tensionWarning': {
       // Rising pitch based on tension level
       const baseFreq = 100 + (params?.tension || 0.5) * 200
-      tensionSynth?.triggerAttackRelease(baseFreq, '16n', now)
+      tensionSynth?.play(baseFreq, '16n')
       break
     }
       
     case 'twistlockEngage':
-      twistlockSynth?.triggerAttackRelease('16n', now)
-      installSynth?.triggerAttackRelease(['C4'], '32n', now + 0.05)
+      twistlockSynth?.play(240, '16n')
+      installSynth?.play(['C4'], '32n', { delay: 0.05 })
       break
       
     case 'twistlockDisengage':
-      twistlockSynth?.triggerAttackRelease('32n', now)
+      twistlockSynth?.play(240, '32n')
       break
   }
 }
@@ -210,10 +176,8 @@ export async function playSound(
 export async function playInstallationCelebration(rigType: RigType): Promise<void> {
   if (!globalConfig.enabled) return
   
-  await Tone.start()
+  await unlockAudio()
   initSynths()
-  
-  const now = Tone.now()
   
   // Fanfare based on rig type
   const fanfares: Record<RigType, { notes: string[]; duration: string }> = {
@@ -228,25 +192,25 @@ export async function playInstallationCelebration(rigType: RigType): Promise<voi
   
   // Play arpeggio
   fanfare.notes.forEach((note, i) => {
-    celebrationSynth?.triggerAttackRelease(note, '8n', now + i * 0.1)
+    celebrationSynth?.play(note, '8n', { delay: i * 0.1 })
   })
   
   // Final chord
-  celebrationSynth?.triggerAttackRelease(fanfare.notes, '2n', now + 0.5)
+  celebrationSynth?.play(fanfare.notes, '2n', { delay: 0.5 })
 }
 
 export async function startQueueTravelHum(intensity = 1): Promise<void> {
   if (!globalConfig.enabled) return
-  await Tone.start()
+  await unlockAudio()
   initSynths()
   if (!queueHumSynth) return
-  queueHumSynth.volume.value = globalConfig.volume - (22 - Math.min(10, intensity * 6))
-  queueHumFilter?.frequency.rampTo(700 + intensity * 500, 0.1)
-  queueHumSynth.triggerAttack()
+  queueHumSynth.volumeDb = globalConfig.volume - (22 - Math.min(10, intensity * 6))
+  queueHumSynth.release()
+  queueHumSynth.hold(160)
 }
 
 export function stopQueueTravelHum(): void {
-  queueHumSynth?.triggerRelease()
+  queueHumSynth?.release()
 }
 
 // Set global sound configuration
@@ -254,18 +218,18 @@ export function setSoundConfig(config: Partial<SoundConfig>): void {
   globalConfig = { ...globalConfig, ...config }
   
   // Update existing synths
-  if (snapSynth) snapSynth.volume.value = globalConfig.volume - 5
-  if (installSynth) installSynth.volume.value = globalConfig.volume
-  if (tensionSynth) tensionSynth.volume.value = globalConfig.volume - 10
-  if (twistlockSynth) twistlockSynth.volume.value = globalConfig.volume - 8
-  if (celebrationSynth) celebrationSynth.volume.value = globalConfig.volume - 2
-  if (queueHumSynth) queueHumSynth.volume.value = globalConfig.volume - 18
+  if (snapSynth) snapSynth.volumeDb = globalConfig.volume - 5
+  if (installSynth) installSynth.volumeDb = globalConfig.volume
+  if (tensionSynth) tensionSynth.volumeDb = globalConfig.volume - 10
+  if (twistlockSynth) twistlockSynth.volumeDb = globalConfig.volume - 8
+  if (celebrationSynth) celebrationSynth.volumeDb = globalConfig.volume - 2
+  if (queueHumSynth) queueHumSynth.volumeDb = globalConfig.volume - 18
 }
 
 // Mute/unmute all sounds
 export function setMuted(muted: boolean): void {
   globalConfig.enabled = !muted
-  Tone.Destination.mute = muted
+  setMasterMuted(muted)
 }
 
 // Cleanup function
@@ -276,7 +240,6 @@ export function disposeSoundEffects(): void {
   twistlockSynth?.dispose()
   celebrationSynth?.dispose()
   queueHumSynth?.dispose()
-  queueHumFilter?.dispose()
   
   snapSynth = null
   installSynth = null
@@ -284,5 +247,4 @@ export function disposeSoundEffects(): void {
   twistlockSynth = null
   celebrationSynth = null
   queueHumSynth = null
-  queueHumFilter = null
 }

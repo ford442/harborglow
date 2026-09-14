@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import * as Tone from 'tone'
 import { useFrame } from '@react-three/fiber'
+import { transport } from '../../systems/audio/transport'
 import { sequencerSystem } from '../../systems/sequencerSystem'
 
 const POWER_ON_START_LEVEL = 0.1
@@ -34,18 +34,8 @@ export function startBeatAlignedPowerOn({
   clearTimeoutFn = clearTimeout
 }: StartBeatAlignedPowerOnArgs): () => void {
   if (transportStarted) {
-    const cueId = scheduleCue(beatOffset, () => {
-      const draw = (Tone as unknown as {
-        Draw?: { schedule: (fn: () => void, time?: number) => number }
-      }).Draw
-
-      if (draw?.schedule) {
-        draw.schedule(onStart, 0)
-        return
-      }
-
-      onStart()
-    })
+    // Sequencer cues already fire on the main thread, so no draw scheduling is needed.
+    const cueId = scheduleCue(beatOffset, onStart)
 
     return () => cancelCue(cueId)
   }
@@ -109,20 +99,9 @@ export function useBeatAlignedPowerOn(
     }
 
     cleanupRef.current = startBeatAlignedPowerOn({
-      transportStarted: Tone.getTransport().state === 'started',
+      transportStarted: transport.state === 'started',
       beatOffset,
-      onStart: () => {
-        const draw = (Tone as unknown as {
-          Draw?: { schedule: (fn: () => void, time?: number) => number }
-        }).Draw
-
-        if (draw?.schedule) {
-          draw.schedule(beginRamp, 0)
-          return
-        }
-
-        beginRamp()
-      },
+      onStart: beginRamp,
       scheduleCue: (offset, fn) => sequencerSystem.schedule(offset, fn),
       cancelCue: id => sequencerSystem.cancel(id)
     })

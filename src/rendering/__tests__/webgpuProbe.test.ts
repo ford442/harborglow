@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createGameRenderer } from '../createRenderer'
+import { GPU_TEXTURE_USAGE, HARBOR_CANVAS_USAGE } from '../canvasSurface'
+import { createGameRenderer, resolveContextOptions } from '../createRenderer'
 import { parseRendererPreference } from '../rendererConfig'
 import {
   detectBrowserBrand,
   getWebgpuProbe,
+  onWebgpuDeviceLost,
   publishWebgpuProbe,
+  reportWebgpuDeviceLost,
   resetWebgpuProbe,
   runWebgpuBootProbe,
   wasForceGlRequested,
@@ -12,7 +15,32 @@ import {
 } from '../webgpuProbe'
 import type { GpuDeviceLike } from '../gpuChores/types'
 
+const threeWebgpu = vi.hoisted(() => ({ instances: [] as Array<Record<string, any>> }))
+
+vi.mock('three/webgpu', () => ({
+  WebGPURenderer: class {
+    backend = { isWebGPUBackend: true }
+    domElement = {}
+    shadowMap = { enabled: false, type: null }
+    toneMapping = 0
+    toneMappingExposure = 1
+    outputColorSpace = ''
+    options: unknown
+    _isDeviceLost = false
+    onDeviceLost: ((info: unknown) => void) | null = null
+    init = vi.fn(async () => undefined)
+    dispose = vi.fn()
+    setAnimationLoop = vi.fn()
+    setClearColor = vi.fn()
+    constructor(options: unknown) {
+      this.options = options
+      threeWebgpu.instances.push(this as unknown as Record<string, any>)
+    }
+  },
+}))
+
 afterEach(() => {
+  threeWebgpu.instances.length = 0
   resetWebgpuProbe()
   vi.unstubAllGlobals()
 })
@@ -236,6 +264,129 @@ describe('runWebgpuBootProbe', () => {
     expect(result.ok).toBe(false)
     expect(result.reason).toBe('configure-failed')
     expect(requestDevice).not.toHaveBeenCalled()
+  })
+})
+
+function deferredLost() {
+  let resolve!: (info: { reason?: string; message?: string }) => void
+  const lost = new Promise<{ reason?: string; message?: string }>((r) => {
+    resolve = r
+  })
+  return { lost, resolve }
+}
+
+function okNavigator(device: GpuDeviceLike) {
+  return {
+    userAgent: 'Mozilla/5.0 Chrome/120',
+    gpu: {
+      requestAdapter: async () => ({
+        info: { vendor: 'acme' },
+        requestDevice: async () => device,
+      }),
+      getPreferredCanvasFormat: () => 'bgra8unorm',
+    },
+  }
+}
+
+const flush = () => new Promise((r) => setTimeout(r, 0))
+
+describe('canvas surface', () => {
+  it('configures the probe swapchain with RENDER_ATTACHMENT | COPY_SRC and opaque alpha', async () => {
+    const configure = vi.fn()
+    const result = await runWebgpuBootProbe({
+      canvas: makeCanvas(configure),
+      navigatorLike: okNavigator(makeDevice()),
+    })
+    expect(result.ok).toBe(true)
+    const desc = configure.mock.calls[0][0]
+    expect(desc.usage).toBe(HARBOR_CANVAS_USAGE)
+    expect(desc.usage & GPU_TEXTURE_USAGE.COPY_SRC).toBe(GPU_TEXTURE_USAGE.COPY_SRC)
+    expect(desc.usage & GPU_TEXTURE_USAGE.RENDER_ATTACHMENT).toBe(GPU_TEXTURE_USAGE.RENDER_ATTACHMENT)
+    expect(desc.alphaMode).toBe('opaque')
+    expect(result.canvas).toEqual({ format: 'bgra8unorm', alphaMode: 'opaque', usage: HARBOR_CANVAS_USAGE })
+  })
+
+  it('derives premultipliedAlpha from alpha so it cannot disagree with alphaMode', () => {
+    expect(resolveContextOptions({}).alpha).toBe(false)
+    expect(resolveContextOptions({}).premultipliedAlpha).toBe(false)
+    expect(resolveContextOptions({ premultipliedAlpha: true }).premultipliedAlpha).toBe(false)
+    expect(resolveContextOptions({ alpha: true }).premultipliedAlpha).toBe(true)
+  })
+})
+
+describe('device lost', () => {
+  it('republishes the probe as failed, notifies listeners and dispatches gpu-fatal', async () => {
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: { getItem: () => null } }))
+    const { lost, resolve } = deferredLost()
+    const device = Object.assign(makeDevice(), { lost })
+    await runWebgpuBootProbe({ canvas: makeCanvas(), search: '', navigatorLike: okNavigator(device) })
+    expect(getWebgpuProbe()?.ok).toBe(true)
+
+    const listener = vi.fn()
+    onWebgpuDeviceLost(listener)
+    const fatal = vi.fn()
+    window.addEventListener('gpu-fatal', fatal)
+    resolve({ reason: 'unknown', message: 'TDR' })
+    await flush()
+
+    expect(getWebgpuProbe()).toMatchObject({ ok: false, reason: 'device-lost', device: null, deviceLostMessage: 'TDR' })
+    expect((window as unknown as { webgpuProbe: { reason: string } }).webgpuProbe.reason).toBe('device-lost')
+    expect(listener).toHaveBeenCalledWith({ reason: 'unknown', message: 'TDR' })
+    expect(fatal).toHaveBeenCalledTimes(1)
+    expect((fatal.mock.calls[0][0] as CustomEvent).detail).toBe('TDR')
+  })
+
+  it("ignores reason 'destroyed'", async () => {
+    const { lost, resolve } = deferredLost()
+    const device = Object.assign(makeDevice(), { lost })
+    await runWebgpuBootProbe({ canvas: makeCanvas(), navigatorLike: okNavigator(device) })
+    const listener = vi.fn()
+    onWebgpuDeviceLost(listener)
+    resolve({ reason: 'destroyed', message: '' })
+    await flush()
+    expect(getWebgpuProbe()?.ok).toBe(true)
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('reports once even when the probe watcher and Three both fire', async () => {
+    const { lost, resolve } = deferredLost()
+    const device = Object.assign(makeDevice(), { lost })
+    await runWebgpuBootProbe({ canvas: makeCanvas(), navigatorLike: okNavigator(device) })
+    const listener = vi.fn()
+    onWebgpuDeviceLost(listener)
+    reportWebgpuDeviceLost({ reason: 'unknown', message: 'from three' })
+    resolve({ reason: 'unknown', message: 'from probe' })
+    await flush()
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(getWebgpuProbe()?.deviceLostMessage).toBe('from three')
+  })
+
+  it('disposes the live renderer and stops its loop instead of leaving a frozen canvas', async () => {
+    const { lost, resolve } = deferredLost()
+    const device = Object.assign(makeDevice(), { lost })
+    await runWebgpuBootProbe({ canvas: makeCanvas(), navigatorLike: okNavigator(device) })
+    await createGameRenderer({} as HTMLCanvasElement, { preference: 'webgpu' })
+    const renderer = threeWebgpu.instances[0]
+    expect(renderer.options).toMatchObject({ device, alpha: false })
+
+    resolve({ reason: 'unknown', message: 'gone' })
+    await flush()
+
+    expect(renderer._isDeviceLost).toBe(true)
+    expect(renderer.setAnimationLoop).toHaveBeenCalledWith(null)
+    expect(renderer.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it("routes Three's onDeviceLost through the same path", async () => {
+    const device = Object.assign(makeDevice(), { lost: deferredLost().lost })
+    await runWebgpuBootProbe({ canvas: makeCanvas(), navigatorLike: okNavigator(device) })
+    await createGameRenderer({} as HTMLCanvasElement, { preference: 'webgpu' })
+    const renderer = threeWebgpu.instances[0]
+
+    renderer.onDeviceLost({ api: 'WebGPU', message: 'three saw it', reason: 'unknown' })
+
+    expect(getWebgpuProbe()).toMatchObject({ ok: false, reason: 'device-lost' })
+    expect(renderer.dispose).toHaveBeenCalledTimes(1)
   })
 })
 

@@ -23,24 +23,32 @@ export default function WebGPUFatalOverlay({ probe }: WebGPUFatalOverlayProps) {
     )
   }
 
+  const deviceLost = probe.reason === 'device-lost'
+
   return (
-    <div style={containerStyle} data-testid="webgpu-fatal-overlay">
+    <div
+      style={containerStyle}
+      data-testid="webgpu-fatal-overlay"
+      data-reason={probe.reason ?? 'unknown'}
+    >
       <div style={contentStyle}>
         <div style={iconContainerStyle}>
           <span style={iconStyle} aria-hidden>
             !
           </span>
         </div>
-        <h1 style={titleStyle}>WebGPU required</h1>
+        <h1 style={titleStyle}>{deviceLost ? 'GPU device lost' : 'WebGPU required'}</h1>
         <p style={descriptionStyle}>
-          HarborGlow will not start a WebGL scene. Use Chrome or Edge with WebGPU
-          enabled. Force-GL URL flags are disabled this phase.
+          {deviceLost
+            ? 'The graphics device was reset (driver update, GPU crash, or the tab was backgrounded too long). The harbor renderer has been shut down. Reload to start on a fresh device.'
+            : 'HarborGlow will not start a WebGL scene. Use Chrome or Edge with WebGPU enabled. Force-GL URL flags are disabled this phase.'}
         </p>
         <p style={metaStyle}>
           Browser: {probe.browser.brand}
           {probe.browser.version ? ` ${probe.browser.version}` : ''}
         </p>
         <p style={metaStyle}>Reason: {probe.reason ?? 'unknown'}</p>
+        {probe.deviceLostMessage && <p style={metaStyle}>Message: {probe.deviceLostMessage}</p>}
         <pre style={preStyle} data-testid="webgpu-probe-json">
           {JSON.stringify(probe, null, 2)}
         </pre>

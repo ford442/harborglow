@@ -106,7 +106,8 @@ On FNV mismatch the spectator logs the desync and requests `hello`. It does
 `multiplayerSystem.ts` is transport (presence, signalling, chat, attach).
 Do not replicate foam, wildlife, or traffic meshes at 10 Hz. Cosmetic
 `Math.random()` in `src/scenes/**` stays local. Music starts from the local
-store (install completion) with Tone transport offset from `simTime`.
+store (install completion); the beat transport is clocked by `simTime`, so
+peers land on the same beat. Audio only reads sim time — see [AUDIO.md](./AUDIO.md).
 
 Creating a shared harbor reseeds the sim. TURN / production
 `VITE_SIGNAL_URL` is a follow-up; local default remains `localhost:8787`.

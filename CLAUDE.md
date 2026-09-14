@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with React, Three.js, and Tone.js. Players spawn different ship types, use a dock crane to install glowing light rigs, and trigger synchronized music + lyrics when ships are fully upgraded. The game features three core vessel types (Mega Cruise Liner, Container Vessel, Oil Tanker) plus expanded ship types (Bulk Carrier, LNG, RoRo, Research, Droneship), each with unique upgrade paths, music, and light shows.
+HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with React, Three.js, and an in-tree WASM AudioWorklet audio engine. Players spawn different ship types, use a dock crane to install glowing light rigs, and trigger synchronized music + lyrics when ships are fully upgraded. The game features three core vessel types (Mega Cruise Liner, Container Vessel, Oil Tanker) plus expanded ship types (Bulk Carrier, LNG, RoRo, Research, Droneship), each with unique upgrade paths, music, and light shows.
 
 ## Tech Stack
 
@@ -12,7 +12,7 @@ HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with R
 - **3D Graphics**: Three.js 0.183.1 + React Three Fiber 9.7 + WebGPU rendering
 - **Physics**: Rapier 1.3 (@react-three/rapier)
 - **State Management**: Zustand 4.4
-- **Audio**: Tone.js 14.7 (music synthesis, sound effects)
+- **Audio**: in-tree WASM AudioWorklet engine (`cpp/harborglow_audio_engine.cpp` → `src/systems/audio/`: `AudioRuntime`, beat `transport`, `voices`) — no audio npm dependency; see [docs/systems/AUDIO.md](docs/systems/AUDIO.md)
 - **UI Controls**: Leva (in-game debug panel), Tailwind CSS 3.4
 - **Build Tool**: Vite 5.0 with React plugin
 - **Bundling**: Terser minification with manual chunk splitting
@@ -58,7 +58,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 1. **Entry Point** (`src/main.tsx` → `src/App.tsx`)
    - Bootstraps React and Three.js Canvas
    - Manages screen states: menu → loading → game/training
-   - Handles Tone.js audio initialization on user gesture
+   - Resumes `audioRuntime` (AudioContext + WASM worklet) on user gesture
    - Lazy-loads MainScene for code splitting
 
 2. **Game State** (`src/store/useGameStore.ts`) — see [docs/STORE.md](docs/STORE.md)
@@ -137,9 +137,9 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - **UI**: `MissionHUD.tsx` displays objective, time remaining, damage level
 
 #### Music & Synchronization
-- `musicSystem.ts` defines 8 unique Tone.js tracks (one per ship type)
-- Each track has synths, effects, and synchronized lyrics stored as `LyricEntry[]` (time + text)
-- `audioVisualSync.ts` syncs light pulses, camera movement to Tone.js Transport position
+- `music/MusicSystem.ts` plays per-ship instruments + bus effects (`music/musicSynthChains.ts`) on the shared beat `transport`, clocked by sim time
+- Lyrics are `LyricEntry[]` (`'bars:beats'` + text) keyed to transport beats, not wall clock
+- `audioVisualSync.ts` syncs light pulses to engine analysis + transport beat phase; `sequencerSystem` schedules cinematic cues by beat
 - Band names revealed during upgrade cinematic
 
 #### Operation Modes
@@ -191,7 +191,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ### Performance Considerations
 
-- **Chunking**: 3D libraries (three, fiber, drei, rapier, postprocessing) bundled separately; audio (tone) in vendor-audio chunk
+- **Chunking**: 3D libraries (three, fiber, drei, rapier, postprocessing) bundled separately; audio is in-tree (WASM in `public/wasm/`, no vendor chunk)
 - **LOD System**: `useLOD()` in `performanceSystem.tsx` reduces detail at distance
 - **Lazy Loading**: MainScene code-split via dynamic import with webpack chunk name
 - **Physics**: Rapier marked as lazy-load in Vite optimizeDeps (heavy binary)
@@ -318,7 +318,6 @@ npm run build:analyze          # Check bundle impact before shipping
 ## Useful References
 
 - React Three Fiber Docs: https://docs.pmnd.rs/react-three-fiber
-- Tone.js Docs: https://tonejs.github.io/
 - Three.js Docs: https://threejs.org/docs/
 - Rapier Physics Docs: https://rapier.rs/
 - Zustand Docs: https://github.com/pmndrs/zustand

@@ -43,8 +43,9 @@ export function persistRendererPreference(preference: RendererPreference): void 
 }
 
 /**
- * Screenshot mode forces `preserveDrawingBuffer: true` so `canvas.toDataURL()` /
- * Playwright pixel reads return the last rendered frame instead of a blank buffer.
+ * Screenshot mode: requests `preserveDrawingBuffer` (a WebGL-era flag, no-op on
+ * WebGPU) and exposes `window.harborglowDebug` (swapchain readback via
+ * `readScreenshotPixelsAsync`, forced device-lost) for Playwright / agents.
  *
  * Enabled by `?screenshot=1`, `?preserveDrawingBuffer=1`, or a Playwright/headless UA.
  */

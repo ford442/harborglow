@@ -169,4 +169,4 @@ every quarter note. Systems-booting energy.
 
 ## Fallback Behavior
 
-If these assets are missing, `IntroMusicSystem` will automatically fall back to a procedural Tone.js synth approximation. The game will function, but the audio quality will be significantly less polished.
+If these assets are missing, `IntroMusicSystem` will automatically fall back to a procedural synth approximation on the WASM audio engine. The game will function, but the audio quality will be significantly less polished.

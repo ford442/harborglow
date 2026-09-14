@@ -1,6 +1,6 @@
-import * as Tone from 'tone'
 import { useEffect, useState } from 'react'
 import { audioRuntime } from './audio/AudioRuntime'
+import { transport } from './audio/transport'
 
 // =============================================================================
 // PHASE 8: AUDIO-VISUAL SYNCHRONIZATION SYSTEM
@@ -34,7 +34,7 @@ export interface AudioAnalysisData {
 }
 
 // ---------------------------------------------------------------------------
-// Pure band / onset helpers (testable without Tone)
+// Pure band / onset helpers (testable without an audio context)
 // ---------------------------------------------------------------------------
 
 export const BAND_BIN_RANGES = {
@@ -87,7 +87,7 @@ export function computeSpectralCentroidFromBytes(buf: Uint8Array): number {
   return magnitude > 0 ? Math.min(1, weighted / magnitude / len) : 0.5
 }
 
-/** Phase within the current beat from Tone.Transport (0 = downbeat, 1 = next downbeat). */
+/** Phase within the current beat for a constant tempo (0 = downbeat, 1 = next downbeat). */
 export function getTransportBeatPhase(bpm: number, transportSeconds: number): number {
   const beatDuration = 60 / Math.max(bpm, 1)
   return (transportSeconds % beatDuration) / beatDuration
@@ -168,18 +168,6 @@ export function detectBeatOnset(
     rollingBassAvg,
     lastBeatTime,
     shouldFireCallback: beatAccepted,
-  }
-}
-
-/** Convert Tone.FFT dB bin to 0-1 proxy for fallback band reads. */
-function dbBinToNormalized(db: number): number {
-  return Math.min(1, Math.max(0, (db + 100) / 100))
-}
-
-function fillByteScratchFromDbFft(fftValues: Float32Array, scratch: Uint8Array): void {
-  const len = Math.min(fftValues.length, scratch.length)
-  for (let i = 0; i < len; i++) {
-    scratch[i] = dbBinToNormalized(fftValues[i]) * 255
   }
 }
 
@@ -276,11 +264,10 @@ export class AudioVisualSync {
       ((bassScaled + lowMidScaled + midScaled + highMidScaled + trebleScaled) / 5) * 1.5,
     )
 
-    const transport = Tone.getTransport()
+    // Beat phase comes from the transport's beat position (sim-clocked during
+    // gameplay), not from wall-clock seconds.
     const transportRunning = transport.state === 'started'
-    const transportBeatPhase = transportRunning
-      ? getTransportBeatPhase(this.bpm, transport.seconds)
-      : undefined
+    const transportBeatPhase = transportRunning ? transport.beatPhase() : undefined
 
     const onset = detectBeatOnset(this.onsetState, measuredBass, time, this.bpm, {
       transportBeatPhase,

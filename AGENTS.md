@@ -29,7 +29,7 @@ The game includes an alternate operation mode where players control a tugboat to
 | 3D Post-Processing | @react-three/postprocessing | ^3.0.5 |
 | 3D Core | three | 0.183.1 |
 | 3D Stdlib | three-stdlib | ^2.36.1 |
-| Audio | tone | ^14.7.77 |
+| Audio | in-tree WASM AudioWorklet (`src/systems/audio/`) | — |
 | State Management | zustand | ^4.4.7 |
 | Debug UI | leva | ^0.10.1 |
 | Styling | Tailwind CSS | ^3.4.19 |
@@ -103,7 +103,6 @@ npm run preview
 - `base: './'` in `vite.config.ts` enables relative-path deployment.
 - Manual chunk splitting creates:
   - `vendor-3d` — three, R3F, drei, rapier, postprocessing (~4.4 MB raw / ~1.46 MB gzip after r183 upgrade)
-  - `vendor-audio` — tone (~288 KB raw / ~69 KB gzip)
   - `MainScene` — lazy-loaded scene chunk (~188 KB raw / ~49 KB gzip)
 - React, React-DOM, Leva, and Zustand are intentionally kept in the main bundle to avoid `__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` errors.
 - Terser drops `console.log` and `debugger` in production (`passes: 2`).
@@ -254,7 +253,7 @@ src/
 │   ├── introMusicSystem.ts
 │   ├── lightingSystem.ts    # Beat-synced lighting
 │   ├── moonSystem.ts
-│   ├── musicSystem.ts       # Tone.js music + lyrics sync (~872 lines)
+│   ├── musicSystem.ts       # re-export of music/ (MusicSystem, synth chains, lyrics)
 │   ├── performanceSystem.tsx
 │   ├── physicsSystem.ts
 │   ├── reputationSystem.ts
@@ -363,12 +362,12 @@ Root files:
 - **To add a new ambient system:** register it in `mainSceneSystems.ts` with an explicit `order` and `groups` entry; see [docs/systems/SYSTEM_BOOTSTRAP.md](docs/systems/SYSTEM_BOOTSTRAP.md) for the ordered table and pause rules.
 
 ### Audio Architecture
-- `MusicSystem` in `musicSystem.ts` is a singleton using Tone.js.
-- Each of the 8 ship types has its own synth/effect chain and `Tone.Transport` sequence.
-- Lyrics are arrays of `{ time, text }` synced against `transport.position`.
+- Audio runs on `audioRuntime` (WASM AudioWorklet, shared-memory ring buffers) — see `docs/systems/AUDIO.md`. There is no Tone.js; `src/test/__tests__/audioSetup.test.ts` fails if `tone` is imported or re-added.
+- `MusicSystem` (`music/MusicSystem.ts`) is a singleton. Each ship type has instruments + bus effects (`music/musicSynthChains.ts`) played on the shared beat `transport` (`audio/transport.ts`), clocked by sim time.
+- Lyrics are arrays of `{ time: 'bars:beats', text }` compared against `transport.beats`.
 - BPM is globally adjustable; climax mode temporarily boosts BPM and volume.
 - Additional audio layers: `ambientSoundSystem.ts`, `craneSoundSystem.ts`, `audioVisualSync.ts`, `introMusicSystem.ts`.
-- Audio requires user interaction to start (browser autoplay policy). A click/keydown listener in `App.tsx` initializes `Tone.start()`.
+- Audio requires user interaction to start (browser autoplay policy). A click/keydown listener in `App.tsx` calls `audioRuntime.resume()`.
 
 ### Ship Upgrades & Attachment Points
 - Ships have `attachmentPoints` derived from blueprint `parts`.
