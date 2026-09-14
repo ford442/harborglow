@@ -16,3 +16,7 @@ cpp/tests/audio_engine_native_test
 cpp/tests/*.o
 cpp/compile_commands.json
 cpp/.build/
+
+# Python bytecode (deploy.py)
+__pycache__/
+*.pyc
