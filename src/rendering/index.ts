@@ -4,6 +4,15 @@ export {
   DEFAULT_CONTEXT_OPTIONS,
 } from './createRenderer';
 export type { GameRendererOptions } from './createRenderer';
+export { readScreenshotPixelsAsync, CanvasReadbackError } from './canvasReadback';
+export type { CanvasPixels, ReadCanvasPixelsOptions, AfterRenderScheduler } from './canvasReadback';
+export {
+  HARBOR_CANVAS_USAGE,
+  HARBOR_CANVAS_ALPHA_MODE,
+  canvasAlphaModeFor,
+  GPU_TEXTURE_USAGE,
+} from './canvasSurface';
+export type { CanvasSurfaceConfig, CanvasAlphaMode } from './canvasSurface';
 export {
   configureRendererDefaults,
   readRendererCapabilities,
@@ -37,6 +46,8 @@ export {
   detectBrowserBrand,
   wasForceGlRequested,
   toWebgpuProbePublic,
+  onWebgpuDeviceLost,
+  reportWebgpuDeviceLost,
   WebgpuRequiredError,
 } from './webgpuProbe';
 export type {
@@ -45,6 +56,7 @@ export type {
   WebgpuProbeBrowser,
   WebgpuProbeAdapterInfo,
   WebgpuProbeCompute,
+  WebgpuDeviceLostInfo,
 } from './webgpuProbe';
 export type {
   ActiveRendererBackend,

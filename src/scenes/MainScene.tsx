@@ -26,6 +26,8 @@ import CraneB from './CraneB'
 import Tugboat from './Tugboat'
 import TugboatTargetShip from './TugboatTargetShip'
 import DistressedShip from './DistressedShip'
+import IceField from './IceField'
+import IceEscortClient from './IceEscortClient'
 import Player from './Player'
 import Dock from './Dock'
 import DockWalkEnvironment from './DockWalkEnvironment'
@@ -33,6 +35,7 @@ import BaseHarborLighting from './BaseHarborLighting'
 import Water from './Water'
 import FoamSystem from './FoamSystem'
 import { stormSystem } from '../systems/StormSystem'
+import { recordHostInput } from '../systems/sim/hostInput'
 import { useCameraTransition } from '../hooks/useCameraTransition'
 import { useVisualPolishControls } from '../hooks/useVisualPolishControls'
 import GlobalIllumination from './GlobalIllumination'
@@ -55,6 +58,7 @@ import DistantShipQueue from './DistantShipQueue'
 import { setSceneCamera } from '../utils/sceneCamera'
 import { buildFrameContext, systemRegistry, useMainSceneSystemBootstrap } from '../systems/bootstrap'
 import { simScheduler } from '../systems/sim'
+import { multiplayerSystem } from '../systems/multiplayerSystem'
 
 // =============================================================================
 // CONSTANTS
@@ -244,6 +248,16 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                         shipType: 'tanker',
                     },
                 ],
+                'ice-escort': [
+                    {
+                        id: 'ice-escort-berth',
+                        label: 'Polar Berth Gamma',
+                        berthCenter: [15, 0, -20],
+                        berthRadius: 8,
+                        completed: false,
+                        shipType: 'container',
+                    },
+                ],
             }
 
             const objectives = gameMode === 'training' && currentTrainingModule
@@ -276,18 +290,20 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 ]
             setTugboatObjectives(objectives)
             if (gameMode === 'training' && currentTrainingModule === 'storm-rescue') {
-                stormSystem.start(300)
+                recordHostInput('storm.start', { duration: 300 })
+            } else if (gameMode === 'training' && currentTrainingModule === 'ice-escort') {
+                recordHostInput('mission.iceEscort.start', { seed: 204 })
             } else if (gameMode === 'training') {
-                stormSystem.stop()
+                recordHostInput('storm.stop', null)
             } else {
-                stormSystem.start(180)
+                recordHostInput('storm.start', { duration: 180 })
             }
         }
         if (operationMode === 'crane') {
             resetTugboatMode()
             // Keep storm active for emergency training module
             if (!(gameMode === 'training' && currentTrainingModule === 'emergency')) {
-                stormSystem.stop()
+                recordHostInput('storm.stop', null)
             }
         }
     }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, gameMode, currentTrainingModule, setTugboatObjectives, resetTugboatMode])
@@ -372,7 +388,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'p' || e.key === 'P') {
-                stormSystem.toggle()
+                if (stormSystem.getState().active) {
+                    recordHostInput('storm.stop', null)
+                } else {
+                    recordHostInput('storm.start', { duration: 180 })
+                }
             }
         }
         window.addEventListener('keydown', onKeyDown)
@@ -399,6 +419,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             0
         )
 
+        const role = useGameStore.getState().multiplayerRole
+        const watermark = role === 'spectator' ? multiplayerSystem.getTickWatermark() : undefined
         simScheduler.advance(delta, (sim) => {
             systemRegistry.tick(
                 sim.dt,
@@ -409,7 +431,12 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                     swayTrolleyPosition: swayTrolleyVecRef.current,
                 })
             )
-        })
+        }, watermark ?? undefined)
+        if (role === 'host') {
+            multiplayerSystem.onHostSimTick()
+        } else if (role === 'spectator') {
+            multiplayerSystem.applyPendingHashCheck()
+        }
 
         // Tugboat win condition (gameplay, not a singleton system tick)
         if (
@@ -517,7 +544,15 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             {gameMode === 'training' && currentTrainingModule === 'multi-crane' && (
                 <CraneB />
             )}
-            {operationMode === 'tugboat' && <Tugboat />}
+            {operationMode === 'tugboat' && (
+              <Tugboat key={activeMission?.type === 'ice-escort' ? 'icebreaker-helm' : 'tug-helm'} />
+            )}
+            {operationMode === 'tugboat' && activeMission?.type === 'ice-escort' && (
+              <>
+                <IceField />
+                <IceEscortClient />
+              </>
+            )}
             {cameraMode === 'onFoot' && <Player />}
             <DockWalkEnvironment isNight={isNight} />
             
@@ -562,7 +597,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             ))}
             
             {/* Tugboat target ships */}
-            {operationMode === 'tugboat' && tugboatObjectives.map((obj, i) => {
+            {operationMode === 'tugboat' && activeMission?.type !== 'ice-escort' && tugboatObjectives.map((obj, i) => {
                 const fallbackStart: [number, number, number] = [
                     obj.berthCenter[0] + (Math.random() - 0.5) * 20,
                     0,

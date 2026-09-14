@@ -7,6 +7,11 @@
  */
 
 import type { GpuDeviceLike } from './gpuChores/types'
+import {
+  HARBOR_CANVAS_ALPHA_MODE,
+  HARBOR_CANVAS_USAGE,
+  type CanvasSurfaceConfig,
+} from './canvasSurface'
 
 export type WebgpuProbeCompute = 'not-run' | 'passed' | 'failed' | 'unsupported'
 
@@ -32,10 +37,35 @@ export interface WebgpuProbePublic {
   compute: WebgpuProbeCompute
   reason: string | null
   ignoredForceGl: boolean
+  grantedFeatures?: string[]
+  grantedLimits?: Record<string, number>
+  requestedFeatures?: string[]
+  requestedLimits?: Record<string, number>
+  /** Swapchain config the probe validated (same usage / alphaMode Three uses). */
+  canvas?: CanvasSurfaceConfig
+  /** `GPUDeviceLostInfo.message` when `reason === 'device-lost'`. */
+  deviceLostMessage?: string
+  ready?: Promise<void>
 }
 
 export interface WebgpuProbeOutcome extends WebgpuProbePublic {
   device: GpuDeviceLike | null
+}
+
+export const OPTIONAL_FEATURES = [
+  'float32-filterable',
+  'timestamp-query',
+  'rg11b10ufloat-renderable',
+  'texture-compression-bc',
+  'texture-compression-etc2',
+  'texture-compression-astc',
+] as const
+
+export const TARGET_LIMITS: Record<string, number> = {
+  maxTextureDimension2D: 8192,
+  maxBufferSize: 256 * 1024 * 1024,
+  maxStorageBufferBindingSize: 128 * 1024 * 1024,
+  maxComputeWorkgroupSizeX: 256,
 }
 
 export class WebgpuRequiredError extends Error {
@@ -72,6 +102,7 @@ type ProbeCanvas = {
 type ProbeAdapter = {
   info?: WebgpuProbeAdapterInfo | null
   limits?: Record<string, number>
+  features?: { has: (feature: string) => boolean; forEach?: (cb: (f: string) => void) => void }
   requestDevice: (desc?: unknown) => Promise<GpuDeviceLike>
   requestAdapterInfo?: () => Promise<WebgpuProbeAdapterInfo>
 }
@@ -82,6 +113,69 @@ type ProbeGpu = {
 }
 
 let lastProbe: WebgpuProbeOutcome | null = null
+
+export interface WebgpuDeviceLostInfo {
+  /** `GPUDeviceLostReason` (`'unknown'` for driver resets / TDR). Never `'destroyed'`. */
+  reason: string
+  message: string
+}
+
+type DeviceLostListener = (info: WebgpuDeviceLostInfo) => void
+const deviceLostListeners = new Set<DeviceLostListener>()
+
+/** Subscribe to non-`destroyed` loss of the probed device. Returns unsubscribe. */
+export function onWebgpuDeviceLost(listener: DeviceLostListener): () => void {
+  deviceLostListeners.add(listener)
+  return () => {
+    deviceLostListeners.delete(listener)
+  }
+}
+
+/**
+ * Single lost-device path: republish the probe as failed (`reason: 'device-lost'`,
+ * no device), notify listeners (the renderer factory disposes), then dispatch
+ * `gpu-fatal` so GameShell swaps the dead `<Canvas>` for the overlay.
+ *
+ * Idempotent — a second report after the probe is already failed is ignored.
+ * Also the documented test double: `window.harborglowDebug.forceDeviceLost()`.
+ */
+export function reportWebgpuDeviceLost(info: WebgpuDeviceLostInfo): void {
+  if (lastProbe && !lastProbe.ok) return
+  if (lastProbe) {
+    publishWebgpuProbe({
+      ...lastProbe,
+      ok: false,
+      device: null,
+      reason: 'device-lost',
+      deviceLostMessage: info.message,
+    })
+  }
+  for (const listener of [...deviceLostListeners]) {
+    try {
+      listener(info)
+    } catch (err) {
+      console.error('🖥️ device-lost listener failed', err)
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('gpu-fatal', { detail: info.message }))
+  }
+}
+
+function watchDeviceLost(device: GpuDeviceLike): void {
+  const lost = (device as GpuDeviceLike & { lost?: Promise<{ reason?: string; message?: string }> }).lost
+  if (!lost || typeof lost.then !== 'function') return
+  void lost.then((info) => {
+    // `destroyed` is our own teardown (or Three's), not a fault.
+    if (info?.reason === 'destroyed') return
+    // A loss of a device we no longer own (e.g. after a reprobe) is not news.
+    if (lastProbe?.device !== device) return
+    reportWebgpuDeviceLost({
+      reason: info?.reason || 'unknown',
+      message: info?.message || 'Device lost',
+    })
+  })
+}
 
 export function getWebgpuProbe(): WebgpuProbeOutcome | null {
   return lastProbe
@@ -96,6 +190,13 @@ export function toWebgpuProbePublic(outcome: WebgpuProbeOutcome): WebgpuProbePub
     compute: outcome.compute,
     reason: outcome.reason,
     ignoredForceGl: outcome.ignoredForceGl,
+    grantedFeatures: outcome.grantedFeatures,
+    grantedLimits: outcome.grantedLimits,
+    requestedFeatures: outcome.requestedFeatures,
+    requestedLimits: outcome.requestedLimits,
+    canvas: outcome.canvas,
+    deviceLostMessage: outcome.deviceLostMessage,
+    ready: outcome.ready,
   }
 }
 
@@ -110,6 +211,7 @@ export function publishWebgpuProbe(outcome: WebgpuProbeOutcome): WebgpuProbeOutc
 
 export function resetWebgpuProbe(): void {
   lastProbe = null
+  deviceLostListeners.clear()
   if (typeof window !== 'undefined') {
     delete (window as unknown as { webgpuProbe?: WebgpuProbePublic }).webgpuProbe
   }
@@ -221,17 +323,17 @@ function resolveProbeCanvas(explicit?: ProbeCanvas | null): ProbeCanvas | null {
   return el
 }
 
-function configureCanvas(device: GpuDeviceLike, canvas: ProbeCanvas, gpu: ProbeGpu): boolean {
+function configureCanvas(device: GpuDeviceLike, canvas: ProbeCanvas, gpu: ProbeGpu): CanvasSurfaceConfig | null {
   const ctx = canvas.getContext('webgpu') as { configure?: (desc: Record<string, unknown>) => void } | null
-  if (!ctx || typeof ctx.configure !== 'function') return false
+  if (!ctx || typeof ctx.configure !== 'function') return null
   const format = typeof gpu.getPreferredCanvasFormat === 'function' ? gpu.getPreferredCanvasFormat() : 'bgra8unorm'
-  ctx.configure({
-    device,
+  const surface: CanvasSurfaceConfig = {
     format,
-    alphaMode: 'opaque',
-    usage: 0x10, // GPUTextureUsage.RENDER_ATTACHMENT
-  })
-  return true
+    alphaMode: HARBOR_CANVAS_ALPHA_MODE,
+    usage: HARBOR_CANVAS_USAGE,
+  }
+  ctx.configure({ device, ...surface })
+  return surface
 }
 
 async function runTrivialCompute(device: GpuDeviceLike): Promise<WebgpuProbeCompute> {
@@ -306,16 +408,46 @@ export async function runWebgpuBootProbe(
   const adapterInfo = await readAdapterInfo(adapter)
 
   let device: GpuDeviceLike
+  const requiredLimits: Record<string, number> = {}
+  if (adapter.limits) {
+    for (const [k, wanted] of Object.entries(TARGET_LIMITS)) {
+      const have = adapter.limits[k]
+      if (have == null) continue
+      requiredLimits[k] = k.startsWith('min') ? Math.max(wanted, have) : Math.min(wanted, have)
+    }
+  }
+
+  const requestedFeatures = OPTIONAL_FEATURES.filter(f => adapter?.features?.has(f))
+
   try {
-    device = await adapter.requestDevice()
+    device = await adapter.requestDevice({
+      label: 'harborglow-gpu',
+      requiredFeatures: requestedFeatures,
+      requiredLimits,
+    })
   } catch {
-    return fail({
-      reason: 'requestDevice-rejected',
-      browser,
-      ignoredForceGl,
-      adapterInfo,
+    try {
+      device = await adapter.requestDevice({})
+    } catch {
+      return fail({
+        reason: 'requestDevice-rejected',
+        browser,
+        ignoredForceGl,
+        adapterInfo,
+      })
+    }
+  }
+
+  const grantedFeatures: string[] = []
+  if ((device as any).features?.forEach) {
+    (device as any).features.forEach((f: string) => grantedFeatures.push(f))
+  } else if ((device as any).features?.has) {
+    // Fallback if no forEach, we can't easily iterate Set-like if not array, but we can check optional ones
+    OPTIONAL_FEATURES.forEach(f => {
+      if ((device as any).features.has(f)) grantedFeatures.push(f)
     })
   }
+  const grantedLimits = { ...((device as any).limits || adapter.limits || {}) }
 
   const limits = pickLimits(
     (device as GpuDeviceLike & { limits?: Record<string, number> }).limits ?? adapter.limits,
@@ -333,8 +465,10 @@ export async function runWebgpuBootProbe(
     })
   }
 
+  let surface: CanvasSurfaceConfig | null
   try {
-    if (!configureCanvas(device, canvas, gpu)) {
+    surface = configureCanvas(device, canvas, gpu)
+    if (!surface) {
       return fail({
         reason: 'configure-failed',
         browser,
@@ -357,7 +491,7 @@ export async function runWebgpuBootProbe(
 
   const compute = await runTrivialCompute(device)
 
-  return publishWebgpuProbe({
+  const outcome = publishWebgpuProbe({
     ok: true,
     browser,
     adapterInfo,
@@ -366,5 +500,14 @@ export async function runWebgpuBootProbe(
     reason: null,
     ignoredForceGl,
     device,
+    grantedFeatures,
+    grantedLimits,
+    requestedFeatures,
+    requestedLimits: requiredLimits,
+    canvas: surface,
+    ready: Promise.resolve(),
   })
+  // Watch only once this device is the published one, so the ownership check holds.
+  watchDeviceLost(device)
+  return outcome
 }

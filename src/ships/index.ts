@@ -2,6 +2,8 @@ export {
   isEmissiveSlotName,
   SHIP_EMISSIVE_SLOT_PREFIXES,
   SHIP_ATTACH_PREFIX,
+  socketCandidateNames,
+  resolveSocketName,
   SHIP_MODEL_FORWARD_AXIS,
   SHIP_MODEL_UNIT_METERS,
   SHIP_MODEL_UP_AXIS,
@@ -32,7 +34,6 @@ export {
   configureDreiGltf,
   configureGltfLoader,
   createConfiguredGltfLoader,
-  DRACO_DECODER_PATH,
 } from './configureGltfLoader'
 
 export {

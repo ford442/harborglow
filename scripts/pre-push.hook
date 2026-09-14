@@ -1,0 +1,4 @@
+#!/bin/sh
+# Opt-in pre-push hook — installed by: npm run setup:pre-push-hook
+# Skip once: git push --no-verify
+exec npm run verify

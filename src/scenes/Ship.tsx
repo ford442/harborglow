@@ -385,7 +385,7 @@ export default function ShipComponent({ ship }: ShipProps) {
             trawler: 0.09,
             horizon: 0.06,
             fireboat: 0.08,
-            icebreaker: 0.03  // Heavy nuclear hull is more stable
+            icebreaker: 0.04  // Heavy nuclear icebreaker — very stable
         }
         const bobOffset = bobOffsets[ship.type]
         const sineBob = Math.sin(state.clock.elapsedTime * 0.5 + ship.position[0]) * bobOffset

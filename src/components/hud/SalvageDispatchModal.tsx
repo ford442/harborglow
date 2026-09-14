@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { createGlassPanelStyles, createButtonStyles } from '../DesignSystem'
+import { recordHostInput } from '../../systems/sim/hostInput'
 import { stormSystem } from '../../systems/StormSystem'
 
 function formatExpiry(expiresAt: number): string {
@@ -47,6 +48,12 @@ export default function SalvageDispatchModal() {
       <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
         Legacy operators are broadcasting open-water distress calls.
       </div>
+      <button
+        onClick={() => recordHostInput('mission.iceEscort.start', { seed: 204 })}
+        style={{ ...createButtonStyles({ variant: 'secondary', size: 'sm', fullWidth: true }), fontSize: '10px' }}
+      >
+        Polar ice escort — Yamal channel
+      </button>
       {sortedContracts.map((contract) => (
         <div
           key={contract.id}
@@ -74,6 +81,7 @@ export default function SalvageDispatchModal() {
               onClick={() => {
                 acceptSalvageContract(contract.id)
                 stormSystem.start(contract.seaState === 'severe' ? 220 : 180)
+                recordHostInput('storm.start', { duration: contract.seaState === 'severe' ? 220 : 180 }, { alreadyApplied: true })
               }}
               style={{ ...createButtonStyles({ variant: 'primary', size: 'sm', fullWidth: false }), fontSize: '10px' }}
             >

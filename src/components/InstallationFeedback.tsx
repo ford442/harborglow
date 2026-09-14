@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { useEffect, useState, useCallback } from 'react'
-import * as Tone from 'tone'
+import { Instrument, unlockAudio } from '../systems/audio/voices'
 import { useGameStore } from '../store/useGameStore'
 import { useScreenShake } from '../hooks/useScreenShake'
 import { RigType } from '../systems/attachmentSystem'
@@ -17,20 +17,26 @@ interface InstallationFeedbackProps {
   onComplete?: () => void
 }
 
-// Sound effects using Tone.js
+// Sound effects — instruments created once, on first use
+let sounds: { synth: Instrument; metal: Instrument; sparkle: Instrument; bass: Instrument } | null = null
+
+function getSounds() {
+  sounds ??= {
+    synth: new Instrument(),
+    metal: new Instrument({ waveform: 'metal' }),
+    sparkle: new Instrument({ waveform: 'metal', envelope: { decay: 0.4, release: 0.2 }, volumeDb: -15 }),
+    bass: new Instrument({ waveform: 'membrane' }),
+  }
+  return sounds
+}
+
 const playInstallSound = async (rigType: RigType) => {
-  await Tone.start()
+  await unlockAudio()
 
-  const synth = new Tone.PolySynth(Tone.Synth).toDestination()
-  const metal = new Tone.MetalSynth({
-    harmonicity: 5.1,
-    modulationIndex: 32,
-    resonance: 4000,
-    octaves: 1.5
-  }).toDestination()
+  const { synth, metal, sparkle } = getSounds()
 
-  // Small lookahead buffer — avoids scheduling at an already-past AudioContext time
-  const now = Tone.now() + 0.05
+  // Small lookahead so the clunk, chime and sparkle keep their spacing
+  const now = 0.05
 
   // Chord based on rig type
   const chords: Record<RigType, string[]> = {
@@ -44,41 +50,30 @@ const playInstallSound = async (rigType: RigType) => {
   const chord = chords[rigType]
 
   // Mechanical "clunk"
-  metal.triggerAttackRelease('32n', now)
+  metal.play(240, '32n', { delay: now })
 
   // Musical chime
-  synth.triggerAttackRelease(chord, '8n', now + 0.05)
+  synth.play(chord, '8n', { delay: now + 0.05 })
 
   // Sparkle effect
-  const sparkle = new Tone.MetalSynth({
-    harmonicity: 12,
-    resonance: 800,
-    modulationIndex: 20,
-    envelope: { decay: 0.4, release: 0.2 },
-    volume: -15,
-  }).toDestination()
-
-  sparkle.triggerAttackRelease('32n', now + 0.1)
+  sparkle.play(240, '32n', { delay: now + 0.1 })
 }
 
 // Play celebration sound for fully upgraded ship
 const playCelebrationSound = async () => {
-  await Tone.start()
+  await unlockAudio()
 
-  const synth = new Tone.PolySynth(Tone.Synth).toDestination()
-  const bass = new Tone.MembraneSynth().toDestination()
-
-  const now = Tone.now()
+  const { synth, bass } = getSounds()
 
   // Fanfare
-  synth.triggerAttackRelease('C5', '8n', now)
-  synth.triggerAttackRelease('E5', '8n', now + 0.1)
-  synth.triggerAttackRelease('G5', '8n', now + 0.2)
-  synth.triggerAttackRelease('C6', '2n', now + 0.3)
+  synth.play('C5', '8n')
+  synth.play('E5', '8n', { delay: 0.1 })
+  synth.play('G5', '8n', { delay: 0.2 })
+  synth.play('C6', '2n', { delay: 0.3 })
 
   // Bass hit
-  bass.triggerAttackRelease('C2', '4n', now)
-  bass.triggerAttackRelease('G2', '4n', now + 0.4)
+  bass.play('C2', '4n')
+  bass.play('G2', '4n', { delay: 0.4 })
 }
 
 // Chromatic full-screen flash overlay

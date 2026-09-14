@@ -39,6 +39,9 @@ export interface GpuDeviceLike {
   createBindGroup: (desc: Record<string, unknown>) => GpuBindGroupLike
   createCommandEncoder: () => GpuCommandEncoderLike
   queue: GpuQueueLike
+  /** WGSL / validation errors are async; scopes are the only way to observe them. */
+  pushErrorScope?: (filter: 'validation' | 'out-of-memory' | 'internal') => void
+  popErrorScope?: () => Promise<{ message: string } | null>
 }
 
 export interface GpuShaderModuleLike {

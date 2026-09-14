@@ -25,6 +25,7 @@ import { reputationSystem } from '../../systems/reputationSystem';
 import type { TrainingModuleId } from '../../systems/trainingSystem';
 import type { TrainingProgress } from '../../systems/trainingSystem';
 import { trainingSystem } from '../../systems/trainingSystem';
+import { iceFieldSystem } from '../../systems/ice/IceFieldSystem';
 import { isTugboatTrainingModule } from '../../systems/trainingSystem';
 import { setupTrainingScenario } from '../../systems/trainingSystem';
 import type { AcousticNote } from '../../systems/commsSystem';
@@ -188,6 +189,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
             totalTonsAssisted: state.tugboatCareerStats.totalTonsAssisted + objectiveTons,
             cleanTows: state.tugboatCareerStats.cleanTows + (state.towLineSnapped ? 0 : 1),
             nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
+            iceEscorts: state.tugboatCareerStats.iceEscorts,
         }
         const newCredits = state.harborCredits + objectiveCreditReward
         const newReputation = state.reputation + objectiveRepReward
@@ -242,6 +244,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
                 currentDrift: [0, 0],
             },
         })
+        iceFieldSystem.reset()
         console.log('🚤 Tugboat mode reset')
     },
 
@@ -291,7 +294,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
     completeMission: (bonus = 0) => set((state) => {
         if (!state.activeMission) return state
         const mission = state.activeMission
-        const conditionMultiplier = mission.type === 'salvage'
+        const conditionMultiplier = mission.type === 'salvage' || mission.type === 'ice-escort'
             ? Math.max(0.6, 1 - mission.damage / Math.max(1, mission.maxDamage))
             : 1
         const tierBonus = getReputationTierMultiplier()
@@ -310,9 +313,16 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
                 totalTonsAssisted: state.tugboatCareerStats.totalTonsAssisted + (TUG_TONS_BY_SHIP[mission.targetShipType] ?? 90),
                 cleanTows: state.tugboatCareerStats.cleanTows + (mission.damage <= 10 && !state.towLineSnapped ? 1 : 0),
                 nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
+                iceEscorts: state.tugboatCareerStats.iceEscorts,
+            }
+            : mission.type === 'ice-escort'
+            ? {
+                ...state.tugboatCareerStats,
+                iceEscorts: state.tugboatCareerStats.iceEscorts + 1,
+                nightRescues: state.tugboatCareerStats.nightRescues + (isNightRescue ? 1 : 0),
             }
             : state.tugboatCareerStats
-        const reputationGain = mission.type === 'salvage' && mission.reputationReward
+        const reputationGain = (mission.type === 'salvage' || mission.type === 'ice-escort') && mission.reputationReward
             ? Math.round(mission.reputationReward * tierBonus)
             : 0
         const newReputation = state.reputation + reputationGain
@@ -336,6 +346,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
             salvageSuccessfulTows,
             tugboatCareerStats,
             tugboatUpgrades,
+            boothTier: mission.type === 'ice-escort' ? 3 : state.boothTier,
             activeMission: { ...mission, status: 'completed' as const, reward: totalReward },
         }
     }),
@@ -343,11 +354,11 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
     failMission: (penalty = 100) => set((state) => {
         if (!state.activeMission) return state
         const mission = state.activeMission
-        const appliedPenalty = mission.type === 'salvage'
+        const appliedPenalty = mission.type === 'salvage' || mission.type === 'ice-escort'
             ? mission.failurePenalty ?? penalty
             : penalty
         const newCredits = Math.max(0, state.harborCredits - appliedPenalty)
-        const newReputation = mission.type === 'salvage'
+        const newReputation = mission.type === 'salvage' || mission.type === 'ice-escort'
             ? Math.max(0, state.reputation - 40)
             : state.reputation
         console.log(`❌ Mission failed. Penalty: $${appliedPenalty}`)

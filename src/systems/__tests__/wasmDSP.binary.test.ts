@@ -26,6 +26,15 @@ interface BinaryExports {
   ): void
   dsp_audio_rms(data: number, count: number): number
   dsp_fft_r2c(input: number, outReal: number, outImag: number, log2N: number): void
+  dsp_fft2d(re: number, im: number, n: number, inverse: number): void
+  dsp_hull_sample_batch(
+    xs: number, zs: number, count: number, time: number,
+    layers: number, nLayers: number, outH: number, outN: number,
+  ): void
+  dsp_heightfield_sample_batch(
+    grid: number, n: number, patchSize: number,
+    xs: number, zs: number, count: number, outH: number, outN: number,
+  ): void
   dsp_additive_block(
     output: number, count: number, frequencies: number, amplitudes: number,
     harmonics: number, sampleRate: number, phases: number,
@@ -176,6 +185,7 @@ describe('WASM vs TypeScript golden vectors', () => {
       expect(api.dsp_mix(10, 20, 0.5)).toBeCloseTo(wasmDSP.mix(10, 20, 0.5), 6)
       expect(api.dsp_clamp(-2, 0, 1)).toBeCloseTo(wasmDSP.clamp(-2, 0, 1), 6)
       expect(api.dsp_remap(0.5, 0, 1, 0, 100)).toBeCloseTo(wasmDSP.remap(0.5, 0, 1, 0, 100), 5)
+      expect(api.dsp_remap(3, 5, 5, 0, 100)).toBe(0)
       expect(api.dsp_smooth_step(0.5)).toBeCloseTo(wasmDSP.smoothStep(0.5), 6)
       expect(api.dsp_smoother_step(0.25)).toBeCloseTo(wasmDSP.smootherStep(0.25), 5)
       expect(api.dsp_sin_approx(Math.PI / 2)).toBeCloseTo(wasmDSP.sinApprox(Math.PI / 2), 5)
@@ -209,6 +219,53 @@ describe('WASM vs TypeScript golden vectors', () => {
         expect(wasm.real[k]).toBeCloseTo(js.real[k], 4)
         expect(wasm.imag[k]).toBeCloseTo(js.imag[k], 4)
       }
+    }
+  })
+
+  it('matches 2-D FFT and hull probe batch', () => {
+    const n = 8
+    const re = Float32Array.from({ length: n * n }, (_, i) => Math.sin(i * 1.1))
+    const im = new Float32Array(n * n)
+    const jsRe = re.slice()
+    const jsIm = im.slice()
+    wasmDSP.fft2d(jsRe, jsIm, n, false)
+
+    for (const [, api] of reactors()) {
+      const rePtr = api.malloc(n * n * 4)
+      const imPtr = api.malloc(n * n * 4)
+      new Float32Array(api.memory.buffer, rePtr, n * n).set(re)
+      new Float32Array(api.memory.buffer, imPtr, n * n).set(im)
+      api.dsp_fft2d(rePtr, imPtr, n, 0)
+      const wasmRe = new Float32Array(api.memory.buffer, rePtr, n * n)
+      const wasmIm = new Float32Array(api.memory.buffer, imPtr, n * n)
+      for (let i = 0; i < n * n; i++) {
+        expect(wasmRe[i]).toBeCloseTo(jsRe[i], 4)
+        expect(wasmIm[i]).toBeCloseTo(jsIm[i], 4)
+      }
+      api.free(rePtr)
+      api.free(imPtr)
+
+      const count = 4
+      const xs = Float32Array.from([0, 1, 2, 3])
+      const zs = Float32Array.from([0, 0.5, -1, 2])
+      const layers = Float32Array.from([1.2, 0.4, 0.8, 0.6, 0.8])
+      const outH = new Float32Array(count)
+      const outN = new Float32Array(count * 3)
+      wasmDSP.hullSampleBatch(xs, zs, 0.5, layers, 1, outH, outN)
+      const xsPtr = api.malloc(count * 4)
+      const zsPtr = api.malloc(count * 4)
+      const layPtr = api.malloc(5 * 4)
+      const hPtr = api.malloc(count * 4)
+      const nPtr = api.malloc(count * 12)
+      new Float32Array(api.memory.buffer, xsPtr, count).set(xs)
+      new Float32Array(api.memory.buffer, zsPtr, count).set(zs)
+      new Float32Array(api.memory.buffer, layPtr, 5).set(layers)
+      api.dsp_hull_sample_batch(xsPtr, zsPtr, count, 0.5, layPtr, 1, hPtr, nPtr)
+      const wasmH = new Float32Array(api.memory.buffer, hPtr, count)
+      for (let i = 0; i < count; i++) {
+        expect(wasmH[i]).toBeCloseTo(outH[i], 5)
+      }
+      ;[xsPtr, zsPtr, layPtr, hPtr, nPtr].forEach(api.free)
     }
   })
 })

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Suspense, lazy, type ComponentProps } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense, lazy, type ComponentProps } from 'react'
 import { Canvas, type Renderer as FiberRenderer } from '@react-three/fiber'
 import { Physics } from '@react-three/rapier'
 import { KeyboardControls } from '@react-three/drei'
@@ -16,6 +16,8 @@ import {
   runWebgpuBootProbe,
   getWebgpuProbe,
   toWebgpuProbePublic,
+  readScreenshotPixelsAsync,
+  reportWebgpuDeviceLost,
   type WebgpuProbePublic,
 } from './rendering'
 import type { TrainingModuleId } from './systems/trainingSystem'
@@ -68,6 +70,7 @@ export default function GameShell({
   })
 
   const [screenshotMode] = useState(() => parseScreenshotMode())
+  const rendererRef = useRef<FiberRenderer | null>(null)
   const qualityPreset = useGameStore(state => state.qualityPreset)
   const shadowQuality = shadowQualityForPreset(qualityPreset)
 
@@ -135,9 +138,46 @@ export default function GameShell({
         setPhysicsDebug((prev) => !prev)
       }
     }
+    // Device loss: the factory already disposed the renderer; unmount the dead Canvas.
+    const handleGpuFatal = () => {
+      rendererRef.current = null
+      setFactoryFailed(true)
+      const latest = getWebgpuProbe()
+      if (latest) setProbe(toWebgpuProbePublic(latest))
+    }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('gpu-fatal', handleGpuFatal)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('gpu-fatal', handleGpuFatal)
+    }
   }, [])
+
+  useEffect(() => {
+    if (!screenshotMode) return
+    const debug = {
+      /** RGBA8 swapchain readback of the next rendered frame as a PNG data URL. */
+      captureCanvasPng: async () => {
+        const renderer = rendererRef.current
+        if (!renderer) return null
+        const pixels = await readScreenshotPixelsAsync(renderer)
+        if (!pixels) return null
+        const out = document.createElement('canvas')
+        out.width = pixels.width
+        out.height = pixels.height
+        const image = new ImageData(new Uint8ClampedArray(pixels.data), pixels.width, pixels.height)
+        out.getContext('2d')?.putImageData(image, 0, 0)
+        return { width: pixels.width, height: pixels.height, format: pixels.format, dataUrl: out.toDataURL('image/png') }
+      },
+      /** Test double for `device.lost` (reason 'unknown') — same path as a real loss. */
+      forceDeviceLost: (message = 'forced by harborglowDebug') =>
+        reportWebgpuDeviceLost({ reason: 'unknown', message }),
+    }
+    ;(window as unknown as { harborglowDebug?: typeof debug }).harborglowDebug = debug
+    return () => {
+      delete (window as unknown as { harborglowDebug?: typeof debug }).harborglowDebug
+    }
+  }, [screenshotMode])
 
   if (!probeOk || factoryFailed) {
     return <WebGPUFatalOverlay probe={factoryFailed || probe?.ok === false ? probe : null} />
@@ -158,6 +198,7 @@ export default function GameShell({
           display: 'block',
         }}
         onCreated={(state) => {
+          rendererRef.current = state.gl
           const canvas = (state.gl as { domElement?: HTMLCanvasElement }).domElement
           if (canvas) {
             canvas.dataset.renderer = 'webgpu'

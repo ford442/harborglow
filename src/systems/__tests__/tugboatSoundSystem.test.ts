@@ -3,48 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // =============================================================================
 // TugboatSoundSystem — smoke tests
 //
-// Tone.js is mocked (no audio context in Node) and Zustand is mocked to avoid
-// full store initialisation.  All tests cover the observable pure-logic paths:
-// enabled flag, start/stop lifecycle, volume control, and stinger dispatch.
+// Audio goes to the recording fake audioRuntime installed by src/test/setup.ts
+// and Zustand is mocked to avoid full store initialisation.  Tests cover the
+// enabled flag, start/stop lifecycle, engine drone, ducking, and stingers.
 // =============================================================================
-
-// ---------------------------------------------------------------------------
-// Mock Tone.js
-// ---------------------------------------------------------------------------
-vi.mock('tone', () => {
-  class FakeNode {
-    connect = vi.fn().mockReturnThis()
-    toDestination = vi.fn().mockReturnThis()
-    dispose = vi.fn()
-    volume = { value: 0, rampTo: vi.fn() }
-    frequency = { value: 0 }
-    min = 0
-    max = 0
-    start = vi.fn().mockReturnThis()
-    stop = vi.fn()
-    triggerAttackRelease = vi.fn()
-    triggerAttack = vi.fn()
-    triggerRelease = vi.fn()
-    set = vi.fn()
-  }
-
-  class FakePolySynth extends FakeNode {
-    constructor(_VoiceType?: unknown, _options?: unknown) { super() }
-  }
-
-  return {
-    context: { state: 'running' },
-    start: vi.fn(),
-    now: vi.fn(() => 0),
-    Oscillator: FakeNode,
-    LFO: FakeNode,
-    Filter: FakeNode,
-    Volume: FakeNode,
-    NoiseSynth: FakeNode,
-    Synth: FakeNode,
-    PolySynth: FakePolySynth,
-  }
-})
 
 // ---------------------------------------------------------------------------
 // Mock Zustand store
@@ -61,6 +23,16 @@ vi.mock('../../store/useGameStore', () => {
 // Import system under test AFTER mocks
 // ---------------------------------------------------------------------------
 import { tugboatSoundSystem, TUG_AUDIO_CONFIG } from '../tugboatSoundSystem'
+import { audioRuntime } from '../audio/AudioRuntime'
+import { WAVEFORMS } from '../audio/voices'
+import type { FakeAudioRuntime } from '../../test/audioRuntimeMock'
+
+const fake = audioRuntime as unknown as FakeAudioRuntime
+
+/** Sustained (no-duration) voices currently held. */
+function heldNotes() {
+  return fake.notes.filter((n) => n.options.duration === undefined && fake.active.has(n.id))
+}
 
 // ---------------------------------------------------------------------------
 
@@ -78,21 +50,29 @@ describe('TugboatSoundSystem — lifecycle', () => {
     expect(tugboatSoundSystem.isRunning()).toBe(false)
   })
 
-  it('becomes running after start()', async () => {
+  it('becomes running after start() and holds the engine thrum drone', async () => {
+    fake.reset()
     await tugboatSoundSystem.start()
     expect(tugboatSoundSystem.isRunning()).toBe(true)
+    const held = heldNotes()
+    expect(held).toHaveLength(1)
+    expect(held[0].note).toBe(TUG_AUDIO_CONFIG.thrumBaseFreq)
+    expect(held[0].options.waveform).toBe(WAVEFORMS.triangle)
   })
 
-  it('is not running after stop()', async () => {
+  it('is not running after stop() and releases the thrum', async () => {
     await tugboatSoundSystem.start()
     tugboatSoundSystem.stop()
     expect(tugboatSoundSystem.isRunning()).toBe(false)
+    expect(heldNotes()).toHaveLength(0)
   })
 
-  it('start() is idempotent — calling twice keeps it running', async () => {
+  it('start() is idempotent — calling twice keeps one thrum voice', async () => {
+    fake.reset()
     await tugboatSoundSystem.start()
     await tugboatSoundSystem.start()
     expect(tugboatSoundSystem.isRunning()).toBe(true)
+    expect(heldNotes()).toHaveLength(1)
   })
 })
 
@@ -151,16 +131,44 @@ describe('TugboatSoundSystem — update() guard', () => {
       tugboatSoundSystem.update(100, 100, 1.0, 0.016)
     }).not.toThrow()
   })
+
+  it('raises thrum pitch with RPM', async () => {
+    fake.reset()
+    await tugboatSoundSystem.start()
+    tugboatSoundSystem.update(100, 100, 0, 0.016)
+    const held = heldNotes()
+    expect(held).toHaveLength(1)
+    expect(held[0].note as number).toBeGreaterThan(TUG_AUDIO_CONFIG.thrumMaxFreq - 4)
+  })
+
+  it('ducks the thrum level during heavy cavitation', async () => {
+    fake.reset()
+    await tugboatSoundSystem.start()
+    tugboatSoundSystem.update(100, 100, 0, 0.016)
+    const loud = heldNotes()[0].options.velocity!
+    tugboatSoundSystem.update(100, 100, 1.0, 0.016)
+    const ducked = heldNotes()[0].options.velocity!
+    expect(ducked).toBeLessThan(loud)
+  })
 })
 
 describe('TugboatSoundSystem — stingers', () => {
   beforeEach(async () => {
     tugboatSoundSystem.setEnabled(true)
     await tugboatSoundSystem.start()
+    fake.reset()
   })
 
   afterEach(() => {
     tugboatSoundSystem.stop()
+    vi.useRealTimers()
+  })
+
+  it('triggerHandshakeComplete() plays its full chord', async () => {
+    vi.useFakeTimers()
+    await tugboatSoundSystem.triggerHandshakeComplete()
+    vi.runAllTimers()
+    expect(fake.notes.map((n) => n.note)).toEqual(['C4', 'E4', 'G4', 'C5'])
   })
 
   it('triggerTowLineAttach() resolves without throwing', async () => {
@@ -181,8 +189,10 @@ describe('TugboatSoundSystem — stingers', () => {
 
   it('stingers are no-ops when disabled', async () => {
     tugboatSoundSystem.setEnabled(false)
+    fake.reset()
     await expect(tugboatSoundSystem.triggerTowLineAttach()).resolves.toBeUndefined()
     await expect(tugboatSoundSystem.triggerHandshakeComplete()).resolves.toBeUndefined()
+    expect(fake.notes).toHaveLength(0)
   })
 })
 

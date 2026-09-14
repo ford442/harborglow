@@ -50,10 +50,12 @@ type SessionRenderer = {
 
 export interface GpuChoreTickArgs {
   renderer: SessionRenderer
+  colorTexture?: THREE.Texture | null
   composer?: {
     readBuffer?: { texture?: THREE.Texture }
     writeBuffer?: { texture?: THREE.Texture }
     renderTarget2?: { texture?: THREE.Texture }
+    getTexture?: (name?: string) => THREE.Texture
   } | null
   dofEnabled?: boolean
 }
@@ -173,7 +175,7 @@ export class GpuChoreSession {
       }
     }
 
-    const srcTex = composerColorTexture(args.composer ?? null)
+    const srcTex = args.colorTexture ?? composerColorTexture(args.composer ?? null)
     const doHist = this.frame % HIST_PERIOD === 1
     const doBlur = args.dofEnabled !== false && this.frame % HIST_PERIOD === BLUR_OFFSET
 

@@ -17,8 +17,12 @@ export const SHIP_MODEL_FORWARD_AXIS = '+Z' as const
 export const SHIP_MODEL_UP_AXIS = '+Y' as const
 export const SHIP_MODEL_UNIT_METERS = 1
 
-/** Prefix for optional attachment empties (both `stack1` and `attach_stack1` resolve). */
-export const SHIP_ATTACH_PREFIX = 'attach_'
+/**
+ * Prefix for optional attachment empties (both `stack1` and `attach_stack1` resolve).
+ * Re-exported from the shared resolution module so the runtime and
+ * `scripts/verify-ship-glb.mjs` agree on socket binding by construction.
+ */
+export { SHIP_ATTACH_PREFIX, socketCandidateNames, resolveSocketName } from './shipSocketResolution.mjs'
 
 /**
  * Mesh/material name prefixes that opt a GLB surface into night-emissive driving.

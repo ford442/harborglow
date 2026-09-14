@@ -148,11 +148,12 @@ interface VolumetricFogProps {
 
 export default function VolumetricLighting({ lights }: VolumetricFogProps) {
   const meshRef = useRef<THREE.Mesh>(null)
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null)
   const { camera } = useThree()
   
   const timeOfDay = useGameStore(state => state.timeOfDay)
   const weather = useGameStore(state => state.weather)
+  const fogDensity = weather === 'fog' ? 0.05 : weather === 'storm' ? 0.03 : 0.015
   
   // Calculate sun direction based on time
   const sunDirection = useMemo(() => {
@@ -232,7 +233,7 @@ export default function VolumetricLighting({ lights }: VolumetricFogProps) {
     uTime: { value: 0 },
     uCameraPos: { value: new THREE.Vector3() },
     uFogColor: { value: fogColor },
-    uFogDensity: { value: weather === 'fog' ? 0.05 : weather === 'storm' ? 0.03 : 0.015 },
+    uFogDensity: { value: fogDensity },
     uLightPositions: { value: padVec3(lightData.positions, MAX_LIGHTS) },
     uLightColors: { value: padColor(lightData.colors, MAX_LIGHTS) },
     uLightIntensities: { value: lightData.intensities },
@@ -246,7 +247,7 @@ export default function VolumetricLighting({ lights }: VolumetricFogProps) {
     uTimeOfDay: { value: timeOfDay },
     uSunDirection: { value: sunDirection },
     uSunColor: { value: sunColor }
-  }), [fogColor, lightData, timeOfDay, sunDirection, sunColor, weather])
+  }), [fogColor, lightData, timeOfDay, sunDirection, sunColor, fogDensity])
   
   // Vertex shader - full screen quad
   const vertexShader = `
@@ -372,19 +373,19 @@ export default function VolumetricLighting({ lights }: VolumetricFogProps) {
   
   useFrame((state) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      materialRef.current.uniforms.uCameraPos.value.copy(camera.position)
+      const drift = 0.85 + Math.sin(state.clock.elapsedTime * 0.25) * 0.15
+      materialRef.current.opacity = Math.max(0.02, fogDensity * 5.2 * drift)
     }
   })
   
   return (
     <mesh ref={meshRef} frustumCulled={false}>
       <planeGeometry args={[2, 2]} />
-      <shaderMaterial
+      <meshBasicMaterial
         ref={materialRef}
-        uniforms={uniforms}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
+        color={fogColor}
+        opacity={fogDensity * 5.2}
+        toneMapped={false}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
@@ -472,9 +473,9 @@ export function VolumetricLightCone({
   
   useFrame((state) => {
     if (meshRef.current) {
-      const material = meshRef.current.material as THREE.ShaderMaterial
-      material.uniforms.uTime.value = state.clock.elapsedTime
-      material.uniforms.uIntensity.value = intensity * getLookDevSettings().godRayDensity
+      const material = meshRef.current.material as THREE.MeshBasicMaterial
+      const sparkle = 0.85 + Math.sin(state.clock.elapsedTime * 2.5) * 0.15
+      material.opacity = Math.max(0.02, intensity * getLookDevSettings().godRayDensity * 0.3 * sparkle)
     }
   })
   
@@ -485,10 +486,10 @@ export function VolumetricLightCone({
       rotation={rotation}
     >
       <coneGeometry args={[Math.tan(angle) * distance, distance, 32, 1, true]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
+      <meshBasicMaterial
+        color={color}
+        toneMapped={false}
+        opacity={intensity * 0.3}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
@@ -603,18 +604,19 @@ export function ShipVolumetricGlow({
   
   useFrame((state) => {
     if (meshRef.current) {
-      const material = meshRef.current.material as THREE.ShaderMaterial
-      material.uniforms.uTime.value = state.clock.elapsedTime
+      const material = meshRef.current.material as THREE.MeshBasicMaterial
+      const pulse = 0.8 + Math.sin(state.clock.elapsedTime * 2.0) * 0.2
+      material.opacity = Math.max(0.02, intensity * 0.45 * pulse)
     }
   })
   
   return (
     <mesh ref={meshRef} position={position}>
       <sphereGeometry args={[radius, 32, 32]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
+      <meshBasicMaterial
+        color={color}
+        toneMapped={false}
+        opacity={intensity * 0.45}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}

@@ -32,12 +32,14 @@ function createFallbackContext() {
     createGain() {
       return {
         gain: {
+          value: 1,
           setValueAtTime: vi.fn(),
           linearRampToValueAtTime: vi.fn(),
           cancelScheduledValues: vi.fn(),
           setTargetAtTime: vi.fn(),
         },
         connect: vi.fn(),
+        disconnect: vi.fn(),
       } as unknown as GainNode
     }
   }
@@ -64,6 +66,18 @@ describe('AudioRuntime capability fallback', () => {
     const voice = runtime.noteOn('A4', { duration: 0 })
     expect(voice).toBeGreaterThanOrEqual(0)
     runtime.stopAll()
+    await runtime.dispose()
+  })
+
+  it('mutes and restores the master bus', async () => {
+    vi.stubGlobal('AudioContext', createFallbackContext())
+    vi.stubGlobal('crossOriginIsolated', false)
+    const runtime = new AudioRuntime()
+    runtime.setMasterMuted(true)
+    await runtime.resume()
+    expect(runtime.isMasterMuted).toBe(true)
+    runtime.setMasterMuted(false)
+    expect(runtime.isMasterMuted).toBe(false)
     await runtime.dispose()
   })
 

@@ -24,17 +24,7 @@ interface HeatShimmerProps {
 
 export function HeatShimmer({ scale = 1, intensity = 1, visible = true }: HeatShimmerProps) {
   const meshRef = useRef<THREE.Mesh>(null)
-  const matRef = useRef<THREE.ShaderMaterial>(null)
-
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uHeat: { value: intensity },
-      uBass: { value: 0 },
-      uScale: { value: getRigPolishScales().shimmer },
-    }),
-    [intensity]
-  )
+  const matRef = useRef<THREE.MeshBasicMaterial>(null)
 
   useFrame((state) => {
     if (!visible || getRigPolishScales().shimmer <= 0) {
@@ -45,10 +35,10 @@ export function HeatShimmer({ scale = 1, intensity = 1, visible = true }: HeatSh
     const mat = matRef.current
     if (!mat) return
     const audio = getAudioAnalysisData()
-    mat.uniforms.uTime.value = state.clock.elapsedTime
-    mat.uniforms.uBass.value = audio.bass
-    mat.uniforms.uHeat.value = intensity * (0.7 + audio.energy * 0.5)
-    mat.uniforms.uScale.value = getRigPolishScales().shimmer
+    const shimmer = getRigPolishScales().shimmer
+    const ripple = Math.sin(state.clock.elapsedTime * 9.0) * Math.sin(state.clock.elapsedTime * 7.0)
+    mat.opacity = Math.max(0, intensity * (0.18 + audio.energy * 0.12) * shimmer * (0.9 + ripple * 0.1))
+    mat.color.setRGB(1.0, 0.58 + audio.bass * 0.12, 0.18 + audio.energy * 0.18)
   })
 
   if (!visible) return null
@@ -56,37 +46,15 @@ export function HeatShimmer({ scale = 1, intensity = 1, visible = true }: HeatSh
   return (
     <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]} scale={[2.2 * scale, 1.6 * scale, 1]}>
       <planeGeometry args={[1, 1, 1, 1]} />
-      <shaderMaterial
+      <meshBasicMaterial
         ref={matRef}
-        uniforms={uniforms}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         side={THREE.DoubleSide}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform float uTime;
-          uniform float uHeat;
-          uniform float uBass;
-          uniform float uScale;
-          varying vec2 vUv;
-
-          void main() {
-            if (uScale <= 0.01) discard;
-            vec2 uv = vUv - 0.5;
-            float ripple = sin(uTime * 9.0 + uv.y * 14.0) * sin(uTime * 7.0 + uv.x * 11.0);
-            float radial = 1.0 - length(uv * vec2(1.15, 0.85));
-            float alpha = smoothstep(0.0, 0.42, radial) * uHeat * uScale * 0.32 * (0.75 + uBass * 0.55);
-            alpha *= 0.85 + ripple * 0.15;
-            gl_FragColor = vec4(vec3(1.0, 0.58, 0.18), alpha);
-          }
-        `}
+        color="#ff8f2e"
+        opacity={0.24}
+        toneMapped={false}
       />
     </mesh>
   )
@@ -117,8 +85,7 @@ export function RigHousingShell({
   useFrame(() => {
     const scales = getRigPolishScales()
     const p = powerRef.current
-    rimMat.uniforms.uPower.value = p
-    rimMat.uniforms.uRimStrength.value = scales.rimStrength
+    rimMat.opacity = Math.max(0, p * scales.rimStrength * 0.75)
     if (bodyMatRef.current) {
       bodyMatRef.current.roughness = THREE.MathUtils.lerp(0.28, 0.62, 1 - p * 0.35)
       bodyMatRef.current.metalness = metalness

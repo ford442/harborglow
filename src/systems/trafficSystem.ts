@@ -72,7 +72,8 @@ const TRAFFIC_CONFIG = {
         ferry: 30,       // Quick turnaround - passengers + vehicles
         trawler: 60,     // Offload catch + resupply
         horizon: 90,     // Research ops and equipment checks
-        fireboat: 20     // Quick emergency response turnaround
+        fireboat: 20,    // Quick emergency response turnaround
+        icebreaker: 180, // Arctic escort / channel clearing
     } as Record<ShipType, number>,
     
     // Time pressure thresholds
@@ -122,10 +123,9 @@ function generateShipName(type: ShipType): string {
         trawler: ['North', 'Silver', 'Iron', 'Cold', 'Deep'],
         horizon: ['Horizon', 'Abyss', 'Deep', 'Ocean', 'Trench'],
         fireboat: ['Rescue', 'Guardian', 'Shield', 'Alert', 'Spray'],
-        icebreaker: ['Polar', 'Arktika', 'Rosatomflot', 'Nuclear', 'Yamal']
+        icebreaker: ['Arctic', 'Polar', 'Northern', 'Frost', 'Vaygach']
     }
     const suffixes = ['Star', 'Queen', 'Leader', 'Express', 'Glory', 'Venture', 'Pioneer']
-
     const prefix = prefixes[type][Math.floor(simRandom() * prefixes[type].length)]
     const suffix = suffixes[Math.floor(simRandom() * suffixes.length)]
     const number = Math.floor(simRandom() * 900) + 100
@@ -149,7 +149,7 @@ function generateOriginDestination(type: ShipType): { origin: string; destinatio
         trawler: ['Juneau', 'Kodiak', 'Dutch Harbor', 'Sitka', 'Ketchikan'],
         horizon: ['Woods Hole', 'Scripps', 'Monterey Bay', 'Hawaii', 'South Pacific'],
         fireboat: ['Harbor Station', 'Fire Dock', 'Emergency Pier', 'Rescue Berth', 'Port Authority'],
-        icebreaker: ['Murmansk', 'Sabetta', 'Dudinka', 'North Pole', 'Northern Sea Route']
+        icebreaker: ['Murmansk', 'Sabetta', 'Dudinka', 'Pevek', 'Dikson']
     }
 
     const possiblePorts = ports[type]
@@ -176,7 +176,7 @@ function generateCargoType(type: ShipType): string {
         trawler: ['Salmon', 'Halibut', 'Crab', 'Pollock'],
         horizon: ['Scientific Equipment', 'Research Team', 'Core Samples', 'ROV Systems'],
         fireboat: ['Emergency Crew', 'Fire Suppression Gear', 'Rescue Equipment', 'Foam Supply'],
-        icebreaker: ['Escort Convoy', 'Fuel Supplies', 'Arctic Cargo', 'Polar Research Team']
+        icebreaker: ['Ice Escort', 'Convoy Lead', 'Channel Breaking', 'NSR Escort']
     }
     const options = cargos[type]
     return options[Math.floor(simRandom() * options.length)]
@@ -223,6 +223,13 @@ class TrafficSystem {
         this.queue.missed = []
     }
 
+    /**
+     * Restore the traffic system to its constructed defaults. Used by the
+     * headless deterministic sim harness (src/systems/sim/headless.ts) and by
+     * test isolation. Traffic spawning draws from the seeded sim RNG
+     * (simRandom()/simNowMs(), see docs/systems/DETERMINISM.md), so a reset
+     * followed by the same seed reproduces the same arrivals.
+     */
     reset() {
         this.queue = {
             ships: [],
@@ -230,21 +237,21 @@ class TrafficSystem {
             approaching: [],
             queued: [],
             completed: [],
-            missed: []
+            missed: [],
         }
         this.schedule = {
             day: 1,
             expectedArrivals: 6,
             peakHours: [8, 9, 10, 17, 18, 19],
-            currentUtilization: 0
+            currentUtilization: 0,
         }
         this.lastUpdate = 0
         this.timePressureActive = false
         this.densityMultiplier = 1.0
         this.timePressureMultiplier = 1.0
         this.simulationEvent = null
+        this.notifyListeners()
     }
-
     private generateDaySchedule() {
         const gameHour = timeSystem.getState().hour
         const isPeakHour = this.schedule.peakHours.includes(Math.floor(gameHour))
@@ -338,7 +345,7 @@ class TrafficSystem {
             cruise: 15, container: 10, tanker: 12, bulk: 8,
             lng: 14, roro: 8, research: 20, droneship: 25,
             ferry: 8, trawler: 6, horizon: 18, fireboat: 22,
-            icebreaker: 30
+            icebreaker: 24
         }
         const priorityMult: Record<ShipPriority, number> = {
             normal: 1, priority: 1.5, vip: 2, emergency: 3

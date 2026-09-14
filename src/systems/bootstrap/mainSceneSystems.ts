@@ -8,6 +8,7 @@ import { lightingSystem } from '../lightingSystem'
 import { weatherSystem } from '../weatherSystem'
 import { swaySystem } from '../swaySystem'
 import { craneBSystem } from '../craneBSystem'
+import { stepCrane } from '../cranePhysics'
 import { wildlifeSystem } from '../wildlifeSystem'
 import { ambientMarineLifeSystem } from '../ambientMarineLifeSystem'
 import { seaEventsSystem } from '../seaEventsSystem'
@@ -16,6 +17,7 @@ import { dynamicEventSystem } from '../dynamicEventSystem'
 import { experimentalTechSystem } from '../techSystem'
 import { waveSystem } from '../WaveSystem'
 import { stormSystem } from '../StormSystem'
+import { iceFieldSystem } from '../ice/IceFieldSystem'
 import { systemRegistry } from './SystemRegistry'
 import type { FrameContext } from './types'
 import { getSim } from '../sim/SimContext'
@@ -31,6 +33,7 @@ import { getSim } from '../sim/SimContext'
 //   30    lighting            core
 //   40    weather             core
 //   50    sway                crane
+//   52    crane-player        crane   (host/spectator kinematics from axes)
 //   55    crane-b             crane   (multi-crane training NPC)
 //   60    wildlife            ambient
 //   70    ambient-marine-life ambient
@@ -39,6 +42,7 @@ import { getSim } from '../sim/SimContext'
 //  100    dynamic-events      harbor-events
 //  110    experimental-tech   harbor-events
 //  120    waves               core
+//  125    ice                 ice
 //  130    storm               storm
 //
 // =============================================================================
@@ -82,6 +86,13 @@ export function ensureMainSceneSystemsRegistered(): void {
         order: 50,
         groups: ['crane'],
         update: (dt, ctx) => swaySystem.update(dt, ctx.swayTrolleyPosition),
+    })
+
+    systemRegistry.register({
+        id: 'crane-player',
+        order: 52,
+        groups: ['crane'],
+        update: (dt) => stepCrane(dt),
     })
 
     systemRegistry.register({
@@ -146,6 +157,17 @@ export function ensureMainSceneSystemsRegistered(): void {
         order: 120,
         groups: ['core'],
         update: (dt) => waveSystem.update(dt),
+    })
+
+    systemRegistry.register({
+        id: 'ice',
+        order: 125,
+        groups: ['ice'],
+        update: (dt) => iceFieldSystem.update(dt),
+        shouldTick: () => {
+            const mission = useGameStore.getState().activeMission
+            return mission?.type === 'ice-escort' && mission.status === 'active'
+        },
     })
 
     systemRegistry.register({

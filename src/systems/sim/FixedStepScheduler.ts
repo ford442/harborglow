@@ -15,6 +15,7 @@ export class FixedStepScheduler {
   private sim: SimContext
   private recording = false
   private replaying = false
+  private inStep = false
   private log: InputLogEntry[] = []
   private replayQueue: InputLogEntry[] = []
   private replayIndex = 0
@@ -33,9 +34,11 @@ export class FixedStepScheduler {
     this.sim = createSimContext(seed)
     this.recording = false
     this.replaying = false
+    this.inStep = false
     this.log = []
     this.replayQueue = []
     this.replayIndex = 0
+    this.replayHandler = null
     setSim(this.sim)
   }
 
@@ -63,28 +66,29 @@ export class FixedStepScheduler {
     return this.seed
   }
 
+  setInputHandler(handler: ReplayHandler | null): void {
+    this.replayHandler = handler
+  }
+
   /**
    * Consume wall/render delta, run zero or more fixed sim steps, then
    * expose leftover accumulator as `alpha` for interpolated rendering.
+   * When `maxTick` is set, do not step past that host watermark.
    */
-  advance(frameDelta: number, onStep: SimStepHandler): SimContext {
+  advance(frameDelta: number, onStep: SimStepHandler, maxTick?: number): SimContext {
     const dt = Math.min(Math.max(frameDelta, 0), MAX_FRAME_DT)
     this.accumulator += dt
     let steps = 0
+    this.inStep = true
     while (this.accumulator >= SIM_DT && steps < MAX_STEPS_PER_FRAME) {
-      this.accumulator -= SIM_DT
-      this.sim = {
-        rng: this.sim.rng,
-        simTime: this.sim.simTime + SIM_DT,
-        dt: SIM_DT,
-        tick: this.sim.tick + 1,
-        alpha: 0,
+      if (maxTick !== undefined && this.sim.tick >= maxTick) {
+        break
       }
-      setSim(this.sim)
-      this.dispatchReplayInputs()
-      onStep(this.sim)
+      this.accumulator -= SIM_DT
+      this.runOneStep(onStep)
       steps++
     }
+    this.inStep = false
     this.sim = {
       ...this.sim,
       alpha: this.accumulator / SIM_DT,
@@ -93,9 +97,52 @@ export class FixedStepScheduler {
     return this.sim
   }
 
-  record(action: string, payload: unknown = null): void {
-    if (!this.recording || this.replaying) return
-    this.log.push({ tick: this.sim.tick, action, payload })
+  /** Catch up to a host hello tick without the per-frame step cap. */
+  fastForward(targetTick: number, onStep: SimStepHandler): void {
+    this.inStep = true
+    while (this.sim.tick < targetTick) {
+      this.runOneStep(onStep)
+    }
+    this.inStep = false
+    this.accumulator = 0
+    this.sim = { ...this.sim, alpha: 0 }
+    setSim(this.sim)
+  }
+
+  private runOneStep(onStep: SimStepHandler): void {
+    this.sim = {
+      rng: this.sim.rng,
+      simTime: this.sim.simTime + SIM_DT,
+      dt: SIM_DT,
+      tick: this.sim.tick + 1,
+      alpha: 0,
+    }
+    setSim(this.sim)
+    this.dispatchReplayInputs()
+    onStep(this.sim)
+  }
+
+  /**
+   * Queue an input for the tick it belongs to. Applies immediately when
+   * `entry.tick` is already in the past or present.
+   */
+  enqueueInput(entry: InputLogEntry): void {
+    if (entry.tick <= this.sim.tick) {
+      this.replayHandler?.(entry, this.sim)
+      return
+    }
+    const rest = this.replayQueue.slice(this.replayIndex)
+    rest.push(entry)
+    rest.sort((a, b) => a.tick - b.tick)
+    this.replayQueue = rest
+    this.replayIndex = 0
+  }
+
+  record(action: string, payload: unknown = null): number | null {
+    if (!this.recording || this.replaying) return null
+    const tick = this.inStep ? this.sim.tick : this.sim.tick + 1
+    this.log.push({ tick, action, payload })
+    return tick
   }
 
   startRecording(): void {
@@ -104,14 +151,18 @@ export class FixedStepScheduler {
     this.log = []
   }
 
-  stopRecording(): ReplayFile {
-    this.recording = false
+  snapshotReplay(): ReplayFile {
     return {
       version: 1,
       seed: this.seed,
       dt: SIM_DT,
       inputs: this.log.slice(),
     }
+  }
+
+  stopRecording(): ReplayFile {
+    this.recording = false
+    return this.snapshotReplay()
   }
 
   loadReplay(file: ReplayFile, handler: ReplayHandler): void {
@@ -124,7 +175,7 @@ export class FixedStepScheduler {
   }
 
   private dispatchReplayInputs(): void {
-    if (!this.replaying || !this.replayHandler) return
+    if (!this.replayHandler) return
     while (
       this.replayIndex < this.replayQueue.length &&
       this.replayQueue[this.replayIndex].tick <= this.sim.tick

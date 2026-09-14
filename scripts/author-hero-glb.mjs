@@ -7,7 +7,9 @@
  * artist-named hardpoint empties (Empty_HP_*) that blueprints map via
  * `model.attachmentSocketMap`.
  *
- * Usage: node scripts/author-hero-glb.mjs
+ * Usage: node scripts/author-hero-glb.mjs [shipId...]
+ *   node scripts/author-hero-glb.mjs            # all hero hulls
+ *   node scripts/author-hero-glb.mjs fireboat lng
  * Output: public/models/{cruise_liner,container_vessel,oil_tanker,fireboat,lng_carrier}.glb
  */
 
@@ -760,7 +762,15 @@ async function main() {
   // Touch mergeGeometries so the import stays used if we later merge parts.
   void mergeGeometries
 
-  for (const ship of SHIPS) {
+  const only = process.argv.slice(2)
+  const unknown = only.filter((id) => !SHIPS.some((s) => s.id === id))
+  if (unknown.length) {
+    console.error(`Unknown ship id(s): ${unknown.join(', ')} (known: ${SHIPS.map((s) => s.id).join(', ')})`)
+    process.exit(1)
+  }
+  const targets = only.length ? SHIPS.filter((s) => only.includes(s.id)) : SHIPS
+
+  for (const ship of targets) {
     const scene = ship.build()
     const tris = countTriangles(scene)
     const outPath = path.join(outDir, ship.filename)

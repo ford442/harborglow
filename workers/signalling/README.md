@@ -31,9 +31,12 @@ Then set `VITE_SIGNAL_URL` to your deployed worker URL before `npm run build`.
    - New Game → Lobby → **Create shared harbor** → copy share link.
 3. Tab B (spectator): open the share link (`?multiplayer=1&join=ROOMID`).
    - New Game → auto-joins as spectator.
-4. Operate crane in Tab A; spreader position should sync to Tab B within ~100 ms.
-   Gameplay-state multiplayer (#183) is **seed + input log**, not per-entity
-   transform spam — see `docs/systems/DETERMINISM.md`.
+4. Operate crane in Tab A; Tab B should follow from **shared seed + inputs**,
+   not 10 Hz spreader patches — see `docs/systems/DETERMINISM.md`.
+   Creating a shared harbor reseeds the sim. Signalling is local-only by
+   default (`VITE_SIGNAL_URL=http://localhost:8787`). Production deploy of
+   this worker and TURN (`VITE_TURN_URL`) are documented as a follow-up;
+   do not commit TURN passwords.
 5. Send chat from either tab; message appears in both.
 
 ## API

@@ -47,6 +47,7 @@ int main() {
     expect_near("clamp lo", dsp_clamp(-2.0f, 0.0f, 1.0f), 0.0f, 0.0f);
     expect_near("clamp hi", dsp_clamp(4.0f, 0.0f, 1.0f), 1.0f, 0.0f);
     expect_near("remap", dsp_remap(0.5f, 0.0f, 1.0f, 0.0f, 100.0f), 50.0f, 1e-5f);
+    expect_near("remap degenerate", dsp_remap(3.0f, 5.0f, 5.0f, 0.0f, 100.0f), 0.0f, 0.0f);
     expect_near("smoothstep 0.5", dsp_smooth_step(0.5f), 0.5f, 1e-6f);
     expect_near("smootherstep 0.5", dsp_smoother_step(0.5f), 0.5f, 1e-6f);
     expect_near("sin_approx pi/2", dsp_sin_approx(1.57079632679f), 1.0f, 2e-3f);
@@ -101,6 +102,73 @@ int main() {
     dsp_fft_r2c(pair, pair_re, pair_im, log2n2);
     expect_near("n=2 dc", pair_re[0], 4.0f, 1e-6f);
     expect_near("n=2 nyquist", pair_re[1], 2.0f, 1e-6f);
+
+    const int n2 = 8;
+    const int cells = n2 * n2;
+    std::vector<float> fft_re(static_cast<std::size_t>(cells));
+    std::vector<float> fft_im(static_cast<std::size_t>(cells), 0.0f);
+    std::vector<float> orig(static_cast<std::size_t>(cells));
+    for (int i = 0; i < cells; ++i) {
+        orig[static_cast<std::size_t>(i)] = std::sin(static_cast<float>(i) * 1.1f);
+        fft_re[static_cast<std::size_t>(i)] = orig[static_cast<std::size_t>(i)];
+    }
+    dsp_fft2d(fft_re.data(), fft_im.data(), n2, 0);
+    dsp_fft2d(fft_re.data(), fft_im.data(), n2, 1);
+    const float scale = static_cast<float>(cells);
+    for (int i = 0; i < cells; ++i) {
+        char label[40];
+        std::snprintf(label, sizeof(label), "fft2d roundtrip[%d]", i);
+        expect_near(label, fft_re[static_cast<std::size_t>(i)] / scale,
+            orig[static_cast<std::size_t>(i)], 1e-4f);
+        expect_near("fft2d imag", fft_im[static_cast<std::size_t>(i)] / scale, 0.0f, 1e-4f);
+    }
+
+    std::vector<float> r2c_re(static_cast<std::size_t>(cells));
+    std::vector<float> r2c_im(static_cast<std::size_t>(cells), 0.0f);
+    dsp_fft2d_r2c(orig.data(), r2c_re.data(), r2c_im.data(), n2, 0);
+    std::vector<float> ref_re = orig;
+    std::vector<float> ref_im(static_cast<std::size_t>(cells), 0.0f);
+    dsp_fft2d(ref_re.data(), ref_im.data(), n2, 0);
+    for (int i = 0; i < cells; ++i) {
+        expect_near("r2c re", r2c_re[static_cast<std::size_t>(i)],
+            ref_re[static_cast<std::size_t>(i)], 1e-5f);
+        expect_near("r2c im", r2c_im[static_cast<std::size_t>(i)],
+            ref_im[static_cast<std::size_t>(i)], 1e-5f);
+    }
+    dsp_fft2d_r2c(nullptr, r2c_re.data(), r2c_im.data(), n2, 1);
+    for (int i = 0; i < cells; ++i) {
+        expect_near("r2c c2r", r2c_re[static_cast<std::size_t>(i)] / scale,
+            orig[static_cast<std::size_t>(i)], 1e-4f);
+    }
+
+    float grid[16];
+    float dx[16];
+    float dz[16];
+    for (int i = 0; i < 16; ++i) {
+        grid[i] = static_cast<float>(i);
+        dx[i] = static_cast<float>(i) * 0.1f;
+        dz[i] = static_cast<float>(i) * -0.2f;
+    }
+    float px[2] = {0.0f, 2.5f};
+    float pz[2] = {0.0f, 0.0f};
+    float out_dx[2] = {};
+    float out_h[2] = {};
+    float out_dz[2] = {};
+    dsp_ocean_displace_batch(grid, dx, dz, 4, 4.0f, px, pz, 2, out_dx, out_h, out_dz);
+    expect_near("displace h0", out_h[0], 0.0f, 1e-5f);
+    expect_near("displace dx0", out_dx[0], 0.0f, 1e-5f);
+    expect_near("displace h1", out_h[1], 2.5f, 1e-4f);
+
+    float hull_xs[4] = {0.0f, 1.0f, 2.0f, 3.0f};
+    float hull_zs[4] = {0.0f, 0.5f, -1.0f, 2.0f};
+    float layers[5] = {1.2f, 0.4f, 0.8f, 0.6f, 0.8f};
+    float hull_h[4] = {};
+    float hull_n[12] = {};
+    dsp_hull_sample_batch(hull_xs, hull_zs, 4, 0.5f, layers, 1, hull_h, hull_n);
+    for (int i = 0; i < 4; ++i) {
+        expect_near("hull height", hull_h[i], dsp_wave_height(
+            hull_xs[i], hull_zs[i], 0.5f, 1.2f, 0.4f, 0.8f, 0.6f, 0.8f), 1e-5f);
+    }
 
     if (failures) {
         std::fprintf(stderr, "%d assertion(s) failed\n", failures);

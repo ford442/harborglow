@@ -45,6 +45,41 @@ describe('headless determinism harness', () => {
   }, 60_000)
 })
 
+describe('canned ice-escort seed replay', () => {
+  it('identical hashes from the same ice seed log', () => {
+    const file = {
+      version: 1 as const,
+      seed: 204,
+      dt: SIM_DT,
+      inputs: [
+        { tick: 10, action: 'mission.iceEscort.start', payload: { seed: 204 } },
+      ],
+    }
+    const a = runHeadlessReplay(file, 240)
+    const b = runHeadlessReplay(file, 240)
+    expect(a).toBe(b)
+    expect(a).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
+describe('two headless instances share a spawn + storm input log', () => {
+  it('identical hashes from the same seed and recorded log', () => {
+    const file = {
+      version: 1 as const,
+      seed: 77,
+      dt: SIM_DT,
+      inputs: [
+        { tick: 10, action: 'ship.spawn', payload: { type: 'cruise' as const } },
+        { tick: 20, action: 'storm.start', payload: { duration: 180 } },
+      ],
+    }
+    const a = runHeadlessReplay(file, 240)
+    const b = runHeadlessReplay(file, 240)
+    expect(a).toBe(b)
+    expect(a).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
 describe('record / replay round-trip', () => {
   it('replays a recorded storm.start to the same hash', () => {
     simScheduler.reset(9)

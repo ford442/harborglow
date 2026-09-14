@@ -2,6 +2,7 @@ import { useGameStore, ShipType, Ship, AttachmentPoint } from '../store/useGameS
 import { getBlueprint } from '../types/ShipBlueprint'
 import { getShipModelAttachmentPose, isShipModelAvailable } from '../ships/shipModelCache'
 import { isGlbAllowedForQuality } from '../ships/shipModelContract'
+import { simRandom, simNowMs } from './sim/SimContext'
 
 // Ship name generators
 const CRUISE_NAMES = [
@@ -100,8 +101,8 @@ export class ShipSpawner {
         ferry: 0,
         trawler: 0,
         horizon: 0,
-        fireboat: 0,
-        icebreaker: 0
+        icebreaker: 0,
+        fireboat: 0
     }
 
     static spawnShip(type: ShipType, options?: SpawnShipOptions): Ship {
@@ -113,7 +114,7 @@ export class ShipSpawner {
         }
 
         const name = options?.name ?? this.generateShipName(type)
-        const id = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+        const id = `${type}-${simNowMs()}-${simRandom().toString(36).substr(2, 5)}`
 
         // Generate attachment points from GLB nodes when cached, else blueprint parts.
         // Gated on the same quality rule the renderer uses: at 'low' the hull is
@@ -167,7 +168,7 @@ export class ShipSpawner {
             trawler: 8,     // Fishing trawler ~40m
             horizon: 14,     // Deep-ocean research vessel ~70m
             fireboat: 7,     // Harbor fireboat ~35m
-            icebreaker: 15   // Nuclear icebreaker ~150m
+            icebreaker: 30   // Nuclear icebreaker ~150m
         }
         return lengths[type]
     }
@@ -180,8 +181,8 @@ export class ShipSpawner {
         const maxAttempts = 50
         
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            const x = (Math.random() - 0.5) * 40
-            const z = (Math.random() - 0.5) * 20
+            const x = (simRandom() - 0.5) * 40
+            const z = (simRandom() - 0.5) * 20
             const position: [number, number, number] = [x, 0, z]
             
             let valid = true
@@ -221,7 +222,7 @@ export class ShipSpawner {
             fireboat: FIREBOAT_NAMES,
             icebreaker: ICEBREAKER_NAMES
         }
-        
+
         const typeNames = names[type]
         const index = this.nameCounters[type] % typeNames.length
         const baseName = typeNames[index]
@@ -250,7 +251,7 @@ export class ShipSpawner {
             trawler: { name: 'Saltwater', genre: 'Sea Shanty / Folk', bpm: 95, description: 'North Star fishing trawler with net gantry and fish hold' },
             horizon: { name: 'Meridian', genre: 'Oceanic Ambient / Post-Rock', bpm: 100, description: 'Horizon Deep research vessel with A-frame, helideck, and moonpool' },
             fireboat: { name: 'Rescue Pulse', genre: 'Industrial / Siren Techno', bpm: 152, description: 'Harbor fireboat with dual water monitors and emergency siren light rig' },
-            icebreaker: { name: 'Polar Steel', genre: 'Industrial Arctic / Polar Convoy', bpm: 108, description: 'Nuclear icebreaker with escort vessel, spoon bow, and towing notch' }
+            icebreaker: { name: 'Polar Aurora', genre: 'Arctic Ambient / Cinematic', bpm: 108, description: 'Rosatomflot nuclear icebreaker (Yamal-class) with escort and ice-channel light rig' }
         }
         return { ...info[type], modelName: blueprint?.name || type }
     }

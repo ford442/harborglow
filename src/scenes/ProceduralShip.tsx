@@ -205,9 +205,6 @@ const CruiseLinerDetails = ({ shipLength, shipWidth }: { shipLength: number; shi
             <bufferAttribute
               args={[smokePositions, 3]}
               attach="attributes-position"
-              count={30}
-              array={smokePositions}
-              itemSize={3}
             />
           </bufferGeometry>
           <pointsMaterial size={0.8} color='#666666' transparent opacity={0.4} />

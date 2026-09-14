@@ -21,8 +21,8 @@ await preloadShipModels({
 ```
 
 - **Probe:** `HEAD` (or ranged `GET`) on `public/models/*.glb`; missing files cache as unavailable.
-- **Decode:** Draco + Meshopt via `configureGltfLoader()` / `useGLTF(url, true, true)`.
-- **Preload:** `useGLTF.preload(url, true, true)` warms drei cache after `GLTFLoader` parses attachments.
+- **Decode:** Meshopt via `configureGltfLoader()` / `useGLTF(url, false, true)`. No Draco — its decoder would need a third-party CDN; `models:verify` rejects Draco assets.
+- **Preload:** `useGLTF.preload(url, false, true)` warms drei cache after `GLTFLoader` parses attachments.
 - **Fallback:** `ProceduralShip` renders blueprint geometry when GLB absent; `Lod2Impostor` unchanged at distance.
 - **Chunks:** `GlbShipModel` is lazy-imported from `ProceduralShip` (separate JS chunk); GLB binaries stay in `public/models/`.
 

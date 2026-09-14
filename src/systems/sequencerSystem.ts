@@ -1,47 +1,36 @@
-import * as Tone from 'tone'
+import { BeatTransport, transport as sharedTransport } from './audio/transport'
 
 // =============================================================================
 // SEQUENCER SYSTEM
-// Owns all cinematic/visual trigger scheduling, locked to Tone.js Transport.
-// Replaces ad-hoc setTimeout calls with Transport-synchronised cues.
+// Owns all cinematic/visual trigger scheduling, locked to the beat transport.
+// Cues are keyed by quarter-note beat, and the transport derives beats from
+// sim time during gameplay, so cues land on the same beat for every peer.
 // =============================================================================
 
 /** A single scheduled cinematic cue. */
 interface CinematicCue {
   id: number
-  /** Target Transport time in seconds when this cue should fire. */
-  seconds: number
+  /** Target transport beat at which this cue should fire. */
+  beat: number
   fn: () => void
 }
 
 let _nextId = 0
 
-/** Beats per bar — assumes standard 4/4 time used throughout HarborGlow. */
-const BEATS_PER_BAR = 4
-
-class SequencerSystem {
+export class SequencerSystem {
   private cues: CinematicCue[] = []
-  /** Cached Transport reference — Tone.getTransport() always returns the same singleton. */
-  private readonly transport = Tone.getTransport()
 
-  constructor() {
-    // Poll on every 16th-note boundary so cues are picked up within
-    // one subdivision (~31 ms at 120 BPM).  The callback fires on the
-    // main JS thread (Tone uses look-ahead via WebWorker + postMessage),
-    // so it is safe to read Transport.seconds and update application state.
-    this.transport.scheduleRepeat((_time) => {
-      if (this.transport.state !== 'started') return
-      const now = this.transport.seconds
-      this._flushDueCues(now)
-    }, '16n')
+  constructor(private readonly transport: BeatTransport = sharedTransport) {
+    // Flush on every transport update (only runs while the transport is started).
+    this.transport.onUpdate((beat) => this._flushDueCues(beat))
   }
 
-  /** Fire and remove all cues whose target time has been reached. */
-  private _flushDueCues(nowSeconds: number): void {
+  /** Fire and remove all cues whose target beat has been reached. */
+  private _flushDueCues(nowBeat: number): void {
     const due: CinematicCue[] = []
     const remaining: CinematicCue[] = []
     for (const cue of this.cues) {
-      if (cue.seconds <= nowSeconds) {
+      if (cue.beat <= nowBeat) {
         due.push(cue)
       } else {
         remaining.push(cue)
@@ -59,40 +48,34 @@ class SequencerSystem {
 
   /**
    * Schedule a one-shot callback at `beatOffset` quarter-note beats from the
-   * current Transport position.  The callback fires on the main JS thread,
-   * locked to the Tone.js Transport clock, making it safe to update
-   * React/Three.js state without drift from wall-clock setTimeout.
+   * current transport position. The callback fires on the main JS thread, so
+   * it is safe to update React/Three.js state.
    *
-   * @param beatOffset - Beats ahead of now (quarter-note beats).
-   *                     Example: 4 = one bar in 4/4 time.
+   * @param beatOffset - Beats ahead of now. Example: 4 = one bar in 4/4 time.
    * @param fn         - Callback to invoke when the beat is reached.
-   *                     Runs on the main thread — safe for React/R3F updates.
    * @returns A numeric cue ID that can be passed to `cancel()`.
    */
   schedule(beatOffset: number, fn: () => void): number {
-    const secondsPerBeat = 60 / this.transport.bpm.value
-    const targetSeconds = this.transport.seconds + beatOffset * secondsPerBeat
-    return this._enqueue(targetSeconds, fn)
+    return this._enqueue(this.transport.beats + beatOffset, fn)
   }
 
   /**
-   * Schedule a one-shot callback at an absolute Transport time in seconds.
+   * Schedule a one-shot callback at an absolute transport beat.
    *
-   * @param seconds - Absolute `Transport.seconds` target.
-   * @param fn      - Callback to invoke when that Transport position is reached.
+   * @param beat - Absolute `transport.beats` target.
+   * @param fn   - Callback to invoke when that beat is reached.
    * @returns A numeric cue ID that can be passed to `cancel()`.
    */
-  scheduleAt(seconds: number, fn: () => void): number {
-    return this._enqueue(seconds, fn)
+  scheduleAt(beat: number, fn: () => void): number {
+    return this._enqueue(beat, fn)
   }
 
-  private _enqueue(seconds: number, fn: () => void): number {
+  private _enqueue(beat: number, fn: () => void): number {
     const id = _nextId++
-    // Linear insert into the sorted cues array.
     // Cinematic-cue counts are tiny (<10 at any time), so a full sort is
     // negligibly cheap and simpler than a binary-search insertion.
-    this.cues.push({ id, seconds, fn })
-    this.cues.sort((a, b) => a.seconds - b.seconds)
+    this.cues.push({ id, beat, fn })
+    this.cues.sort((a, b) => a.beat - b.beat)
     return id
   }
 
@@ -113,23 +96,16 @@ class SequencerSystem {
   }
 
   /**
-   * Seek the Tone.js Transport to a specific beat for debug testing.
+   * Seek the transport to a specific beat for debug testing.
    * Enables cinematic triggers to be tested without replaying the full game.
    *
    * Available from the browser console:
    *   `window.sequencerSystem.seekTo(8)` — jump to beat 8 (bar 3 in 4/4)
    *
    * @param beat - Beat number to seek to (0-based quarter-note beats).
-   *               Beat 0 = bar 0 beat 0, beat 4 = bar 1 beat 0, etc.
    */
   seekTo(beat: number): void {
-    const wasStarted = this.transport.state === 'started'
-    if (wasStarted) this.transport.stop()
-    // BEATS_PER_BAR assumes 4/4 — the only time signature used in HarborGlow.
-    const bars = Math.floor(beat / BEATS_PER_BAR)
-    const beatInBar = beat % BEATS_PER_BAR
-    this.transport.position = `${bars}:${beatInBar}:0`
-    if (wasStarted) this.transport.start()
+    this.transport.seek(beat)
     console.log(`🎵 SequencerSystem.seekTo(${beat}) → position=${this.transport.position}`)
   }
 }

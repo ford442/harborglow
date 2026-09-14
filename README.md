@@ -1,21 +1,23 @@
 # HarborGlow 🚢✨
 
-HarborGlow — a satisfying crane-operator + boat-light-upgrade game with three signature vessel types, synchronized music, and spectacular light shows.
+HarborGlow — a satisfying crane-operator + boat-light-upgrade game with a living harbor fleet, synchronized music, and spectacular light shows.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![WebGPU](https://img.shields.io/badge/WebGPU-enabled-green.svg)
 
 ## 🎮 Gameplay
 
-Spawn different ship types, use the crane to install glowing light rigs, and enjoy synchronized music + lyrics when fully upgraded.
+Spawn different ship types, use the crane to install glowing light rigs, and enjoy synchronized music + lyrics when fully upgraded. Tugboat mode includes storm rescue, salvage contracts, and a polar **ice-escort** where you helm Yamal through pack ice.
 
-### The Three Vessels
+### Hero vessels
 
 | Ship | Name | Music Style | Light Show |
 |------|------|-------------|------------|
 | 🚢 **Mega Cruise Liner** | *Ocean Symphony* | Orchestral + Choir Synth | Multi-deck balcony LEDs, giant funnel array, water-curtain stern |
 | ⬛ **Ultra Container Vessel** | *Neon Stack* | Future Bass / Techno | 20+ container stacks, full LED billboard sides |
 | ⛽ **VLCC Oil Tanker** | *Flame Runner* | Dubstep / Industrial | Flare stack fire-effect, hull wash lighting |
+
+The sandbox fleet also includes bulk, LNG, RoRo, research, droneship, ferry, trawler, horizon, fireboat, and **Nuclear Icebreaker Yamal** (Polar Steel). Ice-escort training unlocks after storm-rescue.
 
 ### Ship Details
 
@@ -79,13 +81,13 @@ After fully upgrading a ship:
 
 ## 🎵 Music System
 
-Each ship type has a unique Tone.js audio setup:
+Audio is synthesized by an in-tree C++ engine compiled to WASM and run in an AudioWorklet. Each ship type has its own instruments and bus effects:
 
-- **Cruise**: PolySynth with sawtooth wave → Chorus → Reverb
-- **Container**: FM synth + MembraneSynth kick + MetalSynth hats
-- **Tanker**: MetalSynth + NoiseSynth + LFO-filtered sub bass
+- **Cruise**: sawtooth lead + triangle pad + sine bass, chorus + hall reverb
+- **Container**: FM lead + membrane kick + metallic hats, beat-synced delay
+- **Tanker**: metallic hits + noise + sawtooth sub, bitcrushed
 
-Lyrics are synchronized to the Transport position and displayed above each ship.
+Lyrics are keyed to the beat transport (clocked by sim time) and displayed above each ship.
 
 ## 📸 Screenshots
 
@@ -114,7 +116,7 @@ To add screenshots:
 - **React Three Fiber** - React renderer for Three.js
 - **Rapier** - Physics engine for crane interactions
 - **Zustand** - State management
-- **Tone.js** - Audio synthesis and sequencing
+- **WASM AudioWorklet** - In-tree audio synthesis (`cpp/`) and beat transport
 - **Leva** - In-game debug controls
 
 ### Renderer (WebGPU required)
@@ -141,15 +143,21 @@ src/
 ├── store/
 │   └── useGameStore.ts      # Zustand game state
 └── systems/
-    ├── musicSystem.ts       # Tone.js music + lyrics
+    ├── musicSystem.ts       # Ship music + lyrics
     └── shipSpawner.ts       # Ship factory with attachment points
 ```
 
 ## 🚀 Development
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (reproducible; use after lockfile changes)
+npm ci
+
+# Run CI merge gates locally before pushing (~3–5 min)
+npm run verify
+
+# Faster check: lockfile + typecheck + lint only (~30–60s)
+npm run verify:fast
 
 # Start development server
 npm run dev
@@ -159,10 +167,16 @@ npm run build
 
 # Preview production build
 npm run preview
+
+# Optional: run verify automatically before every push
+npm run setup:pre-push-hook
+# Skip once: git push --no-verify
 ```
 
+`npm run verify` mirrors **7 of 8** CI merge gates (lockfile → typecheck → lint → test → dev-transform smoke → build). It does **not** run `gate-wasm` (Emscripten rebuild of `public/wasm/`). Touching `cpp/` or WASM binaries requires the full WASM gate — see [AGENTS.md](AGENTS.md) § CI merge gates.
+
 ### Prerequisites
-- Node.js 18+
+- Node.js 20+ and npm 10+ (see `package.json` `engines`)
 - Recommended: Browser with WebGPU support (Chrome 113+, Edge 113+)
 - WebGL/R3F fallback is deferred; a failed probe hard-fails (see docs/RENDERER.md)
 
@@ -191,7 +205,7 @@ npm run preview
 ## 🎨 Credits
 
 - Built with [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
-- Audio powered by [Tone.js](https://tonejs.github.io/)
+- Audio powered by an in-tree WASM AudioWorklet engine
 - Physics by [Rapier](https://rapier.rs/)
 - UI controls by [Leva](https://github.com/pmndrs/leva)
 

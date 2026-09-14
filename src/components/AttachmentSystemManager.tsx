@@ -183,6 +183,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       && !shiftHeldRef.current
       && !isBindingRef.current
       && stickyTargetRef.current !== null
+      && store.multiplayerRole !== 'host'
 
     if (magnetActive && stickyTargetRef.current) {
       const stickyDist = distance3D(stickyTargetRef.current.position, spreader)
@@ -237,6 +238,14 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       : null
 
     if (candidate && !isBindingRef.current) {
+      if (store.multiplayerRole === 'host') {
+        triggerInstallation(candidate.shipId, candidate.partName, candidate.position, (event) => {
+          setLastInstall(event)
+        })
+        setLastInstall(candidate)
+        stickyTargetRef.current = null
+        return
+      }
       isBindingRef.current = true
       bindCandidateRef.current = candidate
       bindStartTimeRef.current = state.clock.elapsedTime

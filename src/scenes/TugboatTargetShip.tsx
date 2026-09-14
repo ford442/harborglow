@@ -6,7 +6,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import type { RefObject } from 'react'
 import * as THREE from 'three'
-import * as Tone from 'tone'
+import { Instrument, unlockAudio } from '../systems/audio/voices'
 import { useFrame, useThree } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
@@ -22,6 +22,11 @@ import {
   N_SEGMENTS,
   N_POINTS,
 } from '../systems/TowLineSystem'
+import {
+  scratchVec3a, scratchQuat, scratchEuler,
+  hullScratchXs, hullScratchZs, hullScratchYs,
+  hullScratchHeights, hullScratchNormals,
+} from '../utils/scratch'
 
 // =============================================================================
 // CONSTANTS
@@ -191,8 +196,8 @@ export default function TugboatTargetShip({
     // --- Multi-point hull current profile (crosscurrents + eddies) ---
     // Sample at bow, mid, and stern to produce net force + differential yaw torque.
     const rot = rb.rotation()
-    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
-    const euler = new THREE.Euler().setFromQuaternion(quat)
+    const quat = scratchQuat.set(rot.x, rot.y, rot.z, rot.w)
+    const euler = scratchEuler.setFromQuaternion(quat)
     const pos = rb.translation()
 
     const crosscurrentScale = stormSystem.crosscurrentStrength
@@ -239,20 +244,22 @@ export default function TugboatTargetShip({
       currentDrift: [hullCurrent.x + simpleCurrent.x, hullCurrent.z + simpleCurrent.z],
     })
 
-    const xs = new Float32Array(PROBE_OFFSETS.length)
-    const zs = new Float32Array(PROBE_OFFSETS.length)
-    const ys = new Float32Array(PROBE_OFFSETS.length)
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    const nProbes = PROBE_OFFSETS.length
+    const xs = hullScratchXs.subarray(0, nProbes)
+    const zs = hullScratchZs.subarray(0, nProbes)
+    const ys = hullScratchYs.subarray(0, nProbes)
+    const heights = hullScratchHeights.subarray(0, nProbes)
+    const normals = hullScratchNormals.subarray(0, nProbes * 3)
+    for (let i = 0; i < nProbes; i++) {
       const offset = PROBE_OFFSETS[i]
-      const localOff = new THREE.Vector3(offset.x, 0, offset.z)
-      localOff.applyQuaternion(quat)
-      xs[i] = pos.x + localOff.x
-      zs[i] = pos.z + localOff.z
-      ys[i] = pos.y + localOff.y
+      scratchVec3a.set(offset.x, 0, offset.z).applyQuaternion(quat)
+      xs[i] = pos.x + scratchVec3a.x
+      zs[i] = pos.z + scratchVec3a.z
+      ys[i] = pos.y + scratchVec3a.y
     }
-    const heights = waveSystem.getWaterHeightBatch(xs, zs, time)
+    waveSystem.getHullSampleBatch(xs, zs, heights, normals, time)
 
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    for (let i = 0; i < nProbes; i++) {
       const waterH = heights[i]
       const probeY = ys[i]
       const submerged = waterH - 2.5 - probeY
@@ -366,7 +373,7 @@ export default function TugboatTargetShip({
         // Detach in store (mission logic handled upstream)
         storeState.signalTowLineSnap()
 
-        // Play snap audio via Tone.js (fire and forget)
+        // Play snap audio (fire and forget)
         playSnapAudio()
 
         towLineState.active        = false
@@ -451,36 +458,27 @@ export default function TugboatTargetShip({
 
 // =============================================================================
 // SNAP AUDIO
-// Fire-and-forget Tone.js burst when the cable parts.  Noise → distortion →
-// lowpass filter gives a convincing metallic "twang + recoil".
+// Fire-and-forget burst when the cable parts: a short noise "twang" over a
+// sub-bass membrane thud for the recoil.
 // =============================================================================
+
+let snapNoise: Instrument | null = null
+let snapThud: Instrument | null = null
 
 async function playSnapAudio(): Promise<void> {
   try {
-    await Tone.start()
-    const now = Tone.now() + 0.02
-    const filter = new Tone.Filter(700, 'lowpass').toDestination()
-    const dist   = new Tone.Distortion(0.65).connect(filter)
-    const env    = new Tone.AmplitudeEnvelope({
-      attack:  0.001,
-      decay:   0.28,
-      sustain: 0,
-      release: 0.18,
-    }).connect(dist)
-    const noise = new Tone.Noise('pink').connect(env).start(now)
-    env.triggerAttack(now)
-    env.triggerRelease(now + 0.12)
+    await unlockAudio()
+    snapNoise ??= new Instrument({
+      waveform: 'noise',
+      envelope: { attack: 0.001, decay: 0.28, sustain: 0, release: 0.18 },
+    })
     // Sub-bass thud for "whip recoil" feel
-    const thud = new Tone.MembraneSynth({
-      pitchDecay: 0.06,
-      octaves:    4,
+    snapThud ??= new Instrument({
+      waveform: 'membrane',
       envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
-    }).toDestination()
-    thud.triggerAttackRelease('C1', '8n', now)
-    setTimeout(() => {
-      noise.stop(); noise.dispose()
-      env.dispose(); dist.dispose(); filter.dispose(); thud.dispose()
-    }, 900)
+    })
+    snapNoise.play(160, 0.12, { delay: 0.02 })
+    snapThud.play('C1', '8n', { delay: 0.02 })
   } catch {
     // Audio context may not be available in test/SSR environments — ignore
   }

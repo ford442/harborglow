@@ -6,6 +6,9 @@ import { extend } from '@react-three/fiber'
 // SHADER MATERIALS AND TEXTURES FOR CONTROL BOOTH
 // =============================================================================
 
+// NOTE: Deferred by issue #208. drei@10 shaderMaterial() creates GLSL ShaderMaterial,
+// and the WebGPU-safe drei /webgpu material path requires the R3F v10 + drei v11 migration.
+// Keep these two helper-backed materials until that migration lands.
 // CRT Scanline + Flicker Shader
 export const CRTShaderMaterial = shaderMaterial(
   {
@@ -63,6 +66,7 @@ export const CRTShaderMaterial = shaderMaterial(
 
 extend({ CRTShaderMaterial })
 
+// NOTE: See deferred migration note above.
 // Glass distortion shader for window
 export const FoggedGlassMaterial = shaderMaterial(
   {

@@ -7,8 +7,8 @@
 //   • Gerstner wave height queries used by Ship buoyancy and Water shaders
 //   • Fast trigonometry approximations (sin, smoothstep, etc.)
 //
-// All exported symbols use C linkage and EMSCRIPTEN_KEEPALIVE so that they
-// are reachable from JavaScript via Module.cwrap() / Module._function().
+// All exported symbols use C linkage and EMSCRIPTEN_KEEPALIVE. Runtime load
+// is raw WebAssembly.instantiate (no Emscripten JS glue / Module.cwrap).
 // =============================================================================
 
 #pragma once
@@ -25,7 +25,10 @@ extern "C" float dsp_mix(float a, float b, float t);
 /** Clamp x to the closed interval [lo, hi]. */
 extern "C" float dsp_clamp(float x, float lo, float hi);
 
-/** Remap v from input range [lo1, hi1] to output range [lo2, hi2]. */
+/**
+ * Remap v from input range [lo1, hi1] to output range [lo2, hi2].
+ * Returns lo2 when |hi1 − lo1| is below 1e-20 (degenerate input span).
+ */
 extern "C" float dsp_remap(float v, float lo1, float hi1, float lo2, float hi2);
 
 /** Cubic smoothstep for t ∈ [0, 1]: 3t² − 2t³. */
@@ -170,3 +173,54 @@ extern "C" void dsp_wave_height_batch(
     const float* xs, const float* zs, float time,
     float amp, float freq, float speed, float dirX, float dirZ,
     float* out_heights, int count);
+
+/**
+ * In-place N×N complex 2-D FFT (row-major, unnormalised).
+ *
+ * N must be a power of two in [2, 4096]. inverse = 0 uses e^(−iθ);
+ * inverse ≠ 0 uses e^(+iθ). inverse(forward(x)) == x · N².
+ */
+extern "C" void dsp_fft2d(float* re, float* im, int n, int inverse);
+
+/**
+ * 2-D real↔complex transform with the *same N×N layout as dsp_fft2d*
+ * (full Hermitian grid, not packed N×(N/2+1)). Packed r2c would be a second
+ * convention the JS reference (`fft2d.ts`) does not speak.
+ *
+ * inverse = 0: real_in → re/im  (im filled with 0, then forward fft2d).
+ * inverse ≠ 0: Hermitian re/im → real in re (c2r; equivalent to inverse fft2d).
+ */
+extern "C" void dsp_fft2d_r2c(
+    const float* real_in, float* re, float* im, int n, int inverse);
+
+/**
+ * Sample stacked Gerstner layers at many hull probes.
+ *
+ * @p layers is n_layers × 5 floats: amp, freq, speed, dirX, dirZ.
+ * Writes @p count heights and @p count packed xyz normals.
+ * No-ops when count or n_layers is outside [1, 256] / [1, 16].
+ */
+extern "C" void dsp_hull_sample_batch(
+    const float* xs, const float* zs, int count, float time,
+    const float* layers, int n_layers,
+    float* out_heights, float* out_normals);
+
+/**
+ * Bilinear sample of a wrapping N×N heightfield covering @p patch_size metres.
+ * Writes heights and packed xyz normals for @p count probes.
+ */
+extern "C" void dsp_heightfield_sample_batch(
+    const float* grid, int n, float patch_size,
+    const float* xs, const float* zs, int count,
+    float* out_heights, float* out_normals);
+
+/**
+ * Bilinear sample of wrapping N×N height + choppy Dx/Dz grids covering
+ * @p patch_size metres. Writes @p count triples (dx, height, dz).
+ * No-ops when count is outside [1, 256] or n < 2.
+ */
+extern "C" void dsp_ocean_displace_batch(
+    const float* height, const float* disp_x, const float* disp_z,
+    int n, float patch_size,
+    const float* xs, const float* zs, int count,
+    float* out_dx, float* out_h, float* out_dz);

@@ -45,6 +45,11 @@ driven from `MainScene` `useFrame`:
 Storm escalation, waves, economy-adjacent traffic, and wildlife therefore
 do not change with monitor refresh rate.
 
+The `high`-tier FFT ocean rides on the same contract: its spectrum is seeded
+through `Rng.fork()` (which does not advance the sim RNG) and its transform
+cadence is driven by accumulated `SIM_DT`, so enabling it cannot change the sim
+hash. See [OCEAN_FFT.md](./OCEAN_FFT.md#determinism).
+
 ## Replay file
 
 ```json
@@ -54,8 +59,9 @@ do not change with monitor refresh rate.
 Leva folder **Determinism**: seed, reset, record (writes
 `localStorage['harborglow.replay']`), replay stored session.
 
-A replay is kilobytes. It is the artifact #183 should send on the data
-channel instead of per-entity transforms.
+A replay is kilobytes. Shared-harbor WebRTC sends this artifact on the
+reliable `sim` channel (`hello`) plus live `input` packets — not per-entity
+transforms.
 
 ## Headless harness
 
@@ -79,7 +85,29 @@ Cosmetic particle / menu jitter in `src/scenes/**` may keep `Math.random()`.
 
 ## #183
 
-Host and spectator share `{ seed, replay }`. Each side runs the same
-fixed-step core. WebRTC in `multiplayerSystem.ts` is transport only
-(presence, chat, attach). Do not replicate foam, wildlife, or traffic
-meshes at 10 Hz.
+Host and spectator share `{ seed, replay }` on wire protocol **v2**. Each
+side runs the same fixed-step core (`simScheduler.reset(seed)` then
+`applyReplayInput` for the log and live inputs). Render interpolates with
+`SimContext.alpha`.
+
+Packets (msgpack `WireEnvelope.v === 2`) on a reliable ordered `sim`
+channel:
+
+- `hello` — `{ seed, tick, replay }` on join and after desync
+- `input` — `{ tick, action, payload }` (host authority: crane axes, spawn,
+  install, storm start/stop)
+- `hash` — `{ tick, fnv }` from `hashSimSnapshot` about once a second
+- `resync` — spectator asks for a new `hello`
+- `ping` / `pong` / `chat` — stay on the `chat` channel
+
+On FNV mismatch the spectator logs the desync and requests `hello`. It does
+**not** rubber-band hulls or apply `NetworkSyncState` transform patches.
+
+`multiplayerSystem.ts` is transport (presence, signalling, chat, attach).
+Do not replicate foam, wildlife, or traffic meshes at 10 Hz. Cosmetic
+`Math.random()` in `src/scenes/**` stays local. Music starts from the local
+store (install completion); the beat transport is clocked by `simTime`, so
+peers land on the same beat. Audio only reads sim time — see [AUDIO.md](./AUDIO.md).
+
+Creating a shared harbor reseeds the sim. TURN / production
+`VITE_SIGNAL_URL` is a follow-up; local default remains `localhost:8787`.

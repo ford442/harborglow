@@ -9,7 +9,7 @@ import { moonSystem, MoonPhaseName, MOON_PHASES } from '../../systems/moonSystem
 import { swaySystem, useSwaySystem } from '../../systems/swaySystem';
 import { weatherSystem, useWeatherSystem, WeatherType } from '../../systems/weatherSystem';
 import { useEconomySystem, getPortReputationTier } from '../../systems/economySystem';
-import { ShipSpawner } from '../../systems/shipSpawner';
+import { recordHostInput } from '../../systems/sim/hostInput';
 import { useCompletionGlow } from '../../hooks/useCompletionGlow';
 import * as styles from './styles';
 
@@ -518,7 +518,7 @@ export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void })
     return (
       <div style={styles.statusPanelStyle}>
         <HarborSilhouette />
-        <SpawnCTAButton onClick={() => { ShipSpawner.spawnShip('cruise') }} />
+        <SpawnCTAButton onClick={() => { recordHostInput('ship.spawn', { type: 'cruise' }) }} />
         <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           <span style={{ fontSize: '10px', color: '#666', lineHeight: '1.5' }}>
             Select a ship from the harbor menu above, or spawn one here to begin operations.

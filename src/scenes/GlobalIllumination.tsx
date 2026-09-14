@@ -92,8 +92,9 @@ export default function GlobalIllumination({
   quality = 'high' 
 }: GlobalIlluminationProps) {
   const meshRef = useRef<THREE.Mesh>(null)
-  const materialRef = useRef<THREE.ShaderMaterial>(null)
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null)
   const { camera, size } = useThree()
+  const giStrength = enabled ? 1 : 0
   
   const timeOfDay = useGameStore(state => state.timeOfDay)
   const ships = useGameStore(state => state.ships)
@@ -344,8 +345,8 @@ export default function GlobalIllumination({
   
   useFrame((state) => {
     if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      materialRef.current.uniforms.uCameraPos.value.copy(camera.position)
+      const pulse = 0.9 + Math.sin(state.clock.elapsedTime * 0.35) * 0.1
+      materialRef.current.opacity = Math.max(0.02, 0.12 * giStrength * pulse)
     }
     updateProbes()
   })
@@ -357,11 +358,11 @@ export default function GlobalIllumination({
       {/* GI Overlay Mesh */}
       <mesh ref={meshRef} frustumCulled={false}>
         <planeGeometry args={[200, 200, 64, 64]} />
-        <shaderMaterial
+        <meshBasicMaterial
           ref={materialRef}
-          uniforms={uniforms}
-          vertexShader={vertexShader}
-          fragmentShader={fragmentShader}
+          color="#6a9bd4"
+          opacity={0.12 * giStrength}
+          toneMapped={false}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
@@ -406,58 +407,21 @@ function EmissiveGlow({
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
   
-  const uniforms = useMemo(() => ({
-    uColor: { value: color },
-    uIntensity: { value: intensity },
-    uTime: { value: 0 }
-  }), [color, intensity])
-  
-  const vertexShader = `
-    varying vec3 vNormal;
-    varying vec3 vPosition;
-    
-    void main() {
-      vNormal = normalize(normalMatrix * normal);
-      vPosition = position;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `
-  
-  const fragmentShader = `
-    uniform vec3 uColor;
-    uniform float uIntensity;
-    uniform float uTime;
-    
-    varying vec3 vNormal;
-    varying vec3 vPosition;
-    
-    void main() {
-      vec3 viewDir = normalize(cameraPosition - vPosition);
-      float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), 2.0);
-      
-      // Pulsing effect
-      float pulse = 0.9 + sin(uTime * 3.0) * 0.1;
-      
-      vec3 glow = uColor * uIntensity * fresnel * pulse;
-      
-      gl_FragColor = vec4(glow, fresnel * 0.5);
-    }
-  `
-  
   useFrame((state) => {
     if (meshRef.current) {
-      const material = meshRef.current.material as THREE.ShaderMaterial
-      material.uniforms.uTime.value = state.clock.elapsedTime
+      const material = meshRef.current.material as THREE.MeshBasicMaterial
+      const pulse = 0.9 + Math.sin(state.clock.elapsedTime * 3.0) * 0.1
+      material.opacity = Math.max(0.02, 0.24 * intensity * pulse)
     }
   })
   
   return (
     <mesh ref={meshRef} position={position}>
       <sphereGeometry args={[radius * 0.3, 16, 16]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
+      <meshBasicMaterial
+        color={color}
+        toneMapped={false}
+        opacity={0.24 * intensity}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}

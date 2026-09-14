@@ -8,6 +8,10 @@ import {
 } from '../bootstrap/mainSceneSystems'
 import type { FrameContext } from '../bootstrap/types'
 import { stormSystem } from '../StormSystem'
+import { iceFieldSystem } from '../ice/IceFieldSystem'
+import { ShipSpawner } from '../shipSpawner'
+import { resetCraneAxes } from '../cranePhysics'
+import { applyReplayInput } from './applyInput'
 import { waveSystem } from '../WaveSystem'
 import { timeSystem } from '../timeSystem'
 import { moonSystem } from '../moonSystem'
@@ -36,7 +40,8 @@ function dummyFrameContext(): FrameContext {
   }
 }
 
-export function resetDeterministicSystems(): void {
+export function resetDeterministicSystems(opts: { preserveStoreMode?: boolean } = {}): void {
+  const prev = useGameStore.getState()
   useGameStore.setState({
     ships: [],
     currentShipId: null,
@@ -56,14 +61,27 @@ export function resetDeterministicSystems(): void {
     windStrength: 0,
     rainDensity: 0.5,
     season: 'summer',
-    operationMode: 'tugboat',
-    gameMode: 'sandbox',
+    operationMode: opts.preserveStoreMode ? prev.operationMode : 'tugboat',
+    gameMode: opts.preserveStoreMode ? prev.gameMode : 'sandbox',
     currentTrainingModule: null,
     reputation: 0,
     dailyShipsCompleted: 0,
     dailyShipsMissed: 0,
+    installedUpgrades: [],
+    craneUpgrades: [],
+    musicPlaying: new Map(),
+    spreaderPos: { x: 0, y: 10, z: 0 },
+    spreaderRotation: 0,
+    cableDepth: 15,
+    loadTension: 0,
+    trolleyPosition: 0.5,
+    twistlockEngaged: false,
+    isMoving: false,
+    joystickLeft: { x: 0, y: 0 },
+    joystickRight: { x: 0, y: 0 },
   })
   stormSystem.reset()
+  iceFieldSystem.reset()
   waveSystem.reset()
   timeSystem.reset()
   moonSystem.reset()
@@ -73,6 +91,8 @@ export function resetDeterministicSystems(): void {
   harborEventSystem.reset()
   dynamicEventSystem.reset()
   seaEventsSystem.reset()
+  ShipSpawner.resetCounters()
+  resetCraneAxes()
 }
 
 export function bootHeadlessRegistry(): void {
@@ -120,16 +140,8 @@ export function runHeadlessTicks(
   return hashSimSnapshot()
 }
 
-function applyReplayInput(entry: ReplayFile['inputs'][number]): void {
-  if (entry.action === 'storm.start') {
-    const duration = typeof entry.payload === 'number'
-      ? entry.payload
-      : (entry.payload as { duration?: number })?.duration ?? 180
-    stormSystem.start(duration)
-  }
-  if (entry.action === 'storm.stop') {
-    stormSystem.stop()
-  }
+export function tickSimSystems(): void {
+  systemRegistry.tick(SIM_DT, dummyFrameContext())
 }
 
 export function stepHeadless(frameDt = SIM_DT, beforeTick?: () => void): void {

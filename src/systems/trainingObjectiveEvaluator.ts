@@ -52,6 +52,8 @@ export interface ObjectiveEvaluationContext {
   installedCount?: number
   /** Total attachment points on training ship */
   installTarget?: number
+  channelClearance?: number
+  iceClientDocked?: boolean
 }
 
 /**
@@ -156,6 +158,17 @@ export function isObjectiveComplete(ctx: ObjectiveEvaluationContext): boolean {
     default: return false
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Tugboat: Polar Ice Escort
+  // -------------------------------------------------------------------------
+  case 'ice-escort':
+    switch (objectiveId) {
+    case 'break-channel': return (ctx.channelClearance ?? 0) >= 0.35
+    case 'hold-station': return metrics.timeElapsed >= 20
+    case 'client-berth': return ctx.iceClientDocked === true
+    default: return false
+    }
 
   default:
     return false

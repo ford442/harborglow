@@ -87,44 +87,14 @@ export function computeRigMusicDrive(
   }
 }
 
-export const RIG_RIM_VERTEX = /* glsl */ `
-  varying vec3 vRigNormal;
-  varying vec3 vRigWorldPos;
-  void main() {
-    vRigNormal = normalize(normalMatrix * normal);
-    vec4 wp = modelMatrix * vec4(position, 1.0);
-    vRigWorldPos = wp.xyz;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`
-
-export const RIG_RIM_FRAGMENT = /* glsl */ `
-  uniform vec3 uRimColor;
-  uniform float uRimStrength;
-  uniform float uPower;
-  varying vec3 vRigNormal;
-  varying vec3 vRigWorldPos;
-
-  void main() {
-    vec3 viewDir = normalize(cameraPosition - vRigWorldPos);
-    float fresnel = pow(1.0 - max(dot(normalize(vRigNormal), viewDir), 0.0), 2.4);
-    float alpha = fresnel * uRimStrength * uPower * 0.85;
-    gl_FragColor = vec4(uRimColor, alpha);
-  }
-`
-
-export function createRigRimMaterial(color: string): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uRimColor: { value: new THREE.Color(color) },
-      uRimStrength: { value: 1 },
-      uPower: { value: 1 },
-    },
-    vertexShader: RIG_RIM_VERTEX,
-    fragmentShader: RIG_RIM_FRAGMENT,
+export function createRigRimMaterial(color: string): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color: new THREE.Color(color),
     transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    opacity: 0.65,
+    toneMapped: false,
     side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
   })
 }

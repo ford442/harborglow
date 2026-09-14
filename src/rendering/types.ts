@@ -20,14 +20,13 @@ export type ShadowQuality = 'off' | 'basic' | 'pcf' | 'soft';
 export interface RendererContextOptions {
   antialias: boolean;
   alpha: boolean;
+  /** Derived, not requested: WebGPU `alphaMode` is `premultiplied` iff `alpha`. */
   premultipliedAlpha: boolean;
-  /** Required for reliable canvas.toDataURL() screenshots (Playwright / agents). */
+  /** WebGL-era flag, recorded for diagnostics; a WebGPU no-op. Use `readScreenshotPixelsAsync`. */
   preserveDrawingBuffer: boolean;
-  powerPreference: WebGLPowerPreference;
   stencil: boolean;
   depth: boolean;
   logarithmicDepthBuffer: boolean;
-  failIfMajorPerformanceCaveat: boolean;
 }
 
 /** GPU limits / adapter info read back after the renderer is live. */
@@ -60,7 +59,7 @@ export interface RendererDiagnostics {
   contextOptions: RendererContextOptions | null;
   /** Limits/adapter info read back from the live renderer (null before init). */
   capabilities: RendererCapabilities | null;
-  /** True if the backend supports screen space reflections (SSR) via the depth buffer. */
+  /** True when a TSL SSR pass is available (WebGPU + compute + live depth/MRT). */
   supportsSSR: boolean;
   /** Result of the one-shot storage-texture compute diagnostic. */
   computeProbe: ComputeProbeStatus;

@@ -87,6 +87,7 @@ describe('TrainingSystem tugboat modules', () => {
       'twin-screw-differential',
       'acoustic-handshake',
       'storm-rescue',
+      'ice-escort',
     ])
 
     TUGBOAT_TRAINING_MODULE_IDS.forEach((moduleId) => {
@@ -100,6 +101,7 @@ describe('TrainingSystem tugboat modules', () => {
     expect(DEFAULT_TRAINING_PROGRESS.moduleStates['twin-screw-differential']).toBe('locked')
     expect(DEFAULT_TRAINING_PROGRESS.moduleStates['acoustic-handshake']).toBe('locked')
     expect(DEFAULT_TRAINING_PROGRESS.moduleStates['storm-rescue']).toBe('locked')
+    expect(DEFAULT_TRAINING_PROGRESS.moduleStates['ice-escort']).toBe('locked')
   })
 })
 
@@ -184,6 +186,14 @@ describe('advanced crane modules 5-7', () => {
     system['progress'].moduleStates['multi-crane'] = 'locked'
     system['unlockNextModules']('night-ops')
     expect(system.isModuleAvailable('multi-crane')).toBe(true)
+  })
+
+  it('unlocks ice-escort after storm-rescue', () => {
+    const system = new TrainingSystem()
+    system['progress'].moduleStates['storm-rescue'] = 'completed'
+    system['progress'].moduleStates['ice-escort'] = 'locked'
+    system['unlockNextModules']('storm-rescue')
+    expect(system.isModuleAvailable('ice-escort')).toBe(true)
   })
 })
 

@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-# Compress ship GLBs with Draco via @gltf-transform/cli (npx).
-# Uses `draco` only — NOT `optimize` — so Empty_HP_* hardpoints and
-# `{shipId}_root` hierarchy survive. Meshopt remains supported at runtime.
+# Compress ship GLBs with meshopt via @gltf-transform/cli (npx).
+#
+# Meshopt — NOT Draco. The Draco decoder is only distributable as a separately
+# hosted WASM bundle, so a Draco GLB would need a third-party CDN at runtime;
+# the meshopt decoder ships inside three. `npm run models:verify` fails the
+# build on any committed `KHR_draco_mesh_compression` asset.
+#
+# Uses `meshopt` only — NOT `optimize` — so Empty_HP_* hardpoints and
+# `{shipId}_root` hierarchy survive.
+#
+# NOTE: this reaches the network via npx. Keep it out of CI gates — the
+# verifier is deliberately dependency-free.
 #
 # Usage:
 #   ./scripts/compress-ship-glb.sh                         # all public/models/*.glb
@@ -19,7 +28,7 @@ run_compress() {
   tmp="$(mktemp "${output}.XXXXXX.glb")"
 
   echo "Compressing $input → $output"
-  npx --yes @gltf-transform/cli draco "$input" "$tmp" --method edgebreaker
+  npx --yes @gltf-transform/cli meshopt "$input" "$tmp"
 
   mv "$tmp" "$output"
   echo "  $(du -h "$output" | cut -f1)  $output"

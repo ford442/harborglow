@@ -1,6 +1,6 @@
 # ADR 0001 — WebGPU TSL materials + FFT ocean (vs GLSL-first)
 
-- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165)); **runtime WebGL/R3F fallback deferred** by foundation [#194](https://github.com/ford442/harborglow/issues/194) (2026-08)
+- **Status:** Accepted (planning decision for epic [#165](https://github.com/ford442/HarborGlow/issues/165)); **runtime WebGL/R3F fallback deferred** by foundation [#194](https://github.com/ford442/harborglow/issues/194) (2026-08). **Phase C GPU displacement** landed with issue #219 (WGSL Stockham on the adopted probe device; CPU/WASM hull grid + fallback; cinema 256² is an ocean-only GPU tier, not a store `QualityPreset`).
 - **Date:** 2026-08-03
 - **Deciders:** HarborGlow graphics / foundation track
 - **Related:** [`docs/RENDERER.md`](../RENDERER.md), [`docs/plans/feature-plan.md`](../plans/feature-plan.md), [`docs/ARCHIVE.md`](../ARCHIVE.md), [`docs/systems/SYSTEM_BOOTSTRAP.md`](../systems/SYSTEM_BOOTSTRAP.md), child-issue specs in [`docs/plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md`](../plans/WEBGPU_TSL_FFT_CHILD_ISSUES.md)
@@ -17,7 +17,7 @@ What remains aspirational from the feature plan and research synthesis:
 |------|--------|------------|
 | Materials | `lightShowNodes.ts` → `MeshStandardMaterial` / GLSL god-ray | TSL node materials on WebGPU |
 | Post | Vanilla JSM `EffectComposer` (GLSL only) | Dual-path; compute/TSL only behind capability gates |
-| Ocean | Gerstner JS/WASM via `Water.tsx` | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
+| Ocean | Gerstner JS/WASM via `Water.tsx`; high/cinema FFT (GPU Stockham when gated) | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
 | three.js | Exact `0.183.1` with matching `@types/three`; WebGPU via `three/webgpu` and TSL via `three/tsl` | Keep the exact baseline until the postprocessing peer ceiling moves |
 | Caps probe | `maxTextureSize`, `maxAnisotropy`, `preserveDrawingBuffer`, `adapterInfo` | Also `computeShaders`, `float32Filterable` |
 
@@ -39,7 +39,7 @@ Concrete rules:
 3. **TSL is the preferred WebGPU material dialect after Phase A** (three bump unlocking `three/tsl` / `three/webgpu`). Port light-rig, god-ray, and water shading with explicit fallbacks — not a silent NodeMaterial-only fork.
 4. **`Water.tsx` stays the sole ocean authority.** FFT is a *backend* behind quality tiers (Low = Gerstner JS/WASM; High = FFT texture displacement; Cinema = higher res ± tessellation if feasible), registered/updated via existing wave bootstrap (`waves` order 120), not a revived parallel `FFTOcean` scene. Archive sketch may be mined; the loser is deleted or stays archived.
 5. **Compute is opt-in behind capability probes**, never assumed. Extend `RendererCapabilities` with `computeShaders` and `float32Filterable` before any WGSL FFT / god-ray compute lands. CPU/WASM Gerstner remains the universal fallback.
-6. **Post-processing stays on the GLSL `EffectComposer` contract until Phase A completes.** Migration to TSL/WGSL passes is a follow-up PR, gated on three + `@react-three/postprocessing` peer alignment (`docs/RENDERER.md` already documents this).
+6. **Live post is TSL `RenderPipeline`** (`pass` / `bloom` / god-rays / optional `ssr`). GLSL `EffectComposer` is retired on the WebGPU-required path (#194). A WebGL restore wave may reintroduce a GLSL reference composer; it is not a live dual renderer this phase.
 7. **Out of scope for this epic’s implementation PRs:** VR crane cab, mobile touch, light-show video export, multiplayer — track as separate epics.
 
 ### Chosen three.js target (Phase A)

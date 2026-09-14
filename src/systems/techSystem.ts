@@ -14,6 +14,7 @@
 
 import { useGameStore, Ship, ShipType } from '../store/useGameStore'
 import { harborEventSystem } from './eventSystem/HarborEventSystem'
+import { simNowMs } from './sim/SimContext'
 
 // =============================================================================
 // TYPES
@@ -141,24 +142,34 @@ class ExperimentalTechSystem {
     private droneFormation: Array<{id: number, angle: number, altitude: number}> = []
     
     constructor() {
-        // Initialize ROV swarm positions
+        // Initialize ROV swarm positions. This runs once at module-import time
+        // (see the `experimentalTechSystem` singleton below), before any
+        // per-session sim seed exists and outside the fixed-step tick — it is
+        // one-time cosmetic swarm-layout jitter, not simulation state (and
+        // getROVSwarmData()/getDroneFormationData() currently have no
+        // consumers), so it is exempt rather than migrated to simRandom().
         for (let i = 0; i < 12; i++) {
             this.rovPositions.push({
                 id: i,
                 offset: [
+                    // eslint-disable-next-line no-restricted-syntax -- one-time cosmetic swarm layout at module load, see constructor comment above.
                     Math.cos(i * Math.PI / 6) * (5 + Math.random() * 5),
+                    // eslint-disable-next-line no-restricted-syntax -- same one-time cosmetic swarm layout as above.
                     -2 - Math.random() * 3,
+                    // eslint-disable-next-line no-restricted-syntax -- same one-time cosmetic swarm layout as above.
                     Math.sin(i * Math.PI / 6) * (5 + Math.random() * 5)
                 ],
+                // eslint-disable-next-line no-restricted-syntax -- same one-time cosmetic swarm layout as above.
                 phase: Math.random() * Math.PI * 2
             })
         }
-        
+
         // Initialize drone formation
         for (let i = 0; i < 8; i++) {
             this.droneFormation.push({
                 id: i,
                 angle: (i / 8) * Math.PI * 2,
+                // eslint-disable-next-line no-restricted-syntax -- same one-time cosmetic swarm layout as the ROV positions above (module-load time, not in-tick, no consumer).
                 altitude: 30 + Math.random() * 20
             })
         }
@@ -253,7 +264,7 @@ class ExperimentalTechSystem {
         const currentCount = Array.from(this.activeTech.values()).filter(t => t.type === type).length
         if (currentCount >= TECH_CONFIGS[type].maxInstances) return null
         
-        const id = `${type}-${Date.now()}`
+        const id = `${type}-${simNowMs()}`
         const tech: ExperimentalTech = {
             id,
             type,

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera, PointerLockControls, useKeyboardControls } from '@react-three/drei'
 import { CapsuleCollider, RigidBody, RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
-import * as Tone from 'tone'
+import { Instrument } from '../systems/audio/voices'
 import { useGameStore } from '../store/useGameStore'
 
 type WalkingControls = 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'sprint'
@@ -16,16 +16,15 @@ const FOOTSTEP_INTERVAL_WALK = 0.44
 const FOOTSTEP_INTERVAL_SPRINT = 0.28
 
 // Simple footstep synth — created lazily
-let footSynth: Tone.MembraneSynth | null = null
+let footSynth: Instrument | null = null
 
-function getFootSynth(): Tone.MembraneSynth {
+function getFootSynth(): Instrument {
     if (!footSynth) {
-        footSynth = new Tone.MembraneSynth({
-            pitchDecay: 0.06,
-            octaves: 4,
+        footSynth = new Instrument({
+            waveform: 'membrane',
             envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
-            volume: -22,
-        }).toDestination()
+            volumeDb: -22,
+        })
     }
     return footSynth
 }
@@ -150,7 +149,7 @@ export default function Player() {
                     const synth = getFootSynth()
                     // Slight pitch variation for natural feel
                     const note = Math.random() > 0.5 ? 'C1' : 'A0'
-                    synth.triggerAttackRelease(note, '32n', Tone.now())
+                    synth.play(note, '32n')
                 } catch {
                     // Ignore audio errors (e.g., context not started)
                 }

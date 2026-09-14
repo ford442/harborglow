@@ -23,6 +23,13 @@ Parallel water stacks (`FFTOcean`, `PBRWater`, `InteractiveWater`), the unused
 
 See `scripts/archive/scenes/README.md` for the per-file decision table and recovery notes.
 
+**`FFTOcean.tsx` stays archived.** The quality-gated FFT ocean promised by
+ADR 0001 Phase C landed as a *backend behind `Water.tsx`*, not as a revived
+scene: the simulation lives in `src/systems/ocean/`, the displacement map in
+`src/scenes/water/oceanFFTTexture.ts`, and `Water.tsx` is still the only
+mounted ocean. Do not remount the sketch — see
+[`docs/systems/OCEAN_FFT.md`](./systems/OCEAN_FFT.md).
+
 ### Removed orphan scene entry points (Aug 2026)
 
 Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any live module:
@@ -35,3 +42,17 @@ Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any
 | `MonitorSystem.tsx` | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
 
 Recover from git history before the deletion commit if needed.
+
+## Retired dead GLSL shader modules (`src/scenes/`) (Aug 2026)
+
+Removed during issue #208 follow-up work for #198 after a reachability audit
+confirmed zero runtime imports.
+
+| Former file | Notes |
+|-------------|-------|
+| `ShipMaterials.tsx` | Unused ship material pack (7 `<shaderMaterial>` sites), never imported |
+| `lightRigs/LightRigTypes.tsx` | Unused light rig component set (`LEDStripArray`, `MovingHeadSpotlight`, `LaserProjector`, `StrobeBank`, `NeonTubeArrangement`) |
+| `lightRigs/FogEffect.tsx` | Unused fog helper component |
+
+The two remaining control-booth GLSL helper materials are intentionally deferred
+until the R3F v10 + drei v11 migration enables drei's WebGPU material path.

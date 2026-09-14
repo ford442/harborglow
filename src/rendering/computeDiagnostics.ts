@@ -1,5 +1,5 @@
 import type ComputeNode from 'three/src/nodes/gpgpu/ComputeNode.js'
-import { buildOceanFFTNode } from '../shaders/lightShowNodes'
+import { buildStorageTextureProbeNode } from '../shaders/lightShowNodes'
 
 export type ComputeProbeStatus = 'not-run' | 'passed' | 'unsupported' | 'failed'
 
@@ -22,7 +22,7 @@ export async function runStorageTextureComputeProbe(
   let disposeTexture: (() => void) | undefined
 
   try {
-    const { computeNode, displacementTex } = buildOceanFFTNode(4, 4)
+    const { computeNode, displacementTex } = buildStorageTextureProbeNode(4, 4)
     disposeTexture = () => displacementTex.dispose()
     await renderer.computeAsync(computeNode)
     return 'passed'

@@ -3,36 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // =============================================================================
 // CavitationSystem — smoke tests
 //
-// Tone.js is mocked (no audio context in Node) and Zustand is mocked to avoid
-// full store initialisation.  All tests exercise the pure-logic paths:
-// slip computation, hysteresis, thrust multipliers, and state reset.
+// Audio goes to the recording fake audioRuntime installed by src/test/setup.ts
+// and Zustand is mocked to avoid full store initialisation.  Tests exercise
+// slip computation, hysteresis, thrust multipliers, state reset, and chatter.
 // =============================================================================
-
-// ---------------------------------------------------------------------------
-// Mock Tone.js (no audio context required)
-// ---------------------------------------------------------------------------
-vi.mock('tone', () => {
-  // Use a proper class so vitest can call it with `new`
-  class FakeNode {
-    connect = vi.fn().mockReturnThis()
-    toDestination = vi.fn().mockReturnThis()
-    dispose = vi.fn()
-    volume = { value: 0, rampTo: vi.fn() }
-    frequency = { value: 0 }
-    triggerAttackRelease = vi.fn()
-  }
-
-  return {
-    context: { state: 'running' },
-    start: vi.fn(),
-    now: vi.fn(() => 0),
-    MetalSynth: FakeNode,
-    NoiseSynth: FakeNode,
-    Distortion: FakeNode,
-    Filter: FakeNode,
-    Compressor: FakeNode,
-  }
-})
 
 // ---------------------------------------------------------------------------
 // Mock Zustand store (only the slice the system touches)
@@ -50,6 +24,11 @@ vi.mock('../../store/useGameStore', () => {
 // Import system under test AFTER mocks are registered
 // ---------------------------------------------------------------------------
 import { cavitationSystem, cavitationState, CAVITATION_CONFIG } from '../CavitationSystem'
+import { audioRuntime } from '../audio/AudioRuntime'
+import { WAVEFORMS } from '../audio/voices'
+import type { FakeAudioRuntime } from '../../test/audioRuntimeMock'
+
+const fake = audioRuntime as unknown as FakeAudioRuntime
 
 // ---------------------------------------------------------------------------
 
@@ -199,5 +178,37 @@ describe('CavitationSystem — setEnabled()', () => {
     expect(cavitationState.starboardCavitating).toBe(false)
     // Re-enable for other tests
     cavitationSystem.setEnabled(true)
+  })
+})
+
+describe('CavitationSystem — chatter audio', () => {
+  beforeEach(() => {
+    cavitationSystem.setEnabled(true)
+    cavitationSystem.resetCavitation()
+    fake.reset()
+  })
+
+  it('stays silent without sustained cavitation', async () => {
+    cavitationSystem.update(100, 100, CAVITATION_CONFIG.maxPropSpeed, 0.016)
+    await Promise.resolve()
+    expect(fake.notes).toHaveLength(0)
+  })
+
+  it('plays short metallic strikes once cavitation latches', async () => {
+    vi.useFakeTimers()
+    try {
+      const frameTime = 0.016
+      const framesNeeded = Math.ceil((CAVITATION_CONFIG.minDurationForAlarm + 0.2) / frameTime)
+      for (let i = 0; i < framesNeeded; i++) {
+        cavitationSystem.update(100, 100, 0, frameTime)
+        await vi.advanceTimersByTimeAsync(0)
+      }
+      vi.runAllTimers()
+      const strikes = fake.notes.filter((n) => n.options.waveform === WAVEFORMS.metal)
+      expect(strikes.length).toBeGreaterThan(0)
+      for (const strike of strikes) expect(strike.options.duration).toBeLessThan(0.05)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

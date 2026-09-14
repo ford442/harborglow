@@ -1,13 +1,15 @@
-import * as Tone from 'tone'
 import type { ShipType } from '../../store/gameStoreTypes'
 import { getBandInfo, BandInfo } from './musicTracks'
 import { getLyrics, LyricEntry } from './lyrics'
 import { createSynthChain, SynthChainConfig } from './musicSynthChains'
 import { AcousticSpace, audioRuntime } from '../audio/AudioRuntime'
+import { positionToBeats, scheduleLoop, scheduleSequence, transport } from '../audio/transport'
+import { unlockAudio } from '../audio/voices'
 
 // =============================================================================
 // MUSIC SYSTEM - Main orchestrator
-// Manages unique audio tracks for each ship type with synchronized lyrics
+// Plays the upgraded ship's track on the shared beat transport, clocked by sim
+// time, with lyrics keyed to transport beats.
 // =============================================================================
 
 // Local exhaustive list — cannot import SHIP_TYPES at module init (musicSystem
@@ -28,12 +30,47 @@ const MUSIC_SHIP_TYPES = Object.keys({
     icebreaker: true,
 } satisfies Record<ShipType, true>) as ShipType[]
 
+const BPM_BY_SHIP: Record<ShipType, number> = {
+    cruise: 120, container: 128, tanker: 140, bulk: 135, lng: 118,
+    roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100, fireboat: 152, icebreaker: 108
+}
+
+const ROOM_BY_SHIP: Record<ShipType, AcousticSpace> = {
+    cruise: 'ship-hall',
+    container: 'cargo-hold',
+    tanker: 'tanker-hold',
+    bulk: 'cargo-hold',
+    lng: 'ship-hall',
+    roro: 'cargo-hold',
+    research: 'ship-hall',
+    droneship: 'ship-hall',
+    ferry: 'cargo-hold',
+    trawler: 'cargo-hold',
+    horizon: 'ship-hall',
+    fireboat: 'crane-cab',
+    icebreaker: 'tanker-hold',
+}
+
+/** Bus effects a track may set; cleared when music stops (the room is left to the scene). */
+const DRY_MUSIC_BUS = { distortion: 0, bitDepth: 24, delaySeconds: 0, delayFeedback: 0, chorusDepth: 0 }
+
+const CLIMAX_SECONDS = 5
+
+// "Ocean Symphony" progression — the harbor theme every ship currently plays.
+const THEME_CHORDS = [
+    { beat: 0, notes: ['C4', 'E4', 'G4', 'B4'] },
+    { beat: 4, notes: ['F4', 'A4', 'C5', 'E5'] },
+    { beat: 8, notes: ['G4', 'B4', 'D5', 'F5'] },
+    { beat: 12, notes: ['C4', 'E4', 'G4', 'C5'] },
+]
+const THEME_BASS = ['C2', 'C2', 'F2', 'G2']
+
 class MusicSystem {
-    private transports: Map<ShipType, any> = new Map()
     private synthChains: Map<ShipType, SynthChainConfig> = new Map()
     private lyrics: Map<ShipType, LyricEntry[]> = new Map()
     private currentLyricIndex: Map<ShipType, number> = new Map()
-    private scheduledParts: any[] = []
+    private scheduledEvents: number[] = []
+    private currentShip: ShipType | null = null
     private isInitialized: boolean = false
 
     constructor() {
@@ -49,138 +86,44 @@ class MusicSystem {
 
     private async initializeAudio() {
         if (this.isInitialized) return
-        
-        await Tone.start()
-        
+
+        await unlockAudio()
+
         MUSIC_SHIP_TYPES.forEach(shipType => {
-            const synthChain = createSynthChain(shipType)
-            this.synthChains.set(shipType, synthChain)
+            this.synthChains.set(shipType, createSynthChain(shipType))
         })
-        
-        this.initializeTransports()
+
         this.isInitialized = true
     }
 
-    private initializeTransports() {
-        const bpmMap: Record<ShipType, number> = {
-            cruise: 120, container: 128, tanker: 140, bulk: 135, lng: 118,
-            roro: 125, research: 110, droneship: 105, ferry: 115, trawler: 95, horizon: 100, fireboat: 152, icebreaker: 108
-        }
-
-        this.createCruiseTransport(bpmMap.cruise)
-        this.createContainerTransport(bpmMap.container)
-        this.createTankerTransport(bpmMap.tanker)
-        this.createBulkTransport(bpmMap.bulk)
-        this.createLngTransport(bpmMap.lng)
-        this.createRoroTransport(bpmMap.roro)
-        this.createResearchTransport(bpmMap.research)
-        this.createDroneshipTransport(bpmMap.droneship)
-        this.createFerryTransport(bpmMap.ferry)
-        this.createTrawlerTransport(bpmMap.trawler)
-        this.createHorizonTransport(bpmMap.horizon)
-        this.createFireboatTransport(bpmMap.fireboat)
-        this.createIcebreakerTransport(bpmMap.icebreaker)
+    /** Schedule the theme on the transport. Returns event ids for clearing. */
+    private scheduleTheme(): number[] {
+        const [lead, pad, bass] = this.synthChains.get('cruise')?.instruments ?? []
+        return [
+            ...scheduleLoop(transport, THEME_CHORDS, 16, (_beat, chord) => {
+                lead?.play(chord.notes, '1n')
+                pad?.play(chord.notes, '2n', { velocity: 0.6 })
+            }),
+            scheduleSequence(transport, THEME_BASS, 1, (_beat, note) => {
+                bass?.play(note, '2n')
+            }),
+        ]
     }
 
-    private createCruiseTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        const synths = this.synthChains.get('cruise')?.synths || []
-        const [lead, pad, bass] = synths
-
-        const chordPart = new Tone.Part((time, value) => {
-            lead?.triggerAttackRelease(value.notes, value.duration, time)
-            pad?.triggerAttackRelease(value.notes, '2n', time, 0.6)
-        }, [
-            { time: '0:0', notes: ['C4', 'E4', 'G4', 'B4'], duration: '1n' },
-            { time: '1:0', notes: ['F4', 'A4', 'C5', 'E5'], duration: '1n' },
-            { time: '2:0', notes: ['G4', 'B4', 'D5', 'F5'], duration: '1n' },
-            { time: '3:0', notes: ['C4', 'E4', 'G4', 'C5'], duration: '1n' },
-        ])
-        chordPart.loop = true
-        chordPart.loopEnd = '4:0'
-        chordPart.start(0)
-
-        const bassPart = new Tone.Sequence((time, note) => {
-            bass?.triggerAttackRelease(note, '2n', time)
-        }, ['C2', 'C2', 'F2', 'G2'])
-        bassPart.loop = true
-        bassPart.start(0)
-        this.scheduledParts.push(chordPart, bassPart)
-
-        this.transports.set('cruise', transport)
+    private clearScheduled() {
+        this.scheduledEvents.forEach(id => transport.clear(id))
+        this.scheduledEvents = []
     }
 
-    private createContainerTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('container', transport)
-    }
-
-    private createTankerTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('tanker', transport)
-    }
-
-    private createBulkTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('bulk', transport)
-    }
-
-    private createLngTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('lng', transport)
-    }
-
-    private createRoroTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('roro', transport)
-    }
-
-    private createResearchTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('research', transport)
-    }
-
-    private createDroneshipTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('droneship', transport)
-    }
-
-    private createFerryTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('ferry', transport)
-    }
-
-    private createTrawlerTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('trawler', transport)
-    }
-
-    private createHorizonTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('horizon', transport)
-    }
-
-    private createFireboatTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('fireboat', transport)
-    }
-
-    private createIcebreakerTransport(bpm: number) {
-        const transport = Tone.getTransport()
-        transport.bpm.value = bpm
-        this.transports.set('icebreaker', transport)
+    private applyBus(shipType: ShipType, bpm: number) {
+        const { delayBeats = 0, roomMix = 0.35, ...bus } = this.synthChains.get(shipType)?.bus ?? {}
+        audioRuntime.setEffects({
+            ...DRY_MUSIC_BUS,
+            ...bus,
+            delaySeconds: delayBeats * (60 / bpm),
+            room: ROOM_BY_SHIP[shipType],
+            roomMix,
+        })
     }
 
     // =========================================================================
@@ -191,65 +134,53 @@ class MusicSystem {
         return getBandInfo(shipType)
     }
 
-    async startMusic(shipType: ShipType) {
+    /**
+     * Start a ship's track. `offsetSeconds` is sim time into the song (the
+     * multiplayer path passes simTime so every peer lands on the same beat).
+     */
+    async startMusic(shipType: ShipType, offsetSeconds = 0) {
         await this.initializeAudio()
-        const roomByShip: Record<ShipType, AcousticSpace> = {
-            cruise: 'ship-hall',
-            container: 'cargo-hold',
-            tanker: 'tanker-hold',
-            bulk: 'cargo-hold',
-            lng: 'ship-hall',
-            roro: 'cargo-hold',
-            research: 'ship-hall',
-            droneship: 'ship-hall',
-            ferry: 'cargo-hold',
-            trawler: 'cargo-hold',
-            horizon: 'ship-hall',
-            fireboat: 'crane-cab',
-            icebreaker: 'tanker-hold',
-        }
-        audioRuntime.setAcousticSpace(roomByShip[shipType], 0.35)
-        const transport = this.transports.get(shipType)
-        if (transport) {
-            transport.start()
-        }
+        const bpm = BPM_BY_SHIP[shipType]
+
+        this.clearScheduled()
+        this.currentShip = shipType
+        transport.bpm = bpm
+        this.applyBus(shipType, bpm)
+        this.scheduledEvents = this.scheduleTheme()
+        transport.start({ clock: 'sim', atBeat: Math.max(0, offsetSeconds) * (bpm / 60) })
     }
 
     stopMusic(shipType: ShipType) {
-        const transport = this.transports.get(shipType)
-        if (transport) {
-            transport.stop()
-        }
+        if (this.currentShip === shipType) this.stopAllMusic()
     }
 
     stopAllMusic() {
-        this.transports.forEach(transport => transport.stop())
+        if (this.currentShip === null) return
+        this.clearScheduled()
+        transport.stop()
+        this.synthChains.forEach(chain => chain.instruments.forEach(instrument => instrument.release()))
+        audioRuntime.setEffects(DRY_MUSIC_BUS)
+        this.currentShip = null
     }
 
     setBPM(bpm: number) {
-        this.transports.forEach(transport => {
-            transport.bpm.value = bpm
-        })
+        transport.bpm = bpm
     }
 
     getCurrentLyric(shipType: ShipType): string {
-        const transport = this.transports.get(shipType)
-        if (!transport || transport.state !== 'started') return ''
-        
+        if (!this.isPlaying(shipType)) return ''
+
         const lyrics = this.lyrics.get(shipType) || []
         if (lyrics.length === 0) return ''
 
-        const position = transport.position as string
-        const currentSeconds = Tone.Time(position).toSeconds()
-
+        const beats = transport.beats
         for (let i = lyrics.length - 1; i >= 0; i--) {
-            const lyricTime = Tone.Time(lyrics[i].time).toSeconds()
-            if (currentSeconds >= lyricTime) {
+            if (beats >= positionToBeats(lyrics[i].time)) {
                 this.currentLyricIndex.set(shipType, i)
                 return lyrics[i].text
             }
         }
-        
+
         return ''
     }
 
@@ -258,54 +189,35 @@ class MusicSystem {
     }
 
     getTransportPosition(shipType: ShipType): string {
-        const transport = this.transports.get(shipType)
-        return transport ? (transport.position as string) : '0:0'
+        return this.currentShip === shipType ? transport.position : '0:0'
     }
 
     isPlaying(shipType: ShipType): boolean {
-        const transport = this.transports.get(shipType)
-        return transport ? transport.state === 'started' : false
+        return this.currentShip === shipType && transport.state === 'started'
     }
 
     triggerClimax(shipType: ShipType) {
         console.log(`🎵 MUSIC CLIMAX for ${shipType}!`)
-        
-        const transport = this.transports.get(shipType)
-        if (!transport) return
-        
-        const originalBPM = transport.bpm.value
-        transport.bpm.value = originalBPM * 1.2
 
-        const synthChain = this.synthChains.get(shipType)
-        if (synthChain) {
-            synthChain.synths.forEach((synth: any) => {
-                if (synth.volume) {
-                    synth.volume.rampTo(synth.volume.value + 3, 0.1)
-                }
-            })
-        }
+        if (this.currentShip !== shipType) return
 
-        transport.scheduleOnce((_: number) => {
-            transport.bpm.value = originalBPM
-            if (synthChain) {
-                synthChain.synths.forEach((synth: any) => {
-                    if (synth.volume) {
-                        synth.volume.rampTo(synth.volume.value - 3, 1)
-                    }
-                })
-            }
-        }, '+5')
+        const originalBPM = transport.bpm
+        transport.bpm = originalBPM * 1.2
+
+        const instruments = this.synthChains.get(shipType)?.instruments ?? []
+        instruments.forEach(instrument => { instrument.volumeDb += 3 })
+
+        transport.scheduleIn(() => {
+            transport.bpm = originalBPM
+            instruments.forEach(instrument => { instrument.volumeDb -= 3 })
+        }, CLIMAX_SECONDS * (transport.bpm / 60))
     }
 
     dispose() {
         this.stopAllMusic()
-        this.synthChains.forEach(chain => {
-            chain.synths.forEach((s: any) => s.dispose())
-            chain.effects.forEach((e: any) => e.dispose())
-        })
-        this.scheduledParts.forEach(part => part.dispose())
-        this.scheduledParts = []
-        this.transports.forEach(t => t.dispose())
+        this.synthChains.forEach(chain => chain.instruments.forEach(instrument => instrument.dispose()))
+        this.synthChains.clear()
+        this.isInitialized = false
     }
 }
 

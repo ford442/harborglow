@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import * as Tone from 'tone'
+import { transport } from '../systems/audio/transport'
 
 // =============================================================================
 // USE MUSIC PULSE — Beat-reactive pulse value for UI animations
-// Returns 0-1 that pulses to the beat when Tone.Transport is running,
+// Returns 0-1 that pulses to the beat when the music transport is running,
 // or a gentle ambient sine wave when stopped.
 // =============================================================================
 
@@ -17,11 +17,9 @@ export function useMusicPulse(bpm: number = 120): number {
     const updatePulse = () => {
       const now = performance.now() / 1000
 
-      if (Tone.Transport.state === 'started') {
+      if (transport.state === 'started') {
         // Sync to transport beat
-        const transportSeconds = Tone.Transport.seconds
-        const beatDuration = 60 / bpm
-        const phase = (transportSeconds % beatDuration) / beatDuration
+        const phase = transport.beatPhase()
         // Sharp attack, exponential decay — feels like a kick drum
         const beatPulse = Math.exp(-phase * 4) * Math.cos(phase * Math.PI * 0.5)
         setPulse(Math.max(0, Math.min(1, beatPulse)))

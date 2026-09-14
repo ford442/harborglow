@@ -12,7 +12,7 @@ vi.mock('../../utils/storage_manager', () => ({
   clearSave,
 }))
 
-// Purchases play SFX; Tone has no audio context under vitest's node env.
+// Purchases play SFX; keep audio out of economy assertions.
 vi.mock('../../systems/soundEffects', () => ({
   playSound: vi.fn(),
   playInstallationCelebration: vi.fn(),

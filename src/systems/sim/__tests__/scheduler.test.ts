@@ -31,5 +31,29 @@ describe('FixedStepScheduler', () => {
     expect(file.seed).toBe(7)
     expect(file.inputs).toHaveLength(1)
     expect(file.inputs[0].action).toBe('storm.start')
+    expect(file.inputs[0].tick).toBe(2)
+  })
+
+  it('snapshotReplay does not stop recording', () => {
+    simScheduler.reset(3)
+    simScheduler.startRecording()
+    simScheduler.record('storm.start', { duration: 180 })
+    const snap = simScheduler.snapshotReplay()
+    expect(simScheduler.isRecording).toBe(true)
+    expect(snap.inputs).toHaveLength(1)
+    simScheduler.record('storm.stop', null)
+    expect(simScheduler.snapshotReplay().inputs).toHaveLength(2)
+  })
+
+  it('enqueueInput applies at the tagged tick while advancing', () => {
+    simScheduler.reset(4)
+    const applied: number[] = []
+    simScheduler.setInputHandler((entry) => {
+      applied.push(entry.tick)
+    })
+    simScheduler.enqueueInput({ tick: 3, action: 'storm.start', payload: { duration: 180 } })
+    simScheduler.advance(SIM_DT * 5, () => {})
+    expect(applied).toEqual([3])
+    expect(simScheduler.tick).toBe(5)
   })
 })

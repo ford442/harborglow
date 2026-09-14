@@ -4,7 +4,9 @@
 #
 # Usage:
 #   ./build.sh                         # optimised release build (requires em++)
-#   ./build.sh debug                   # debug build with sanitizers
+#   ./build.sh debug                   # debug WASM (DWARF + ASSERTIONS, no ASan)
+#   ./build.sh debug-wasm              # same as debug
+#   ./build.sh debug-native            # host ASan/UBSan tests
 #   ./build.sh clean                   # clean artifacts
 #   ./build.sh --allow-missing-emsdk   # skip when em++ is absent (exit 0)
 #   ALLOW_MISSING_EMSDK=1 ./build.sh   # same skip via env
@@ -24,13 +26,13 @@ for arg in "$@"; do
     --allow-missing-emsdk)
       ALLOW_MISSING=1
       ;;
-    all|debug|clean)
+    all|debug|debug-wasm|debug-native|clean)
       TARGET="$arg"
       ;;
     "")
       ;;
     *)
-      echo "Unknown argument: $arg  (use: all | debug | clean | --allow-missing-emsdk)"
+      echo "Unknown argument: $arg  (use: all | debug | debug-wasm | debug-native | clean | --allow-missing-emsdk)"
       exit 1
       ;;
   esac
@@ -53,7 +55,7 @@ if [[ -n "$EMSDK_ENV" ]]; then
   source "$EMSDK_ENV"
 fi
 
-if ! command -v em++ &>/dev/null; then
+if [[ "$TARGET" != "debug-native" && "$TARGET" != "clean" ]] && ! command -v em++ &>/dev/null; then
   if [[ "$ALLOW_MISSING" == "1" ]]; then
     echo "⚠️  Emscripten SDK not found; skipping wasm build (--allow-missing-emsdk)."
     exit 0
@@ -63,7 +65,9 @@ if ! command -v em++ &>/dev/null; then
   exit 1
 fi
 
-echo "🔧  em++ $(em++ --version | head -1)"
+if command -v em++ &>/dev/null; then
+  echo "🔧  em++ $(em++ --version | head -1)"
+fi
 
 case "$TARGET" in
   all)
@@ -71,10 +75,13 @@ case "$TARGET" in
       CORE_EXPORTED_FUNCTIONS="$(node ../scripts/wasm-exports.mjs --emcc core)" \
       AUDIO_EXPORTED_FUNCTIONS="$(node ../scripts/wasm-exports.mjs --emcc audio)"
     ;;
-  debug)
-    make debug \
+  debug|debug-wasm)
+    make debug-wasm \
       CORE_EXPORTED_FUNCTIONS="$(node ../scripts/wasm-exports.mjs --emcc core)" \
       AUDIO_EXPORTED_FUNCTIONS="$(node ../scripts/wasm-exports.mjs --emcc audio)"
+    ;;
+  debug-native)
+    make debug-native
     ;;
   clean)
     make clean

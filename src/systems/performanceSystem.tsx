@@ -299,10 +299,12 @@ export function usePerformanceMonitor(): PerformanceStats {
   })
   
   const frameCountRef = useRef(0)
+  // eslint-disable-next-line no-restricted-syntax -- real FPS/frame-time meter (docs/systems/DETERMINISM.md allowlists FPS meters); feeding this sim time would make the profiler lie about actual render performance.
   const lastTimeRef = useRef(performance.now())
   const frameTimesRef = useRef<number[]>([])
-  
+
   useFrame(() => {
+    // eslint-disable-next-line no-restricted-syntax -- same real-wall-clock FPS meter as lastTimeRef above.
     const now = performance.now()
     const frameTime = now - lastTimeRef.current
     lastTimeRef.current = now

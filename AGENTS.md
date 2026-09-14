@@ -29,7 +29,7 @@ The game includes an alternate operation mode where players control a tugboat to
 | 3D Post-Processing | @react-three/postprocessing | ^3.0.5 |
 | 3D Core | three | 0.183.1 |
 | 3D Stdlib | three-stdlib | ^2.36.1 |
-| Audio | tone | ^14.7.77 |
+| Audio | in-tree WASM AudioWorklet (`src/systems/audio/`) | — |
 | State Management | zustand | ^4.4.7 |
 | Debug UI | leva | ^0.10.1 |
 | Styling | Tailwind CSS | ^3.4.19 |
@@ -103,7 +103,6 @@ npm run preview
 - `base: './'` in `vite.config.ts` enables relative-path deployment.
 - Manual chunk splitting creates:
   - `vendor-3d` — three, R3F, drei, rapier, postprocessing (~4.4 MB raw / ~1.46 MB gzip after r183 upgrade)
-  - `vendor-audio` — tone (~288 KB raw / ~69 KB gzip)
   - `MainScene` — lazy-loaded scene chunk (~188 KB raw / ~49 KB gzip)
 - React, React-DOM, Leva, and Zustand are intentionally kept in the main bundle to avoid `__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` errors.
 - Terser drops `console.log` and `debugger` in production (`passes: 2`).
@@ -254,7 +253,7 @@ src/
 │   ├── introMusicSystem.ts
 │   ├── lightingSystem.ts    # Beat-synced lighting
 │   ├── moonSystem.ts
-│   ├── musicSystem.ts       # Tone.js music + lyrics sync (~872 lines)
+│   ├── musicSystem.ts       # re-export of music/ (MusicSystem, synth chains, lyrics)
 │   ├── performanceSystem.tsx
 │   ├── physicsSystem.ts
 │   ├── reputationSystem.ts
@@ -363,12 +362,12 @@ Root files:
 - **To add a new ambient system:** register it in `mainSceneSystems.ts` with an explicit `order` and `groups` entry; see [docs/systems/SYSTEM_BOOTSTRAP.md](docs/systems/SYSTEM_BOOTSTRAP.md) for the ordered table and pause rules.
 
 ### Audio Architecture
-- `MusicSystem` in `musicSystem.ts` is a singleton using Tone.js.
-- Each of the 8 ship types has its own synth/effect chain and `Tone.Transport` sequence.
-- Lyrics are arrays of `{ time, text }` synced against `transport.position`.
+- Audio runs on `audioRuntime` (WASM AudioWorklet, shared-memory ring buffers) — see `docs/systems/AUDIO.md`. There is no Tone.js; `src/test/__tests__/audioSetup.test.ts` fails if `tone` is imported or re-added.
+- `MusicSystem` (`music/MusicSystem.ts`) is a singleton. Each ship type has instruments + bus effects (`music/musicSynthChains.ts`) played on the shared beat `transport` (`audio/transport.ts`), clocked by sim time.
+- Lyrics are arrays of `{ time: 'bars:beats', text }` compared against `transport.beats`.
 - BPM is globally adjustable; climax mode temporarily boosts BPM and volume.
 - Additional audio layers: `ambientSoundSystem.ts`, `craneSoundSystem.ts`, `audioVisualSync.ts`, `introMusicSystem.ts`.
-- Audio requires user interaction to start (browser autoplay policy). A click/keydown listener in `App.tsx` initializes `Tone.start()`.
+- Audio requires user interaction to start (browser autoplay policy). A click/keydown listener in `App.tsx` calls `audioRuntime.resume()`.
 
 ### Ship Upgrades & Attachment Points
 - Ships have `attachmentPoints` derived from blueprint `parts`.
@@ -476,7 +475,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 
 | Job | Command | What it catches |
 |------|---------|-----------------|
-| `gate-lockfile` | `npm ci` + `npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three`/`postprocessing` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
+| `gate-lockfile` | `npm ci` + `npm ls three @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
 | `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
 | `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
@@ -487,15 +486,36 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
 | `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
 
-Run locally before pushing — **from a clean install**, since an existing `node_modules` can mask a
-`package-lock.json` that no longer matches `package.json` (`npm install` silently repairs and
-re-hoists a stale lock without you noticing; only `npm ci` against the committed lock proves it's
-reproducible):
+### Local verify (`npm run verify`)
+
+Run the same merge gates locally before pushing (fail-fast, cheapest first):
 
 ```bash
-rm -rf node_modules && npm ci && npm ls three postprocessing @react-three/fiber @react-three/drei @react-three/rapier
-npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build
+rm -rf node_modules && npm ci   # once per lockfile change, or when deps look wrong
+npm run verify                  # ~3–5 min on a typical dev machine
 ```
+
+`npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
+
+- **`gate-wasm`** — requires Emscripten 6.0.6. If you changed `cpp/` or `public/wasm/`, run locally: `npm run build:wasm && make -C cpp test && npm run check:wasm && git diff --exit-code -- public/wasm`
+  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` now fails locally on that drift (and warns when your local `em++` is not the pinned release, since a rebuild here would rewrite the provenance); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating. If your emsdk is not 6.0.6, run `emsdk install 6.0.6 && emsdk activate 6.0.6` rather than editing the manifest.
+- **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)
+
+The lockfile step uses `npm ci --dry-run` (npm 10 semantics; npm 11 alone may miss incomplete lockfiles). Host npm ≥ 11 triggers an automatic `npx npm@10.9.2` for that step only.
+
+`ALLOW_MISSING_EMSDK=1` is set for the build step so contributors without Emscripten get the same skip CI uses; verify prints a banner that WASM rebuild was not checked.
+
+**Faster subset** (~30–60s): `npm run verify:fast` — lockfile + typecheck + lint only (skips test, smoke, build).
+
+**Opt-in pre-push hook** (nothing committed under `.git/hooks/`):
+
+```bash
+npm run setup:pre-push-hook   # installs scripts/pre-push.hook → .git/hooks/pre-push
+git push --no-verify          # skip once
+rm .git/hooks/pre-push        # remove
+```
+
+After a lockfile edit, run `rm -rf node_modules && npm ci` once — an existing `node_modules` from `npm install` can mask drift that `npm ci --dry-run` still catches, but a clean install proves reproducibility.
 
 **Report-only / not in CI (yet):** `npm audit` advisories.
 
@@ -623,7 +643,7 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`, `previ
 - `vite.config.ts` sets `optimizeDeps.esbuildOptions.target: 'esnext'`. This is required: three.js WebGPU modules (crawled via the lazy `WebGPURenderer` import) use top-level await, and Vite's dev dependency optimizer otherwise uses its default target (`es2020, chrome87, …`), which rejects TLA and makes `npm run dev` crash on a cold dependency scan. `build.target` was already `esnext`, so production builds were unaffected. If you `rm -rf node_modules/.vite`, the next `npm run dev` re-runs the scan — this must be present for it to succeed.
 
 ### CI locally
-- Run the full merge gate matrix: `npm run typecheck && npm run typecheck:tests && npm run lint && npm run test && npm run smoke:dev-transform && npm run build`.
+- Run merge gates locally: `npm run verify` (or `npm run verify:fast` for a quick check).
 - `npm run smoke:dev-transform` boots a short-lived Vite dev server and fetches every module under `src/scenes/` and `src/store/` through the Babel pipeline — catches duplicate-declaration regressions that `tsc` misses. `npm run test:dev-transform` is an alias.
 
 ### Other notes

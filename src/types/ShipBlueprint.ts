@@ -90,7 +90,7 @@ export interface ShipBlueprint {
   metalness?: number
   /** Default roughness for all parts */
   roughness?: number
-  /** Per-ship music theme identifier for Tone.js mapping */
+  /** Per-ship music theme identifier for MusicSystem mapping */
   musicTheme?: string
   /** LOD2 impostor geometry */
   lod2?: Lod2Data

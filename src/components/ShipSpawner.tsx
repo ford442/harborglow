@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShipSpawner as ShipSpawnerSystem } from '../systems/shipSpawner'
+import { recordHostInput } from '../systems/sim/hostInput'
 import { ShipType, useGameStore } from '../store/useGameStore'
 import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
 import { RippleButton, SpawnSplash } from './InteractiveFeedback'
@@ -111,7 +111,7 @@ export default function ShipSpawner() {
     setShowSplash(type)
     
     setTimeout(() => {
-      ShipSpawnerSystem.spawnShip(type)
+      recordHostInput('ship.spawn', { type })
       setSpawning(null)
     }, 600)
     

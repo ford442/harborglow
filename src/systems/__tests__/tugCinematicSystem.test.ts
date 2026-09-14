@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // =============================================================================
 // TUG CINEMATIC SYSTEM — smoke tests
-// All Transport and store interactions are mocked.
+// Store interactions are mocked; sequencer cues are flushed by beat.
 // Uses globalThis for event dispatching (works in Node test environment).
 // =============================================================================
 
@@ -37,25 +37,6 @@ function onGlobal(type: string, cb: (e: Event) => void) {
 }
 
 // ---------------------------------------------------------------------------
-// Mock Tone.js (required by sequencerSystem)
-// ---------------------------------------------------------------------------
-vi.mock('tone', () => {
-  let _seconds = 0
-  const transport = {
-    get seconds() { return _seconds },
-    set seconds(v: number) { _seconds = v },
-    get bpm() { return { value: 120 } },
-    get state() { return 'started' as const },
-    scheduleRepeat: vi.fn(),
-    position: '0:0:0',
-    stop: vi.fn(),
-    start: vi.fn(),
-    _setSeconds(v: number) { _seconds = v },
-  }
-  return { getTransport: () => transport }
-})
-
-// ---------------------------------------------------------------------------
 // Mock useGameStore — only the actions used by tugCinematicSystem
 // ---------------------------------------------------------------------------
 const setTugSpectatorActive = vi.fn()
@@ -69,7 +50,7 @@ vi.mock('../../store/useGameStore', () => ({
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
-import * as Tone from 'tone'
+import { transport } from '../audio/transport'
 import { sequencerSystem } from '../sequencerSystem'
 import {
   triggerTugObjectiveCinematic,
@@ -83,12 +64,10 @@ import type { TugCinematicDetail } from '../tugCinematicSystem'
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function setTransportSeconds(v: number) {
-  (Tone.getTransport() as unknown as { _setSeconds: (v: number) => void })._setSeconds(v)
+/** Flush sequencer cues as if the transport had reached `beat`. */
+function flushAt(beat: number) {
+  sequencerSystem['_flushDueCues'](beat)
 }
-
-const BPM = 120
-const SPB = 60 / BPM // seconds per beat = 0.5 s
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -96,7 +75,8 @@ const SPB = 60 / BPM // seconds per beat = 0.5 s
 
 describe('tugCinematicSystem', () => {
   beforeEach(() => {
-    setTransportSeconds(0)
+    transport.stop()
+    transport.seek(0)
     sequencerSystem.clearAll()
     setTugSpectatorActive.mockClear()
     emitter.removeAllListeners()
@@ -126,13 +106,11 @@ describe('tugCinematicSystem', () => {
     triggerTugObjectiveCinematic('tanker', 'Berth Beta')
 
     // Before beat 4 — drone must not have fired
-    setTransportSeconds(SPB * 4 - 0.01)
-    sequencerSystem['_flushDueCues'](Tone.getTransport().seconds)
+    flushAt(4 - 0.01)
     expect(setTugSpectatorActive).not.toHaveBeenCalled()
 
     // At beat 4 — drone activates
-    setTransportSeconds(SPB * 4)
-    sequencerSystem['_flushDueCues'](Tone.getTransport().seconds)
+    flushAt(4)
     expect(setTugSpectatorActive).toHaveBeenCalledWith(true)
   })
 
@@ -144,8 +122,7 @@ describe('tugCinematicSystem', () => {
 
     triggerTugObjectiveCinematic('bulk', 'Berth Gamma')
 
-    setTransportSeconds(SPB * 32)
-    sequencerSystem['_flushDueCues'](Tone.getTransport().seconds)
+    flushAt(32)
     off()
 
     expect(setTugSpectatorActive).toHaveBeenCalledWith(false)
@@ -163,7 +140,7 @@ describe('tugCinematicSystem', () => {
       endEvents.push((e as CustomEvent<TugCinematicDetail>).detail)
     })
 
-    triggerTugWinCinematic({ totalTonsAssisted: 400, cleanTows: 3, nightRescues: 1 })
+    triggerTugWinCinematic({ totalTonsAssisted: 400, cleanTows: 3, nightRescues: 1, iceEscorts: 0 })
 
     // Immediate start event
     expect(startEvents).toHaveLength(1)
@@ -171,13 +148,11 @@ describe('tugCinematicSystem', () => {
     expect(startEvents[0].careerStats?.totalTonsAssisted).toBe(400)
 
     // Drone activates at beat 4
-    setTransportSeconds(SPB * 4)
-    sequencerSystem['_flushDueCues'](Tone.getTransport().seconds)
+    flushAt(4)
     expect(setTugSpectatorActive).toHaveBeenCalledWith(true)
 
     // Drone deactivates at beat 40
-    setTransportSeconds(SPB * 40)
-    sequencerSystem['_flushDueCues'](Tone.getTransport().seconds)
+    flushAt(40)
     expect(setTugSpectatorActive).toHaveBeenCalledWith(false)
     expect(endEvents).toHaveLength(1)
     offStart()

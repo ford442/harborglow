@@ -6,6 +6,7 @@
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
 import { calcMagneticFalloff } from '../utils/physicsMath'
 import { swaySystem } from './swaySystem'
+import { recordHostInput } from './sim/hostInput'
 
 // Attachment point states
 export type AttachmentState = 'available' | 'hovered' | 'snapping' | 'installing' | 'installed'
@@ -296,10 +297,12 @@ export function triggerInstallation(
   // which case it is left undefined rather than guessed at.
   const startedAt = state.installAttemptStartedAt
   state.installUpgrade(shipId, partName, {
+    // eslint-disable-next-line no-restricted-syntax -- wall-clock install-speed metric; installAttemptStartedAt is set via Date.now() in store/slices/craneSlice.ts (outside src/systems/**), so this must stay in the same time base rather than mixing in sim time.
     timeSeconds: startedAt !== null ? (Date.now() - startedAt) / 1000 : undefined,
     swayPercent: swaySystem.getState().magnitude,
     damage: 0,
   })
+  recordHostInput('upgrade.install', { shipId, partName }, { alreadyApplied: true })
   
   const event: InstallationEvent = {
     shipId,
@@ -307,6 +310,7 @@ export function triggerInstallation(
     position,
     rigType: getRigTypeForPart(partName),
     shipType: ship.type,
+    // eslint-disable-next-line no-restricted-syntax -- InstallationEvent.timestamp is read back via `Date.now() - lastInstallation.timestamp` in scenes/Crane.tsx (outside src/systems/**) to drive a real-time cosmetic glow-fade; it must stay in the wall-clock time base, not sim time.
     timestamp: Date.now(),
   }
   
@@ -345,6 +349,7 @@ export function findBindCandidate(
           position: pointWorldPos,
           rigType: getRigTypeForPart(point.partName),
           shipType: ship.type,
+          // eslint-disable-next-line no-restricted-syntax -- same InstallationEvent.timestamp / scenes/Crane.tsx wall-clock dependency as triggerInstallation above.
           timestamp: Date.now(),
         }
       }
@@ -382,6 +387,7 @@ export function checkInstallationTrigger(
           position: pointWorldPos,
           rigType: getRigTypeForPart(point.partName),
           shipType: ship.type,
+          // eslint-disable-next-line no-restricted-syntax -- same InstallationEvent.timestamp / scenes/Crane.tsx wall-clock dependency as triggerInstallation above.
           timestamp: Date.now(),
         }
       }

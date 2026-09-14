@@ -1,0 +1,7 @@
+---
+Checks: 'bugprone-*,clang-analyzer-*,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling'
+WarningsAsErrors: ''
+HeaderFilterRegex: 'cpp/.*'
+FormatStyle: none
+CheckOptions:
+  bugprone-easily-swappable-parameters.MinimumLength: '4'

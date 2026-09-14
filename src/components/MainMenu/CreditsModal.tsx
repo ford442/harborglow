@@ -26,7 +26,7 @@ interface CreditsModalProps {
 
 const techs = [
     { name: 'React Three Fiber', icon: '⚛️', desc: '3D rendering' },
-    { name: 'Tone.js', icon: '🎵', desc: 'Audio synthesis' },
+    { name: 'WASM AudioWorklet', icon: '🎵', desc: 'Audio synthesis' },
     { name: 'Zustand', icon: '🐻', desc: 'State management' },
     { name: 'Leva', icon: '🎛️', desc: 'Debug controls' },
 ]

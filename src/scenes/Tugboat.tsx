@@ -17,6 +17,12 @@ import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeS
 import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
 import { tugboatSoundSystem } from '../systems/tugboatSoundSystem'
 import { getNearestAssistShip } from '../systems/harborAssistSystem'
+import { iceFieldSystem } from '../systems/ice/IceFieldSystem'
+import {
+  scratchVec3a, scratchQuat, scratchEuler,
+  hullScratchXs, hullScratchZs, hullScratchYs,
+  hullScratchHeights, hullScratchNormals,
+} from '../utils/scratch'
 
 // =============================================================================
 // CONFIG (tunable via Leva)
@@ -31,6 +37,15 @@ const PHYSICS = {
   buoyancyScale: 18.0,
   dampingScale: 2.5,
   restoringTorque: 4.0,
+}
+
+const ICEBREAKER_PHYSICS = {
+  mass: 80,
+  linearDamping: 2.8,
+  angularDamping: 3.2,
+  buoyancyScale: 28.0,
+  dampingScale: 3.2,
+  restoringTorque: 6.5,
 }
 
 const PROBE_OFFSETS = [
@@ -106,6 +121,9 @@ function DashboardScreen({
 
 export default function Tugboat() {
   const rbRef = useRef<RapierRigidBody>(null)
+  const polarHelm = useGameStore((s) => s.activeMission?.type === 'ice-escort')
+  const physics = polarHelm ? ICEBREAKER_PHYSICS : PHYSICS
+  const spawnPosition = polarHelm ? iceFieldSystem.getBreakerSpawn() : ([20, 0.5, 10] as [number, number, number])
 
   // ---------------------------------------------------------------------------
   // LEVA TUNING
@@ -445,7 +463,7 @@ export default function Tugboat() {
       const perpX = Math.cos(heading + Math.PI / 2)
       const perpZ = Math.sin(heading + Math.PI / 2)
       const propOffset = 1.2   // metres from centreline
-      const propForceScale = tuning.maxSpeed * 2.5 * boostMult * delta
+      const propForceScale = tuning.maxSpeed * 2.5 * boostMult * delta * (polarHelm ? 1.65 : 1)
 
       // Port prop world position (left of heading)
       const portX = rb.translation().x - perpX * propOffset
@@ -519,28 +537,29 @@ export default function Tugboat() {
     // BUOYANCY
     // -----------------------------------------------------------------
     const time = waveSystem.getTime()
-    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
-
-    const xs = new Float32Array(PROBE_OFFSETS.length)
-    const zs = new Float32Array(PROBE_OFFSETS.length)
-    const ys = new Float32Array(PROBE_OFFSETS.length)
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    const quat = scratchQuat.set(rot.x, rot.y, rot.z, rot.w)
+    const nProbes = PROBE_OFFSETS.length
+    const xs = hullScratchXs.subarray(0, nProbes)
+    const zs = hullScratchZs.subarray(0, nProbes)
+    const ys = hullScratchYs.subarray(0, nProbes)
+    const heights = hullScratchHeights.subarray(0, nProbes)
+    const normals = hullScratchNormals.subarray(0, nProbes * 3)
+    for (let i = 0; i < nProbes; i++) {
       const offset = PROBE_OFFSETS[i]
-      const localOff = new THREE.Vector3(offset.x, 0, offset.z)
-      localOff.applyQuaternion(quat)
-      xs[i] = pos.x + localOff.x
-      zs[i] = pos.z + localOff.z
-      ys[i] = pos.y + localOff.y
+      scratchVec3a.set(offset.x, 0, offset.z).applyQuaternion(quat)
+      xs[i] = pos.x + scratchVec3a.x
+      zs[i] = pos.z + scratchVec3a.z
+      ys[i] = pos.y + scratchVec3a.y
     }
-    const heights = waveSystem.getWaterHeightBatch(xs, zs, time)
+    waveSystem.getHullSampleBatch(xs, zs, heights, normals, time)
 
-    for (let i = 0; i < PROBE_OFFSETS.length; i++) {
+    for (let i = 0; i < nProbes; i++) {
       const waterH = heights[i]
       const probeY = ys[i]
       const submerged = waterH - 2.5 - probeY
 
       if (submerged > 0) {
-        const force = submerged * PHYSICS.buoyancyScale * delta
+        const force = submerged * physics.buoyancyScale * delta
         rb.applyImpulseAtPoint(
           { x: 0, y: force, z: 0 },
           { x: xs[i], y: probeY, z: zs[i] },
@@ -560,7 +579,7 @@ export default function Tugboat() {
     const vel = rb.linvel()
     if (vel.y !== 0) {
       rb.applyImpulse(
-        { x: 0, y: -vel.y * PHYSICS.dampingScale * delta, z: 0 },
+        { x: 0, y: -vel.y * physics.dampingScale * delta, z: 0 },
         true
       )
     }
@@ -568,16 +587,16 @@ export default function Tugboat() {
     // --- Angular damping & restoring torque ---
     const angVel = rb.angvel()
     rb.applyTorqueImpulse(
-      { x: -angVel.x * PHYSICS.angularDamping * delta, y: 0, z: -angVel.z * PHYSICS.angularDamping * delta },
+      { x: -angVel.x * physics.angularDamping * delta, y: 0, z: -angVel.z * physics.angularDamping * delta },
       true
     )
 
-    const euler = new THREE.Euler().setFromQuaternion(quat)
+    const euler = scratchEuler.setFromQuaternion(quat)
     rb.applyTorqueImpulse(
       {
-        x: -euler.x * PHYSICS.restoringTorque * delta,
+        x: -euler.x * physics.restoringTorque * delta,
         y: 0,
-        z: -euler.z * PHYSICS.restoringTorque * delta,
+        z: -euler.z * physics.restoringTorque * delta,
       },
       true
     )
@@ -641,7 +660,7 @@ export default function Tugboat() {
   // GEOMETRY
   // ---------------------------------------------------------------------------
 
-  const hullColor = '#cc3300'
+  const hullColor = polarHelm ? '#c45c4a' : '#cc3300'
   const cabinColor = '#ffffff'
   const deckColor = '#8b4513'
 
@@ -654,10 +673,10 @@ export default function Tugboat() {
       <RigidBody
         ref={rbRef}
         type="dynamic"
-        mass={PHYSICS.mass}
-        linearDamping={PHYSICS.linearDamping}
-        angularDamping={PHYSICS.angularDamping}
-        position={[20, 0.5, 10]}
+        mass={physics.mass}
+        linearDamping={physics.linearDamping}
+        angularDamping={physics.angularDamping}
+        position={spawnPosition}
         enabledRotations={[true, true, true]}
         colliders="cuboid"
         onCollisionEnter={(e) => {

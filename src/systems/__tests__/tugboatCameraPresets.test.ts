@@ -1,16 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
-
-// Mock Tone.js (transitive dependency through store)
-vi.mock('tone', () => ({
-  context: { state: 'running' },
-  start: vi.fn(),
-  now: vi.fn(() => 0),
-  MetalSynth: vi.fn(),
-  NoiseSynth: vi.fn(),
-  Distortion: vi.fn(),
-  Filter: vi.fn(),
-  Compressor: vi.fn(),
-}))
+import { describe, it, expect } from 'vitest'
 
 import { CAMERA_PRESET_IDS, isCameraPresetId } from '../../types/CameraPreset'
 import type { CameraPresetId, TugboatViewportId } from '../../types/CameraPreset'

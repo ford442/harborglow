@@ -1,7 +1,8 @@
 /**
- * Helper-only kill switch. Does not gate ocean FFT or GLSL god-rays.
+ * GPU-compute kill switch (`?no_gpu_compute=1` or `true`).
  *
- * Enabled by `?no_gpu_compute=1` or `?no_gpu_compute=true`.
+ * gpuChores image helpers honour this flag. Issue #219 also uses it to force
+ * the ocean FFT onto the CPU/WASM path; god-rays keep their own gates.
  */
 export function parseNoGpuCompute(
   search = typeof window === 'undefined' ? '' : window.location.search,
