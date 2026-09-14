@@ -30,6 +30,7 @@ import { hashSimSnapshot } from './sim/hashState'
 import { resetDeterministicSystems, tickSimSystems } from './sim/headless'
 import { setHostInputBroadcast } from './sim/hostInput'
 import { simScheduler } from './sim/FixedStepScheduler'
+import { buildIceServers, type TurnEnv } from './iceServers'
 import type { ReplayFile } from './sim/replay'
 
 const MAX_SPECTATORS = 6
@@ -37,10 +38,7 @@ const SIGNAL_POLL_MS = 500
 const PING_INTERVAL_MS = 2000
 const HASH_EVERY_TICKS = 60
 
-const ICE_SERVERS: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-]
+const ICE_SERVERS = buildIceServers((import.meta as ImportMeta & { env?: TurnEnv }).env)
 
 function sendBinary(channel: RTCDataChannel, data: Uint8Array): void {
     const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer

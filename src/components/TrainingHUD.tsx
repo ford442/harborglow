@@ -27,10 +27,12 @@ export interface TrainingHUDProps {
 export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHUDProps) {
   const { 
     progress, 
+    startModule,
     getCurrentStep, 
     nextStep, 
     getCurrentMetrics,
-    recordSway,
+    getSimElapsed,
+    subscribeMetrics,
     recordEmergencyStop,
     recordLoadSecured,
     recordCraneBCoordinated,
@@ -44,27 +46,36 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [completedObjectives, setCompletedObjectives] = useState<string[]>([])
   const [showObjectivePopup, setShowObjectivePopup] = useState<string | null>(null)
-  const [elapsedTime, setElapsedTime] = useState(0)
+  const [metrics, setMetrics] = useState(getCurrentMetrics)
   const prevOperationMode = useRef(useGameStore.getState().operationMode)
+  /** Sim seconds when sway first dropped below the secure threshold. */
   const secureHoldStart = useRef<number | null>(null)
   const emergencyAlarmTriggered = useRef(false)
   
   const module = TRAINING_MODULES.find(m => m.id === moduleId)
   const currentStep = getCurrentStep()
-  const metrics = getCurrentMetrics()
 
   const operationMode = useGameStore(s => s.operationMode)
   const currentShipId = useGameStore(s => s.currentShipId)
   const installedUpgrades = useGameStore(s => s.installedUpgrades)
   const musicPlaying = useGameStore(s => s.musicPlaying)
   
-  // Timer
+  // Metrics come from the sim tick (trainingSystem.update). Re-render only
+  // when a displayed value changes, not every fixed step.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsedTime(prev => prev + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+    return subscribeMetrics(next => {
+      setMetrics(prev =>
+        prev.timeElapsed === next.timeElapsed &&
+        Math.round(prev.maxSway * 100) === Math.round(next.maxSway * 100) &&
+        prev.totalDamage === next.totalDamage &&
+        prev.accuracyScore === next.accuracyScore &&
+        prev.installationsCompleted === next.installationsCompleted &&
+        prev.installationsTarget === next.installationsTarget
+          ? prev
+          : next,
+      )
+    })
+  }, [subscribeMetrics])
 
   const completeObjective = useCallback((objectiveId: string) => {
     setCompletedObjectives(prev => {
@@ -75,28 +86,15 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     setTimeout(() => setShowObjectivePopup(null), 3000)
   }, [])
 
-  // Poll objective completion from training system evaluator
+  // Re-evaluate objectives whenever sim metrics (or install state) change
   useEffect(() => {
     if (!module) return
-    const interval = setInterval(() => {
-      const newlyComplete = getCompletedObjectiveIds()
-      newlyComplete.forEach(id => {
-        if (!completedObjectives.includes(id)) {
-          completeObjective(id)
-        }
-      })
-    }, 500)
-    return () => clearInterval(interval)
-  }, [module, completedObjectives, getCompletedObjectiveIds, completeObjective])
-
-  // Track sway from sway system
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const sway = swaySystem.getState().magnitude
-      recordSway(sway)
-    }, 250)
-    return () => clearInterval(interval)
-  }, [recordSway])
+    getCompletedObjectiveIds().forEach(id => {
+      if (!completedObjectives.includes(id)) {
+        completeObjective(id)
+      }
+    })
+  }, [module, metrics, installedUpgrades, operationMode, completedObjectives, getCompletedObjectiveIds, completeObjective])
 
   // Module 6: emergency alarm after 10s
   useEffect(() => {
@@ -112,21 +110,21 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
   // Module 6: secure load when sway held low after emergency stop
   useEffect(() => {
     if (moduleId !== 'emergency') return
-    const interval = setInterval(() => {
+    return subscribeMetrics(() => {
       const completed = getCompletedObjectiveIds()
-      const sway = swaySystem.getState().magnitude
+      const sway = swaySystem.getMagnitude()
+      const now = getSimElapsed()
       if (completed.includes('emergency-stop') && sway < 0.2) {
         if (secureHoldStart.current === null) {
-          secureHoldStart.current = Date.now()
-        } else if (Date.now() - secureHoldStart.current >= 5000) {
+          secureHoldStart.current = now
+        } else if (now - secureHoldStart.current >= 5) {
           recordLoadSecured()
         }
       } else {
         secureHoldStart.current = null
       }
-    }, 250)
-    return () => clearInterval(interval)
-  }, [moduleId, getCompletedObjectiveIds, recordLoadSecured])
+    })
+  }, [moduleId, subscribeMetrics, getSimElapsed, getCompletedObjectiveIds, recordLoadSecured])
 
   // Track operation mode switches for emergency module
   useEffect(() => {
@@ -170,6 +168,14 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [moduleId, recordEmergencyStop])
 
+  // Restart resets the sim-driven clock + metrics in the system, not just the HUD
+  const restartModule = () => {
+    startModule(moduleId)
+    secureHoldStart.current = null
+    setMetrics(getCurrentMetrics())
+    setCompletedObjectives([])
+  }
+
   const handleSkipTutorial = () => {
     setShowTutorial(false)
   }
@@ -200,7 +206,7 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
           </div>
           
           <div style={styles.centerInfoStyle}>
-            <TimerDisplay elapsed={elapsedTime} />
+            <TimerDisplay elapsed={metrics.timeElapsed} />
             <ObjectiveCounter completed={completedObjectives.length} total={module.objectives.length} />
           </div>
           
@@ -261,8 +267,7 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
           onResume={() => setShowPauseMenu(false)}
           onRestart={() => {
             setShowPauseMenu(false)
-            setElapsedTime(0)
-            setCompletedObjectives([])
+            restartModule()
           }}
           onExit={onExit}
         />
@@ -274,8 +279,7 @@ export default function TrainingHUD({ moduleId, onExit, onComplete }: TrainingHU
           metrics={metrics}
           onComplete={handleComplete}
           onRetry={() => {
-            setCompletedObjectives([])
-            setElapsedTime(0)
+            restartModule()
           }}
         />
       )}

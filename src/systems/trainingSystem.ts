@@ -55,8 +55,9 @@ export class TrainingSystem {
     installationsCompleted: 0,
     installationsTarget: 0
   }
-  private metricsInterval: ReturnType<typeof setInterval> | null = null
-  private startTime: number = 0
+  /** Sim seconds since the module started — advanced only by `update()`. */
+  private simElapsed = 0
+  private metricsListeners: Set<(metrics: TrainingMetrics) => void> = new Set()
 
   // Getters
   getProgress(): TrainingProgress {
@@ -106,8 +107,7 @@ export class TrainingSystem {
       installationsTarget: this.getInstallTargetForModule(module)
     }
 
-    this.startTime = Date.now()
-    this.startMetricsTracking()
+    this.simElapsed = 0
 
     this.notifyListeners()
     console.log(`[Training] Started module: ${module.title}`)
@@ -125,7 +125,7 @@ export class TrainingSystem {
 
     this.progress.currentModule = null
     this.progress.currentStep = 0
-    this.stopMetricsTracking()
+    this.simElapsed = 0
 
     this.notifyListeners()
     console.log('[Training] Exited module')
@@ -137,10 +137,8 @@ export class TrainingSystem {
       throw new Error('No active module to complete')
     }
 
-    this.stopMetricsTracking()
-
     // Calculate final metrics
-    this.currentMetrics.timeElapsed = Math.floor((Date.now() - this.startTime) / 1000)
+    this.currentMetrics.timeElapsed = Math.floor(this.simElapsed)
 
     const rank = calculateRank(this.currentMetrics)
     const score = calculateScore(this.currentMetrics)
@@ -235,28 +233,34 @@ export class TrainingSystem {
     return module.tutorial[this.progress.currentStep] || null
   }
 
-  // Metrics Tracking
-  private startMetricsTracking(): void {
-    this.metricsInterval = setInterval(() => {
-      // In real implementation, this would read from swaySystem, etc.
-      // For now, we simulate metric updates
-      this.updateMetricsFromGameState()
-    }, 100)
+  // Metrics Tracking — driven by the sim tick (`training` in mainSceneSystems)
+  /**
+   * Advance module metrics by one sim step. `swayMagnitude` is the 0..1
+   * `swaySystem` magnitude sampled after sway/crane have ticked this frame.
+   */
+  update(dt: number, swayMagnitude: number): void {
+    if (!this.progress.currentModule) return
+    this.simElapsed += dt
+    this.currentMetrics.timeElapsed = Math.floor(this.simElapsed)
+    this.recordSway(swayMagnitude)
+    this.notifyMetricsListeners()
   }
 
-  private stopMetricsTracking(): void {
-    if (this.metricsInterval) {
-      clearInterval(this.metricsInterval)
-      this.metricsInterval = null
-    }
+  /** Sim seconds (fractional) since the active module started. */
+  getSimElapsed(): number {
+    return this.simElapsed
   }
 
-  private updateMetricsFromGameState(): void {
-    const store = useGameStore.getState()
+  /** Called once per sim tick while a module is active. */
+  subscribeMetrics(listener: (metrics: TrainingMetrics) => void): () => void {
+    this.metricsListeners.add(listener)
+    return () => this.metricsListeners.delete(listener)
+  }
 
-    // Get sway from store if available
-    // This would integrate with swaySystem in full implementation
-    // For now, placeholder
+  private notifyMetricsListeners(): void {
+    if (this.metricsListeners.size === 0) return
+    const snapshot = this.getCurrentMetrics()
+    this.metricsListeners.forEach(listener => listener(snapshot))
   }
 
   updateMetrics(updates: Partial<TrainingMetrics>): void {
@@ -424,7 +428,7 @@ export class TrainingSystem {
       installationsCompleted: 0,
       installationsTarget: 0
     }
-    this.stopMetricsTracking()
+    this.simElapsed = 0
     this.notifyListeners()
   }
 
@@ -543,6 +547,8 @@ export function useTrainingSystem() {
     isModuleCompleted: trainingSystem.isModuleCompleted.bind(trainingSystem),
     getBestResult: trainingSystem.getBestResult.bind(trainingSystem),
     getCurrentMetrics: trainingSystem.getCurrentMetrics.bind(trainingSystem),
+    getSimElapsed: trainingSystem.getSimElapsed.bind(trainingSystem),
+    subscribeMetrics: trainingSystem.subscribeMetrics.bind(trainingSystem),
     unlockAll: trainingSystem.unlockAll.bind(trainingSystem),
     completeAll: trainingSystem.completeAll.bind(trainingSystem),
     reset: trainingSystem.reset.bind(trainingSystem),

@@ -272,3 +272,32 @@ describe('getRankDescription', () => {
     expect(getRankDescription('F')).toBe('Needs Improvement')
   })
 })
+
+describe('TrainingSystem sim-driven metrics', () => {
+  it('advances timeElapsed and maxSway only from update()', () => {
+    const sys = new TrainingSystem()
+    sys.unlockAll()
+    expect(sys.startModule(TRAINING_MODULES[0].id)).toBe(true)
+
+    const seen: TrainingMetrics[] = []
+    const unsub = sys.subscribeMetrics(m => seen.push(m))
+
+    for (let i = 0; i < 90; i++) sys.update(1 / 60, i === 30 ? 0.42 : 0.1)
+    unsub()
+
+    const m = sys.getCurrentMetrics()
+    expect(m.timeElapsed).toBe(1)
+    expect(sys.getSimElapsed()).toBeCloseTo(1.5)
+    expect(m.maxSway).toBeCloseTo(0.42)
+    expect(seen).toHaveLength(90)
+
+    expect(sys.completeModule().metrics.timeElapsed).toBe(1)
+  })
+
+  it('does not tick metrics without an active module', () => {
+    const sys = new TrainingSystem()
+    sys.update(5, 0.9)
+    expect(sys.getCurrentMetrics().timeElapsed).toBe(0)
+    expect(sys.getCurrentMetrics().maxSway).toBe(0)
+  })
+})

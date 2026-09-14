@@ -109,5 +109,8 @@ Do not replicate foam, wildlife, or traffic meshes at 10 Hz. Cosmetic
 store (install completion); the beat transport is clocked by `simTime`, so
 peers land on the same beat. Audio only reads sim time — see [AUDIO.md](./AUDIO.md).
 
-Creating a shared harbor reseeds the sim. TURN / production
-`VITE_SIGNAL_URL` is a follow-up; local default remains `localhost:8787`.
+Creating a shared harbor reseeds the sim. Production `VITE_SIGNAL_URL` and
+optional TURN (`VITE_TURN_URL` / `_USERNAME` / `_CREDENTIAL`, env only) are
+documented in `workers/signalling/README.md` and
+[ADR 0003](../adr/0003-turn-relay-via-env.md); local default remains
+`localhost:8787`, STUN-only.
