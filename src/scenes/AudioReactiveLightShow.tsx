@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { buildRGBMatrixMaterial, buildGodRayMaterial } from '../shaders/lightShowNodes'
 import { useGameStore, type ShipType } from '../store/useGameStore'
-import { useAudioVisualSync } from '../systems/audioVisualSync'
+import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import { AudioSpectrumTelemetry } from '../components/dashboard/TelemetryGraph'
 import {
   computeRigMusicDrive,

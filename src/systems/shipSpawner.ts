@@ -78,6 +78,11 @@ const FIREBOAT_NAMES = [
     'Fire Watch', 'Spray Force', 'Emergency One', 'Port Defender'
 ]
 
+const ICEBREAKER_NAMES = [
+    'Yamal', 'Arktika', 'Sibir', '50 Let Pobedy', 'Taymyr',
+    'Vaygach', 'Ural', 'Polar Vanguard', 'Northern Star', 'Rosatomflot Pride'
+]
+
 export interface SpawnShipOptions {
     position?: [number, number, number]
     name?: string
@@ -93,10 +98,10 @@ export class ShipSpawner {
         roro: 0,
         research: 0,
         droneship: 0,
-        icebreaker: 0,
         ferry: 0,
         trawler: 0,
         horizon: 0,
+        icebreaker: 0,
         fireboat: 0
     }
 
@@ -215,7 +220,7 @@ export class ShipSpawner {
             trawler: TRAWLER_NAMES,
             horizon: HORIZON_NAMES,
             fireboat: FIREBOAT_NAMES,
-            icebreaker: ['Yamal', 'Arktika', 'Sibir', 'Ural', 'Vaygach']
+            icebreaker: ICEBREAKER_NAMES
         }
 
         const typeNames = names[type]
@@ -228,7 +233,7 @@ export class ShipSpawner {
     }
 
     static resetCounters() {
-        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, icebreaker: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0 }
+        this.nameCounters = { cruise: 0, container: 0, tanker: 0, bulk: 0, lng: 0, roro: 0, research: 0, droneship: 0, ferry: 0, trawler: 0, horizon: 0, fireboat: 0, icebreaker: 0 }
     }
 
     static getShipTypeInfo(type: ShipType) {

@@ -72,7 +72,8 @@ const TRAFFIC_CONFIG = {
         ferry: 30,       // Quick turnaround - passengers + vehicles
         trawler: 60,     // Offload catch + resupply
         horizon: 90,     // Research ops and equipment checks
-        fireboat: 20     // Quick emergency response turnaround
+        fireboat: 20,    // Quick emergency response turnaround
+        icebreaker: 180, // Arctic escort / channel clearing
     } as Record<ShipType, number>,
     
     // Time pressure thresholds
@@ -125,7 +126,6 @@ function generateShipName(type: ShipType): string {
         icebreaker: ['Arctic', 'Polar', 'Northern', 'Frost', 'Vaygach']
     }
     const suffixes = ['Star', 'Queen', 'Leader', 'Express', 'Glory', 'Venture', 'Pioneer']
-    
     const prefix = prefixes[type][Math.floor(simRandom() * prefixes[type].length)]
     const suffix = suffixes[Math.floor(simRandom() * suffixes.length)]
     const number = Math.floor(simRandom() * 900) + 100
@@ -151,7 +151,7 @@ function generateOriginDestination(type: ShipType): { origin: string; destinatio
         fireboat: ['Harbor Station', 'Fire Dock', 'Emergency Pier', 'Rescue Berth', 'Port Authority'],
         icebreaker: ['Murmansk', 'Sabetta', 'Dudinka', 'Pevek', 'Dikson']
     }
-    
+
     const possiblePorts = ports[type]
     const origin = possiblePorts[Math.floor(simRandom() * possiblePorts.length)]
     let destination = possiblePorts[Math.floor(simRandom() * possiblePorts.length)]
@@ -252,7 +252,6 @@ class TrafficSystem {
         this.simulationEvent = null
         this.notifyListeners()
     }
-    
     private generateDaySchedule() {
         const gameHour = timeSystem.getState().hour
         const isPeakHour = this.schedule.peakHours.includes(Math.floor(gameHour))

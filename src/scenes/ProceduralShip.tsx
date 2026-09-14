@@ -118,7 +118,12 @@ const PBRPart = ({ part, shipDefaults, shipType }: { part: BlueprintPart; shipDe
 const CruiseLinerDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => {
   const [lightsOn, setLightsOn] = useState(0);
   const smokeRef = useRef<THREE.Points>(null);
-  
+  const smokePositions = useMemo(() => new Float32Array(Array.from({ length: 90 }, (_, i) => {
+    if (i % 3 === 0) return (Math.random() - 0.5) * 2;
+    if (i % 3 === 1) return Math.random() * 7;
+    return (Math.random() - 0.5) * 2;
+  })), []);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setLightsOn(prev => (prev + 1) % 4);
@@ -198,12 +203,8 @@ const CruiseLinerDetails = ({ shipLength, shipWidth }: { shipLength: number; shi
         <points ref={smokeRef} position={[0, 4, 0]}>
           <bufferGeometry>
             <bufferAttribute
+              args={[smokePositions, 3]}
               attach="attributes-position"
-              args={[new Float32Array(Array.from({ length: 90 }, (_, i) => {
-                if (i % 3 === 0) return (Math.random() - 0.5) * 2;
-                if (i % 3 === 1) return Math.random() * 7;
-                return (Math.random() - 0.5) * 2;
-              })), 3]}
             />
           </bufferGeometry>
           <pointsMaterial size={0.8} color='#666666' transparent opacity={0.4} />
