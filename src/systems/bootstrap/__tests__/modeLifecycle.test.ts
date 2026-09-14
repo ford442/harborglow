@@ -110,6 +110,7 @@ describe('ensureMainSceneSystemsRegistered', () => {
             'sway',
             'crane-player',
             'crane-b',
+            'training',
             'wildlife',
             'ambient-marine-life',
             'sea-events',
@@ -126,6 +127,6 @@ describe('ensureMainSceneSystemsRegistered', () => {
         ensureMainSceneSystemsRegistered()
         ensureMainSceneSystemsRegistered()
 
-        expect(systemRegistry.getRegisteredIds()).toHaveLength(16)
+        expect(systemRegistry.getRegisteredIds()).toHaveLength(17)
     })
 })

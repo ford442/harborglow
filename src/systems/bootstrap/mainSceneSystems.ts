@@ -8,6 +8,7 @@ import { lightingSystem } from '../lightingSystem'
 import { weatherSystem } from '../weatherSystem'
 import { swaySystem } from '../swaySystem'
 import { craneBSystem } from '../craneBSystem'
+import { trainingSystem } from '../trainingSystem'
 import { stepCrane } from '../cranePhysics'
 import { wildlifeSystem } from '../wildlifeSystem'
 import { ambientMarineLifeSystem } from '../ambientMarineLifeSystem'
@@ -35,6 +36,7 @@ import { getSim } from '../sim/SimContext'
 //   50    sway                crane
 //   52    crane-player        crane   (host/spectator kinematics from axes)
 //   55    crane-b             crane   (multi-crane training NPC)
+//   57    training            —       (module metrics from sim time + sway)
 //   60    wildlife            ambient
 //   70    ambient-marine-life ambient
 //   80    sea-events          ambient
@@ -108,6 +110,14 @@ export function ensureMainSceneSystemsRegistered(): void {
             const { gameMode, currentTrainingModule } = useGameStore.getState()
             return gameMode === 'training' && currentTrainingModule === 'multi-crane'
         },
+    })
+
+    systemRegistry.register({
+        id: 'training',
+        order: 57,
+        // No group: tugboat training modules need the clock while crane is paused.
+        update: (dt) => trainingSystem.update(dt, swaySystem.getMagnitude()),
+        shouldTick: () => useGameStore.getState().gameMode === 'training',
     })
 
     systemRegistry.register({
