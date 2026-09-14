@@ -499,6 +499,7 @@ npm run verify                  # ~3–5 min on a typical dev machine
 `npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
 
 - **`gate-wasm`** — requires Emscripten 6.0.6. If you changed `cpp/` or `public/wasm/`, run locally: `npm run build:wasm && make -C cpp test && npm run check:wasm && git diff --exit-code -- public/wasm`
+  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` now fails locally on that drift (and warns when your local `em++` is not the pinned release, since a rebuild here would rewrite the provenance); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating. If your emsdk is not 6.0.6, run `emsdk install 6.0.6 && emsdk activate 6.0.6` rather than editing the manifest.
 - **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)
 
 The lockfile step uses `npm ci --dry-run` (npm 10 semantics; npm 11 alone may miss incomplete lockfiles). Host npm ≥ 11 triggers an automatic `npx npm@10.9.2` for that step only.
