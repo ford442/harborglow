@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
 """
-project_deploy_template.py
+HarborGlow static deploy.
 
-Copy this file into your project as `deploy.py` (or deploy_contabo.py).
-Customize the constants at the top for your project.
+Uploads `dist/` to https://storage.noahcohn.com as a single zip archive. The
+server extracts it and pushes the files over one persistent SFTP connection,
+which is much faster than uploading them individually. The real FTP/SFTP
+credentials never leave the VPS.
 
 Usage:
-  1. Build your project:  npm run build   (or python build, etc.)
-  2. python deploy.py
+  npm run build
+  export DEPLOY_TOKEN="your_long_token_from_vps_env"
+  python deploy.py                # upload
+  python deploy.py --dry-run      # list exactly what would be uploaded, send nothing
 
-This script contacts https://storage.noahcohn.com (your Contabo storage manager)
-to upload your entire build as a single zip archive.  The server extracts it and
-pushes all files over one persistent SFTP connection — much faster than uploading
-files individually.
-
-Actual FTP/SFTP credentials never leave the VPS.
+The app needs cross-origin isolation to run its WASM AudioWorklet audio engine,
+which the host must supply as response headers — see the deployment section of
+AGENTS.md. Without them the app still loads, but silently drops to a degraded
+native-audio fallback.
 
 Requirements:
   pip install requests
@@ -79,6 +81,12 @@ def build_zip(build_path: Path, skip_sizes=None) -> bytes:
             parts = rel.parts
             if any(p in (".git", "node_modules", "__pycache__") for p in parts):
                 continue
+            # Dotfiles are never something a browser asks for. `public/` carries
+            # a .gitkeep that Vite copies into dist/ verbatim, and an editor or
+            # OS can leave .DS_Store / .swp behind in there too.
+            if any(p.startswith(".") for p in parts):
+                print(f"  - {rel} (dotfile, not published)")
+                continue
             rel_s = str(rel).replace("\\", "/")
             local_size = file.stat().st_size
             if (skip_sizes or {}).get(rel_s) == local_size:
@@ -89,7 +97,7 @@ def build_zip(build_path: Path, skip_sizes=None) -> bytes:
     return buf.getvalue()
 
 
-def deploy_bundle(build_path: Path) -> bool:
+def deploy_bundle(build_path: Path, dry_run: bool = False) -> bool:
     """Zip the build and upload it as a single bundle."""
     target_folder = DEPLOY_FOLDER or PROJECT_NAME
     url = f"{CONTABO_BASE_URL}/api/deploy/{PROJECT_NAME}/bundle"
@@ -102,15 +110,27 @@ def deploy_bundle(build_path: Path) -> bool:
     if "target_folder" in locals() and target_folder:
         target_folder_for_sizes = target_folder
     target_site_for_sizes = globals().get("DEPLOY_TARGET", "test")
-    print("Checking remote file sizes...")
-    skip_sizes = fetch_remote_sizes(target_folder_for_sizes, target_site_for_sizes)
+    if dry_run:
+        # Size comparison is a GET, so it is safe, but it needs the token; skip it
+        # in a dry run so `--dry-run` works without one and every file is listed.
+        print("Skipping remote size check (dry run): listing every file.")
+        skip_sizes = {}
+    else:
+        print("Checking remote file sizes...")
+        skip_sizes = fetch_remote_sizes(target_folder_for_sizes, target_site_for_sizes)
     zip_bytes = build_zip(build_path, skip_sizes)
     print(f"Archive size: {len(zip_bytes) / 1024:.1f} KB\n")
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as _zf:
-        if not _zf.namelist():
+        names = _zf.namelist()
+        if not names:
             print("All files identical in size on the target; nothing to upload.")
             return True
+
+    if dry_run:
+        print(f"DRY RUN: would upload {len(names)} file(s) to "
+              f"{target_folder}/ at {CONTABO_BASE_URL}. Nothing was sent.")
+        return True
 
     print("Uploading bundle...")
     try:
@@ -139,12 +159,31 @@ def deploy_bundle(build_path: Path) -> bool:
 
 
 def main():
-    print(f"\n=== Deploying '{PROJECT_NAME}' via Contabo -> storage.1ink.us ===\n")
+    dry_run = "--dry-run" in sys.argv[1:]
+    unknown = [arg for arg in sys.argv[1:] if arg != "--dry-run"]
+    if unknown:
+        print(f"ERROR: unknown argument(s): {' '.join(unknown)}")
+        print("Usage: python deploy.py [--dry-run]")
+        sys.exit(2)
+
+    label = "Dry run for" if dry_run else "Deploying"
+    print(f"\n=== {label} '{PROJECT_NAME}' via {CONTABO_BASE_URL} ===\n")
 
     build_path = Path(BUILD_DIR)
     if not build_path.exists() or not build_path.is_dir():
         print(f"ERROR: Build directory '{BUILD_DIR}/' does not exist.")
         print("Please run your build command first (e.g. `npm run build`).")
+        sys.exit(1)
+
+    # Without the token the server rejects the upload anyway, but it does so
+    # after the whole archive has been built and sent. Fail here instead, and
+    # say how to set it — the value is read from the environment only, by design.
+    if not DEPLOY_TOKEN and not dry_run:
+        print("ERROR: DEPLOY_TOKEN is not set.")
+        print("This script reads the token from the environment only; it is never")
+        print("stored in the repository. Set it in your shell and re-run:")
+        print('  export DEPLOY_TOKEN="your_long_token_from_vps_env"')
+        print("To see what would be uploaded without a token, use --dry-run.")
         sys.exit(1)
 
     try:
@@ -155,9 +194,12 @@ def main():
         print("Warning: Could not contact storage.noahcohn.com (continuing anyway).")
 
     print()
-    success = deploy_bundle(build_path)
+    success = deploy_bundle(build_path, dry_run=dry_run)
 
-    print(f"\n=== {'Deployment complete' if success else 'Deployment finished with errors'} ===")
+    if dry_run:
+        print("\n=== Dry run complete; nothing was uploaded ===")
+    else:
+        print(f"\n=== {'Deployment complete' if success else 'Deployment finished with errors'} ===")
     sys.exit(0 if success else 1)
 
 
