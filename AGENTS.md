@@ -26,7 +26,6 @@ The game includes an alternate operation mode where players control a tugboat to
 | 3D Rendering | @react-three/fiber | ^9.7.0 |
 | 3D Helpers | @react-three/drei | ^10.7.8 |
 | 3D Physics | @react-three/rapier | ^2.2.0 |
-| 3D Post-Processing | @react-three/postprocessing | ^3.0.5 |
 | 3D Core | three | 0.183.1 |
 | 3D Stdlib | three-stdlib | ^2.36.1 |
 | Audio | in-tree WASM AudioWorklet (`src/systems/audio/`) | — |
@@ -102,24 +101,40 @@ npm run preview
 - Static assets from `public/` are copied to `dist/`.
 - `base: './'` in `vite.config.ts` enables relative-path deployment.
 - Manual chunk splitting creates:
-  - `vendor-3d` — three, R3F, drei, rapier, postprocessing (~4.4 MB raw / ~1.46 MB gzip after r183 upgrade)
+  - `vendor-3d-core` / `vendor-3d-webgpu` / `vendor-3d-post` / `vendor-3d-rapier` — three, its WebGPU/TSL modules, the post stack and rapier, split so the WebGPU half is not pulled in eagerly
   - `MainScene` — lazy-loaded scene chunk (~188 KB raw / ~49 KB gzip)
 - React, React-DOM, Leva, and Zustand are intentionally kept in the main bundle to avoid `__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED` errors.
 - Terser drops `console.log` and `debugger` in production (`passes: 2`).
 - Sourcemaps are generated only in development mode.
 
-### Recent Bundle Metrics (August 2026, r183 baseline)
-| Chunk | Raw | gzip |
-|-------|-----|------|
-| vendor-3d | 4,424 kB | 1,463 kB |
-| index (React + Leva + Zustand + app) | 753 kB | 215 kB |
-| MainScene (lazy) | 370 kB | 101 kB |
-| index.css | 37 kB | 8 kB |
-| **Primary chunks** | **~5.6 MB** | **~1.79 MB** |
+### Recent Bundle Metrics (measured 2026-09-14)
+| Chunk | Raw | gzip | Budget (gzip) | Headroom |
+|-------|-----|------|---------------|----------|
+| vendor-3d-rapier | 2,207 kB | 822 kB | 900 kB | 9% |
+| vendor-3d-core | 1,188 kB | 327 kB | 600 kB | 45% |
+| vendor-3d-webgpu | 605 kB | 170 kB | 600 kB | 72% |
+| GameShell | 436 kB | 127 kB | 600 kB | 79% |
+| MainScene (lazy) | 316 kB | 88 kB | 600 kB | 85% |
+| index | 284 kB | 79 kB | 200 kB | 61% |
+| vendor-react | 187 kB | 58 kB | — | — |
+| vendor-3d-post | 12 kB | 3.5 kB | 600 kB | 99% |
+| index.css | 36 kB | 8 kB | 200 kB | 96% |
+| **All `assets/` JS+CSS** | **5,398 kB** | **1,722 kB** | — | — |
 
-The r183 WebGPU/TSL baseline exceeds the historical ~1.1 MB `vendor-3d` soft
-ceiling; this is recorded for follow-up tree-shaking and bundle-budget work,
-not treated as noise.
+First-load profiles (what `check:bundle` gates):
+
+| Profile | Raw | gzip | Budget | Headroom |
+|---------|-----|------|--------|----------|
+| `menu-eager` (index + vendor-react + css) | 506 kB | 145 kB | 400 kB | 64% |
+| `game-initial` (GameShell + vendor-3d-core + MainScene) | 1,940 kB | 542 kB | 580 kB | **7%** |
+
+`game-initial` (7% headroom) and `vendor-3d-rapier` (9%) are the two budgets that
+actually bind; the per-chunk 600 kB ceilings on `vendor-3d-post` (3.5 kB) and
+`MainScene` (88 kB) cannot fire and are decorative. `dist/` totals **15.85 MB** on
+disk, of which **9.54 MB is `audio/`** — unbudgeted, and currently two byte-identical
+5 MB MP3s (see `public/audio/README.md`). Models total 0.87 MB against the GLB
+budgets in `scripts/check-glb-size.mjs` (largest: `lng_carrier.glb`, 115 kB gzip
+against an 800 kB stretch budget).
 
 ## Project Structure
 
@@ -455,10 +470,43 @@ export DEPLOY_TOKEN="your_long_token_from_vps_env"
 python deploy.py
 ```
 
+`python deploy.py --dry-run` lists exactly what would be uploaded and sends nothing. It needs no
+token, so it is the safe way to inspect a bundle. A real run refuses to start when `DEPLOY_TOKEN`
+is unset rather than building and sending an archive the server will reject.
+
 **Deployment Configuration** (in `deploy.py`):
 - Target: `https://storage.noahcohn.com/api/deploy/harborglow/bundle`
 - Local source: `dist/`
 - Auth: `DEPLOY_TOKEN` env var (sent as `X-Deploy-Token` header); no token is hardcoded in the script.
+- Dotfiles under `dist/` are not published (Vite copies `public/models/.gitkeep` verbatim).
+
+### Required hosting headers
+
+The WASM audio engine runs in an AudioWorklet over `SharedArrayBuffer`, which the browser only
+grants to a **cross-origin isolated** document. The host must send, on at least `index.html`:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+`vite.config.ts` sets these (plus `Cross-Origin-Resource-Policy: same-origin`) for both `npm run
+dev` and `npm run preview`, so local runs match production. `require-corp` is safe here because
+every runtime asset is same-origin — the last third-party fetch, the gstatic Draco decoder, was
+removed with the Draco assets. Re-introducing any cross-origin asset means either serving it with
+`Cross-Origin-Resource-Policy: cross-origin` or moving to `Cross-Origin-Embedder-Policy:
+credentialless`.
+
+**Without the headers the app still loads and plays**, but `AudioRuntime` silently takes its
+native-oscillator fallback path (`src/systems/audio/AudioRuntime.ts`, the `supportsShared` gate):
+no WASM DSP, no shared-memory ring, degraded analysis. It does not warn, so a host misconfiguration
+is invisible — check `crossOriginIsolated === true` in the console after any hosting change.
+
+Subpath hosting works: `base: './'` plus relative asset URLs (`MODEL_BASE = './models'`,
+`import.meta.env.BASE_URL` for `wasm/`, `new URL('./worklet/…', import.meta.url)` for the worklet)
+resolve against the document, so the whole app can live at `/harborglow/`. It must be served with
+a **trailing slash** — at `/harborglow` with no slash, relative URLs resolve against `/` and every
+asset 404s. Most static hosts redirect to add it; confirm yours does.
 
 **Security Note**: Never hardcode `DEPLOY_TOKEN` (or any credential) back into `deploy.py` — always read it
 from the environment. The old Paramiko/SFTP-based `deploy_old.py` (with a hardcoded plaintext password) has
@@ -467,7 +515,7 @@ been removed.
 ## GitHub Actions
 
 - `.github/workflows/ci.yml`: **Merge gates** on PRs and pushes to `main` — see [CI merge gates](#ci-merge-gates) below.
-- `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 20, installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
+- `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 22 (matching `ci.yml`), installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
 
 ### CI merge gates
 
