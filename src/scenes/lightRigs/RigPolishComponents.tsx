@@ -10,6 +10,7 @@ import {
   createRigRimMaterial,
   getRigPolishScales,
   setRigFlare,
+  type RigFlareEntry,
 } from './rigPolish'
 
 const _worldPos = new THREE.Vector3()
@@ -117,6 +118,12 @@ interface RigFlareAnchorProps {
 
 export function RigFlareAnchor({ id, color, powerRef, priority = 58 }: RigFlareAnchorProps) {
   const groupRef = useRef<THREE.Group>(null)
+  // One entry per anchor, mutated each frame (flare consumers copy from it synchronously).
+  const entry = useMemo<RigFlareEntry>(
+    () => ({ id, position: new THREE.Vector3(), color, brightness: 0, priority }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id],
+  )
 
   useFrame(() => {
     const scales = getRigPolishScales()
@@ -124,14 +131,11 @@ export function RigFlareAnchor({ id, color, powerRef, priority = 58 }: RigFlareA
       setRigFlare(id, null)
       return
     }
-    groupRef.current.getWorldPosition(_worldPos)
-    setRigFlare(id, {
-      id,
-      position: _worldPos.clone(),
-      color,
-      brightness: powerRef.current * 0.38 * scales.flareBright,
-      priority,
-    })
+    groupRef.current.getWorldPosition(entry.position)
+    entry.color = color
+    entry.brightness = powerRef.current * 0.38 * scales.flareBright
+    entry.priority = priority
+    setRigFlare(id, entry)
   })
 
   useEffect(() => () => setRigFlare(id, null), [id])

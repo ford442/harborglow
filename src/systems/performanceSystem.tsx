@@ -226,10 +226,11 @@ export function OcclusionCulled({ bounds, children }: OcclusionCullProps) {
     [bounds]
   )
   
+  const frustum = useMemo(() => new THREE.Frustum(), [])
+  const projScreenMatrix = useMemo(() => new THREE.Matrix4(), [])
+
   useFrame(() => {
     // Frustum check
-    const frustum = new THREE.Frustum()
-    const projScreenMatrix = new THREE.Matrix4()
     projScreenMatrix.multiplyMatrices(
       camera.projectionMatrix,
       camera.matrixWorldInverse

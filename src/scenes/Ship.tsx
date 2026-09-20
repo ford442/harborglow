@@ -113,6 +113,12 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
     )
 }
 
+// Frame-loop scratch (used synchronously inside useFrame)
+const _fQuat = new THREE.Quaternion()
+const _fEuler = new THREE.Euler()
+const _fLocalOff = new THREE.Vector3()
+const _fAway = new THREE.Vector3()
+
 export default function ShipComponent({ ship }: ShipProps) {
     const groupRef    = useRef<THREE.Group>(null)
     const rbRef       = useRef<RapierRigidBody>(null)
@@ -220,8 +226,8 @@ export default function ShipComponent({ ship }: ShipProps) {
 
             const pos   = rb.translation()
             const rot   = rb.rotation()
-            const quat  = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
-            const euler = new THREE.Euler().setFromQuaternion(quat)
+            const quat  = _fQuat.set(rot.x, rot.y, rot.z, rot.w)
+            const euler = _fEuler.setFromQuaternion(quat)
             const vel   = rb.linvel()
             const time  = waveSystem.getTime()
 
@@ -242,7 +248,7 @@ export default function ShipComponent({ ship }: ShipProps) {
 
             // --- Buoyancy (multi-probe) ---
             for (const offset of FLEET_PROBE_OFFSETS) {
-                const localOff = new THREE.Vector3(offset.x, 0, offset.z)
+                const localOff = _fLocalOff.set(offset.x, 0, offset.z)
                 localOff.applyQuaternion(quat)
 
                 const probeX = pos.x + localOff.x
@@ -330,7 +336,7 @@ export default function ShipComponent({ ship }: ShipProps) {
 
                 if (sustainedSnap || spikeSnap) {
                     const whipImpulse = towLineCableConfig.maxTension * 0.0002
-                    const away = _toTug.clone().negate().normalize()
+                    const away = _fAway.copy(_toTug).negate().normalize()
                     rb.applyImpulse({ x: away.x * whipImpulse, y: 0, z: away.z * whipImpulse }, true)
                     towLineState.snapFlag = true
                     setTimeout(() => { towLineState.snapFlag = false }, 1200)

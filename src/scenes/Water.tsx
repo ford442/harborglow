@@ -27,11 +27,53 @@ interface WaterProps {
   isNight?: boolean
 }
 
-interface DynamicLightSource {
+// Per-frame scratch for dynamic light gathering (no allocation inside useFrame).
+interface LightSlot {
   position: THREE.Vector3
   color: THREE.Color
   intensity: number
   radius: number
+  score: number
+}
+const lightPool: LightSlot[] = []
+const sortedLights: LightSlot[] = []
+let lightCount = 0
+const upgradeByShip = new Map<string, number>()
+const WHITE = new THREE.Color('#ffffff')
+const DOCK_WARM = new THREE.Color('#ffb15a')
+const DOCK_COOL = new THREE.Color('#38b6ff')
+const SPREADER_LIGHT = new THREE.Color('#ffd99a')
+const TANKER_FLARE = new THREE.Color('#ff7f35')
+const SHIP_LIGHT_DEFAULT = new THREE.Color('#a5ceff')
+const SHIP_LIGHT_COLORS: Record<string, THREE.Color> = Object.fromEntries(
+  Object.entries({
+    cruise: '#ffc27d',
+    container: '#66d7ff',
+    tanker: '#ff9c4f',
+    bulk: '#e6b87f',
+    lng: '#7bd6ff',
+    roro: '#ff9e6e',
+    research: '#87bbff',
+    droneship: '#a3d8ff',
+    ferry: '#9dd9ff',
+    trawler: '#d8b07a',
+    horizon: '#95beff',
+  }).map(([type, hex]) => [type, new THREE.Color(hex)]),
+)
+const byScoreDesc = (a: LightSlot, b: LightSlot) => b.score - a.score
+
+function pushLight(x: number, y: number, z: number, color: THREE.Color, intensity: number, radius: number): LightSlot {
+  let slot = lightPool[lightCount]
+  if (!slot) {
+    slot = { position: new THREE.Vector3(), color: new THREE.Color(), intensity: 0, radius: 0, score: 0 }
+    lightPool[lightCount] = slot
+  }
+  lightCount++
+  slot.position.set(x, y, z)
+  slot.color.copy(color)
+  slot.intensity = intensity
+  slot.radius = radius
+  return slot
 }
 
 function waterUserData(mat: MeshStandardNodeMaterial): WaterTslUserData {
@@ -192,91 +234,86 @@ export default function Water({ isNight = true }: WaterProps) {
           : 0
     const clampedNightBlend = Math.max(0, Math.min(1, nightBlend))
 
-    const shipTypeColor: Record<string, string> = {
-      cruise: '#ffc27d',
-      container: '#66d7ff',
-      tanker: '#ff9c4f',
-      bulk: '#e6b87f',
-      lng: '#7bd6ff',
-      roro: '#ff9e6e',
-      research: '#87bbff',
-      droneship: '#a3d8ff',
-      ferry: '#9dd9ff',
-      trawler: '#d8b07a',
-      horizon: '#95beff',
+    upgradeByShip.clear()
+    for (let i = 0; i < installedUpgrades.length; i++) {
+      const id = installedUpgrades[i].shipId
+      upgradeByShip.set(id, (upgradeByShip.get(id) ?? 0) + 1)
     }
 
-    const upgradeByShip = new Map<string, number>()
-    installedUpgrades.forEach((upgrade) => {
-      upgradeByShip.set(upgrade.shipId, (upgradeByShip.get(upgrade.shipId) ?? 0) + 1)
-    })
-
-    const dynamicSources: DynamicLightSource[] = []
+    lightCount = 0
     const dockBase = Math.max(0.25, lightIntensity)
-    dynamicSources.push(
-      { position: new THREE.Vector3(-20, 8, -8), color: new THREE.Color('#ffb15a'), intensity: 2.4 * dockBase, radius: 30 },
-      { position: new THREE.Vector3(20, 8, -8), color: new THREE.Color('#ffb15a'), intensity: 2.4 * dockBase, radius: 30 },
-      { position: new THREE.Vector3(-30, -3, 10), color: new THREE.Color('#38b6ff'), intensity: 1.8 * dockBase, radius: 34 },
-      { position: new THREE.Vector3(30, -3, 10), color: new THREE.Color('#38b6ff'), intensity: 1.8 * dockBase, radius: 34 },
+    pushLight(-20, 8, -8, DOCK_WARM, 2.4 * dockBase, 30)
+    pushLight(20, 8, -8, DOCK_WARM, 2.4 * dockBase, 30)
+    pushLight(-30, -3, 10, DOCK_COOL, 1.8 * dockBase, 34)
+    pushLight(30, -3, 10, DOCK_COOL, 1.8 * dockBase, 34)
+    pushLight(
+      spreaderPos.x,
+      spreaderPos.y + 0.8,
+      spreaderPos.z,
+      SPREADER_LIGHT,
+      (2.2 + Math.max(0, 8 - spreaderPos.y) * 0.2) * lightIntensity,
+      14,
     )
-    dynamicSources.push({
-      position: new THREE.Vector3(spreaderPos.x, spreaderPos.y + 0.8, spreaderPos.z),
-      color: new THREE.Color('#ffd99a'),
-      intensity: (2.2 + Math.max(0, 8 - spreaderPos.y) * 0.2) * lightIntensity,
-      radius: 14,
-    })
 
-    ships.forEach((ship) => {
+    for (let si = 0; si < ships.length; si++) {
+      const ship = ships[si]
       const installedCount = upgradeByShip.get(ship.id) ?? 0
       const maxPoints = Math.max(1, ship.attachmentPoints.length)
       const progress = Math.min(1, installedCount / maxPoints)
-      const baseColor = new THREE.Color(shipTypeColor[ship.type] ?? '#a5ceff')
-      const shipCenter = new THREE.Vector3(ship.position[0], ship.position[1] + 4.5, ship.position[2])
-      dynamicSources.push({
-        position: shipCenter,
-        color: baseColor,
-        intensity: (0.7 + progress * 1.6) * lightIntensity,
-        radius: Math.max(12, ship.length * 0.7),
-      })
+      const baseColor = SHIP_LIGHT_COLORS[ship.type] ?? SHIP_LIGHT_DEFAULT
+      pushLight(
+        ship.position[0],
+        ship.position[1] + 4.5,
+        ship.position[2],
+        baseColor,
+        (0.7 + progress * 1.6) * lightIntensity,
+        Math.max(12, ship.length * 0.7),
+      )
       if (ship.type === 'tanker') {
-        dynamicSources.push({
-          position: new THREE.Vector3(
-            ship.position[0] - 2.4,
-            ship.position[1] + 9.5,
-            ship.position[2] - ship.length * 0.22,
-          ),
-          color: new THREE.Color('#ff7f35'),
-          intensity: (1.4 + progress * 2.0) * lightIntensity,
-          radius: 20,
-        })
+        pushLight(
+          ship.position[0] - 2.4,
+          ship.position[1] + 9.5,
+          ship.position[2] - ship.length * 0.22,
+          TANKER_FLARE,
+          (1.4 + progress * 2.0) * lightIntensity,
+          20,
+        )
       }
       let usedPoints = 0
-      for (const upgrade of installedUpgrades) {
+      for (let ui = 0; ui < installedUpgrades.length; ui++) {
+        const upgrade = installedUpgrades[ui]
         if (upgrade.shipId !== ship.id || usedPoints >= 2) continue
-        const part = ship.attachmentPoints.find((p) => p.partName === upgrade.partName)
+        let part: (typeof ship.attachmentPoints)[number] | undefined
+        for (let pi = 0; pi < ship.attachmentPoints.length; pi++) {
+          if (ship.attachmentPoints[pi].partName === upgrade.partName) {
+            part = ship.attachmentPoints[pi]
+            break
+          }
+        }
         if (!part) continue
-        dynamicSources.push({
-          position: new THREE.Vector3(
-            ship.position[0] + part.position[0],
-            ship.position[1] + part.position[1] + 1.2,
-            ship.position[2] + part.position[2],
-          ),
-          color: baseColor.clone().lerp(new THREE.Color('#ffffff'), 0.35),
-          intensity: (1.1 + progress * 1.3) * lightIntensity,
-          radius: 12,
-        })
+        const slot = pushLight(
+          ship.position[0] + part.position[0],
+          ship.position[1] + part.position[1] + 1.2,
+          ship.position[2] + part.position[2],
+          baseColor,
+          (1.1 + progress * 1.3) * lightIntensity,
+          12,
+        )
+        slot.color.lerp(WHITE, 0.35)
         usedPoints += 1
       }
-    })
+    }
 
-    const scored = dynamicSources
-      .map((source) => {
-        const distance = source.position.distanceTo(camera.position)
-        const score = source.intensity / (1 + distance * 0.05)
-        return { source, score }
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_DYNAMIC_LIGHTS)
+    // Score, then stable in-place sort of a preallocated array (ties keep push order).
+    sortedLights.length = lightCount
+    for (let i = 0; i < lightCount; i++) {
+      const slot = lightPool[i]
+      const distance = slot.position.distanceTo(camera.position)
+      slot.score = slot.intensity / (1 + distance * 0.05)
+      sortedLights[i] = slot
+    }
+    sortedLights.sort(byScoreDesc)
+    const litCount = Math.min(lightCount, MAX_DYNAMIC_LIGHTS)
 
     u.uTime.value = waveSystem.getTime()
     u.uCameraPos.value.copy(camera.position)
@@ -295,9 +332,9 @@ export default function Water({ isNight = true }: WaterProps) {
       }
     }
 
-    u.uDynLightCount.value = scored.length
+    u.uDynLightCount.value = litCount
     for (let i = 0; i < MAX_DYNAMIC_LIGHTS; i++) {
-      const current = scored[i]?.source
+      const current = i < litCount ? sortedLights[i] : undefined
       u.uDynLightIntensities.array[i] = current ? current.intensity * clampedNightBlend : 0
       u.uDynLightRadii.array[i] = current ? current.radius : 1
       if (current) {
@@ -305,7 +342,7 @@ export default function Water({ isNight = true }: WaterProps) {
         u.uDynLightColors.array[i].copy(current.color)
       } else {
         u.uDynLightPositions.array[i].set(0, -1000, 0)
-        u.uDynLightColors.array[i].set('#000000')
+        u.uDynLightColors.array[i].setRGB(0, 0, 0)
       }
     }
 
