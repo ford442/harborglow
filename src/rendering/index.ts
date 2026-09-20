@@ -69,6 +69,7 @@ export type {
 } from './types';
 export { default as RendererDiagnosticsMonitor } from './RendererDiagnosticsMonitor';
 export { default as FrameBudgetMonitor } from './FrameBudgetMonitor';
+export { CommitProfiler } from './CommitProfiler';
 export { default as WireframeDebug } from './WireframeDebug';
 export {
   adoptComputeDevice,

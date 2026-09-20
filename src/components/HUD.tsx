@@ -1,3 +1,4 @@
+import { CommitProfiler } from '../rendering/CommitProfiler'
 import { useEffect, useState } from 'react'
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
@@ -83,6 +84,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   }, [beginWalkingFromCab, canEnterCab, canLeaveCab, returnToCraneFromWalking])
   
   return (
+    <CommitProfiler id="HUD">
     <div style={hudContainerStyle}>
       <LobbyPanel />
 
@@ -151,6 +153,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
         </div>
       )}
     </div>
+    </CommitProfiler>
   )
 }
 
