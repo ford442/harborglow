@@ -405,11 +405,10 @@ export function useAttachmentSystem() {
   const [nearestPoint, setNearestPoint] = useState<ActiveAttachmentPoint | null>(null)
   const [lastInstall, setLastInstall] = useState<InstallationEvent | null>(null)
   
-  const state = useGameStore()
-  const config = state.attachmentSystemConfig
-  const cranePos = state.spreaderPos
-  const twistlockEngaged = state.twistlockEngaged
-  const ships = state.ships
+  const config = useGameStore(s => s.attachmentSystemConfig)
+  const cranePos = useGameStore(s => s.spreaderPos)
+  const twistlockEngaged = useGameStore(s => s.twistlockEngaged)
+  const ships = useGameStore(s => s.ships)
   
   // Refs for camera position (updated by component)
   const cameraPositionRef = useRef<[number, number, number]>([0, 20, 50])

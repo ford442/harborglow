@@ -1,4 +1,5 @@
 import { useRef, useMemo, useCallback, useEffect, forwardRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { View, Html, PerspectiveCamera } from '@react-three/drei'
@@ -90,11 +91,11 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   const currentShip = ships.find(s => s.id === currentShipId)
   const spectatorState = useGameStore(state => state.spectatorState)
   const bpm = useGameStore(state => state.bpm)
-  const craneState = useGameStore(state => ({
+  const craneState = useGameStore(useShallow(state => ({
     rotation: state.craneRotation ?? 0.2,
     height: state.craneHeight ?? 15.5,
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 }
-  }))
+  })))
   const tugboatState = useGameStore(state => state.tugboatState)
 
   // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
@@ -19,14 +20,14 @@ export default function CraneControlMonitor3D() {
     winchSpeed,
     twistlockEngaged,
     loadTension,
-  } = useGameStore(state => ({
+  } = useGameStore(useShallow(state => ({
     trolleyPosition: state.trolleyPosition,
     cableDepth: state.cableDepth,
     spreaderPos: state.spreaderPos,
     winchSpeed: state.winchSpeed,
     twistlockEngaged: state.twistlockEngaged,
     loadTension: state.loadTension,
-  }))
+  })))
 
   const accentRef = useRef<THREE.MeshStandardMaterial>(null)
   const fillRefs = useRef<Array<THREE.MeshStandardMaterial | null>>([])

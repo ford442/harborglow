@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../../store/useGameStore'
 import UnderwaterCamera from '../UnderwaterCamera'
@@ -7,9 +7,14 @@ export function UnderwaterEffects() {
   const cameraMode = useGameStore(s => s.cameraMode)
   const { camera } = useThree()
   const [show, setShow] = useState(false)
+  const showRef = useRef(false)
 
   useFrame(() => {
-    setShow(cameraMode === 'ship-water' || camera.position.y < -1)
+    const next = cameraMode === 'ship-water' || camera.position.y < -1
+    if (next !== showRef.current) {
+      showRef.current = next
+      setShow(next)
+    }
   })
 
   if (!show) return null

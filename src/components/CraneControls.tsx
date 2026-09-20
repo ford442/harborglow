@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useGameStore } from '../store/useGameStore'
 import { useCranePhysics } from './controls/useCranePhysics'
 import { useMusicPulse } from '../hooks/useMusicPulse'
@@ -184,7 +185,7 @@ export default function InteractiveCraneControls() {
     heaterActive,
     iceBuildup,
     weather,
-  } = useGameStore(state => ({
+  } = useGameStore(useShallow(state => ({
     cableDepth: state.cableDepth,
     loadTension: state.loadTension,
     trolleyPosition: state.trolleyPosition,
@@ -196,7 +197,7 @@ export default function InteractiveCraneControls() {
     heaterActive: state.heaterActive,
     iceBuildup: state.iceBuildup,
     weather: state.weather,
-  }))
+  })))
 
   const {
     leftStick,

@@ -2,6 +2,13 @@ import tseslint from 'typescript-eslint'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
+// no-restricted-syntax options are replaced (not merged) by later config blocks,
+// so the systems block below must repeat this entry.
+const noBareStore = {
+  selector: "CallExpression[callee.name='useGameStore'][arguments.length=0]",
+  message: 'useGameStore() without a selector subscribes to the whole store. Pass a selector (wrap object/array selectors in useShallow).',
+}
+
 export default tseslint.config(
   // Ignore build output and config files
   { ignores: ['dist'] },
@@ -34,11 +41,20 @@ export default tseslint.config(
     },
   },
 
+  // Whole-store subscription re-renders on every write anywhere (see #231).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/systems/**'],
+    rules: {
+      'no-restricted-syntax': ['error', noBareStore],
+    },
+  },
+
   {
     files: ['src/systems/**/*.{ts,tsx}'],
     ignores: ['src/systems/**/__tests__/**'],
     rules: {
-      'no-restricted-syntax': ['error', {
+      'no-restricted-syntax': ['error', noBareStore, {
         selector: "CallExpression[callee.object.name='Math'][callee.property.name='random']",
         message: 'Use getSim().rng / simRandom() instead of Math.random() (see docs/systems/DETERMINISM.md).',
       }, {
