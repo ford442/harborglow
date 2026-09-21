@@ -100,6 +100,7 @@ interface NativeFallbackVoice {
 
 export class AudioRuntime {
   private statusValue: AudioRuntimeStatus = 'idle'
+  private hasWarnedFallbackReason = false
   private initPromise: Promise<void> | null = null
   private contextValue: AudioContext | null = null
   private workletNode: AudioWorkletNode | null = null
@@ -183,6 +184,7 @@ export class AudioRuntime {
       !!this.contextValue.audioWorklet &&
       typeof AudioWorkletNode !== 'undefined'
     if (!supportsShared) {
+      this.warnFallbackReason()
       this.initializeFallbackAnalyser()
       this.statusValue = 'fallback'
       return
@@ -239,7 +241,7 @@ export class AudioRuntime {
       this.statusValue = selected.simd ? 'shared-simd' : 'shared-scalar'
       this.setEffects(this.effects)
     } catch (error) {
-      console.warn('[AudioRuntime] Shared WASM unavailable; using native fallback:', error)
+      console.warn(`[AudioRuntime] Shared WASM unavailable; using native fallback (status: 'fallback'):`, error)
       this.workletNode?.disconnect()
       this.workletNode = null
       this.memory = null
@@ -248,6 +250,31 @@ export class AudioRuntime {
       this.initializeFallbackAnalyser()
       this.statusValue = 'fallback'
     }
+  }
+
+  /**
+   * Names the specific capability that failed the `supportsShared` gate so a
+   * misconfigured host (most commonly: missing COOP/COEP response headers)
+   * doesn't silently produce a game with no WASM audio. Fires once per
+   * runtime instance.
+   */
+  private warnFallbackReason(): void {
+    if (this.hasWarnedFallbackReason) return
+    this.hasWarnedFallbackReason = true
+
+    const reasons: string[] = []
+    if (typeof SharedArrayBuffer === 'undefined') reasons.push('SharedArrayBuffer is unavailable')
+    if (typeof Atomics === 'undefined') reasons.push('Atomics is unavailable')
+    if (globalThis.crossOriginIsolated !== true) {
+      reasons.push('crossOriginIsolated is not true (host is missing COOP/COEP response headers)')
+    }
+    if (!this.contextValue?.audioWorklet) reasons.push('AudioContext.audioWorklet is unavailable')
+    if (typeof AudioWorkletNode === 'undefined') reasons.push('AudioWorkletNode is unavailable')
+
+    console.warn(
+      `[AudioRuntime] Shared WASM audio unavailable — falling back to the native analyser ` +
+      `(status: 'fallback'). Failed condition(s): ${reasons.join('; ') || 'unknown'}.`,
+    )
   }
 
   private async loadAudioModule(): Promise<{ module: WebAssembly.Module; simd: boolean }> {

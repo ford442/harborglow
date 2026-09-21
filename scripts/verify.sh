@@ -18,10 +18,13 @@ fi
 banner() {
   cat <<'BANNER'
 =============================================================================
-npm run verify — local CI merge gates (7 of 8)
+npm run verify — local CI merge gates (7 of 8), plus check-duplicate-assets
 
   COVERED: gate-lockfile, gate-typecheck, gate-lint, gate-test,
            gate-smoke, gate-build, gate-size
+
+  ALSO RUNS: check-duplicate-assets (local-only, not a CI job — fails on any
+             two files under public/ sharing a sha256)
 
   SKIPPED: gate-wasm (Emscripten rebuild + git diff public/wasm)
            If you changed cpp/ or public/wasm/, run gate-wasm steps from
@@ -63,6 +66,7 @@ banner
 check_node_major
 
 step "gate-lockfile (check-lockfile)" bash scripts/check-lockfile.sh
+step "check-duplicate-assets (check:duplicate-assets)" npm run check:duplicate-assets
 step "gate-typecheck (typecheck)" npm run typecheck
 step "gate-typecheck (typecheck:tests)" npm run typecheck:tests
 step "gate-lint (lint)" npm run lint
