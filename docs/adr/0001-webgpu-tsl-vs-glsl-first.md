@@ -16,9 +16,9 @@ What remains aspirational from the feature plan and research synthesis:
 | Area | Today | North star |
 |------|--------|------------|
 | Materials | `lightShowNodes.ts` → `MeshStandardMaterial` / GLSL god-ray | TSL node materials on WebGPU |
-| Post | Vanilla JSM `EffectComposer` (GLSL only) | Dual-path; compute/TSL only behind capability gates |
+| Post | TSL `RenderPipeline` in `src/scenes/PostProcessing.tsx` (`postprocessing` / `@react-three/postprocessing` removed) | Compute passes only behind capability gates |
 | Ocean | Gerstner JS/WASM via `Water.tsx`; high/cinema FFT (GPU Stockham when gated) | Quality-tier FFT displacement (High/Cinema) without a second scene authority |
-| three.js | Exact `0.183.1` with matching `@types/three`; WebGPU via `three/webgpu` and TSL via `three/tsl` | Keep the exact baseline until the postprocessing peer ceiling moves |
+| three.js | Exact `0.183.1` with matching `@types/three`; WebGPU via `three/webgpu` and TSL via `three/tsl` | Keep the exact baseline; any bump re-baselines `bundle-budget.json` (`vendor-3d`) in the same PR |
 | Caps probe | `maxTextureSize`, `maxAnisotropy`, `preserveDrawingBuffer`, `adapterInfo` | Also `computeShaders`, `float32Filterable` |
 
 Two competing strategies were on the table:
@@ -46,7 +46,7 @@ Concrete rules:
 
 - **Minimum unlock:** a three release where package exports include `three/webgpu` and `three/tsl`, and the graphics peer graph resolves without overrides.
 - **Pinned baseline:** exact `three@0.183.1` and exact `@types/three@0.183.1`, with React 19 / R3F 9 / Drei 10 / Rapier 2 coordinated in the same dependency baseline.
-- **Peer ceiling:** `postprocessing@6.39.x` currently requires `three <0.184.0`, so Three 0.185.x is deferred until that peer line moves or the post stack is intentionally replaced.
+- **Peer ceiling:** none from post any more — `postprocessing` and `@react-three/postprocessing` were removed when live post moved to TSL `RenderPipeline`. Three 0.185+ is gated only by the R3F/Drei peer graph and a recorded `vendor-3d` gzip delta.
 - **Unlocked by Phase A:** public WebGPU/TSL entry points, typed `StorageTexture`, `computeAsync`, and capability probes for compute and float32 filtering. The WebGL2 path remains the CI reference.
 
 ## Consequences
@@ -61,7 +61,7 @@ Concrete rules:
 ### Negative / costs
 
 - Two material dialects to maintain for ported surfaces until a distant GLSL sunset (not planned in this epic).
-- the baseline requires coordinated React 19, R3F 9, Drei 10, Rapier 2, and postprocessing-wrapper upgrades plus a one-time EffectComposer revalidation.
+- the baseline requires coordinated React 19, R3F 9, Drei 10, and Rapier 2 upgrades.
 - FFT High/Cinema tiers add complexity (textures, optional workers/SAB) and must justify frame-time and bundle cost.
 
 ### Neutral
