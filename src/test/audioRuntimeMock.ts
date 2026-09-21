@@ -54,6 +54,14 @@ export class FakeAudioRuntime {
   setAcousticSpace = vi.fn((room: AcousticSpace, roomMix = 0.35) => this.setEffects({ room, roomMix }))
   setMasterMuted = vi.fn((muted: boolean) => { this.isMasterMuted = muted })
   getAnalysis = vi.fn(() => this.analysis)
+  /** No AudioContext: the transport falls back to its schedule position. */
+  outputTime = vi.fn((): number | null => null)
+  get diagnostics() {
+    return {
+      status: this.status, protocolVersion: null, sampleRate: null,
+      baseLatency: null, outputLatency: null, commandOverflows: 0,
+    }
+  }
   connectInput = vi.fn()
   dispose = vi.fn(async () => { this.reset() })
 

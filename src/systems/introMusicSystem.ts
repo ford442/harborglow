@@ -117,31 +117,31 @@ class IntroMusicSystem {
     const [lead, piano, bass, kick, hats] = this.fallbackSynths
 
     // Lead melody (drop section)
-    scheduleSequence(transport, ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', null], 1, (_beat, note) => {
-      lead?.play(note, '8n')
+    scheduleSequence(transport, ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', null], 1, (_beat, note, time) => {
+      lead?.play(note, '8n', { at: time })
     })
 
     // Piano chords
     scheduleLoop(transport, [
       { beat: 0, notes: ['C4', 'E4', 'G4'] },
       { beat: 8, notes: ['F4', 'A4', 'C5'] },
-    ], 16, (_beat, chord) => {
-      piano?.play(chord.notes, '2n')
+    ], 16, (_beat, chord, time) => {
+      piano?.play(chord.notes, '2n', { at: time })
     })
 
     // Off-beat bass
-    scheduleSequence(transport, [null, 'C2', null, 'C2', null, 'G2', null, 'G2'], 1, (_beat, note) => {
-      bass?.play(note, '16n')
+    scheduleSequence(transport, [null, 'C2', null, 'C2', null, 'G2', null, 'G2'], 1, (_beat, note, time) => {
+      bass?.play(note, '16n', { at: time })
     })
 
     // Kick on beat
-    scheduleSequence(transport, ['C1', null, 'C1', null], 1, (_beat, note) => {
-      kick?.play(note, '8n')
+    scheduleSequence(transport, ['C1', null, 'C1', null], 1, (_beat, note, time) => {
+      kick?.play(note, '8n', { at: time })
     })
 
     // Hats on off-beats
-    scheduleSequence(transport, [null, 'C5', null, 'C5'], 1, () => {
-      hats?.play(240, '32n')
+    scheduleSequence(transport, [null, 'C5', null, 'C5'], 1, (_beat, _note, time) => {
+      hats?.play(240, '32n', { at: time })
     })
 
     transport.start({ clock: 'audio', atBeat: 0 })

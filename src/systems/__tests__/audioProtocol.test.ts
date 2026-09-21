@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as protocol from '../audio/audioProtocol'
 import {
+  AudioCommandType,
+  COMMAND_BYTES,
   RingLayout,
   SharedRingReader,
   SharedRingWriter,
+  encodeCommand,
 } from '../audio/audioProtocol'
 
 const layout: RingLayout = {
@@ -59,6 +65,47 @@ describe('shared audio SPSC protocol', () => {
         expect(success).toBe(reference.length > 0)
         if (success) expect(value).toBe(reference.shift())
       }
+    }
+  })
+})
+
+describe('command record v2', () => {
+  it('encodes the scheduling frame and note id after the v1 fields', () => {
+    const view = new DataView(new ArrayBuffer(COMMAND_BYTES))
+    encodeCommand(view, {
+      type: AudioCommandType.NoteOn,
+      voiceId: 5,
+      frequency: 440,
+      frame: 2 ** 40 + 3,
+      noteId: 0xfffffffe,
+    })
+    expect(COMMAND_BYTES).toBe(80)
+    expect(view.getInt32(0, true)).toBe(AudioCommandType.NoteOn)
+    expect(view.getInt32(4, true)).toBe(5)
+    expect(view.getFloat32(8, true)).toBe(440)
+    expect(view.getFloat64(64, true)).toBe(2 ** 40 + 3)
+    expect(view.getUint32(72, true)).toBe(0xfffffffe)
+  })
+
+  it('defaults to "apply now" (frame 0)', () => {
+    const view = new DataView(new ArrayBuffer(COMMAND_BYTES))
+    encodeCommand(view, { type: AudioCommandType.NoteOff, voiceId: 1 })
+    expect(view.getFloat64(64, true)).toBe(0)
+    expect(view.getUint32(72, true)).toBe(0)
+  })
+
+  it('matches the constants duplicated in the AudioWorklet module', () => {
+    // The worklet is plain JS loaded by addModule, so it cannot import these.
+    const worklet = readFileSync(
+      join(__dirname, '../audio/worklet/harborglowAudioProcessor.js'), 'utf8')
+    const shared = [
+      'PROTOCOL_VERSION', 'COMMAND_RING_PTR', 'ANALYSIS_RING_PTR', 'COMMAND_CAPACITY',
+      'COMMAND_BYTES', 'ANALYSIS_CAPACITY', 'ANALYSIS_BYTES', 'OUTPUT_LEFT_PTR',
+    ] as const
+    for (const name of shared) {
+      const match = new RegExp(`^const ${name} = (.+)$`, 'm').exec(worklet)
+      expect(match, name).not.toBeNull()
+      expect(Function(`return (${match![1]})`)(), name).toBe(protocol[name])
     }
   })
 })

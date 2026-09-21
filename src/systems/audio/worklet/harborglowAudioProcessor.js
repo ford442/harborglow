@@ -1,20 +1,15 @@
 const COMMAND_RING_PTR = 24 * 1024 * 1024
 const ANALYSIS_RING_PTR = 26 * 1024 * 1024
 const COMMAND_CAPACITY = 1024
-const COMMAND_BYTES = 64
+// Must match PROTOCOL_VERSION in audioProtocol.ts and the engine.
+const PROTOCOL_VERSION = 2
+const COMMAND_BYTES = 80
 const ANALYSIS_CAPACITY = 8
 const ANALYSIS_BYTES = 1088
 const OUTPUT_LEFT_PTR = 30 * 1024 * 1024
 const OUTPUT_RIGHT_PTR = OUTPUT_LEFT_PTR + 4096
 const COMMAND_SCRATCH_PTR = OUTPUT_RIGHT_PTR + 4096
 const ANALYSIS_SCRATCH_PTR = COMMAND_SCRATCH_PTR + COMMAND_BYTES
-
-const Command = {
-  NoteOn: 1,
-  NoteOff: 2,
-  StopAll: 3,
-  SetEffects: 4,
-}
 
 class HarborGlowAudioProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -60,7 +55,14 @@ class HarborGlowAudioProcessor extends AudioWorkletProcessor {
       const instance = await WebAssembly.instantiate(this.module, imports)
       this.exports = instance.exports
       this.exports._initialize?.()
-      this.exports.dsp_ring_init(COMMAND_RING_PTR, COMMAND_CAPACITY, COMMAND_BYTES)
+      const protocolVersion = this.exports.dsp_audio_engine_protocol_version?.() ?? 1
+      const commandBytes = this.exports.dsp_audio_engine_command_bytes?.() ?? 64
+      if (protocolVersion !== PROTOCOL_VERSION || commandBytes !== COMMAND_BYTES) {
+        throw new Error(
+          `Audio engine protocol v${protocolVersion}/${commandBytes}B, ` +
+          `worklet expects v${PROTOCOL_VERSION}/${COMMAND_BYTES}B`)
+      }
+      this.exports.dsp_ring_init(COMMAND_RING_PTR, COMMAND_CAPACITY, commandBytes)
       this.exports.dsp_ring_init(ANALYSIS_RING_PTR, ANALYSIS_CAPACITY, ANALYSIS_BYTES)
       if (!this.exports.dsp_audio_engine_init(sampleRate)) {
         throw new Error(`Unsupported sample rate ${sampleRate}`)
@@ -68,6 +70,9 @@ class HarborGlowAudioProcessor extends AudioWorkletProcessor {
       this.ready = true
       this.port.postMessage({
         type: 'ready',
+        protocolVersion,
+        commandBytes,
+        sampleRate,
         layout: {
           dataOffset: this.exports.dsp_ring_data_offset(),
           readOffset: this.exports.dsp_ring_read_offset(),
@@ -80,41 +85,6 @@ class HarborGlowAudioProcessor extends AudioWorkletProcessor {
         type: 'error',
         message: error instanceof Error ? error.message : String(error),
       })
-    }
-  }
-
-  drainCommands() {
-    const exports = this.exports
-    const view = new DataView(this.memory.buffer, COMMAND_SCRATCH_PTR, COMMAND_BYTES)
-    while (exports.dsp_ring_pop(COMMAND_RING_PTR, COMMAND_SCRATCH_PTR)) {
-      const type = view.getInt32(0, true)
-      if (type === Command.NoteOn) {
-        exports.dsp_audio_engine_note_on(
-          view.getInt32(4, true),
-          view.getFloat32(8, true),
-          view.getFloat32(12, true),
-          view.getInt32(16, true),
-          view.getFloat32(20, true),
-          view.getFloat32(24, true),
-          view.getFloat32(28, true),
-          view.getFloat32(32, true),
-        )
-      } else if (type === Command.NoteOff) {
-        exports.dsp_audio_engine_note_off(view.getInt32(4, true))
-      } else if (type === Command.StopAll) {
-        exports.dsp_audio_engine_stop_all()
-      } else if (type === Command.SetEffects) {
-        exports.dsp_audio_engine_set_effects(
-          view.getFloat32(36, true),
-          view.getFloat32(40, true),
-          view.getInt32(44, true),
-          view.getFloat32(48, true),
-          view.getFloat32(52, true),
-          view.getFloat32(56, true),
-          view.getUint8(60),
-          view.getUint8(61) / 255,
-        )
-      }
     }
   }
 
@@ -184,9 +154,10 @@ class HarborGlowAudioProcessor extends AudioWorkletProcessor {
       return true
     }
 
-    this.drainCommands()
-    this.exports.dsp_audio_engine_render(
-      OUTPUT_LEFT_PTR, OUTPUT_RIGHT_PTR, left.length)
+    // Commands carry their own frame; the engine splits this quantum at them.
+    this.exports.dsp_audio_engine_drain(COMMAND_RING_PTR)
+    this.exports.dsp_audio_engine_process(
+      OUTPUT_LEFT_PTR, OUTPUT_RIGHT_PTR, left.length, currentFrame)
     const wasmLeft = new Float32Array(this.memory.buffer, OUTPUT_LEFT_PTR, left.length)
     const wasmRight = new Float32Array(this.memory.buffer, OUTPUT_RIGHT_PTR, right.length)
     const input = inputs[0]
