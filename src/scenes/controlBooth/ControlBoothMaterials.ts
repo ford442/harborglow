@@ -1,108 +1,65 @@
 import * as THREE from 'three'
-import { shaderMaterial } from '@react-three/drei'
-import { extend } from '@react-three/fiber'
+import { MeshBasicNodeMaterial } from 'three/webgpu'
+import { distance, float, pow, sin, cos, smoothstep, texture, time, uniform, uv, vec2, vec3, vec4 } from 'three/tsl'
 
 // =============================================================================
-// SHADER MATERIALS AND TEXTURES FOR CONTROL BOOTH
+// TSL NODE MATERIALS FOR CONTROL BOOTH (replaces drei GLSL shaderMaterial, #208)
 // =============================================================================
 
-// NOTE: Deferred by issue #208. drei@10 shaderMaterial() creates GLSL ShaderMaterial,
-// and the WebGPU-safe drei /webgpu material path requires the R3F v10 + drei v11 migration.
-// Keep these two helper-backed materials until that migration lands.
-// CRT Scanline + Flicker Shader
-export const CRTShaderMaterial = shaderMaterial(
-  {
-    uTime: 0,
-    uTexture: null,
-    uFlickerIntensity: 0.02,
-    uScanlineIntensity: 0.15,
-    uVignetteIntensity: 0.3,
-    uRgbShift: 0.002,
-  },
-  `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  `
-    uniform float uTime;
-    uniform sampler2D uTexture;
-    uniform float uFlickerIntensity;
-    uniform float uScanlineIntensity;
-    uniform float uVignetteIntensity;
-    uniform float uRgbShift;
-    
-    varying vec2 vUv;
-    
-    void main() {
-      vec2 uv = vUv;
-      
-      float flicker = 1.0 + sin(uTime * 10.0) * uFlickerIntensity * 0.5;
-      flicker += sin(uTime * 23.7) * uFlickerIntensity * 0.3;
-      
-      float r = texture2D(uTexture, uv + vec2(uRgbShift, 0.0)).r;
-      float g = texture2D(uTexture, uv).g;
-      float b = texture2D(uTexture, uv - vec2(uRgbShift, 0.0)).b;
-      
-      vec3 color = vec3(r, g, b) * flicker;
-      
-      float scanline = sin(uv.y * 800.0) * 0.5 + 0.5;
-      scanline = pow(scanline, 2.0) * uScanlineIntensity;
-      color -= scanline;
-      
-      float vignette = distance(uv, vec2(0.5));
-      vignette = smoothstep(0.3, 0.9, vignette) * uVignetteIntensity;
-      color *= (1.0 - vignette);
-      
-      color.r *= 1.05;
-      color.b *= 0.95;
-      
-      gl_FragColor = vec4(color, 1.0);
-    }
-  `
-)
+export interface CRTMaterialOptions {
+  flickerIntensity?: number
+  scanlineIntensity?: number
+  vignetteIntensity?: number
+  rgbShift?: number
+}
 
-extend({ CRTShaderMaterial })
+// CRT scanline + flicker + RGB shift + vignette over a monitor feed texture.
+export const createCRTMaterial = (map: THREE.Texture, opts: CRTMaterialOptions = {}) => {
+  const uFlicker = uniform(opts.flickerIntensity ?? 0.02)
+  const uScanline = uniform(opts.scanlineIntensity ?? 0.15)
+  const uVignette = uniform(opts.vignetteIntensity ?? 0.3)
+  const uRgbShift = uniform(opts.rgbShift ?? 0.002)
 
-// NOTE: See deferred migration note above.
-// Glass distortion shader for window
-export const FoggedGlassMaterial = shaderMaterial(
-  {
-    uTime: 0,
-    uFogDensity: 0.3,
-    uOpacity: 0.15,
-  },
-  `
-    varying vec2 vUv;
-    varying vec3 vPosition;
-    void main() {
-      vUv = uv;
-      vPosition = position;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  `
-    uniform float uTime;
-    uniform float uFogDensity;
-    uniform float uOpacity;
-    varying vec2 vUv;
-    varying vec3 vPosition;
-    
-    void main() {
-      float fog = sin(vUv.x * 20.0 + uTime * 0.1) * cos(vUv.y * 15.0 + uTime * 0.15);
-      fog = fog * 0.5 + 0.5;
-      fog = pow(fog, 3.0) * uFogDensity;
-      
-      vec3 color = vec3(0.85, 0.9, 0.95) * (0.9 + fog * 0.2);
-      
-      gl_FragColor = vec4(color, uOpacity + fog * 0.1);
-    }
-  `
-)
+  const vUv = uv()
+  const flicker = float(1)
+    .add(sin(time.mul(10)).mul(uFlicker).mul(0.5))
+    .add(sin(time.mul(23.7)).mul(uFlicker).mul(0.3))
+  const shift = vec2(uRgbShift, 0)
+  const r = texture(map, vUv.add(shift)).r
+  const g = texture(map, vUv).g
+  const b = texture(map, vUv.sub(shift)).b
+  const scanline = pow(sin(vUv.y.mul(800)).mul(0.5).add(0.5), 2).mul(uScanline)
+  const vignette = smoothstep(0.3, 0.9, distance(vUv, vec2(0.5))).mul(uVignette)
+  const color = vec3(r, g, b).mul(flicker).sub(scanline).mul(float(1).sub(vignette)).mul(vec3(1.05, 1, 0.95))
 
-extend({ FoggedGlassMaterial })
+  const material = new MeshBasicNodeMaterial()
+  material.colorNode = vec4(color, 1)
+  material.toneMapped = false
+  return {
+    material,
+    uniforms: { flickerIntensity: uFlicker, scanlineIntensity: uScanline, vignetteIntensity: uVignette, rgbShift: uRgbShift },
+  }
+}
+
+export interface FoggedGlassMaterialOptions {
+  fogDensity?: number
+  opacity?: number
+}
+
+// Animated condensation on the cab window.
+export const createFoggedGlassMaterial = (opts: FoggedGlassMaterialOptions = {}) => {
+  const uFogDensity = uniform(opts.fogDensity ?? 0.3)
+  const uOpacity = uniform(opts.opacity ?? 0.15)
+
+  const vUv = uv()
+  const wave = sin(vUv.x.mul(20).add(time.mul(0.1))).mul(cos(vUv.y.mul(15).add(time.mul(0.15))))
+  const fog = pow(wave.mul(0.5).add(0.5), 3).mul(uFogDensity)
+  const color = vec3(0.85, 0.9, 0.95).mul(fog.mul(0.2).add(0.9))
+
+  const material = new MeshBasicNodeMaterial({ transparent: true, depthWrite: false })
+  material.colorNode = vec4(color, uOpacity.add(fog.mul(0.1)))
+  return { material, uniforms: { fogDensity: uFogDensity, opacity: uOpacity } }
+}
 
 // Material factory
 export interface ThemeConfig {
