@@ -39,6 +39,8 @@ EM_WARN     := -Wall -Wextra -Wshadow -Wconversion
 
 # Export lists are parsed from headers (see scripts/wasm-exports.mjs).
 # Prefer values passed from build.sh so `make test` never shells out to Node.
+# Resolved via the shell: make's direct exec can hit an emsdk node/ directory on PATH.
+NODE ?= $(shell command -v node)
 CORE_EXPORTED_FUNCTIONS ?= $(shell node $(EXPORTS_JS) --emcc core)
 AUDIO_EXPORTED_FUNCTIONS ?= $(shell node $(EXPORTS_JS) --emcc audio)
 
@@ -147,7 +149,7 @@ BENCH_BIN := tests/dsp_bench
 SANITIZE := -fsanitize=address,undefined
 
 .PHONY: test
-test: $(TEST_BIN) $(AUDIO_TEST_BIN)
+test: header-c $(TEST_BIN) $(AUDIO_TEST_BIN)
 	./$(TEST_BIN)
 	./$(AUDIO_TEST_BIN)
 
@@ -166,6 +168,11 @@ $(AUDIO_TEST_BIN): tests/audio_engine_native_test.cpp harborglow_audio_engine.cp
 	    tests/audio_engine_native_test.cpp harborglow_audio_engine.cpp \
 	    harborglow_dsp.cpp tests/dsp_ring_buffer.o \
 	    -lm -o $(AUDIO_TEST_BIN)
+
+# The engine header must be includable from a C translation unit.
+.PHONY: header-c
+header-c:
+	$(NATIVE_CC) -std=c11 -I. $(NATIVE_WARN) -fsyntax-only tests/audio_engine_header_c.c
 
 .PHONY: debug-native
 debug-native: tests/dsp_ring_buffer_asan.o
@@ -205,7 +212,7 @@ $(OUT_DIR):
 
 .PHONY: compile-commands
 compile-commands:
-	python3 write-compile-commands.py
+	$(NODE) ../scripts/write-compile-commands.mjs
 
 .PHONY: tidy
 tidy: compile-commands

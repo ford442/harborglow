@@ -1,0 +1,14 @@
+# clangd config. The source of truth is cpp/compile_commands.json
+# (make -C cpp compile-commands); this file is only a patch layer.
+#
+# Gotcha: CompileFlags.CompilationDatabase takes a DIRECTORY, not a path
+# to the JSON file.
+CompileFlags:
+  CompilationDatabase: cpp
+---
+# Shipping sources are wasm32-only: keep the triple even if a stale or
+# hand-written database drops it, so DSP_HAS_SIMD blocks stay active.
+If:
+  PathMatch: cpp/(harborglow_dsp|harborglow_audio_engine|dsp_ring_buffer)\.(cpp|c|h)
+CompileFlags:
+  Add: [--target=wasm32-unknown-emscripten, -msimd128]

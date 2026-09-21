@@ -115,6 +115,14 @@ jobs:
       - name: Native DSP tests
         run: make -C cpp test
 
+      - name: Check clangd compile database (wasm target triple)
+        run: node scripts/write-compile-commands.mjs --check
+
+      # Report-only: findings appear in the log but never fail the job.
+      - name: clang-tidy (report-only)
+        continue-on-error: true
+        run: make -C cpp tidy
+
       - name: Check committed WASM binaries
         run: npm run check:wasm
 
