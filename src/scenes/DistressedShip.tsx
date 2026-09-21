@@ -159,13 +159,8 @@ export default function DistressedShip({
 
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
-  const activeMission = useGameStore((s) => s.activeMission)
   const updateMission = useGameStore((s) => s.updateMission)
 
-  const berthVec = useMemo(
-    () => new THREE.Vector3(berthCenter[0], berthCenter[1], berthCenter[2]),
-    [berthCenter]
-  )
 
   useFrame((_, delta) => {
     if (!rbRef.current || !groupRef.current) return

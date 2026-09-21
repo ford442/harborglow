@@ -323,7 +323,6 @@ export function calculateMarineLayer(hour: number): number {
 
 class TimeSystem {
     private state: TimeState
-    private lastUpdate: number = 0
     private phaseEventsTriggered: Set<string> = new Set()
     private listeners: Set<(state: TimeState) => void> = new Set()
     private phaseEventHandlers: Set<(eventType: string) => void> = new Set()

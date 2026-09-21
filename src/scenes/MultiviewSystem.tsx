@@ -81,7 +81,6 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   const droneProgressRef = useRef(0)
   const craneShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
   const hookShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
-  const initializedRef = useRef(false)
 
   // ---------------------------------------------------------------------------
   // Derive current ship & crane state (reactive for render)
@@ -207,13 +206,12 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   // ---------------------------------------------------------------------------
   // Compute live camera transform for tugboat viewports
   // ---------------------------------------------------------------------------
-  const getTugLiveTransform = useCallback((viewportId: TugboatViewportId, time: number): CameraTransform => {
+  const getTugLiveTransform = useCallback((viewportId: TugboatViewportId): CameraTransform => {
     const pos = tugboatState.position
     const heading = tugboatState.heading
 
     // Direction vectors relative to tug heading
     const fwd = [Math.cos(heading), 0, Math.sin(heading)] as const
-    const right = [-Math.sin(heading), 0, Math.cos(heading)] as const
 
     switch (viewportId) {
       case 'tug-helm': {
@@ -324,7 +322,7 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
         // Animate tugboat viewports
         TUGBOAT_VIEWPORT_ORDER.forEach((viewportId) => {
           const camera = tugCameraRefs[viewportId].current
-          const liveTransform = getTugLiveTransform(viewportId, time)
+          const liveTransform = getTugLiveTransform(viewportId)
           applyTransform(camera, liveTransform, TUGBOAT_VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
         })
       } else {

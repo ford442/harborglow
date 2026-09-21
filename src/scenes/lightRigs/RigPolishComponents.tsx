@@ -13,7 +13,6 @@ import {
   type RigFlareEntry,
 } from './rigPolish'
 
-const _worldPos = new THREE.Vector3()
 const _camDelta = new THREE.Vector3()
 const _lastCam = new THREE.Vector3()
 

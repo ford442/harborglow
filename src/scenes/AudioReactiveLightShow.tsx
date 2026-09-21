@@ -38,7 +38,7 @@ const HOUSING_BY_TYPE: Record<
   neon: { w: 4.2, h: 0.22, d: 0.28 },
 }
 
-function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipId, rigKey }: AudioReactiveLightProps) {
+function AudioReactiveLight({ position, type, color = '#ffffff', shipId, rigKey }: AudioReactiveLightProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const lightRef = useRef<THREE.PointLight>(null)
   const powerRef = useRef(0.5)
@@ -90,27 +90,6 @@ function AudioReactiveLight({ position, type, color = '#ffffff', shipType, shipI
     }
   }, [audioData, type])
   
-  const getShipColor = useCallback((baseHue: number, out: THREE.Color) => {
-    const palettes: Record<ShipType, { h: number; s: number; l: number }> = {
-      cruise: { h: 340, s: 0.8, l: 0.6 }, // Pink
-      container: { h: 160, s: 0.9, l: 0.5 }, // Cyan/Green
-      tanker: { h: 25, s: 1, l: 0.5 }, // Orange
-      bulk: { h: 30, s: 0.6, l: 0.4 }, // Brown
-      lng: { h: 195, s: 0.9, l: 0.6 }, // Light Blue
-      roro: { h: 280, s: 0.7, l: 0.5 }, // Purple
-      research: { h: 145, s: 0.8, l: 0.5 }, // Green
-      droneship: { h: 0, s: 0, l: 0.8 }, // White/Gray
-      ferry: { h: 155, s: 0.8, l: 0.5 }, // Teal/Green
-      trawler: { h: 35, s: 0.7, l: 0.5 }, // Amber
-      horizon: { h: 210, s: 0.8, l: 0.5 },  // Ocean Blue
-      fireboat: { h: 0, s: 1, l: 0.5 },      // Emergency Red
-      icebreaker: { h: 0, s: 0.85, l: 0.42 } // Yamal Red / ice cyan mix
-    }
-    
-    const palette = palettes[shipType]
-    const hue = (palette.h / 360 + baseHue) % 1
-    return out.setHSL(hue, palette.s, palette.l)
-  }, [shipType])
   
   useFrame((_, delta) => {
     if (!meshRef.current || !lightRef.current) return
@@ -186,7 +165,7 @@ function AudioReactiveGodRay({ position, color }: { position: [number, number, n
   const { audioData } = useAudioVisualSync()
   const material = useMemo(() => buildGodRayMaterial(color), [color])
   
-  useFrame((state) => {
+  useFrame(() => {
     if (!material) return
     const mat = material as any
     if (mat.userData.uAudioBass) mat.userData.uAudioBass.value = audioData.bass

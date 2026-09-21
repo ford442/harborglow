@@ -203,7 +203,6 @@ class TrafficSystem {
         currentUtilization: 0
     }
     
-    private lastUpdate: number = 0
     private listeners: Set<(queue: TrafficQueue) => void> = new Set()
     private timePressureActive: boolean = false
     
@@ -245,7 +244,6 @@ class TrafficSystem {
             peakHours: [8, 9, 10, 17, 18, 19],
             currentUtilization: 0,
         }
-        this.lastUpdate = 0
         this.timePressureActive = false
         this.densityMultiplier = 1.0
         this.timePressureMultiplier = 1.0

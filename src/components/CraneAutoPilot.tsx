@@ -7,7 +7,7 @@ import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
-import { findBindCandidate, triggerInstallation } from '../systems/attachmentSystem'
+import { triggerInstallation } from '../systems/attachmentSystem'
 import { startQueueTravelHum, stopQueueTravelHum } from '../systems/soundEffects'
 
 // -------------------------------------------------------------------------
@@ -135,11 +135,9 @@ function QueuePathLine({ points }: { points: THREE.Vector3[] }) {
 // MAIN COMPONENT
 // -------------------------------------------------------------------------
 export default function CraneAutoPilot() {
-    const pendingAutoInstall = useGameStore((state) => state.pendingAutoInstall)
     const installQueue = useGameStore((state) => state.installQueue)
     const installQueueIndex = useGameStore((state) => state.installQueueIndex)
     const isQueueRunning = useGameStore((state) => state.isQueueRunning)
-    const isQueuePaused = useGameStore((state) => state.isQueuePaused)
     const queuePausedAt = useGameStore((state) => state.queuePausedAt)
     const queuePausedShipId = useGameStore((state) => state.queuePausedShipId)
 
@@ -153,7 +151,6 @@ export default function CraneAutoPilot() {
     const prevActiveKeyRef = useRef<string | null>(null)
     const queueTravelHumActiveRef = useRef(false)
 
-    const _startVec = useMemo(() => new THREE.Vector3(), [])
     const _targetVec = useMemo(() => new THREE.Vector3(), [])
     const _currentVec = useMemo(() => new THREE.Vector3(), [])
     const _guideStart = useMemo(() => new THREE.Vector3(), [])

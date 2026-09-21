@@ -28,7 +28,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': 'warn',
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
       // Prevent @ts-nocheck from hiding duplicate declarations from tsc (see #114, #117).
       '@typescript-eslint/ban-ts-comment': ['error', {
         'ts-nocheck': true,

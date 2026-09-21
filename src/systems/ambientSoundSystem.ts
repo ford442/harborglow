@@ -532,7 +532,7 @@ export function disposeAmbientSounds() {
 import { useEffect, useState } from 'react'
 
 export function useAmbientSounds() {
-  const [currentPhase, setCurrentPhase] = useState('day')
+  const [currentPhase] = useState('day')
   
   useEffect(() => {
     startAmbientSystem()

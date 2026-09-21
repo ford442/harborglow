@@ -1,4 +1,3 @@
-import React from 'react';
 import * as styles from './trainingHUDStyles';
 
 export function ObjectivePopup({ objective }: { objective?: { title: string; description: string } }) {

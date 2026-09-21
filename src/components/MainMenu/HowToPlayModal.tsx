@@ -2,7 +2,7 @@
 // HOW TO PLAY MODAL
 // =============================================================================
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useGameStore } from '../../store/useGameStore'
 import { SHIP_COLORS } from '../DesignSystem'
 import Modal from './Modal'

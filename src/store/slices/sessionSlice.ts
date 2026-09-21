@@ -25,7 +25,7 @@ import type { GameState as StorageGameState } from '../../utils/storage_manager'
 import { economySystem } from '../../systems/economySystem';
 import { isCameraPresetId } from '../../types/CameraPreset';
 
-export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> = (set, get, _api) => ({
+export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> = (set) => ({
     resetGame: () => {
         clearSave()
         set({

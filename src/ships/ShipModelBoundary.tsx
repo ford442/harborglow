@@ -24,18 +24,18 @@ interface ShipModelBoundaryState {
 }
 
 export class ShipModelBoundary extends Component<ShipModelBoundaryProps, ShipModelBoundaryState> {
-  state: ShipModelBoundaryState = { failed: false }
+  override state: ShipModelBoundaryState = { failed: false }
 
   static getDerivedStateFromError(): ShipModelBoundaryState {
     return { failed: true }
   }
 
-  componentDidCatch(error: Error) {
+  override componentDidCatch(error: Error) {
     console.warn(`🚢 GLB hull failed for "${this.props.shipType}" — using procedural fallback`, error)
     this.props.onError?.(error)
   }
 
-  render() {
+  override render() {
     if (this.state.failed) return this.props.fallback
     return this.props.children
   }

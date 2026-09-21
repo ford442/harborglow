@@ -393,10 +393,9 @@ export function disposeCraneSounds() {
 // REACT HOOK
 // =============================================================================
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 export function useCraneSounds() {
-  const lastTensionRef = useRef(0)
   
   useEffect(() => {
     return () => {

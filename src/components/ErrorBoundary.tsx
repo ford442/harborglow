@@ -27,7 +27,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         return { hasError: true, error, errorInfo: '' }
     }
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         console.error('ErrorBoundary caught error:', error, errorInfo)
         this.setState({ errorInfo: errorInfo.componentStack || '' })
     }
@@ -43,7 +43,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         window.location.reload()
     }
 
-    render() {
+    override render() {
         if (this.state.hasError) {
             return (
                 <div style={containerStyle}>

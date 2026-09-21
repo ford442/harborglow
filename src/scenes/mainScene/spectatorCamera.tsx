@@ -1,4 +1,3 @@
-import React from 'react'
 import type { Ship, ShipType } from '../../store/useGameStore'
 import type { SpectatorCameraConfig } from './types'
 

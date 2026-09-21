@@ -70,7 +70,6 @@ class CavitationSystem {
 
   private alarmLatchTimer = 0
   private burstAccumulator = 0
-  private lastUpdateTime = 0
 
   private enabled = true
 

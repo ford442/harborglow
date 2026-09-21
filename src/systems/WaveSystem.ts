@@ -91,7 +91,6 @@ const DEFAULT_LAYERS: WaveLayer[] = [
 class WaveSystem {
   private state: WaveState
   private listeners: Set<(state: WaveState) => void> = new Set()
-  private tempVec2 = new THREE.Vector2()
   private tempVec3 = new THREE.Vector3()
   /** Non-null only on the `high`+ quality tier. See `setOceanFFT`. */
   private oceanFFT: OceanFFTField | null = null

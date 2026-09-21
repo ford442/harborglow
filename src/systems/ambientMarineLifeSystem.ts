@@ -11,7 +11,6 @@ import { useGameStore } from '../store/useGameStore'
 import {
     getAmbientCounts,
     getBeatReactiveMultiplier,
-    getCameraAwareMultiplier,
     getFinaleConvergenceEnvelope,
     getFishSchoolCohesionFactor,
     getLightAttractionMultiplier,
@@ -147,7 +146,6 @@ class AmbientMarineLifeSystem {
             return
         }
 
-        const cameraMultiplier = getCameraAwareMultiplier(cameraMode, focusedViewport)
         const lightMultiplier = getLightAttractionMultiplier(installedUpgrades, ships, musicPlaying)
         const distanceLodMultiplier = this.getDistanceLodMultiplier(camera)
         const showActive = lightingSystem.isShowActive()

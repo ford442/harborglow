@@ -132,7 +132,7 @@ class SeaEventsSystem {
     private initializeStates() {
         // Milky seas - steady bacterial glow
         this.states.milky_seas = {
-            update: (event, delta, ships) => {
+            update: (event) => {
                 // Intensity varies slightly over time
                 const variation = Math.sin(simNowMs() / 10000) * 0.1
                 return { intensity: Math.max(0, Math.min(1, event.intensity + variation)) }
@@ -142,14 +142,14 @@ class SeaEventsSystem {
                 console.log(`   Cause: ${EVENT_SPECS.milky_seas.scientificCause}`)
                 console.log(`   Area: ${event.affectedArea.radius}m radius`)
             },
-            onEnd: (event) => {
+            onEnd: () => {
                 console.log(`🌊 Milky seas dissipated (bacterial population below quorum threshold)`)
             }
         }
         
         // Whale migration - directional movement
         this.states.whale_migration = {
-            update: (event, delta, ships) => {
+            update: (event) => {
                 // Migration progresses across the scene
                 const progress = (simNowMs() - event.startTime) / 1000 / event.duration
                 
@@ -161,7 +161,7 @@ class SeaEventsSystem {
                 
                 return { intensity: Math.sin(progress * Math.PI) } // Peak in middle
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`🐋 WHALE MIGRATION EVENT STARTED`)
                 console.log(`   Species: Megaptera novaeangliae`)
                 console.log(`   Distance: Up to 25,000 km annually`)
@@ -170,7 +170,7 @@ class SeaEventsSystem {
         
         // Shark patrol - coastal grid pattern
         this.states.shark_patrol = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // Sharks more aggressive/active during patrol
                 
                 // Random shark spawns near ships
@@ -180,7 +180,7 @@ class SeaEventsSystem {
                 
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`🦈 SHARK PATROL EVENT STARTED`)
                 console.log(`   Species: Carcharodon carcharias`)
                 console.log(`   Behavior: Coastal hunting pattern`)
@@ -189,11 +189,11 @@ class SeaEventsSystem {
         
         // Meteor shower - falling stars
         this.states.meteor_shower = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // No state changes, just visual effect handled in renderer
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`☄️ METEOR SHOWER EVENT STARTED`)
                 console.log(`   Cause: Earth passing through comet debris`)
                 console.log(`   Best viewing: Away from harbor lights`)
@@ -202,7 +202,7 @@ class SeaEventsSystem {
         
         // Bioluminescent bloom - flashing response
         this.states.bioluminescent_bloom = {
-            update: (event, delta, ships) => {
+            update: () => {
                 // Spawn plankton entities
                 if (simRandom() < 0.05) {
                     wildlifeSystem.spawnWildlife('bioluminescent_plankton')
@@ -210,7 +210,7 @@ class SeaEventsSystem {
                 
                 return null
             },
-            onStart: (event) => {
+            onStart: () => {
                 console.log(`✨ BIOLUMINESCENT BLOOM STARTED`)
                 console.log(`   Species: Lingulodinium polyedrum (dinoflagellates)`)
                 console.log(`   Mechanism: Scintillon-mediated flash response`)

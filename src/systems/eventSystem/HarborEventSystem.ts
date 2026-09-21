@@ -4,7 +4,6 @@
 // =============================================================================
 
 import { useGameStore, WildlifeEntity, Ship, ShipType } from '../../store/useGameStore'
-import { wildlifeSystem } from '../wildlifeSystem'
 import { musicSystem } from '../musicSystem'
 import { weatherSystem } from '../weatherSystem'
 import { ShipSpawner } from '../shipSpawner'
@@ -75,9 +74,7 @@ export class HarborEventSystem {
         if (month >= 8 && month <= 10) containerModifier = 1.4
         else if (month === 1 || month === 2) containerModifier = 0.6
         
-        let tankerModifier = 1.0
-        if (month >= 11 || month <= 3) tankerModifier = 1.2
-        
+        if (month >= 11 || month <= 3)        
         this.operations.loadingSpeedModifier = containerModifier
         this.operations.railActivity = 0.4 + (containerModifier - 0.6) * 0.5
     }

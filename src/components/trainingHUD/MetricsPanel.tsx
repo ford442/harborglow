@@ -1,4 +1,3 @@
-import React from 'react';
 import { TrainingMetrics } from '../../systems/trainingSystem';
 import * as styles from './trainingHUDStyles';
 

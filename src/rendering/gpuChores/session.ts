@@ -17,7 +17,6 @@ import {
 import { parseNoGpuCompute } from './killSwitch'
 import { composerColorTexture, sampleTinyRgba } from './sampleTiny'
 import {
-  defaultGpuChoresBreadcrumb,
   METER_HEIGHT,
   METER_WIDTH,
   type GpuChoreBackend,

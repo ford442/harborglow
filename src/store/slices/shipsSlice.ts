@@ -6,7 +6,6 @@ import type { StateCreator } from 'zustand';
 import type { ShipsSlice } from '../sliceTypes';
 import {
     type GameState,
-    type Ship,
 } from '../gameStoreTypes';
 import { reputationSystem } from '../../systems/reputationSystem';
 

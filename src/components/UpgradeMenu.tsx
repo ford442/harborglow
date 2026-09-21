@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { useGameStore, Ship, selectUpgradeProgress, ShipType } from '../store/useGameStore'
+import { useState, useEffect, useMemo } from 'react'
+import { useGameStore, ShipType } from '../store/useGameStore'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { UPGRADE_CONFIGS, shipTypeLabels, shipTypeColors } from './upgrade/upgradeConfigs'
 import { ParticleBurst, ShipFullyUpgradedCelebration, useUpgradeSounds } from './VisualFeedback'
 import { useCompletionGlow } from '../hooks/useCompletionGlow'
-import { useMusicPulse } from '../hooks/useMusicPulse'
 import * as THREE from 'three'
 import { getSceneCamera } from '../utils/sceneCamera'
 import { AvailableUpgradesList } from './upgrade/AvailableUpgradesList'
@@ -15,8 +14,6 @@ import {
     menuContainerStyle,
     progressBarBgStyle,
     progressBarFillStyle,
-    upgradeRowStyle,
-    installButtonStyle,
     installingSpinnerStyle,
     structuralOverhaulButtonStyle,
     flashOverlayStyle,
@@ -34,7 +31,6 @@ import {
     queueAbortButtonStyle,
     queueProgressBarBgStyle,
     queueProgressBarFillStyle,
-    queueCheckboxStyle,
     queueButtonStyle,
     queuePreviewOverlayStyle
 } from './upgrade/styles'
@@ -61,7 +57,6 @@ export default function UpgradeMenu() {
 function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     const currentShipId = currentShip.id
     const installedUpgrades = useGameStore((state) => state.installedUpgrades)
-    const installUpgrade = useGameStore((state) => state.installUpgrade)
     const setMusicPlaying = useGameStore((state) => state.setMusicPlaying)
     const setSpectatorTarget = useGameStore((state) => state.setSpectatorTarget)
     const upgradeShipVersion = useGameStore((state) => state.upgradeShipVersion)
@@ -75,7 +70,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     const isQueueRunning = useGameStore(state => state.isQueueRunning)
     const isQueuePaused = useGameStore(state => state.isQueuePaused)
     const queuePausedShipId = useGameStore(state => state.queuePausedShipId)
-    const queuePausedAt = useGameStore(state => state.queuePausedAt)
     const setInstallQueue = useGameStore(state => state.setInstallQueue)
     const abortInstallQueue = useGameStore(state => state.abortInstallQueue)
 
@@ -101,7 +95,6 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     
     const { playInstallSound, playCelebrationSound } = useUpgradeSounds()
     const bpm = useGameStore((state) => state.bpm)
-    const musicPulse = useMusicPulse(bpm)
     // Completion glow pulses the menu border once the ship is fully upgraded and
     // its music is playing. Hook must run unconditionally before any early return.
     const glow = useCompletionGlow()

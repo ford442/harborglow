@@ -3,7 +3,6 @@
 // Dynamic weather with visual effects and gameplay impact
 // =============================================================================
 
-import { useGameStore } from '../store/useGameStore'
 import { timeSystem, DayPhase } from './timeSystem'
 import { musicSystem } from './musicSystem'
 import { simRandom, getSim } from './sim/SimContext'
@@ -123,7 +122,6 @@ class WeatherSystem {
     private state: WeatherState
     private transition: WeatherTransition | null = null
     private listeners: Set<(state: WeatherState) => void> = new Set()
-    private lastLightning: number = 0
     private lightningActive: boolean = false
     private lightningUntil = 0
     private nextLightningAt = 0
@@ -169,7 +167,7 @@ class WeatherSystem {
                 this.state.type = this.transition.to
                 this.transition = null
             } else {
-                this.interpolateWeather(deltaMinutes)
+                this.interpolateWeather()
             }
         }
         
@@ -194,7 +192,7 @@ class WeatherSystem {
         this.notifyListeners()
     }
     
-    private interpolateWeather(deltaMinutes: number) {
+    private interpolateWeather() {
         if (!this.transition) return
         
         const fromConfig = WEATHER_CONFIG[this.transition.from]
@@ -250,7 +248,6 @@ class WeatherSystem {
         this.transition = null
         this.state = this.createWeatherState('clear', 0.5)
         this.state = { ...this.state, ...WEATHER_CONFIG.clear }
-        this.lastLightning = 0
         this.lightningActive = false
         this.lightningUntil = 0
         this.nextLightningAt = 0

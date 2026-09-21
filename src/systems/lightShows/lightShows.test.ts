@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getLightShow, SHIP_BPM } from './index'
-import { LightCue, LightCuePattern } from './types'
+import { LightCuePattern } from './types'
 import { ShipType } from '../../store/gameStoreTypes'
 
 // =============================================================================

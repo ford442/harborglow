@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useGameStore } from '../../store/useGameStore'
-import { createButtonStyles, GLASSMORPHISM } from '../DesignSystem'
+import { createButtonStyles } from '../DesignSystem'
 
 export default function ModeToggle() {
   const operationMode = useGameStore((s) => s.operationMode)

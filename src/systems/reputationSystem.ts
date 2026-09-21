@@ -4,8 +4,7 @@
 // Simple progression system unlocking ships, light rigs, and training modules
 // =============================================================================
 
-import { useGameStore, ShipType } from '../store/useGameStore'
-import { TrainingModuleId } from './trainingSystem'
+import { useGameStore } from '../store/useGameStore'
 
 // =============================================================================
 // REPUTATION TIERS
@@ -318,7 +317,7 @@ export class ReputationSystem {
   addReputation(
     amount: number,
     source: string,
-    metadata?: Record<string, number>,
+    _metadata?: Record<string, number>,
     options?: { syncGameStore?: boolean }
   ): void {
     if (amount <= 0) return
@@ -427,7 +426,7 @@ export class ReputationSystem {
     this.addReputation(repGain, 'installation_complete', metadata)
   }
 
-  recordShipDeparture(shipId: string, completionRate: number): void {
+  recordShipDeparture(_shipId: string, completionRate: number): void {
     this.state.stats.shipsServed++
     
     let repGain = Math.floor(50 * completionRate)
@@ -440,7 +439,7 @@ export class ReputationSystem {
     this.addReputation(repGain, 'ship_departure_complete', { completionRate })
   }
 
-  recordEventHandled(eventType: string, difficulty: number): void {
+  recordEventHandled(_eventType: string, difficulty: number): void {
     this.state.stats.eventsHandled++
     
     const repGain = Math.floor(40 * difficulty)

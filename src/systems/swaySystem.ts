@@ -8,7 +8,6 @@ import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
 import { weatherSystem, WeatherType } from './weatherSystem'
 import { moonSystem } from './moonSystem'
-import { timeSystem } from './timeSystem'
 import { calcMagneticFalloff, calcSettlingDamping, springStep } from '../utils/physicsMath'
 
 // =============================================================================
@@ -210,8 +209,6 @@ class SwaySystem {
     private debugGustDurationMin: number = 0.8
     private debugGustDurationMax: number = 4.0
     
-    // Feedback state
-    private lastGustPeak: number = 0
     private gustWarningActive: boolean = false
 
     // Post-bind settling
@@ -282,7 +279,7 @@ class SwaySystem {
         this.notifyListeners()
     }
     
-    private updateForces(dt: number, trolleyPos: THREE.Vector3, shipPos?: THREE.Vector3) {
+    private updateForces(dt: number, _trolleyPos: THREE.Vector3, shipPos?: THREE.Vector3) {
         // Wind force from weather system
         const weather = weatherSystem.getState()
         const profile = WEATHER_SWAY_PROFILES[weather.type]
@@ -350,7 +347,6 @@ class SwaySystem {
             }
             
             // Apply envelope to gust strength
-            const currentStrength = this.activeGust.strength * envelope
             
             // Update state for feedback
             this.state.gustStrength = envelope
@@ -360,7 +356,6 @@ class SwaySystem {
             if (envelope > 0.6 && !this.gustWarningActive) {
                 this.gustWarningActive = true
                 this.state.gustWarning = true
-                this.lastGustPeak = now
                 
                 // Console feedback
                 if (profile.gustIntensity > 0.3) {
@@ -552,7 +547,6 @@ class SwaySystem {
         // Check if player is making counter-movements
         const craneState = useGameStore.getState()
         const joystickLeft = craneState.joystickLeft
-        const joystickRight = craneState.joystickRight
         
         // Calculate if joystick input opposes sway direction
         const opposingX = joystickLeft.x * this.state.angleX < 0

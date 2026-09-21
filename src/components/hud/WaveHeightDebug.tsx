@@ -48,7 +48,6 @@ export default function WaveHeightDebug() {
       const h = waveSystem.getWaterHeight(x, z, time)
       const foam = waveSystem.getFoamAmount(x, z, time)
       const storm = waveSystem.getStormIntensity()
-      const current = waveSystem.getSurfaceCurrent(x, z)
       const speed = Math.sqrt(
         tugboatState.velocity[0] ** 2 + tugboatState.velocity[2] ** 2
       )

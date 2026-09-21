@@ -62,7 +62,6 @@ const FLEET_PROBE_OFFSETS = [
 ]
 
 // Distance within which tow-attachment indicator is shown (metres)
-const TOW_HINT_RADIUS = 25
 
 interface ShipProps {
     ship: Ship
@@ -479,7 +478,6 @@ export default function ShipComponent({ ship }: ShipProps) {
                         {/* PHASE 9: Enhanced attachment points (crane mode) */}
                         {!isDynamic && attachmentConfig.showPoints && lod < 2 && attachmentPointsWithState.map(({ 
                             point, 
-                            worldPos, 
                             state, 
                             distance,
                             snapStrength,

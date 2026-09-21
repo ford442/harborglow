@@ -5,7 +5,7 @@
 import { TrainingMetrics, TrainingRank } from './trainingTypes'
 
 export function calculateRank(metrics: TrainingMetrics): TrainingRank {
-  const { timeElapsed, maxSway, totalDamage, accuracyScore } = metrics
+  const { maxSway, totalDamage, accuracyScore } = metrics
 
   // S-Rank: Perfect execution
   if (maxSway < 0.15 && totalDamage === 0 && accuracyScore >= 95) return 'S'

@@ -1,5 +1,3 @@
-import React from 'react';
-import { TrainingStep } from '../../systems/trainingSystem';
 import * as styles from './trainingHUDStyles';
 
 // =============================================================================

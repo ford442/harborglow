@@ -1,4 +1,3 @@
-import React from 'react';
 import { TrainingMetrics, calculateRank, calculateScore, getRankColor, getRankDescription } from '../../systems/trainingSystem';
 import * as styles from './trainingHUDStyles';
 

@@ -1,26 +1,20 @@
-import { LevaControlsConfig, ShipSchedulingConfig, SpectatorCameraConfig, DepartingShipsConfig, NightDockLights, NightVolumetricCones, WaterLightVolumes, SpectatorNightCinematicEffects, ShipWrapper, SpectatorOverlay, triggerGeopoliticalEvent, triggerTariffEvent, triggerLaborAction, triggerPeakSeason, useLevaControls, useShipScheduling, UnderwaterEffects, getSunPosition, updateSpectatorCamera, animateDepartingShips } from './mainScene/MainSceneHelpers';
+import { NightDockLights, NightVolumetricCones, WaterLightVolumes, SpectatorNightCinematicEffects, ShipWrapper, useLevaControls, useShipScheduling, UnderwaterEffects, getSunPosition, updateSpectatorCamera, animateDepartingShips } from './mainScene/MainSceneHelpers';
 import { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
-import { useControls } from 'leva'
 import * as THREE from 'three'
 
-import { useGameStore, ShipType, Ship, CameraMode, GameMode } from '../store/useGameStore'
-import { TrainingModuleId, trainingSystem } from '../systems/trainingSystem'
-import { reputationSystem } from '../systems/reputationSystem'
-import { economySystem } from '../systems/economySystem'
-import { musicSystem } from '../systems/musicSystem'
+import { useGameStore, ShipType } from '../store/useGameStore'
+import { TrainingModuleId } from '../systems/trainingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
-import { weatherSystem, WeatherType } from '../systems/weatherSystem'
+import { weatherSystem } from '../systems/weatherSystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
 import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
-import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
-import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTwistlockEngage } from '../systems/craneSoundSystem'
+import { startAmbientSystem, stopAmbientSystem } from '../systems/ambientSoundSystem'
 
-import ShipComponent from './Ship'
 import Crane from './Crane'
 import CraneB from './CraneB'
 import Tugboat from './Tugboat'
@@ -45,14 +39,12 @@ import EnhancedWeather from './EnhancedWeather'
 const PostProcessing = lazy(() => import('./PostProcessing'))
 import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
-import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
 import WildlifeRenderer from './Wildlife'
 import AmbientMarineLife from './AmbientMarineLife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
 import OnDockRail from './OnDockRail'
 import SeaBirds from './SeaBirds'
-import UnderwaterCamera from './UnderwaterCamera'
 import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { setSceneCamera } from '../utils/sceneCamera'
@@ -64,19 +56,6 @@ import { multiplayerSystem } from '../systems/multiplayerSystem'
 // CONSTANTS
 // =============================================================================
 
-const CAMERA_MODES = [
-    'orbit',
-    'crane-cockpit', 
-    'crane-shoulder',
-    'crane-top',
-    'ship-low',
-    'ship-aerial',
-    'ship-water',
-    'ship-rig',
-    'spectator',
-    'crane',
-    'booth'
-] as const
 
 // Total crane jib travel span in world units (matches Crane.tsx trolley calc)
 const CRANE_JIB_SPAN = 40
@@ -152,7 +131,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const triggerTugboatWin = useGameStore(s => s.triggerTugboatWin)
     const resetTugboatMode = useGameStore(s => s.resetTugboatMode)
     const activeMission = useGameStore(s => s.activeMission)
-    const setActiveMission = useGameStore(s => s.setActiveMission)
     const updateMission = useGameStore(s => s.updateMission)
     const completeMission = useGameStore(s => s.completeMission)
     const failMission = useGameStore(s => s.failMission)
@@ -632,7 +610,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                                     )
                                 }
                             }}
-                            onDestroyed={(id) => {
+                            onDestroyed={() => {
                                 failMission()
                             }}
                         />

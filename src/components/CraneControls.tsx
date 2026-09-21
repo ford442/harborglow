@@ -91,7 +91,6 @@ function ReadOnlySlider({ label, value, min, max, displayValue, color, pulse, is
   const [hovered, setHovered] = useState(false)
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
   const pulseBoost = pulse > 0.5 ? 1 + (pulse - 0.5) * 0.6 : 1
-  const glowColor = `${color}${hovered || isActive ? '80' : '40'}`
 
   return (
     <div

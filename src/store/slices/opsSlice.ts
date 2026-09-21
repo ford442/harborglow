@@ -136,7 +136,7 @@ export const createOpsSlice: StateCreator<GameState, [], [], OpsSlice> = (set, g
         })
     },
 
-    markTugboatFirstTimeViewed: () => set((state) => {
+    markTugboatFirstTimeViewed: () => set(() => {
         const patch = { tugboatFirstTimeViewed: true }
         return patch
     }),

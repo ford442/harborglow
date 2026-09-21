@@ -4,9 +4,8 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import * as THREE from 'three'
 import { Instrument } from '../systems/audio/voices'
-import { useGameStore, ShipType } from '../store/useGameStore'
+import { ShipType } from '../store/useGameStore'
 import { GLASSMORPHISM, SHIP_COLORS } from './DesignSystem'
 
 // =============================================================================
