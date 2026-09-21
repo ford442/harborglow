@@ -172,6 +172,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Unused files (knip)
+        run: npm run knip -- --include files
+
+      - name: Unused exports/deps (knip, report-only)
+        continue-on-error: true
+        run: npm run knip
+
   gate-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10

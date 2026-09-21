@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // Standalone CLI tools invoked from cpp/Makefile, cpp/build.sh, CI or by hand.
+  // Nothing imports them, so they are entries, not dead files.
+  "entry": ["scripts/*.mjs"],
+  "ignore": [
+    // Archived code: kept for reference, deliberately outside the import graph.
+    "scripts/archive/**",
+    // Cloudflare signalling worker: separate deploy target with its own wrangler config.
+    "workers/**"
+  ]
+}

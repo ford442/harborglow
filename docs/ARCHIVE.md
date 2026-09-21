@@ -56,3 +56,17 @@ confirmed zero runtime imports.
 
 The two remaining control-booth GLSL helper materials are intentionally deferred
 until the R3F v10 + drei v11 migration enables drei's WebGPU material path.
+
+## Dead-code sweep (Sep 2026)
+
+Modules with no non-test importers (verified with `knip`) were removed from `src/`.
+`MultiviewSystem.tsx` went to `scripts/archive/scenes/` and `harborThemes.ts` to
+`scripts/archive/store/`. `introLyrics`, `GodRaysShader` (GLSL, superseded by
+`godRaysTsl.ts`), `LyricsOverlay`, `physicsSystem`, `frameBudgetState`,
+`waterGerstner.glsl`, `useBeatAlignedPowerOn` and the shadowed `ships/`,
+`trainingHUD/` and `MainMenu/` barrels were deleted; recover them from git history.
+Root clutter (the `dsp_test` binary, `patch_*.js` and `test_*.mjs` codemods, and `git.sh`) was deleted.
+The old root docs and screenshots moved to `docs/archive/`.
+
+`npm run knip` (CI `gate-lint`) now fails on unused files, so this list can't regrow.
+Config: `knip.jsonc`.

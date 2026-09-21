@@ -20,3 +20,6 @@ cpp/.build/
 # Python bytecode (deploy.py)
 __pycache__/
 *.pyc
+
+# Native test binaries (build output, never commit)
+/dsp_test

@@ -66,6 +66,7 @@ step "gate-lockfile (check-lockfile)" bash scripts/check-lockfile.sh
 step "gate-typecheck (typecheck)" npm run typecheck
 step "gate-typecheck (typecheck:tests)" npm run typecheck:tests
 step "gate-lint (lint)" npm run lint
+step "gate-lint (knip unused files)" npm run knip -- --include files
 
 if [[ "$FAST" -eq 1 ]]; then
   TOTAL_END=$(date +%s)
