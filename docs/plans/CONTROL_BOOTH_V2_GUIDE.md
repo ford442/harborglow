@@ -257,10 +257,12 @@ The component includes CRT shader for retro monitor look:
 
 To adjust intensity:
 ```tsx
-// In CRTShaderMaterial uniforms
-uScanlineIntensity: 0.15,  // Increase for more visible scanlines
-uFlickerIntensity: 0.02,   // Increase for more flicker
-uVignetteIntensity: 0.3,   // Increase for darker edges
+// createCRTMaterial(map, opts) — TSL; uniforms are live via the returned `uniforms`
+createCRTMaterial(feed, {
+  scanlineIntensity: 0.15,  // Increase for more visible scanlines
+  flickerIntensity: 0.02,   // Increase for more flicker
+  vignetteIntensity: 0.3,   // Increase for darker edges
+})
 ```
 
 ## Troubleshooting
