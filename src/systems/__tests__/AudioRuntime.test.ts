@@ -90,6 +90,36 @@ describe('AudioRuntime capability fallback', () => {
     expect(first).toBe(second)
     await first
   })
+
+  it('warns once, naming crossOriginIsolated specifically, when only that condition fails', async () => {
+    vi.stubGlobal('AudioContext', createFallbackContext())
+    vi.stubGlobal('crossOriginIsolated', false)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const runtime = new AudioRuntime()
+    await runtime.resume()
+    await runtime.resume()
+
+    const fallbackWarnings = warn.mock.calls.filter(([msg]) => String(msg).includes('[AudioRuntime]'))
+    expect(fallbackWarnings).toHaveLength(1)
+    expect(fallbackWarnings[0][0]).toContain('crossOriginIsolated')
+    expect(fallbackWarnings[0][0]).not.toContain('SharedArrayBuffer is unavailable')
+    warn.mockRestore()
+  })
+
+  it('names SharedArrayBuffer specifically when it is the failing condition', async () => {
+    vi.stubGlobal('AudioContext', createFallbackContext())
+    vi.stubGlobal('crossOriginIsolated', true)
+    vi.stubGlobal('SharedArrayBuffer', undefined)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const runtime = new AudioRuntime()
+    await runtime.resume()
+
+    const fallbackWarnings = warn.mock.calls.filter(([msg]) => String(msg).includes('[AudioRuntime]'))
+    expect(fallbackWarnings).toHaveLength(1)
+    expect(fallbackWarnings[0][0]).toContain('SharedArrayBuffer is unavailable')
+    expect(fallbackWarnings[0][0]).not.toContain('crossOriginIsolated is not true')
+    warn.mockRestore()
+  })
 })
 
 describe('audio scheduler duration conversion', () => {

@@ -9,7 +9,11 @@ import { Instrument, SamplePlayer, unlockAudio } from './audio/voices'
 // =============================================================================
 
 const INTRO_TRACK_URL = './audio/clear_harbor_glow_intro.mp3'
-const LOOP_TRACK_URL = './audio/clear_harbor_glow_loop.mp3'
+// No distinct instrumental loop has been authored yet (see public/audio/README.md
+// Track 2) — clear_harbor_glow_loop.mp3 was a byte-identical duplicate of the
+// intro track, so both URLs point at the one shipped file. Point this at a real
+// loop asset once one is authored; every caller already reads LOOP_TRACK_URL.
+const LOOP_TRACK_URL = INTRO_TRACK_URL
 const INTRO_BPM = 140
 
 /** Current playback mode of the intro music system. */

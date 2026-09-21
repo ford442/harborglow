@@ -51,7 +51,13 @@ Lyrics (`LyricEntry.time`, `'bars:beats'`) and light-show beat phase
 The shared-memory worklet needs `SharedArrayBuffer`, so pages must be
 cross-origin isolated (`COOP: same-origin`, `COEP: require-corp`). Vite dev and
 preview set these in `vite.config.ts`. Without isolation `AudioRuntime` falls
-back to native oscillators.
+back to native oscillators — as of 2026-09-21 this fallback fires a one-time
+`console.warn` naming the specific failed condition (`AudioRuntime.ts`,
+`warnFallbackReason()`), though that warning — like all `console.*` calls —
+is stripped from production builds by `vite.config.ts`'s `drop_console: true`.
+`audioRuntime.status` (exposed as `window.harborglowAudioRuntime.status`) is
+the diagnostic that actually survives to production. See
+`docs/DEPLOY_SUBPATH_PROBE.md` for a measured subpath + COOP/COEP probe.
 
 ## Tests
 
