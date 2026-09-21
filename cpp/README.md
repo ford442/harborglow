@@ -80,7 +80,7 @@ node ../scripts/bench-wasm-dsp.mjs
 | `../public/wasm/harborglow_dsp.wasm` | Growable-memory scalar reactor |
 | `../public/wasm/harborglow_dsp_simd.wasm` | Same reactor with `-msimd128` |
 | `../public/wasm/harborglow_audio_shared.wasm` | Fixed shared memory; scalar AudioWorklet engine |
-| `../public/wasm/harborglow_audio_shared_simd.wasm` | Fixed shared memory; SIMD + relaxed-SIMD AudioWorklet engine |
+| `../public/wasm/harborglow_audio_shared_simd.wasm` | Fixed shared memory; SIMD AudioWorklet engine |
 | `../public/wasm/manifest.json` | Source MD5, binary SHA-256, sizes, and toolchain identity |
 
 The `.wasm` files are **committed** so the game runs without a local
@@ -97,15 +97,11 @@ drift.
   without a per-scene heap copy. `ALLOW_MEMORY_GROWTH=1` remains on for
   larger convolvers. Measured heap after instantiate is 4 MiB (64 pages).
 - Core SIMD artifact: `-O3 -flto -msimd128`. Shared audio builds keep a
-  fixed 32 MiB imported memory plus a scalar / `-msimd128 -mrelaxed-simd`
-  pair.
-- **`-mrelaxed-simd` is load-bearing.** It is used only on
-  `harborglow_audio_shared_simd.wasm`. `scripts/check-wasm.mjs` compiles every
-  committed artifact with `new WebAssembly.Module(bytes)`. Node 20’s V8 does
-  not enable relaxed SIMD, so that check fails with an opaque
-  `WebAssembly.CompileError`. Use Node 22+ (or a V8 with relaxed SIMD) for
-  `npm run check:wasm`. Do not drop the flag without an AudioWorklet SIMD
-  regression test.
+  fixed 32 MiB imported memory plus a scalar / `-msimd128` pair.
+- **No `-mrelaxed-simd`** (removed in #233): no source emits relaxed-SIMD
+  intrinsics, and Safari cannot instantiate a relaxed-SIMD module. Earning it
+  back needs a real `__wasm_relaxed_simd__` madd path, runtime feature
+  detection between two artifacts, and a committed benchmark.
 - Warnings: native `make test` uses `-Wall -Wextra -Wshadow -Wconversion -Werror`.
   em++ uses the same warnings non-fatally. The ring buffer is compiled with
   `emcc -std=c11` (not fed to `em++` as a `.c` file). Remaining em++ notes:
