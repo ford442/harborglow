@@ -1,6 +1,8 @@
 #pragma once
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 int dsp_audio_engine_init(float sample_rate);
 void dsp_audio_engine_note_on(
@@ -16,4 +18,6 @@ void dsp_audio_engine_stop_all(void);
 float dsp_audio_engine_rms(void);
 float dsp_audio_engine_peak(void);
 
+#ifdef __cplusplus
 }
+#endif
