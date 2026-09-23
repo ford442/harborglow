@@ -15,8 +15,5 @@
 -DDSP_EXPORT=
 -DEMSCRIPTEN_KEEPALIVE=
 
-# Audio SIMD artifact only (harborglow_audio_shared_simd.wasm): -mrelaxed-simd.
-# Do not add it here; it is not used on the core reactor. V8 must enable
-# relaxed SIMD to validate that artifact (Node 20 WebAssembly.Module fails;
-# Node 22+ typically succeeds). Generate a full database:
+# Generate a full database:
 #   make -C cpp compile-commands
