@@ -14,20 +14,20 @@
   },
   "binaries": {
     "public/wasm/harborglow_dsp.wasm": {
-      "bytes": 30082,
-      "sha256": "bd12481935eb86a0ba2e631b61d502c11bf242869cc321254d950528ec1edd80"
+      "bytes": 30115,
+      "sha256": "074639ee1342cb4cefcdf7bed964f3b7fa2470fc80e3a45e12c983fb943d4e1f"
     },
     "public/wasm/harborglow_dsp_simd.wasm": {
-      "bytes": 34402,
-      "sha256": "ed56fc3ecf836f64998f683eaff8c14368b53149e18d584c2a02ca11f51a2f60"
+      "bytes": 34273,
+      "sha256": "99e093314608156cd6edb33d670a7cac3f562ba376fdfb57c6b0a4eadb7769c6"
     },
     "public/wasm/harborglow_audio_shared.wasm": {
-      "bytes": 53325,
-      "sha256": "a22bd2df02ea06f88718de541876707d3ab3984d43e667ce307b97dc896b72d2"
+      "bytes": 52905,
+      "sha256": "090639ab27cbf4318d8797db18e784d259c442e037e30228e93e183c1755dd34"
     },
     "public/wasm/harborglow_audio_shared_simd.wasm": {
-      "bytes": 58073,
-      "sha256": "0b0a0efa3929912ead3c4f3073b1ebbeb423ad891a3cfbda07e78893e34fd4f6"
+      "bytes": 57498,
+      "sha256": "3c984f7899560f6a97412a24882fe36ceef5fbc2f1aaf45d357a5140f267a7c7"
     }
   },
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.6 (ce75e06884093bcefb86a6b8fd56a5d62a4cc245)"
