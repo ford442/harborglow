@@ -288,7 +288,7 @@ for (const binary of binaryPaths.slice(2)) {
     shared: true,
   })
   const noop = () => 0
-  await WebAssembly.instantiate(artifact.module, {
+  const engine = await WebAssembly.instantiate(artifact.module, {
     env: {
       memory: sharedMemory,
       _emscripten_notify_mailbox_postmessage: noop,
@@ -308,8 +308,46 @@ for (const binary of binaryPaths.slice(2)) {
       fd_seek: noop,
     },
   })
+  checkScheduledOnset(binary, engine.exports, sharedMemory)
+}
+
+/**
+ * Protocol v2 golden on the shipped artifact: a NoteOn queued for frame 300
+ * must start on frame 300, not at the start of the 128-frame quantum
+ * (frame 256) that drains it.
+ */
+function checkScheduledOnset(binary, api, sharedMemory) {
+  api._initialize?.()
+  if (api.dsp_audio_engine_protocol_version() !== 2) fail(`${binary} is not protocol v2`)
+  const recordBytes = api.dsp_audio_engine_command_bytes()
+  if (recordBytes !== 80) fail(`${binary} command record is ${recordBytes} bytes, expected 80`)
+  if (!api.dsp_audio_engine_init(48000)) fail(`${binary} rejected 48 kHz`)
+  // Scratch space in the fixed shared layout (src/systems/audio/audioProtocol.ts).
+  const left = 30 * 1024 * 1024
+  const right = left + 4096
+  const record = right + 4096
+  const view = new DataView(sharedMemory.buffer, record, recordBytes)
+  new Uint8Array(sharedMemory.buffer, record, recordBytes).fill(0)
+  view.setInt32(0, 1, true) // NoteOn
+  view.setInt32(4, 0, true) // voice
+  view.setFloat32(8, 440, true)
+  view.setFloat32(12, 1, true)
+  view.setInt32(16, 1, true) // square: non-zero from its first sample
+  for (const [offset, value] of [[20, 0.0001], [24, 0.05], [28, 0.5], [32, 0.05]]) {
+    view.setFloat32(offset, value, true)
+  }
+  view.setFloat64(64, 300, true)
+  if (!api.dsp_audio_engine_enqueue(record)) fail(`${binary} refused a command`)
+  let onset = -1
+  for (let start = 0; start < 512 && onset < 0; start += 128) {
+    api.dsp_audio_engine_process(left, right, 128, start)
+    const block = new Float32Array(sharedMemory.buffer, left, 128)
+    const index = block.findIndex((sample) => Math.abs(sample) > 1e-4)
+    if (index >= 0) onset = start + index
+  }
+  if (onset !== 300) fail(`${binary} scheduled onset at frame ${onset}, expected 300`)
 }
 
 console.log(
-  `check-wasm: OK (${binaryPaths.length} artifacts, additive/convolution/ring goldens passed)`,
+  `check-wasm: OK (${binaryPaths.length} artifacts, additive/convolution/ring/onset goldens passed)`,
 )

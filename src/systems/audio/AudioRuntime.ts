@@ -9,6 +9,7 @@ import {
   COMMAND_BYTES,
   COMMAND_CAPACITY,
   COMMAND_RING_PTR,
+  PROTOCOL_VERSION,
   RingLayout,
   SharedRingReader,
   SharedRingWriter,
@@ -37,7 +38,24 @@ export interface VoiceOptions {
   waveform?: number
   velocity?: number
   envelope?: Partial<VoiceEnvelope>
+  /** Seconds until note-off; omitted = held until noteOff(). */
   duration?: number
+  /**
+   * AudioContext time (seconds) the note starts at — a transport callback's
+   * `time`. Omitted or past = the next render quantum.
+   */
+  at?: number
+}
+
+export interface AudioDiagnostics {
+  status: AudioRuntimeStatus
+  protocolVersion: number | null
+  /** Rate the context actually runs at (48 kHz requested). */
+  sampleRate: number | null
+  baseLatency: number | null
+  outputLatency: number | null
+  /** Commands the ring rejected because the worklet fell behind. */
+  commandOverflows: number
 }
 
 export interface EffectsOptions {
@@ -98,6 +116,29 @@ interface NativeFallbackVoice {
   gain: GainNode
 }
 
+const VOICE_COUNT = 64
+/** Requested engine rate; the device may refuse it (see createContext). */
+const PREFERRED_SAMPLE_RATE = 48000
+
+function createContext(Constructor: typeof AudioContext): AudioContext {
+  try {
+    return new Constructor({ latencyHint: 'interactive', sampleRate: PREFERRED_SAMPLE_RATE })
+  } catch {
+    // Some devices reject a forced rate; run at the device rate instead. The
+    // worklet passes the real `sampleRate` to dsp_audio_engine_init.
+    return new Constructor({ latencyHint: 'interactive' })
+  }
+}
+
+export interface AudioRuntimeOptions {
+  /**
+   * Render into this context instead of creating one. An OfflineAudioContext
+   * runs the same worklet + engine faster than real time (e2e timing tests);
+   * call init(), not resume(), before startRendering().
+   */
+  context?: AudioContext | OfflineAudioContext
+}
+
 export class AudioRuntime {
   private statusValue: AudioRuntimeStatus = 'idle'
   private hasWarnedFallbackReason = false
@@ -111,7 +152,9 @@ export class AudioRuntime {
   private fallbackSpectrum = new Uint8Array(128)
   private memory: WebAssembly.Memory | null = null
   private commandWriter: SharedRingWriter | null = null
+  private commandLayout: RingLayout | null = null
   private analysisReader: SharedRingReader | null = null
+  private protocolVersion: number | null = null
   private analysis: AudioAnalysisSnapshot = {
     rms: 0,
     peak: 0,
@@ -122,8 +165,14 @@ export class AudioRuntime {
     frame: 0,
     waveform: new Float32Array(256),
   }
-  private freeVoices = Array.from({ length: 64 }, (_, index) => 63 - index)
-  private activeVoices = new Set<number>()
+  // Voice pool, tracked in AudioContext frames so scheduled notes can be
+  // allocated ahead of time: a voice is free once its release tail ends.
+  private voiceStart = new Float64Array(VOICE_COUNT)
+  private voiceFreeAt = new Float64Array(VOICE_COUNT)
+  private voiceRelease = new Float64Array(VOICE_COUNT)
+  private voiceNote = new Uint32Array(VOICE_COUNT)
+  private voiceByNote = new Map<number, number>()
+  private nextNoteId = 1
   private fallbackVoices = new Map<number, NativeFallbackVoice>()
   private effects: Required<EffectsOptions> = {
     lowpassHz: 20000,
@@ -135,6 +184,8 @@ export class AudioRuntime {
     room: 'dry',
     roomMix: 0,
   }
+
+  constructor(private readonly options: AudioRuntimeOptions = {}) {}
 
   get status(): AudioRuntimeStatus {
     return this.statusValue
@@ -150,6 +201,42 @@ export class AudioRuntime {
 
   get isSharedWasmActive(): boolean {
     return this.statusValue === 'shared-simd' || this.statusValue === 'shared-scalar'
+  }
+
+  get diagnostics(): AudioDiagnostics {
+    const context = this.contextValue
+    let commandOverflows = 0
+    if (this.memory && this.commandLayout) {
+      commandOverflows = Atomics.load(
+        new Int32Array(this.memory.buffer),
+        (COMMAND_RING_PTR + this.commandLayout.overflowOffset) >> 2,
+      ) >>> 0
+    }
+    return {
+      status: this.statusValue,
+      protocolVersion: this.protocolVersion,
+      sampleRate: context?.sampleRate ?? null,
+      baseLatency: context?.baseLatency ?? null,
+      outputLatency: context?.outputLatency ?? null,
+      commandOverflows,
+    }
+  }
+
+  /**
+   * AudioContext time of the sample reaching the speakers right now
+   * (currentTime minus output latency). Light sync uses this so pulses match
+   * what is heard, not what the engine is rendering.
+   */
+  outputTime(): number | null {
+    const context = this.contextValue
+    if (!context) return null
+    const stamp = context.getOutputTimestamp?.()
+    if (stamp?.contextTime !== undefined && stamp.performanceTime !== undefined &&
+        stamp.performanceTime > 0) {
+      // eslint-disable-next-line no-restricted-syntax -- output timestamps are on the performance clock; audio only, see docs/systems/DETERMINISM.md
+      return stamp.contextTime + (performance.now() - stamp.performanceTime) / 1000
+    }
+    return context.currentTime - (context.outputLatency || context.baseLatency || 0)
   }
 
   init(): Promise<void> {
@@ -169,12 +256,15 @@ export class AudioRuntime {
     const AudioContextConstructor = globalThis.AudioContext ??
       (globalThis as typeof globalThis & { webkitAudioContext?: typeof AudioContext })
         .webkitAudioContext
-    if (!AudioContextConstructor) {
+    if (!AudioContextConstructor && !this.options.context) {
       this.statusValue = 'failed'
       return
     }
 
-    this.contextValue = new AudioContextConstructor()
+    // An injected OfflineAudioContext lacks only the realtime members
+    // (latency, getOutputTimestamp), which every reader treats as optional.
+    this.contextValue = (this.options.context as AudioContext | undefined) ??
+      createContext(AudioContextConstructor)
     this.masterGain = this.contextValue.createGain()
     this.masterGain.gain.value = this.masterMuted ? 0 : 1
     this.masterGain.connect(this.contextValue.destination)
@@ -224,6 +314,14 @@ export class AudioRuntime {
         node.port.onmessage = (event) => {
           if (event.data?.type === 'ready') {
             globalThis.clearTimeout(timeout)
+            const { protocolVersion, commandBytes } = event.data
+            if (protocolVersion !== PROTOCOL_VERSION || commandBytes !== COMMAND_BYTES) {
+              reject(new Error(
+                `Audio engine protocol v${protocolVersion}/${commandBytes}B, ` +
+                `expected v${PROTOCOL_VERSION}/${COMMAND_BYTES}B`))
+              return
+            }
+            this.protocolVersion = protocolVersion
             resolve(event.data.layout as RingLayout)
           } else if (event.data?.type === 'error') {
             globalThis.clearTimeout(timeout)
@@ -234,6 +332,7 @@ export class AudioRuntime {
 
       this.workletNode = node
       node.connect(this.masterGain ?? this.contextValue.destination)
+      this.commandLayout = layout
       this.commandWriter = new SharedRingWriter(
         this.memory, COMMAND_RING_PTR, COMMAND_CAPACITY, COMMAND_BYTES, layout)
       this.analysisReader = new SharedRingReader(
@@ -246,7 +345,9 @@ export class AudioRuntime {
       this.workletNode = null
       this.memory = null
       this.commandWriter = null
+      this.commandLayout = null
       this.analysisReader = null
+      this.protocolVersion = null
       this.initializeFallbackAnalyser()
       this.statusValue = 'fallback'
     }
@@ -300,46 +401,88 @@ export class AudioRuntime {
     return this.commandWriter?.push((view) => encodeCommand(view, command)) ?? false
   }
 
+  /** AudioContext time → absolute frame, the engine's scheduling unit. */
+  private toFrame(seconds: number): number {
+    return Math.round(seconds * (this.contextValue?.sampleRate ?? PREFERRED_SAMPLE_RATE))
+  }
+
+  private nowFrame(): number {
+    return this.toFrame(this.contextValue?.currentTime ?? 0)
+  }
+
+  /**
+   * Voice free at `frame`, preferring the one silent longest; when all 64
+   * are busy, steal the one whose release ends first (else the oldest held).
+   */
+  private allocateVoice(frame: number): number {
+    let best = 0
+    for (let voice = 1; voice < VOICE_COUNT; voice++) {
+      const freeAt = this.voiceFreeAt[voice]
+      const bestFreeAt = this.voiceFreeAt[best]
+      if (freeAt < bestFreeAt ||
+          (freeAt === bestFreeAt && this.voiceStart[voice] < this.voiceStart[best])) {
+        best = voice
+      }
+    }
+    if (this.voiceFreeAt[best] > frame) this.voiceByNote.delete(this.voiceNote[best])
+    return best
+  }
+
+  /**
+   * Start a note; returns a handle for noteOff(). With `options.at` the note
+   * is placed on that exact audio frame; with `duration` its note-off is
+   * scheduled too, so no main-thread timer is involved.
+   */
   noteOn(note: string | number, options: VoiceOptions = {}): number {
-    const voiceId = this.freeVoices.pop() ?? Math.min(...this.activeVoices)
-    this.activeVoices.add(voiceId)
+    const now = this.nowFrame()
+    const start = Math.max(now, options.at !== undefined ? this.toFrame(options.at) : 0)
+    const voiceId = this.allocateVoice(start)
+    const noteId = this.nextNoteId
+    this.nextNoteId = (this.nextNoteId % 0xffffffff) + 1
     const envelope = { ...DEFAULT_ENVELOPE, ...options.envelope }
     const frequency = noteToFrequency(note)
+    this.voiceStart[voiceId] = start
+    this.voiceFreeAt[voiceId] = Infinity
+    this.voiceRelease[voiceId] = envelope.release
+    this.voiceNote[voiceId] = noteId
+    this.voiceByNote.set(noteId, voiceId)
     if (this.isSharedWasmActive) {
       this.send({
         type: AudioCommandType.NoteOn,
         voiceId,
+        noteId,
+        frame: options.at !== undefined ? start : 0,
         frequency,
         velocity: options.velocity ?? 0.8,
         waveform: options.waveform ?? 0,
         ...envelope,
       })
     } else {
-      this.startFallbackVoice(voiceId, frequency, options, envelope)
+      this.startFallbackVoice(voiceId, frequency, options, envelope, start)
     }
     if (options.duration !== undefined) {
-      globalThis.setTimeout(
-        () => this.noteOff(voiceId),
-        Math.max(0, options.duration + envelope.release) * 1000,
-      )
+      this.noteOff(noteId, (start + this.toFrame(Math.max(0, options.duration))) /
+        (this.contextValue?.sampleRate ?? PREFERRED_SAMPLE_RATE))
     }
-    return voiceId
+    return noteId
   }
 
-  noteOff(voiceId: number): void {
-    if (!this.activeVoices.delete(voiceId)) return
-    this.freeVoices.push(voiceId)
+  /**
+   * Release a note from noteOn(), now or at AudioContext time `at`. A handle
+   * whose voice was since stolen or released is ignored.
+   */
+  noteOff(noteId: number, at?: number): void {
+    const voiceId = this.voiceByNote.get(noteId)
+    if (voiceId === undefined) return
+    this.voiceByNote.delete(noteId)
+    // Never before the note starts, or a pre-scheduled note-on would outlive it.
+    const frame = Math.max(this.voiceStart[voiceId], at !== undefined ? this.toFrame(at) : 0)
+    const releaseFrame = Math.max(frame, this.nowFrame())
+    this.voiceFreeAt[voiceId] = releaseFrame + this.toFrame(this.voiceRelease[voiceId])
     if (this.isSharedWasmActive) {
-      this.send({ type: AudioCommandType.NoteOff, voiceId })
+      this.send({ type: AudioCommandType.NoteOff, voiceId, noteId, frame })
     } else {
-      const voice = this.fallbackVoices.get(voiceId)
-      if (voice && this.contextValue) {
-        const now = this.contextValue.currentTime
-        voice.gain.gain.cancelScheduledValues(now)
-        voice.gain.gain.setTargetAtTime(0, now, 0.03)
-        voice.oscillator.stop(now + 0.2)
-        this.fallbackVoices.delete(voiceId)
-      }
+      this.stopFallbackVoice(voiceId, releaseFrame)
     }
   }
 
@@ -354,9 +497,13 @@ export class AudioRuntime {
       .map((note) => this.noteOn(note, { ...options, duration: seconds }))
   }
 
+  /** Silence every voice now, including notes scheduled ahead. */
   stopAll(): void {
     this.send({ type: AudioCommandType.StopAll })
-    for (const voiceId of [...this.activeVoices]) this.noteOff(voiceId)
+    for (const voiceId of this.fallbackVoices.keys()) this.stopFallbackVoice(voiceId, this.nowFrame())
+    this.voiceByNote.clear()
+    this.voiceFreeAt.fill(0)
+    this.voiceStart.fill(0)
   }
 
   setEffects(options: EffectsOptions): void {
@@ -439,25 +586,37 @@ export class AudioRuntime {
     frequency: number,
     options: VoiceOptions,
     envelope: VoiceEnvelope,
+    startFrame: number,
   ): void {
     if (!this.contextValue) return
+    this.stopFallbackVoice(voiceId, this.nowFrame())
     const oscillator = this.contextValue.createOscillator()
     const gain = this.contextValue.createGain()
     const oscillatorTypes: OscillatorType[] = ['sine', 'square', 'sawtooth', 'triangle']
     oscillator.type = oscillatorTypes[options.waveform ?? 0] ?? 'sine'
     oscillator.frequency.value = frequency
-    const now = this.contextValue.currentTime
+    const start = startFrame / this.contextValue.sampleRate
     const velocity = options.velocity ?? 0.8
-    gain.gain.setValueAtTime(0, now)
-    gain.gain.linearRampToValueAtTime(velocity * 0.16, now + envelope.attack)
+    gain.gain.setValueAtTime(0, start)
+    gain.gain.linearRampToValueAtTime(velocity * 0.16, start + envelope.attack)
     gain.gain.linearRampToValueAtTime(
       velocity * envelope.sustain * 0.16,
-      now + envelope.attack + envelope.decay,
+      start + envelope.attack + envelope.decay,
     )
     oscillator.connect(gain)
     gain.connect(this.fallbackAnalyser ?? this.contextValue.destination)
-    oscillator.start()
+    oscillator.start(start)
     this.fallbackVoices.set(voiceId, { oscillator, gain })
+  }
+
+  private stopFallbackVoice(voiceId: number, frame: number): void {
+    const voice = this.fallbackVoices.get(voiceId)
+    if (!voice || !this.contextValue) return
+    const at = frame / this.contextValue.sampleRate
+    voice.gain.gain.cancelScheduledValues(at)
+    voice.gain.gain.setTargetAtTime(0, at, 0.03)
+    voice.oscillator.stop(at + 0.2)
+    this.fallbackVoices.delete(voiceId)
   }
 
   async dispose(): Promise<void> {
@@ -466,7 +625,9 @@ export class AudioRuntime {
     this.workletNode?.port.close()
     this.workletNode = null
     this.commandWriter = null
+    this.commandLayout = null
     this.analysisReader = null
+    this.protocolVersion = null
     this.memory = null
     this.fallbackAnalyser?.disconnect()
     this.fallbackAnalyser = null

@@ -100,12 +100,12 @@ class MusicSystem {
     private scheduleTheme(): number[] {
         const [lead, pad, bass] = this.synthChains.get('cruise')?.instruments ?? []
         return [
-            ...scheduleLoop(transport, THEME_CHORDS, 16, (_beat, chord) => {
-                lead?.play(chord.notes, '1n')
-                pad?.play(chord.notes, '2n', { velocity: 0.6 })
+            ...scheduleLoop(transport, THEME_CHORDS, 16, (_beat, chord, time) => {
+                lead?.play(chord.notes, '1n', { at: time })
+                pad?.play(chord.notes, '2n', { velocity: 0.6, at: time })
             }),
-            scheduleSequence(transport, THEME_BASS, 1, (_beat, note) => {
-                bass?.play(note, '2n')
+            scheduleSequence(transport, THEME_BASS, 1, (_beat, note, time) => {
+                bass?.play(note, '2n', { at: time })
             }),
         ]
     }
@@ -173,7 +173,8 @@ class MusicSystem {
         const lyrics = this.lyrics.get(shipType) || []
         if (lyrics.length === 0) return ''
 
-        const beats = transport.beats
+        // What the player hears now, not what the engine is queueing.
+        const beats = transport.audibleBeats
         for (let i = lyrics.length - 1; i >= 0; i--) {
             if (beats >= positionToBeats(lyrics[i].time)) {
                 this.currentLyricIndex.set(shipType, i)

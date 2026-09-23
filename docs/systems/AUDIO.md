@@ -39,12 +39,50 @@ events fire — the beat they belong to comes from the clock. Repeating events
 realign to the next occurrence after a late start, seek, or lag spike instead of
 replaying missed steps.
 
+## Sample-accurate scheduling (command protocol v2)
+
+Every command record carries the AudioContext **frame** it takes effect at
+(`AudioCommand.frame`, layout in `cpp/harborglow_audio_engine.h`). The engine
+drains the ring into a sorted queue and splits each 128-frame render quantum at
+command frames (`dsp_audio_engine_process`), so a note starts on its frame no
+matter when the main thread queued it. Frame 0 (the default) or a past frame
+means "start of the next quantum" — what SFX use.
+
+- Note patterns (`scheduleSequence` / `scheduleLoop`, or any event scheduled
+  with `{ ahead: true }`) fire up to `lookaheadSeconds` (100 ms) **before**
+  their beat and receive `(beat, time)`; pass `time` on: `instrument.play(note,
+  '8n', { at: time })`. Leave `ahead` off for game or visual state that must
+  change on the beat itself.
+- `'sim'` beats become audio time through a smoothed `AudioContext.currentTime
+  − simTime` offset. It re-anchors when the error exceeds 50 ms (pause, hidden
+  tab, hitch).
+- `noteOn` returns a **note handle**, not a voice index. With `duration` the
+  note-off is scheduled with the note-on, not by a timer. A voice stays
+  reserved through its release tail, and a stale handle (stolen voice) is
+  ignored in TS and by the engine (`note_id`).
+- `transport.audibleBeats` / `beatPhase()` read the beat reaching the speakers
+  (`audioRuntime.outputTime()`, from `getOutputTimestamp()`), so light pulses
+  and lyrics follow what is heard rather than what is queued.
+- `StopAll` is immediate and also drops notes queued ahead.
+
+The worklet refuses to start unless the engine reports
+`dsp_audio_engine_protocol_version() === PROTOCOL_VERSION` with the expected
+record size; on a mismatch (for example, a stale cached `.wasm`) `AudioRuntime` falls back
+to native oscillators, which honour the same `at` times through Web Audio
+scheduling.
+
+The context is created with `{ latencyHint: 'interactive', sampleRate: 48000 }`,
+retrying at the device rate if refused; the worklet always passes the real
+`sampleRate` to `dsp_audio_engine_init`. `audioRuntime.diagnostics` reports
+the rate, `baseLatency` / `outputLatency`, protocol version, and ring overflows.
+
 Audio only **reads** sim time. It never ticks the scheduler, draws from the sim
 RNG, or writes the store, so it cannot change `hashSimSnapshot`
 (`src/systems/sim/__tests__/audioIsolation.test.ts`).
 
 Lyrics (`LyricEntry.time`, `'bars:beats'`) and light-show beat phase
-(`audioVisualSync` → `transport.beatPhase()`) are keyed to transport beats.
+(`audioVisualSync` → `transport.beatPhase()`) are keyed to transport beats
+(the audible position, see below).
 
 ## Hosting
 
@@ -65,4 +103,10 @@ the diagnostic that actually survives to production. See
 `FakeAudioRuntime` (`src/test/audioRuntimeMock.ts`), which records `notes`,
 `active` voices, and `effects`. The `AudioRuntime` class stays real. For
 transport logic, construct `new BeatTransport({ autoPump: false, clocks })`
-with a manual clock.
+with a manual clock (`output` too, for `audibleBeats`).
+
+Timing is covered at three levels: `make test` in `cpp/` (1,000 scheduled
+16ths at 140 BPM through the ring, with stalled pumps, each on its frame),
+`npm run check:wasm` (a scheduled onset golden on the shipped scalar and SIMD
+artifacts), and `e2e/audio-wasm.spec.ts` (the same 1,000 notes rendered by the
+real worklet in an `OfflineAudioContext`).
