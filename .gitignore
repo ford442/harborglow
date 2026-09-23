@@ -20,3 +20,6 @@ cpp/.build/
 # Python bytecode (deploy.py)
 __pycache__/
 *.pyc
+
+# Native DSP test binary built at the repo root (#233)
+/dsp_test
