@@ -12,7 +12,6 @@ src/store/
   gameStoreTypes.ts   # the single canonical type module: GameState, domain types,
                       # defaultState, getSerializableState, scheduleSave
   sliceTypes.ts       # one Pick<GameState, …> per slice + the ownership guard
-  harborThemes.ts     # static theme tables
   slices/
     shipsSlice.ts        # fleet lifecycle, upgrades, sail schedule, per-ship music/lyrics
     craneSlice.ts        # kinematics, twistlock/heater, joysticks, contracts, install queue
