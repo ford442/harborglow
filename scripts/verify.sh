@@ -47,8 +47,8 @@ step() {
 }
 
 # A local run on a different Node major than CI can pass here and still fail
-# there — Node 20 rejects the relaxed-SIMD audio artifact that Node 22 accepts,
-# which is exactly how gate-build/gate-wasm went red while `verify` was green.
+# there (Node 20 once rejected a relaxed-SIMD audio artifact that Node 22
+# accepted — that is how gate-build/gate-wasm went red while `verify` was green).
 check_node_major() {
   local ci_major local_major
   ci_major="$(grep -m1 -oE 'node-version: "[0-9]+"' .github/workflows/ci.yml | grep -oE '[0-9]+' || true)"

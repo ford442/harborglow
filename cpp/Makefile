@@ -123,7 +123,6 @@ $(OUT_SIMD): $(AUDIO_CXX) $(RING_SHARED_O) $(HEADER) $(EXPORTS_JS) | $(OUT_DIR)
 	    -O3 \
 	    -flto \
 	    -msimd128 \
-	    -mrelaxed-simd \
 	    -o $(OUT_SIMD)
 	@echo "✅  Shared SIMD audio build → $(OUT_SIMD)"
 
