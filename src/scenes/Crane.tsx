@@ -75,9 +75,8 @@ export default function Crane() {
     const nearAttachment = nearAttachmentDistance <= Math.max(attachmentSystemConfig.snapRadius, 4)
 
     // Animate crane operations
-    useFrame((state) => {
+    useFrame(() => {
         // Gentle idle movement
-        const time = state.clock.elapsedTime
 
         // Trolley moves based on store position
         const newTrolleyPos = (trolleyPosition - 0.5) * 40

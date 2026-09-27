@@ -5,7 +5,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore, Ship, ShipType } from '../../store/useGameStore'
 import { getAudioAnalysisData } from '../../systems/audioVisualSync'
-import { SHIP_COLORS } from '../DesignSystem'
 import {
   topBarStyle,
   shipSelectorContainerStyle,

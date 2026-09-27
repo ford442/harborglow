@@ -106,10 +106,6 @@ export default function TugboatTargetShip({
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
 
-  const berthVec = useMemo(
-    () => new THREE.Vector3(berthCenter[0], berthCenter[1], berthCenter[2]),
-    [berthCenter]
-  )
 
   // Reusable vectors — allocated once, mutated in useFrame
   const _toTug = useMemo(() => new THREE.Vector3(), [])
@@ -157,7 +153,7 @@ export default function TugboatTargetShip({
     }),
   })
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!rbRef.current || !groupRef.current) return
     if (operationMode !== 'tugboat') return
     if (hasDockedRef.current) {

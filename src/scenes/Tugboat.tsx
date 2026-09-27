@@ -3,7 +3,7 @@
 // First-person helm view with Rapier buoyancy, smooth throttle, mouse look.
 // =============================================================================
 
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { PerspectiveCamera } from '@react-three/drei'
@@ -14,7 +14,7 @@ import { useGameStore } from '../store/useGameStore'
 import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState, resetTugboatWakeState } from '../systems/TugboatWakeSystem'
-import { cavitationSystem, cavitationState, CAVITATION_CONFIG, getCavitationDebugBindings } from '../systems/CavitationSystem'
+import { cavitationSystem, cavitationState, CAVITATION_CONFIG } from '../systems/CavitationSystem'
 import { tugboatSoundSystem } from '../systems/tugboatSoundSystem'
 import { getNearestAssistShip } from '../systems/harborAssistSystem'
 import { iceFieldSystem } from '../systems/ice/IceFieldSystem'
@@ -218,7 +218,6 @@ export default function Tugboat() {
   const targetYawRef = useRef(0)
   const targetPitchRef = useRef(0)
 
-  const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
   const tugboatUpgrades = useGameStore((s) => s.tugboatUpgrades)
   const updateTugboatState = useGameStore((s) => s.updateTugboatState)
@@ -360,7 +359,7 @@ export default function Tugboat() {
   // PHYSICS LOOP
   // ---------------------------------------------------------------------------
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!rbRef.current) return
     const rb = rbRef.current
     const keys = keysRef.current
@@ -649,7 +648,7 @@ export default function Tugboat() {
 
   const camGroupRef = useRef<THREE.Group>(null)
 
-  useFrame((state, delta) => {
+  useFrame(() => {
     if (camGroupRef.current) {
       camGroupRef.current.rotation.y = yawRef.current
       camGroupRef.current.rotation.x = pitchRef.current

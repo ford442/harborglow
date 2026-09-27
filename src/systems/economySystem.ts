@@ -634,7 +634,6 @@ export class EconomySystem {
 
   endShift(): { credits: number; reputation: number; bonus: number } {
     const shift = this.state.shiftPerformance
-    const duration = (Date.now() - shift.startTime) / 1000 / 60 // minutes
     
     // Calculate shift bonus
     let bonus = 0

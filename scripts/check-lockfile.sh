@@ -33,4 +33,7 @@ fi
 echo "check-lockfile: peer graph (three / R3F)"
 "${NPM_BIN[@]}" ls three @react-three/fiber @react-three/drei @react-three/rapier
 
+echo "check-lockfile: full tree (npm ls --all must exit 0; invalid/extraneous peers fail here)"
+"${NPM_BIN[@]}" ls --all >/dev/null
+
 echo "check-lockfile: OK"

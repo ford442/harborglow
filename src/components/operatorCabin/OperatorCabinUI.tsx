@@ -1,17 +1,8 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import * as THREE from 'three';
-import { ShipType, CameraMode, useGameStore } from '../../store/useGameStore';
-import { useAudioData } from '../../systems/audioVisualSync';
-import { GLASSMORPHISM, SHIP_COLORS } from '../DesignSystem';
-import { TrafficShip, trafficSystem, useDockedShip } from '../../systems/trafficSystem';
-import { drawCraneCabView, drawHookView, drawDroneView, drawUnderwaterView, drawScanlines } from './canvasDrawers';
-import { moonSystem, MoonPhaseName, MOON_PHASES } from '../../systems/moonSystem';
-import { swaySystem, useSwaySystem } from '../../systems/swaySystem';
-import { weatherSystem, useWeatherSystem, WeatherType } from '../../systems/weatherSystem';
-import { useEconomySystem } from '../../systems/economySystem';
-import { ShipSpawner } from '../../systems/shipSpawner';
+import { useEffect } from 'react';
+import { useGameStore } from '../../store/useGameStore';
+import { SHIP_COLORS } from '../DesignSystem';
 import { useCompletionGlow } from '../../hooks/useCompletionGlow';
-import { CameraPanel, CameraFeedConfig, EconomyMetrics, HarborSilhouette, SpawnCTAButton, OperatorStatusPanel, MoonPhaseIndicator, SwayIndicator, WeatherIndicator } from './panels';
+import { CameraPanel, OperatorStatusPanel } from './panels';
 import * as styles from './styles';
 
 export interface OperatorCabinUIProps {
@@ -150,12 +141,3 @@ export function OperatorCabinUI({ onOpenTraining, onOpenShop }: OperatorCabinUIP
   )
 }
 
-// =============================================================================
-// CAMERA PANEL COMPONENT
-// =============================================================================
-
-interface CameraPanelProps {
-  config: CameraFeedConfig
-  isMain?: boolean
-  cameraMode: CameraMode
-}
