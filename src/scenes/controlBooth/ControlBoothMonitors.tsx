@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { RenderTexture, PerspectiveCamera as DreiPerspectiveCamera, Box, Plane, Sphere } from '@react-three/drei'
+import { RenderTexture, Box, Plane, Sphere } from '@react-three/drei'
 
 // =============================================================================
 // CONTROL BOOTH MONITORS - Display and HUD logic
@@ -22,8 +22,6 @@ export function Monitor({
   rotation, 
   size, 
   curveRadius = 5,
-  label,
-  materials,
   quality,
   children 
 }: MonitorProps) {
@@ -128,7 +126,7 @@ interface MonitorHUDProps {
   type: 'hook' | 'drone' | 'underwater' | 'controls'
 }
 
-export function MonitorHUD({ label, type }: MonitorHUDProps) {
+export function MonitorHUD({ type }: MonitorHUDProps) {
   const color = type === 'underwater' ? '#00aaff' : type === 'drone' ? '#ff9500' : '#00d4aa'
   
   return (

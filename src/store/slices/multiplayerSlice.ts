@@ -4,7 +4,7 @@
 
 import type { StateCreator } from 'zustand';
 import type { MultiplayerSlice } from '../sliceTypes';
-import type { GameState, NetworkSyncState } from '../gameStoreTypes';
+import type { GameState } from '../gameStoreTypes';
 import { economySystem } from '../../systems/economySystem';
 
 const MAX_CHAT_MESSAGES = 100;

@@ -4,13 +4,11 @@
 // Integrates with lighting, wildlife, crane sway, and ship arrival patterns
 // =============================================================================
 
-import { useGameStore, HarborEvent, WeatherState, ShipType } from '../store/useGameStore'
+import { useGameStore, WeatherState, ShipType } from '../store/useGameStore'
 import { harborEventSystem } from './eventSystem/HarborEventSystem'
 import type { HarborEventType } from './eventSystem/types'
 import { weatherSystem } from './weatherSystem'
 import { swaySystem } from './swaySystem'
-import { wildlifeSystem } from './wildlifeSystem'
-import { seaEventsSystem } from './seaEventsSystem'
 import { musicSystem } from './musicSystem'
 import { lightingSystem } from './lightingSystem'
 import { timeSystem } from './timeSystem'
@@ -140,7 +138,7 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     durationVariance: 300,
     probability: 0.04,
     cooldown: 3600,
-    effects: (i) => ({
+    effects: () => ({
       wildlife: { spawnType: 'great_white_shark', count: 1, behavior: 'hunting' },
       ships: { arrivalModifier: 0.9 }
     }),
@@ -182,12 +180,12 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     type: 'navy_fleet_week',
     category: 'operational',
     title: 'Fleet Week Naval Visit',
-    getDescription: (i, m) => `USS ${m?.vesselType || 'Vessel'} visiting for Fleet Week festivities`,
+    getDescription: (_i, m) => `USS ${m?.vesselType || 'Vessel'} visiting for Fleet Week festivities`,
     baseDuration: 1200,
     durationVariance: 600,
     probability: 0.05,
     cooldown: 7200,
-    effects: (i) => ({
+    effects: () => ({
       ships: { arrivalModifier: 0.7, typeFilter: ['cruise', 'container'] },
       audio: { bpmModifier: 1.1, intensity: 0.7 }
     }),
@@ -197,12 +195,12 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     type: 'cruise_arrival',
     category: 'operational',
     title: 'Cruise Ship Arrival',
-    getDescription: (i, m) => `${m?.passengers || 3000} passengers arriving Pier ${m?.pier || '27'}`,
+    getDescription: (_i, m) => `${m?.passengers || 3000} passengers arriving Pier ${m?.pier || '27'}`,
     baseDuration: 240,
     durationVariance: 120,
     probability: 0.12,
     cooldown: 600,
-    effects: (i) => ({
+    effects: () => ({
       lighting: { intensity: 1.1 },
       ships: { arrivalModifier: 0.8 },
       audio: { intensity: 0.6 }
@@ -213,7 +211,7 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     type: 'sea_lion_haulout',
     category: 'wildlife',
     title: 'Sea Lion Haulout',
-    getDescription: (i, m) => `${m?.count || 30} California sea lions on breakwater - ${m?.vocalizing ? 'vocalizing' : 'resting'}`,
+    getDescription: (_i, m) => `${m?.count || 30} California sea lions on breakwater - ${m?.vocalizing ? 'vocalizing' : 'resting'}`,
     baseDuration: 900,
     durationVariance: 900,
     probability: 0.2,
@@ -231,7 +229,7 @@ const EVENT_TEMPLATES: EventTemplate[] = [
     durationVariance: 300,
     probability: 0.03,
     cooldown: 2400,
-    effects: (i) => ({
+    effects: () => ({
       lighting: { intensity: 1.3 },
       ships: { arrivalModifier: 0.6 },
       audio: { alertTone: true, intensity: 0.7 }
@@ -261,7 +259,6 @@ const EVENT_TEMPLATES: EventTemplate[] = [
 export class DynamicEventSystem {
   private activeEvents: Map<string, DynamicEvent> = new Map()
   private cooldowns: Map<HarborEventType, number> = new Map()
-  private lastUpdate: number = simNowMs()
   private eventHistory: Array<{ type: HarborEventType; time: number; intensity: number }> = []
   private maxHistorySize: number = 50
   
@@ -288,7 +285,6 @@ export class DynamicEventSystem {
   // ========================================================================
 
   update(delta: number) {
-    const now = simNowMs()
     const store = useGameStore.getState()
     
     // Update cooldowns
@@ -317,7 +313,6 @@ export class DynamicEventSystem {
     // Recalculate combined effects
     this.recalculateEffects()
 
-    this.lastUpdate = now
   }
 
   private checkEventTriggers(delta: number, store: ReturnType<typeof useGameStore.getState>) {
@@ -455,7 +450,6 @@ export class DynamicEventSystem {
 
   private applyEventEffects(event: DynamicEvent) {
     const effects = event.effects
-    const intensity = event.intensity
 
     // Apply weather effects
     if (effects.weather?.forceWeather) {
@@ -508,7 +502,7 @@ export class DynamicEventSystem {
     })
 
     // Apply to systems
-    this.applyLightingEffects(combinedLighting)
+    this.applyLightingEffects()
     this.applyCraneEffects(combinedCrane)
     
     // Store for external access
@@ -517,7 +511,7 @@ export class DynamicEventSystem {
     })
   }
 
-  private applyLightingEffects(effects: { intensity: number; fogDensity: number; ambientMultiplier: number }) {
+  private applyLightingEffects() {
     // Apply through lighting system if available
     if (lightingSystem) {
       // lightingSystem.setAmbientMultiplier(effects.ambientMultiplier)
@@ -567,7 +561,6 @@ export class DynamicEventSystem {
     const combined: DynamicEventEffect = {}
     
     this.activeEvents.forEach(event => {
-      const fade = event.remaining / event.duration
       
       if (event.effects.lighting) {
         combined.lighting = {
@@ -638,7 +631,6 @@ export class DynamicEventSystem {
   reset() {
     this.activeEvents.clear()
     this.cooldowns.clear()
-    this.lastUpdate = 0
     this.eventHistory = []
   }
 

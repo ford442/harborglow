@@ -18,14 +18,6 @@ export interface LightFlareSettings {
   anamorphic: boolean
 }
 
-const DEFAULTS: LightFlareSettings = {
-  enabled: true,
-  intensity: 0.85,
-  size: 1,
-  threshold: 2.8,
-  dirt: true,
-  anamorphic: true,
-}
 
 export function getLightFlareSettings(): Readonly<LightFlareSettings> {
   return getLookDevFlareSettings()

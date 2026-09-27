@@ -39,7 +39,7 @@ export function SpreaderAssembly({
   useFrame((state) => {
     const t = state.clock.elapsedTime
     const engage = twistlockEngaged ? 1 : 0
-    pinRefs.current.forEach((group, i) => {
+    pinRefs.current.forEach((group) => {
       if (!group) return
       group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, engage * (Math.PI / 2), 0.12)
       group.position.y = THREE.MathUtils.lerp(group.position.y, -0.08 - engage * 0.06, 0.1)

@@ -1,6 +1,7 @@
 import { useRef, useMemo, useEffect, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import * as THREE from 'three'
-import { useFrame, useThree, createPortal } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { PerspectiveCamera as DreiPerspectiveCamera } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
@@ -12,9 +13,7 @@ import {
   BoothLighting,
   createControlBoothMaterials,
   Monitor,
-  MonitorHUD,
-  MonitorConfigFactory
-} from './controlBooth'
+  MonitorHUD} from './controlBooth'
 
 // =============================================================================
 // CONTROL BOOTH - Main orchestrator component
@@ -34,15 +33,15 @@ export default function ControlBooth({
   debug = false,
   quality = 'high'
 }: ControlBoothProps) {
-  const { camera, scene } = useThree()
+  const { camera } = useThree()
   const boothRef = useRef<THREE.Group>(null)
-  const [isInitialized, setIsInitialized] = useState(false)
+  const [, setIsInitialized] = useState(false)
   
-  const craneState = useGameStore(state => ({
+  const craneState = useGameStore(useShallow(state => ({
     rotation: state.craneRotation ?? 0.2,
     height: state.craneHeight ?? 15.5,
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 }
-  }))
+  })))
   const ships = useGameStore(state => state.ships)
   const currentShipId = useGameStore(state => state.currentShipId)
   const bpm = useGameStore(state => state.bpm)
