@@ -21,5 +21,6 @@ cpp/.build/
 __pycache__/
 *.pyc
 
+# Native DSP test binary built at the repo root (#233)
 # Native test binaries (build output, never commit)
 /dsp_test

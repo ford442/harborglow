@@ -91,7 +91,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 4. **Systems** (`src/systems/`)
    - Modular gameplay systems with no direct mutual dependencies
-   - **Music/Audio**: `music/` (`MusicSystem.ts`, `musicSynthChains.ts`, `lyrics.ts`), `craneSoundSystem.ts`, `ambientSoundSystem.ts`, `soundEffects.ts`
+   - **Music/Audio**: `music/` (`MusicSystem.ts`, `musicSynthChains.ts`, `musicTracks.ts`, `lyrics.ts`; `musicSystem.ts` is a re-export shim), `craneSoundSystem.ts`, `ambientSoundSystem.ts`, `soundEffects.ts`
    - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`
    - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`, `trafficSystem.ts`
    - **Operations**: `StormSystem.ts` (timed storm escalation with intensity), Tugboat mode (first-person vessel control with Rapier physics)
@@ -104,15 +104,16 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - **Menus**: `MainMenu.tsx` with sub-modals in `MainMenu/` (`SettingsModal`, `HowToPlayModal`, `CreditsModal`, `ChangelogModal`, `TugboatWelcomeModal`)
    - **Game UI**: ShipSpawner, UpgradeMenu, LyricsDisplay, TrainingMode, `hud/MissionHUD` (mission objectives & timer)
    - **Feedback**: InstallationFeedback, VisualFeedback, DynamicEventNotifier, ReputationPanel
-   - **Dashboard**: `CraneDashboard` with monitors and telemetry; multi-camera feeds render on booth monitors in `ControlBooth`
-   - **Specialized**: OperatorCabin (immersive first-person cab), ErrorBoundary, LoadingScreen, `TugboatConsole` + `hud/TugboatHUD`
+   - **Dashboard**: Crane dashboard with monitors and telemetry
+   - **Specialized**: OperatorCabin (immersive first-person cab), ErrorBoundary, LoadingScreen
 
 6. **3D Components** (`src/scenes/`)
    - **Core**: Ship (with LOD impostors), Crane, Dock, Water, FoamSystem, Tugboat (vessel with buoyancy physics)
    - **Vessels**: Tugboat, TugboatTargetShip, DistressedShip (storm rescue mission)
-   - **Visual Effects**: `components/ParticleBurst3D`, VolumetricLighting, PostProcessing, AudioReactiveLightShow
-   - **Advanced**: ControlBooth (multiple camera presets + booth monitors), Wildlife, SeaEvents
-   - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip (the tugboat radar sweep lives inside `Tugboat.tsx`)
+   - **Visual Effects**: VolumetricLighting, PostProcessing, AudioReactiveLightShow
+   - **Advanced**: ControlBooth (multiple camera presets), WildlifeRenderer, SeaEvents
+   - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip
+   - **Not currently mounted**: `MultiviewSystem.tsx` (4-view multiview) exists but has no non-test importer; remount-or-archive is tracked in #233
 
 ### Key Concepts
 
@@ -264,7 +265,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 4. **Modify Ship Types**:
    - Update blueprint in `src/types/ShipBlueprint.ts` or `src/blueprints/`
    - Adjust attachment points (position, rotation relative to ship)
-   - Add the track in `src/systems/music/` (`musicTracks.ts`, `lyrics.ts`) if a new song is needed
+   - Update `src/systems/music/musicTracks.ts` if new track needed
    - Register new ship type in `ShipType` enum in store
 
 5. **Debugging**:
@@ -275,12 +276,12 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Testing & Linting
 
-- **Unit tests**: Vitest (`npm test`), files are `*.test.ts(x)`, mostly under `__tests__/` next to the code
-- **E2E**: Playwright specs in `e2e/` (`npm run test:e2e`)
-- **Linting**: `npm run lint` (ESLint with TypeScript/React plugins; relaxed rules) + `npm run knip` (unused files fail CI)
-- **Type Checking**: `npm run typecheck` / `npm run typecheck:tests`; also part of `npm run build`
-- **Before pushing**: `npm run verify` mirrors the CI merge gates; see [AGENTS.md → CI merge gates](AGENTS.md#ci-merge-gates)
-- **Simulation code**: follow [docs/systems/DETERMINISM.md](docs/systems/DETERMINISM.md) (sim time, seeded RNG, no wall clock in sim paths)
+- **Unit tests**: Vitest (`npm test`, 52 test files)
+- **E2E**: Playwright (`npm run test:e2e`)
+- **Full local gate**: `npm run verify` — see [AGENTS.md](AGENTS.md) for the merge gates
+- **Sim rules**: see [docs/systems/DETERMINISM.md](docs/systems/DETERMINISM.md)
+- **Linting**: `npm run lint` (ESLint with TypeScript/React plugins; relaxed rules)
+- **Type Checking**: Part of build (`npm run build` runs `tsc` first)
 
 ## Browser & Compatibility
 
@@ -290,7 +291,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Git & Commit Conventions
 
-- CI: `.github/workflows/ci.yml` runs parallel `gate-*` jobs aggregated by `merge-gate` (the one required check); see [AGENTS.md](AGENTS.md#ci-merge-gates)
+- CI: `.github/workflows/ci.yml` runs sibling gates (`gate-wasm`, `gate-typecheck`, `gate-lint`, `gate-test`, `gate-smoke`, `gate-build`, `gate-size`) behind `gate-lockfile`, rolled up by `merge-gate`; see [AGENTS.md](AGENTS.md)
 - Commits should reflect feature/fix scope
 - Save data persists via `localStorage` (storage_manager.ts)
 
@@ -322,7 +323,7 @@ npm run build:analyze          # Check bundle impact before shipping
 1. Add event type to `HarborEventType` in store
 2. Implement logic in `HarborEventSystem.ts` or `eventSystem/` subdirectory
 3. Trigger via store method (e.g., `spawnEvent()`)
-4. Add UI notification in `components/DynamicEventNotifier.tsx`
+4. Add UI notification in `src/components/DynamicEventNotifier.tsx`
 
 ### Tweaking Storm Intensity Curve
 - Edit `StormSystem.ts` → `update()` method
