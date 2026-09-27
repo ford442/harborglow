@@ -193,7 +193,6 @@ src/
 │   ├── InteractiveFeedback.tsx
 │   ├── LoadingScreen.tsx
 │   ├── LyricsDisplay.tsx
-│   ├── LyricsOverlay.tsx
 │   ├── MainMenu.tsx
 │   ├── OperatorCabin.tsx
 │   ├── ParticleBurst3D.tsx
@@ -227,7 +226,6 @@ src/
 │   ├── HolographicUI.tsx
 │   ├── LightFlareSystem.tsx
 │   ├── MainScene.tsx        # Scene composition (lazy-loaded)
-│   ├── MultiviewSystem.tsx
 │   ├── OnDockRail.tsx
 │   ├── PostProcessing.tsx
 │   ├── ProceduralShip.tsx   # Blueprint-driven procedural ships
@@ -240,12 +238,11 @@ src/
 │   ├── VolumetricLighting.tsx
 │   ├── Water.tsx            # **Sole water authority** (Gerstner + WaveSystem + quality tiers)
 │   └── Wildlife.tsx
-│   # Archived parallel stacks → scripts/archive/scenes/ (FFTOcean, PBRWater, InteractiveWater, ExperimentalTech, MonitorMinimalExample)
+│   # Archived parallel stacks → scripts/archive/scenes/ (FFTOcean, PBRWater, InteractiveWater, ExperimentalTech, MonitorMinimalExample, MultiviewSystem)
 ├── store/                   # State management (domain slices — see docs/STORE.md)
 │   ├── useGameStore.ts      # create() + composition + selectors + save subscription (~85 lines)
 │   ├── gameStoreTypes.ts    # canonical GameState types + defaultState + persistence projection
 │   ├── sliceTypes.ts        # compile-time slice ownership guard
-│   ├── harborThemes.ts      # static theme tables
 │   └── slices/              # ships, crane, camera, environment, economy, ops, session
 ├── systems/                 # Game logic singletons (~34 files)
 │   ├── StormSystem.ts
@@ -264,13 +261,11 @@ src/
 │   │   ├── index.ts
 │   │   ├── speciesData.ts
 │   │   └── types.ts
-│   ├── introLyrics.ts
 │   ├── introMusicSystem.ts
 │   ├── lightingSystem.ts    # Beat-synced lighting
 │   ├── moonSystem.ts
 │   ├── musicSystem.ts       # re-export of music/ (MusicSystem, synth chains, lyrics)
 │   ├── performanceSystem.tsx
-│   ├── physicsSystem.ts
 │   ├── reputationSystem.ts
 │   ├── seaEventsSystem.ts
 │   ├── sequencerSystem.ts
@@ -526,7 +521,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `gate-lockfile` | `npm ci` + `npm ls three @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
 | `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
-| `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
+| `gate-lint` | `npm run lint` + `npm run knip -- --include files` (+ full `npm run knip`, report-only) | Unused files anywhere outside `scripts/archive/` and `workers/` (config `knip.jsonc`); ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
