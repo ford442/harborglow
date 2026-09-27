@@ -2,8 +2,8 @@
 
 > **Relocated 2026-08-02** from the repo-root `shaders/` directory to `docs/reference/` during a
 > pipeline-hygiene pass. These files are **not part of the build or import graph** — `god-rays-compute.wgsl`
-> is referenced nowhere in `src/` (the live god-rays path is the GLSL `ShaderPass` in
-> `src/shaders/GodRaysShader.ts`, wired into `PostProcessing.tsx`). They are **not gpu-chores**:
+> is referenced nowhere in `src/` (the live god-rays path is the TSL pass in
+> `src/shaders/godRaysTsl.ts`, wired into `PostProcessing.tsx`). They are **not gpu-chores**:
 > histogram / downsample / blur / reduce live in `src/rendering/gpuChores/` and must not absorb
 > this 13-binding god-rays shader or `src/shaders/oceanFFT.wgsl`. Kept as design reference for the
 > future WebGPU-compute path tracked in issue #165 (WebGPU TSL materials + FFT ocean compute). The old

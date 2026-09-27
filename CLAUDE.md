@@ -38,10 +38,21 @@ npm run build:analyze
 # Lint TypeScript/TSX files
 npm run lint
 
+# Unused files/exports/deps (config: knip.jsonc; unused files fail CI)
+npm run knip
+
+# Tests
+npm test                 # Vitest unit tests
+npm run test:e2e         # Playwright specs in e2e/
+
+# Local mirror of the CI merge gates (all except gate-wasm)
+npm run verify
+npm run verify:fast      # lockfile + typecheck + lint only
+
 # Fix linting issues
 npm run lint:fix
 
-# Heartbeat check (git status + TODO/FIXME scan + build)
+# Heartbeat check (git status + TODO/FIXME scan + build + tests)
 npm run heartbeat
 
 # Preview production build locally
@@ -84,14 +95,14 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`
    - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`, `trafficSystem.ts`
    - **Operations**: `StormSystem.ts` (timed storm escalation with intensity), Tugboat mode (first-person vessel control with Rapier physics)
-   - **Events**: `eventSystem/`, `dynamicEventSystem.ts`, `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
+   - **Events**: `eventSystem/` (`HarborEventSystem.ts`), `dynamicEventSystem.ts` (both ticked from `bootstrap/mainSceneSystems.ts`), `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
    - **Time & Environment**: `timeSystem.ts`, `WaveSystem.ts` (FFT-based ocean), `weatherSystem.ts`
    - **Camera/UI**: `cameraSystem.ts`, `audioVisualSync.ts`, `trainingSystem.ts`
 
 5. **UI Components** (`src/components/`)
    - **HUD** (`HUD.tsx`, `hud/` subdirectory): Main overlay with ship status, camera controls, time display
-   - **Menus**: MainMenu with sub-modals (Settings, HowToPlay, Credits, Tutorial selection)
-   - **Game UI**: ShipSpawner, UpgradeMenu, LyricsDisplay, TrainingMode, MissionHUD (mission objectives & timer)
+   - **Menus**: `MainMenu.tsx` with sub-modals in `MainMenu/` (`SettingsModal`, `HowToPlayModal`, `CreditsModal`, `ChangelogModal`, `TugboatWelcomeModal`)
+   - **Game UI**: ShipSpawner, UpgradeMenu, LyricsDisplay, TrainingMode, `hud/MissionHUD` (mission objectives & timer)
    - **Feedback**: InstallationFeedback, VisualFeedback, DynamicEventNotifier, ReputationPanel
    - **Dashboard**: Crane dashboard with monitors and telemetry
    - **Specialized**: OperatorCabin (immersive first-person cab), ErrorBoundary, LoadingScreen
@@ -134,7 +145,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - **Storm Intensity**: `StormSystem.ts` simulates 0..1 intensity with wind forces, lightning, rain, visibility reduction
 - **Failure Conditions**: Timeout, excessive ship damage, or entering unsafe zone
 - **Reward**: Credits and reputation bonus on successful rescue
-- **UI**: `MissionHUD.tsx` displays objective, time remaining, damage level
+- **UI**: `components/hud/MissionHUD.tsx` displays objective, time remaining, damage level
 
 #### Music & Synchronization
 - `music/MusicSystem.ts` plays per-ship instruments + bus effects (`music/musicSynthChains.ts`) on the shared beat `transport`, clocked by sim time
@@ -145,8 +156,10 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 #### Operation Modes
 - **Crane Mode** (default): Operate dock crane to install light rigs on ships
   - Camera: Orbit, crane-cockpit (first-person in cab), crane-shoulder/top, ship views, spectator drone
+  - Booth monitors in `ControlBooth` show extra camera feeds (the old 4-panel `MultiviewSystem` is archived in `scripts/archive/scenes/`)
 - **Tugboat Mode**: First-person helm control of vessel with buoyancy physics
   - Camera: First-person from helm; mouse look + WASD throttle/steering
+  - Radar sweep line in `Tugboat.tsx`; helm HUD in `components/hud/TugboatHUD.tsx`
   - Objectives: Navigate and dock at marked berths
 - **Mission Mode**: Temporary mode overlay during storm rescue missions
   - Switches to tugboat control to rescue distressed ships
@@ -199,7 +212,8 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ### Configuration
 - `tsconfig.json`: TypeScript compiler (ES2020 target, strict mode)
-- `eslint.config.js`: ESLint flat config (relaxed: no-explicit-any, no-unused-vars off)
+- `eslint.config.js`: ESLint 9 flat config (relaxed: no-explicit-any, no-unused-vars off; `@ts-ignore`/`@ts-nocheck` banned)
+- `knip.jsonc`: unused files/exports/deps config (`scripts/archive/` and `workers/` ignored)
 - `tailwind.config.js`: Tailwind + custom cyber colors
 - `vite.config.ts`: Build optimization, manual chunks, terser options
 - `postcss.config.js`: Tailwind + autoprefixer
@@ -240,7 +254,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - Create scene component (e.g., `DistressedShip.tsx`)
    - Spawn from `MainScene.tsx` with mission creation logic
    - Add mission state management (objective tracking, timers, failure conditions)
-   - Update `MissionHUD.tsx` to display mission-specific UI
+   - Update `components/hud/MissionHUD.tsx` to display mission-specific UI
 
 3. **Modify Operation Modes**:
    - Define new `OperationMode` in store type
@@ -283,7 +297,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Known Limitations & TODOs
 
-- Ship models are procedural primitives (TODO: Replace with GLB models from Sketchfab)
+- Ship models: GLBs in `public/models/` registered in `src/ships/shipModelRegistry.ts`, with procedural fallback (`ProceduralShip.tsx`); icebreaker has no GLB yet
 - Tugboat physics: buoyancy tuning ongoing, may need refinement for different wave heights
 - Mission system: storm rescue is first mission type; additional mission types can be added
 - Training system: core modules in place, expansion planned

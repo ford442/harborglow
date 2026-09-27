@@ -3,6 +3,7 @@
 // Central manager that ties together attachment system, effects, and feedback
 // =============================================================================
 
+import { CommitProfiler } from '../rendering/CommitProfiler'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
@@ -384,6 +385,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
 
   return (
     <>
+      <CommitProfiler id="AttachmentSystemManager">
       {lastInstall && (
         <>
           <MagicalInstallFlash
@@ -409,6 +411,8 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
           onComplete={handleFeedbackComplete}
         />
       )}
+
+      </CommitProfiler>
 
       {children}
     </>

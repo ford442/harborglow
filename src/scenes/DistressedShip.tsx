@@ -20,6 +20,11 @@ import { waveSystem } from '../systems/WaveSystem'
 // High-mass freighter dynamics — consistent with TugboatTargetShip.
 const SHIP_MASS            = 50000
 const SHIP_LINEAR_DAMPING  = 0.8
+// Frame-loop scratch
+const _quat = new THREE.Quaternion()
+const _localOff = new THREE.Vector3()
+const _euler = new THREE.Euler()
+
 const SHIP_ANGULAR_DAMPING = 1.2
 const BUOYANCY_SCALE       = 30000
 const DAMPING_SCALE        = 1500
@@ -154,13 +159,8 @@ export default function DistressedShip({
 
   const operationMode = useGameStore((s) => s.operationMode)
   const towingUnlocked = useGameStore((s) => s.towingUnlocked)
-  const activeMission = useGameStore((s) => s.activeMission)
   const updateMission = useGameStore((s) => s.updateMission)
 
-  const berthVec = useMemo(
-    () => new THREE.Vector3(berthCenter[0], berthCenter[1], berthCenter[2]),
-    [berthCenter]
-  )
 
   useFrame((_, delta) => {
     if (!rbRef.current || !groupRef.current) return
@@ -215,10 +215,10 @@ export default function DistressedShip({
 
     // --- Buoyancy probes ---
     const rot = rb.rotation()
-    const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
+    const quat = _quat.set(rot.x, rot.y, rot.z, rot.w)
 
     for (const offset of PROBE_OFFSETS) {
-      const localOff = new THREE.Vector3(offset.x, 0, offset.z)
+      const localOff = _localOff.set(offset.x, 0, offset.z)
       localOff.applyQuaternion(quat)
 
       const probeX = pos.x + localOff.x
@@ -259,7 +259,7 @@ export default function DistressedShip({
       true
     )
 
-    const euler = new THREE.Euler().setFromQuaternion(quat)
+    const euler = _euler.setFromQuaternion(quat)
     rb.applyTorqueImpulse(
       {
         x: -euler.x * RESTORING_TORQUE * delta,

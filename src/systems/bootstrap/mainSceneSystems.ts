@@ -208,7 +208,6 @@ export interface BuildFrameContextParams {
 }
 
 export function buildFrameContext({
-    state,
     delta,
     camera,
     swayTrolleyPosition,

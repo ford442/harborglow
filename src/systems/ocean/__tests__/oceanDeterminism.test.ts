@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { waveSystem, OCEAN_FFT_UPDATE_INTERVAL } from '../../WaveSystem'
 import { oceanFFTSeed, OCEAN_FFT_SIZE_BY_QUALITY, resolveOceanFftSize } from '../index'
 import { createSimContext, setSim, getSim, SIM_DT } from '../../sim/SimContext'
-import { hashSimSnapshot } from '../../sim/hashState'
 import { runHeadlessTicks } from '../../sim/headless'
 
 /** Drive the wave system for `ticks` fixed steps and fingerprint the surface. */

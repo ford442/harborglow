@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatPartLabel } from './utils';
 import {
     upgradeRowStyle,

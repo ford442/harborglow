@@ -1,6 +1,4 @@
-import * as THREE from 'three';
-import { ShipType } from '../../store/useGameStore';
-import { GLASSMORPHISM, SHIP_COLORS } from '../DesignSystem';
+import { SHIP_COLORS } from '../DesignSystem';
 
 export function drawCraneCabView(
   ctx: CanvasRenderingContext2D,
@@ -107,7 +105,6 @@ export function drawDroneView(
   w: number,
   h: number,
   ships: any[],
-  currentShip: any,
   audioData: any
 ) {
   // Aerial view background

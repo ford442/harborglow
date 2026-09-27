@@ -1,4 +1,5 @@
 import { useRef, useMemo, useCallback, useEffect, forwardRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { View, Html, PerspectiveCamera } from '@react-three/drei'
@@ -80,7 +81,6 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   const droneProgressRef = useRef(0)
   const craneShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
   const hookShakeRef = useRef({ x: 0, y: 0, intensity: 0 })
-  const initializedRef = useRef(false)
 
   // ---------------------------------------------------------------------------
   // Derive current ship & crane state (reactive for render)
@@ -90,11 +90,11 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   const currentShip = ships.find(s => s.id === currentShipId)
   const spectatorState = useGameStore(state => state.spectatorState)
   const bpm = useGameStore(state => state.bpm)
-  const craneState = useGameStore(state => ({
+  const craneState = useGameStore(useShallow(state => ({
     rotation: state.craneRotation ?? 0.2,
     height: state.craneHeight ?? 15.5,
     spreaderPos: state.spreaderPos ?? { x: 0, y: 10, z: 0 }
-  }))
+  })))
   const tugboatState = useGameStore(state => state.tugboatState)
 
   // ---------------------------------------------------------------------------
@@ -206,13 +206,12 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
   // ---------------------------------------------------------------------------
   // Compute live camera transform for tugboat viewports
   // ---------------------------------------------------------------------------
-  const getTugLiveTransform = useCallback((viewportId: TugboatViewportId, time: number): CameraTransform => {
+  const getTugLiveTransform = useCallback((viewportId: TugboatViewportId): CameraTransform => {
     const pos = tugboatState.position
     const heading = tugboatState.heading
 
     // Direction vectors relative to tug heading
     const fwd = [Math.cos(heading), 0, Math.sin(heading)] as const
-    const right = [-Math.sin(heading), 0, Math.cos(heading)] as const
 
     switch (viewportId) {
       case 'tug-helm': {
@@ -323,7 +322,7 @@ export default function MultiviewSystem({ enabled, underwaterIntensity = 1, chil
         // Animate tugboat viewports
         TUGBOAT_VIEWPORT_ORDER.forEach((viewportId) => {
           const camera = tugCameraRefs[viewportId].current
-          const liveTransform = getTugLiveTransform(viewportId, time)
+          const liveTransform = getTugLiveTransform(viewportId)
           applyTransform(camera, liveTransform, TUGBOAT_VIEWPORT_CONFIG[viewportId].fov, beatPhase, viewportId)
         })
       } else {

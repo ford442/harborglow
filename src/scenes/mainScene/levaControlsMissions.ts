@@ -248,7 +248,7 @@ export function useMissionLevaControls() {
             max: 3,
             step: 0.1,
             folder: 'Dynamic Events',
-            onChange: (value: number) => {
+            onChange: () => {
                 // Modify event spawn rates
             }
         },

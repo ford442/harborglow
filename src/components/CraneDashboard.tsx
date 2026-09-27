@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { Html } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
 import MonitorFeed from './dashboard/MonitorFeed'
@@ -35,7 +36,7 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
     isMoving,
     joystickLeft,
     joystickRight,
-  } = useGameStore(state => ({
+  } = useGameStore(useShallow(state => ({
     weather: state.weather,
     boothTier: state.boothTier,
     twistlockEngaged: state.twistlockEngaged,
@@ -47,7 +48,7 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
     isMoving: state.isMoving,
     joystickLeft: state.joystickLeft,
     joystickRight: state.joystickRight,
-  }))
+  })))
 
   const isArctic = boothTier === 3
 
