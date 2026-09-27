@@ -66,11 +66,6 @@ export function setMasterMuted(muted: boolean): void {
   audioRuntime.setMasterMuted(muted)
 }
 
-function afterDelay(seconds: number | undefined, fn: () => void): void {
-  if (seconds !== undefined && seconds > 0) globalThis.setTimeout(fn, seconds * 1000)
-  else fn()
-}
-
 export interface InstrumentOptions {
   waveform?: Waveform
   envelope?: Partial<VoiceEnvelope>
@@ -82,6 +77,16 @@ export interface PlayOptions {
   velocity?: number
   /** Seconds from now. */
   delay?: number
+  /**
+   * AudioContext time to start at — pass the `time` a transport callback
+   * receives so the note lands on its beat's exact frame. Wins over `delay`.
+   */
+  at?: number
+}
+
+function startTime(options: PlayOptions): number | undefined {
+  if (options.at !== undefined) return options.at
+  return options.delay !== undefined && options.delay > 0 ? audioNow() + options.delay : undefined
 }
 
 export class Instrument {
@@ -98,19 +103,17 @@ export class Instrument {
 
   /** Play one note or a chord for `duration`. */
   play(notes: Note | Note[], duration: Duration = '8n', options: PlayOptions = {}): void {
-    afterDelay(options.delay, () => {
-      const seconds = durationToSeconds(duration)
-      for (const note of Array.isArray(notes) ? notes : [notes]) {
-        this.runtime.noteOn(note, { ...this.voiceOptions(options.velocity), duration: seconds })
-      }
-    })
+    const seconds = durationToSeconds(duration)
+    const at = startTime(options)
+    for (const note of Array.isArray(notes) ? notes : [notes]) {
+      this.runtime.noteOn(note, { ...this.voiceOptions(options.velocity), duration: seconds, at })
+    }
   }
 
   /** Start a note that sustains until release(). */
   hold(note: Note, options: PlayOptions = {}): void {
-    afterDelay(options.delay, () => {
-      this.held.push(this.runtime.noteOn(note, this.voiceOptions(options.velocity)))
-    })
+    const at = startTime(options)
+    this.held.push(this.runtime.noteOn(note, { ...this.voiceOptions(options.velocity), at }))
   }
 
   /** Release every held note. */
