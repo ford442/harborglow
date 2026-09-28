@@ -49,6 +49,8 @@ jobs:
               - 'src/systems/audioVisualSync.ts'
               - 'src/systems/music/**'
               - 'scripts/check-wasm.mjs'
+              - 'scripts/check-wasm-drift.mjs'
+              - 'scripts/emsdk-pin.mjs'
               - 'scripts/write-wasm-manifest.mjs'
               - 'e2e/audio-wasm.spec.ts'
               - 'vite.config.ts'
@@ -124,6 +126,12 @@ jobs:
         run: make -C cpp tidy
 
       - name: Check committed WASM binaries
+        env:
+          # check:wasm's binary-drift guard ("no public/wasm change without a
+          # source change") is a local pre-push guard. Here the rebuild above
+          # plus the `git diff` below is the stronger proof, and a binary fix
+          # pushed by wasm-rebuild.yml legitimately has no source change.
+          ALLOW_WASM_BINARY_DRIFT: "1"
         run: npm run check:wasm
 
       - name: Reject stale generated artifacts
