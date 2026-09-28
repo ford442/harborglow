@@ -1,0 +1,162 @@
+name: WASM rebuild
+
+# The only sanctioned producer of committed public/wasm/** binaries.
+#
+# gate-wasm (ci.yml) rebuilds public/wasm with a pinned emsdk and fails on any
+# byte of drift, so a binary built on a developer machine — even with the same
+# toolchain version string — turns main red (PR #254, 2026-09-23). Run this
+# workflow against your branch instead of running `npm run build:wasm` locally
+# and committing the result. It installs the emsdk release that ci.yml pins
+# (read from ci.yml, never duplicated here), rebuilds, validates, and commits
+# public/wasm/** back to the branch only when the bytes changed.
+#
+# Permissions: `contents: write` is needed for one thing — the push of the
+# rebuilt binaries back to the input branch with the default GITHUB_TOKEN. It
+# is scoped to this job (ci.yml keeps `contents: read` everywhere) and the
+# workflow only ever runs on demand against a branch someone typed in. When
+# the push is refused (protected branch, fork, ruleset), the job does not fail:
+# it uploads the rebuilt files as an artifact and prints how to apply them.
+#
+# Known limitation of the default token: a commit pushed with GITHUB_TOKEN does
+# not trigger `pull_request`/`push` workflows, so CI does not re-run on the
+# bot's commit by itself. Re-run CI on the PR (or push your next commit) after
+# this workflow has pushed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to rebuild public/wasm on (the rebuilt binaries are committed back to it)"
+        required: true
+        type: string
+
+concurrency:
+  group: wasm-rebuild-${{ inputs.branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Push of public/wasm/** back to `inputs.branch`; see the header comment.
+      contents: write
+    env:
+      # check:wasm's binary-drift guard rejects a public/wasm change with no
+      # source change. Here the change IS the point: the bytes were just built
+      # from source with the pinned toolchain, which is the stronger proof.
+      ALLOW_WASM_BINARY_DRIFT: "1"
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.branch }}
+          # Full history so the drift guard can find the merge base with main.
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read the emsdk pin from ci.yml
+        id: pin
+        run: echo "version=$(node scripts/emsdk-pin.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pinned Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.pin.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Rebuild WASM binaries
+        run: npm run build:wasm
+
+      - name: Native DSP tests
+        run: make -C cpp test
+
+      - name: Check rebuilt WASM binaries
+        run: npm run check:wasm
+
+      - name: Detect changes under public/wasm
+        id: diff
+        run: |
+          if git diff --quiet -- public/wasm; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "public/wasm is already up to date with emsdk ${{ steps.pin.outputs.version }}; nothing to commit."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git --no-pager diff --stat -- public/wasm
+          fi
+
+      - name: Commit and push rebuilt binaries
+        id: push
+        if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true
+        env:
+          BRANCH: ${{ inputs.branch }}
+          EMSDK_VERSION: ${{ steps.pin.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- public/wasm
+          git commit -m "chore(wasm): rebuild public/wasm with emsdk ${EMSDK_VERSION} (wasm-rebuild workflow)" \
+            -m "Built by .github/workflows/wasm-rebuild.yml run ${GITHUB_RUN_ID} from ${GITHUB_SHA}."
+          git push origin "HEAD:refs/heads/${BRANCH}"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload rebuilt binaries as an artifact (push refused)
+        if: steps.diff.outputs.changed == 'true' && steps.push.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-wasm-${{ steps.pin.outputs.version }}
+          path: public/wasm/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Explain how to apply the artifact (push refused)
+        if: steps.diff.outputs.changed == 'true' && steps.push.outcome != 'success'
+        env:
+          BRANCH: ${{ inputs.branch }}
+          EMSDK_VERSION: ${{ steps.pin.outputs.version }}
+        run: |
+          {
+            echo "## Push to \`${BRANCH}\` was refused"
+            echo
+            echo "The rebuilt binaries are attached to this run as artifact \`public-wasm-${EMSDK_VERSION}\`."
+            echo "Apply them without building locally:"
+            echo
+            echo '```bash'
+            echo "gh run download ${GITHUB_RUN_ID} -n public-wasm-${EMSDK_VERSION} -D public/wasm"
+            echo "npm run check:wasm"
+            echo "git add public/wasm && git commit -m 'chore(wasm): apply CI-built public/wasm (run ${GITHUB_RUN_ID})'"
+            echo "git push"
+            echo '```'
+            echo
+            echo "Do not run \`npm run build:wasm\` locally and commit its output: gate-wasm rejects bytes that differ from its own rebuild."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary
+        if: always()
+        env:
+          BRANCH: ${{ inputs.branch }}
+          EMSDK_VERSION: ${{ steps.pin.outputs.version }}
+          CHANGED: ${{ steps.diff.outputs.changed }}
+          PUSHED: ${{ steps.push.outputs.pushed }}
+        run: |
+          {
+            echo "## WASM rebuild on \`${BRANCH}\`"
+            echo
+            echo "- emsdk pin (from ci.yml): \`${EMSDK_VERSION}\`"
+            echo "- public/wasm changed: \`${CHANGED:-unknown}\`"
+            echo "- pushed back to branch: \`${PUSHED:-false}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

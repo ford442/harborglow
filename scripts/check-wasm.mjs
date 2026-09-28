@@ -4,11 +4,12 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runBinaryDriftGuard } from './check-wasm-drift.mjs'
+import { pinnedEmsdkVersion } from './emsdk-pin.mjs'
 import { coreExports, engineExports } from './wasm-exports.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const manifestPath = join(root, 'public/wasm/manifest.json')
-const workflowPath = join(root, '.github/workflows/ci.yml')
 const sourcePaths = [
   'cpp/harborglow_dsp.cpp',
   'cpp/harborglow_dsp.h',
@@ -48,29 +49,10 @@ function computeSourceMd5() {
   return hash.digest('hex')
 }
 
-/**
- * Reads the Emscripten release that `gate-wasm` pins, from the workflow itself.
- *
- * The `toolchain` field is provenance, not decoration: gate-wasm rebuilds the
- * artifacts with the pinned release and then runs
- * `git diff --exit-code -- public/wasm`, so a manifest naming any other release
- * fails that step ~2 minutes into CI. Reading the pin here keeps one source of
- * truth rather than a copy in this script.
- *
- * @returns {string|null} the pinned version, or null if the workflow or the
- *   `setup-emsdk` step cannot be read.
- */
-function pinnedEmsdkVersion() {
-  if (!existsSync(workflowPath)) return null
-  const lines = readFileSync(workflowPath, 'utf8').split('\n')
-  const anchor = lines.findIndex((line) => /uses:\s*mymindstorm\/setup-emsdk@/.test(line))
-  if (anchor === -1) return null
-  for (const line of lines.slice(anchor + 1, anchor + 6)) {
-    const match = line.match(/^\s*version:\s*["']?([\w.]+)["']?\s*$/)
-    if (match) return match[1]
-  }
-  return null
-}
+// The emsdk pin is read from ci.yml via scripts/emsdk-pin.mjs: the `toolchain`
+// field is provenance, not decoration. gate-wasm rebuilds the artifacts with
+// the pinned release and then runs `git diff --exit-code -- public/wasm`, so a
+// manifest naming any other release fails that step ~2 minutes into CI.
 
 /**
  * Whether a toolchain string names exactly this version, so that 6.0.6 does not
@@ -161,9 +143,18 @@ function assertNear(actual, expected, tolerance, label) {
 if (!existsSync(manifestPath)) fail('missing public/wasm/manifest.json')
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
 if (manifest.sourceMd5 !== computeSourceMd5()) {
-  fail('source digest differs from committed WASM manifest; run npm run build:wasm')
+  fail(
+    'source digest differs from committed WASM manifest; run the "WASM rebuild" workflow ' +
+      '(.github/workflows/wasm-rebuild.yml) against this branch — do not commit a local build:wasm',
+  )
 }
 checkToolchainProvenance(manifest)
+// Toolchain provenance only compares version strings; PR #254 carried the right
+// string with different bytes. This guard rejects a public/wasm change that no
+// source change explains (see scripts/check-wasm-drift.mjs).
+if (!runBinaryDriftGuard(root)) {
+  fail('committed WASM changed without a source change; use the wasm-rebuild workflow')
+}
 
 execFileSync(process.execPath, [join(root, 'scripts/wasm-exports.mjs'), '--check'], {
   stdio: 'inherit',

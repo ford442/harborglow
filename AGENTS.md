@@ -510,6 +510,7 @@ been removed.
 ## GitHub Actions
 
 - `.github/workflows/ci.yml`: **Merge gates** on PRs and pushes to `main` — see [CI merge gates](#ci-merge-gates) below.
+- `.github/workflows/wasm-rebuild.yml`: **The only sanctioned producer of committed `public/wasm/**`** — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally). `workflow_dispatch` with one input, `branch`. Installs the emsdk release that `ci.yml` pins (read via `node scripts/emsdk-pin.mjs`, not duplicated), runs `npm ci && npm run build:wasm && make -C cpp test && npm run check:wasm`, and commits `public/wasm/**` back to that branch only if the bytes changed. Its job has `contents: write` solely for that push; if the push is refused (protected branch, ruleset, fork) it uploads the files as a `public-wasm-<version>` artifact and prints `gh run download` instructions in the step summary instead of failing.
 - `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 22 (matching `ci.yml`), installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
 
 ### CI merge gates
@@ -519,7 +520,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | Job | Command | What it catches |
 |------|---------|-----------------|
 | `gate-lockfile` | `npm ci` + `npm ls three @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
-| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
+| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries. Committed binaries come from `wasm-rebuild.yml`, never a local build — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally) |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
 | `gate-lint` | `npm run lint` + `npm run knip -- --include files` (+ full `npm run knip`, report-only) | Unused files anywhere outside `scripts/archive/` and `workers/` (config `knip.jsonc`); ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |
@@ -540,8 +541,25 @@ npm run verify                  # ~3–5 min on a typical dev machine
 
 `npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
 
-- **`gate-wasm`** — requires Emscripten 6.0.6. If you changed `cpp/` or `public/wasm/`, run locally: `npm run build:wasm && make -C cpp test && npm run check:wasm && git diff --exit-code -- public/wasm`
-  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` now fails locally on that drift (and warns when your local `em++` is not the pinned release, since a rebuild here would rewrite the provenance); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating. If your emsdk is not 6.0.6, run `emsdk install 6.0.6 && emsdk activate 6.0.6` rather than editing the manifest.
+- **`gate-wasm`** — requires Emscripten 6.0.6, and even with it installed **do not commit its output** (see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally)). If you changed `cpp/`, you may run `npm run build:wasm && make -C cpp test && npm run check:wasm` locally to test, then discard the binaries (`git checkout -- public/wasm`) and let the `WASM rebuild` workflow produce the committed ones.
+  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of the workflow's `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` fails locally on that drift (and warns when your local `em++` is not the pinned release); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating.
+  - `npm run check:wasm` also fails when `public/wasm/*` differs from `origin/main` (merge base) while nothing under `cpp/`, `scripts/wasm-exports.mjs`, or the emsdk pin in `ci.yml` changed in the same diff (`scripts/check-wasm-drift.mjs`). `ALLOW_WASM_BINARY_DRIFT=1` downgrades it to a warning; `gate-wasm` and `wasm-rebuild.yml` set it because a from-source rebuild plus `git diff` is the stronger proof there. Never set it on a developer machine to get a commit through.
+
+### Committed WASM: never build it locally
+
+**Rule: `public/wasm/**` is produced by CI only. Never commit locally built WASM, and binaries must never change without a source change.**
+
+Why: `gate-wasm` rebuilds `public/wasm` with the emsdk pinned in `ci.yml` and fails on any byte of `git diff`. On 2026-09-23, PR #254 committed binaries built outside CI that carried the *correct* toolchain string but different bytes (Emscripten output is only reproducible for an identical toolchain install, cache state, and host), so main went red and the string-only provenance guard could not catch it.
+
+How to change the audio engine:
+
+1. Edit `cpp/**` (or `scripts/wasm-exports.mjs`) on your branch. Test locally however you like, including `npm run build:wasm`, but **do not stage `public/wasm/`** — `git checkout -- public/wasm` before committing. `npm run check:wasm` will report the source digest as stale until step 3; that is expected.
+2. Push the branch.
+3. Run the **WASM rebuild** workflow (Actions → *WASM rebuild* → *Run workflow*, input `branch` = your branch; or `gh workflow run wasm-rebuild.yml -f branch=<your-branch>`). It rebuilds with the pinned emsdk, runs the native tests and `check:wasm`, and pushes a `chore(wasm): rebuild public/wasm …` commit to your branch when the bytes changed.
+4. Pull the bot commit. A push made with the default `GITHUB_TOKEN` does not trigger CI, so re-run the PR's checks (or push your next commit) to get a `gate-wasm` result on the new binaries.
+5. If the workflow's push was refused, download its `public-wasm-<version>` artifact into `public/wasm/` as the step summary describes, run `npm run check:wasm`, and commit that.
+
+Bumping the emsdk pin is the same flow: change `version:` under `setup-emsdk` in `ci.yml`, push, run the workflow. The drift guard treats a pin change as a source change.
 - **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)
 
 The lockfile step uses `npm ci --dry-run` (npm 10 semantics; npm 11 alone may miss incomplete lockfiles). Host npm ≥ 11 triggers an automatic `npx npm@10.9.2` for that step only.
