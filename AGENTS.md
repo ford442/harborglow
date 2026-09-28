@@ -510,7 +510,7 @@ been removed.
 ## GitHub Actions
 
 - `.github/workflows/ci.yml`: **Merge gates** on PRs and pushes to `main` — see [CI merge gates](#ci-merge-gates) below.
-- `.github/workflows/wasm-rebuild.yml`: **The only sanctioned producer of committed `public/wasm/**`** — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally). `workflow_dispatch` with one input, `branch`. Installs the emsdk release that `ci.yml` pins (read via `node scripts/emsdk-pin.mjs`, not duplicated), runs `npm ci && npm run build:wasm && make -C cpp test && npm run check:wasm`, and commits `public/wasm/**` back to that branch only if the bytes changed. Its job has `contents: write` solely for that push; if the push is refused (protected branch, ruleset, fork) it uploads the files as a `public-wasm-<version>` artifact and prints `gh run download` instructions in the step summary instead of failing.
+- `.github/workflows/wasm-rebuild.yml`: **The only sanctioned producer of committed `public/wasm/**`** — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally). `workflow_dispatch` with one input, `branch`. Installs the emsdk release that `ci.yml` pins (read via `node scripts/emsdk-pin.mjs`, not duplicated), runs `npm ci && npm run build:wasm && make -C cpp test && npm run check:wasm`, and commits `public/wasm/**` back to that branch only if the bytes changed. Its job has `contents: write` solely for that push; if the push is refused (protected branch, ruleset) it uploads a binary patch plus the files as a `public-wasm-<version>` artifact and prints apply instructions in the step summary instead of failing. Only branches of this repository are accepted (no fork branches).
 - `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 22 (matching `ci.yml`), installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
 
 ### CI merge gates
@@ -554,10 +554,10 @@ Why: `gate-wasm` rebuilds `public/wasm` with the emsdk pinned in `ci.yml` and fa
 How to change the audio engine:
 
 1. Edit `cpp/**` (or `scripts/wasm-exports.mjs`) on your branch. Test locally however you like, including `npm run build:wasm`, but **do not stage `public/wasm/`** — `git checkout -- public/wasm` before committing. `npm run check:wasm` will report the source digest as stale until step 3; that is expected.
-2. Push the branch.
+2. Push the branch **to this repository**. The workflow checks out and pushes with the repo's own token, so branches on forks are not supported.
 3. Run the **WASM rebuild** workflow (Actions → *WASM rebuild* → *Run workflow*, input `branch` = your branch; or `gh workflow run wasm-rebuild.yml -f branch=<your-branch>`). It rebuilds with the pinned emsdk, runs the native tests and `check:wasm`, and pushes a `chore(wasm): rebuild public/wasm …` commit to your branch when the bytes changed.
-4. Pull the bot commit. A push made with the default `GITHUB_TOKEN` does not trigger CI, so re-run the PR's checks (or push your next commit) to get a `gate-wasm` result on the new binaries.
-5. If the workflow's push was refused, download its `public-wasm-<version>` artifact into `public/wasm/` as the step summary describes, run `npm run check:wasm`, and commit that.
+4. Pull the bot commit. A push made with the default `GITHUB_TOKEN` does not trigger CI, and re-running the PR's existing Actions run does not help: a re-run reuses that run's original SHA and never sees the bot commit. Push a new commit to the branch (or dispatch a fresh run against it) and confirm the new run's head SHA is the bot commit or a descendant of it before trusting its `gate-wasm` result.
+5. If the workflow's push was refused, download its `public-wasm-<version>` artifact and `git apply` the `public-wasm.patch` it contains (a binary patch, so it also carries deleted files) on a checkout of the same branch head, as the step summary describes. Then run `ALLOW_WASM_BINARY_DRIFT=1 npm run check:wasm` — the override is correct here because the bytes were built and checked by CI, and the drift guard exists to reject *local* builds — and commit the result with `git add -A public/wasm`.
 
 Bumping the emsdk pin is the same flow: change `version:` under `setup-emsdk` in `ci.yml`, push, run the workflow. The drift guard treats a pin change as a source change.
 - **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)

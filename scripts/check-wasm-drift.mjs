@@ -51,10 +51,24 @@ export function classifyDrift(changedFiles, { basePin, headPin }) {
   return { binaries, sources, pinChanged }
 }
 
+/**
+ * Runs git in `cwd` and returns its stdout; throws on a non-zero exit.
+ *
+ * @param {string[]} args git arguments.
+ * @param {string} cwd repository root.
+ * @returns {string}
+ */
 function git(args, cwd) {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
+/**
+ * Like git(), trimmed, but returns null instead of throwing.
+ *
+ * @param {string[]} args git arguments.
+ * @param {string} cwd repository root.
+ * @returns {string|null}
+ */
 function tryGit(args, cwd) {
   try {
     return git(args, cwd).trim()

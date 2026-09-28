@@ -14,19 +14,26 @@ name: WASM rebuild
 # rebuilt binaries back to the input branch with the default GITHUB_TOKEN. It
 # is scoped to this job (ci.yml keeps `contents: read` everywhere) and the
 # workflow only ever runs on demand against a branch someone typed in. When
-# the push is refused (protected branch, fork, ruleset), the job does not fail:
-# it uploads the rebuilt files as an artifact and prints how to apply them.
+# the push is refused (protected branch, ruleset), the job does not fail: it
+# uploads the rebuilt files plus a binary patch as an artifact and prints how
+# to apply them.
+#
+# Scope: `branch` must be a branch of this repository. Branches on forks
+# cannot be checked out or pushed to with this token; push the branch here
+# first (or open the PR from an in-repo branch).
 #
 # Known limitation of the default token: a commit pushed with GITHUB_TOKEN does
-# not trigger `pull_request`/`push` workflows, so CI does not re-run on the
-# bot's commit by itself. Re-run CI on the PR (or push your next commit) after
-# this workflow has pushed.
+# not trigger `pull_request`/`push` workflows, so CI does not run on the bot's
+# commit by itself. Re-running an existing Actions run does not help either: a
+# re-run reuses that run's original SHA. After this workflow has pushed, push a
+# new commit to the branch (or dispatch a fresh run against it) and confirm the
+# new run's head SHA is the bot commit or a descendant of it.
 
 on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to rebuild public/wasm on (the rebuilt binaries are committed back to it)"
+        description: "Branch of this repository to rebuild public/wasm on (fork branches are not supported); the rebuilt binaries are committed back to it"
         required: true
         type: string
 
@@ -114,12 +121,24 @@ jobs:
           git push origin "HEAD:refs/heads/${BRANCH}"
           echo "pushed=true" >> "$GITHUB_OUTPUT"
 
+      - name: Write a binary patch of the rebuild (push refused)
+        if: steps.diff.outputs.changed == 'true' && steps.push.outcome != 'success'
+        # A directory upload cannot express a deleted tracked file; the patch
+        # carries additions, modifications and deletions under public/wasm.
+        # Diff against the dispatched head (GITHUB_SHA) rather than HEAD, since
+        # the push step may already have committed locally before the push failed.
+        run: |
+          git diff --binary "$GITHUB_SHA" -- public/wasm > public-wasm.patch
+          test -s public-wasm.patch
+
       - name: Upload rebuilt binaries as an artifact (push refused)
         if: steps.diff.outputs.changed == 'true' && steps.push.outcome != 'success'
         uses: actions/upload-artifact@v4
         with:
           name: public-wasm-${{ steps.pin.outputs.version }}
-          path: public/wasm/
+          path: |
+            public-wasm.patch
+            public/wasm/
           if-no-files-found: error
           retention-days: 14
 
@@ -132,13 +151,15 @@ jobs:
           {
             echo "## Push to \`${BRANCH}\` was refused"
             echo
-            echo "The rebuilt binaries are attached to this run as artifact \`public-wasm-${EMSDK_VERSION}\`."
-            echo "Apply them without building locally:"
+            echo "The rebuild is attached to this run as artifact \`public-wasm-${EMSDK_VERSION}\`:"
+            echo "\`public-wasm.patch\` (a binary git patch that also carries deletions) plus the"
+            echo "rebuilt \`public/wasm/\` files. Apply the patch on a checkout of \`${BRANCH}\` at ${GITHUB_SHA}:"
             echo
             echo '```bash'
-            echo "gh run download ${GITHUB_RUN_ID} -n public-wasm-${EMSDK_VERSION} -D public/wasm"
-            echo "npm run check:wasm"
-            echo "git add public/wasm && git commit -m 'chore(wasm): apply CI-built public/wasm (run ${GITHUB_RUN_ID})'"
+            echo "gh run download ${GITHUB_RUN_ID} -n public-wasm-${EMSDK_VERSION} -D /tmp/public-wasm"
+            echo "git apply /tmp/public-wasm/public-wasm.patch"
+            echo "ALLOW_WASM_BINARY_DRIFT=1 npm run check:wasm   # these bytes were built and checked by CI; the drift guard is for local builds"
+            echo "git add -A public/wasm && git commit -m 'chore(wasm): apply CI-built public/wasm (run ${GITHUB_RUN_ID})'"
             echo "git push"
             echo '```'
             echo
