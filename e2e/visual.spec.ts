@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test } from './helpers'
 
 /**
  * Harbor pixel snapshots need a WebGPU adapter; this job runs SwiftShader, where

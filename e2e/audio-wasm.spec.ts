@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './helpers'
 
 test('shared WASM AudioWorklet initializes and publishes analysis', async ({ page }) => {
   await page.goto('/?wireframe=0')
