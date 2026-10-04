@@ -13,7 +13,7 @@
         "build:analyze": "npm run build:wasm && npm run check:wasm && npm run models:verify && tsc && vite build --mode analyze",
         "build:wasm": "cd cpp && ./build.sh",
         "check:wasm": "node scripts/check-wasm.mjs",
-        "check:bundle": "node scripts/check-bundle-size.mjs",
+        "check:bundle": "node scripts/check-bundle-size.mjs && node scripts/check-chunk-cycles.mjs",
         "check:duplicate-assets": "node scripts/check-duplicate-assets.mjs",
         "typecheck": "tsc --noEmit",
         "typecheck:tests": "tsc --noEmit -p tsconfig.vitest.json",
