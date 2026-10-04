@@ -14,6 +14,7 @@ export class FixedStepScheduler {
   private accumulator = 0
   private sim: SimContext
   private recording = false
+  private recordingStart = 0
   private replaying = false
   private inStep = false
   private log: InputLogEntry[] = []
@@ -145,7 +146,13 @@ export class FixedStepScheduler {
     return tick
   }
 
+  /** Tick the current/last recording began at; only 0 is replayable from `reset(seed)`. */
+  get recordingStartTick(): number {
+    return this.recordingStart
+  }
+
   startRecording(): void {
+    this.recordingStart = this.sim.tick
     this.recording = true
     this.replaying = false
     this.log = []

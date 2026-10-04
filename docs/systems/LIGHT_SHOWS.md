@@ -53,3 +53,7 @@ Saves hold no light-show data today. `loadGameState()` returns `null` on **any**
 version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
 When #249 persists user shows: add an **optional** `GameState` field, and do not bump
 `VERSION` until `loadGameState` migrates instead of returning `null`.
+
+## Sharing
+
+Shows travel as `#hgshow=` links or `.hgshow` files — see [SHARE_LINKS.md](SHARE_LINKS.md).

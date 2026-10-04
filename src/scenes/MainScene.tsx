@@ -49,7 +49,8 @@ import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { setSceneCamera } from '../utils/sceneCamera'
 import { buildFrameContext, systemRegistry, useMainSceneSystemBootstrap } from '../systems/bootstrap'
-import { simScheduler } from '../systems/sim'
+import { simScheduler, hashSimSnapshot } from '../systems/sim'
+import { useSharedPlayback, finishVerification } from '../systems/share/sharedPlaybackState'
 import { multiplayerSystem } from '../systems/multiplayerSystem'
 
 // =============================================================================
@@ -398,7 +399,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         )
 
         const role = useGameStore.getState().multiplayerRole
-        const watermark = role === 'spectator' ? multiplayerSystem.getTickWatermark() : undefined
+        // Shared-link playback holds at the document's final tick so its hash can be checked.
+        const verifyAtTick = useSharedPlayback.getState().verifyAtTick
+        const watermark = role === 'spectator'
+            ? multiplayerSystem.getTickWatermark()
+            : verifyAtTick ?? undefined
         simScheduler.advance(delta, (sim) => {
             systemRegistry.tick(
                 sim.dt,
@@ -410,6 +415,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 })
             )
         }, watermark ?? undefined)
+        if (verifyAtTick !== null && simScheduler.tick >= verifyAtTick) {
+            finishVerification(hashSimSnapshot())
+        }
         if (role === 'host') {
             multiplayerSystem.onHostSimTick()
         } else if (role === 'spectator') {

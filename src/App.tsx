@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, type ComponentType } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType } from 'react'
 import { useGameStore, UPGRADE_TARGETS } from './store/useGameStore'
 import { ShipSpawner } from './systems/shipSpawner'
 import { loadGameState } from './utils/storage_manager'
 import type { TrainingModuleId } from './systems/trainingSystem'
 import MainMenu from './components/MainMenu'
+import SharedShowSplash, { type SharedLinkState } from './components/SharedShowSplash'
+import type { ShowDocument } from './schemas/showDocument'
 import LoadingScreen from './components/LoadingScreen'
 import TrainingMode from './components/TrainingMode'
 import { introMusicSystem } from './systems/introMusicSystem'
@@ -26,12 +28,29 @@ function parseMultiplayerConfig(): { enabled: boolean; joinRoomId: string | null
     }
 }
 
+/** Decode a .hgshow payload into a link state; share modules load on demand. */
+async function openShowBytes(read: () => Promise<Uint8Array> | Uint8Array): Promise<SharedLinkState> {
+    try {
+        const { decodeShow } = await import('./systems/share/showCodec')
+        return { status: 'ready', doc: await decodeShow(await read()) }
+    } catch (err) {
+        return { status: 'error', message: err instanceof Error ? err.message : 'Unreadable show' }
+    }
+}
+
+function hasShareFragment(): boolean {
+    return /[#&]hgshow=/.test(window.location.hash)
+}
+
 function App() {
+    const [sharedLink, setSharedLink] = useState<SharedLinkState>(() =>
+        hasShareFragment() ? { status: 'loading' } : { status: 'none' })
     const [screen, setScreen] = useState<'menu' | 'loading' | 'game' | 'training'>('menu')
     const [loadingProgress, setLoadingProgress] = useState(0)
     const [loadingStatus, setLoadingStatus] = useState('Initializing')
     const [GameShellComponent, setGameShellComponent] = useState<ComponentType<GameShellProps> | null>(null)
     const hasSave = !!loadGameState()
+    const stopSharedPlaybackRef = useRef<(() => void) | null>(null)
     const multiplayerConfig = useMemo(() => parseMultiplayerConfig(), [])
     
     const loadSavedState = useGameStore(state => state.loadSavedState)
@@ -50,6 +69,22 @@ function App() {
             default: return 'industrial'
         }
     }, [boothTier])
+
+    // Opening a share link (#hgshow=...): decode, drop the fragment, show the splash.
+    useEffect(() => {
+        if (!hasShareFragment()) return
+        let cancelled = false
+        void (async () => {
+            const { readShareFragment, clearShareFragment } = await import('./systems/share/shareLink')
+            const value = readShareFragment()
+            clearShareFragment()
+            if (!value) return
+            const { fromBase64Url } = await import('./systems/share/showCodec')
+            const next = await openShowBytes(() => fromBase64Url(value))
+            if (!cancelled) setSharedLink(next)
+        })()
+        return () => { cancelled = true }
+    }, [])
 
     // Multiplayer feature flag (?multiplayer=1)
     useEffect(() => {
@@ -101,7 +136,7 @@ function App() {
     }, [])
 
     // Real loading sequence with progress tracking
-    const startGame = useCallback(async (loadSave: boolean) => {
+    const startGame = useCallback(async (loadSave: boolean, sharedDoc?: ShowDocument) => {
         setScreen('loading')
         setLoadingStatus('Loading DSP modules...')
         setLoadingProgress(2)
@@ -148,7 +183,13 @@ function App() {
 
         setLoadingStatus('Finalizing...')
         
-        if (loadSave) {
+        if (sharedDoc) {
+            // Spectator playback of a shared show. Deliberately no resetGame()
+            // (it clears the viewer's save); sharedPlaybackState also blocks autosave.
+            const { startSharedPlayback } = await import('./systems/share/playSharedShow')
+            stopSharedPlaybackRef.current?.()
+            stopSharedPlaybackRef.current = startSharedPlayback(sharedDoc)
+        } else if (loadSave) {
             loadSavedState()
         } else if (multiplayerConfig.joinRoomId) {
             resetGame()
@@ -180,7 +221,7 @@ function App() {
 
     useEffect(() => {
         const handleKeyPress = (e: KeyboardEvent) => {
-            if (e.code === 'Space' && screen === 'menu') {
+            if (e.code === 'Space' && screen === 'menu' && sharedLink.status === 'none') {
                 e.preventDefault()
                 startGame(hasSave)
             }
@@ -188,7 +229,17 @@ function App() {
         
         window.addEventListener('keydown', handleKeyPress)
         return () => window.removeEventListener('keydown', handleKeyPress)
-    }, [screen, hasSave, startGame])
+    }, [screen, hasSave, startGame, sharedLink.status])
+
+    const handleWatchShared = useCallback((doc: ShowDocument) => {
+        setSharedLink({ status: 'none' })
+        void startGame(false, doc)
+    }, [startGame])
+
+    const handleOpenShowFile = useCallback(async (file: File) => {
+        setSharedLink({ status: 'loading' })
+        setSharedLink(await openShowBytes(async () => new Uint8Array(await file.arrayBuffer())))
+    }, [])
 
     const handleOpenTraining = useCallback(() => {
         setScreen('training')
@@ -241,8 +292,18 @@ function App() {
         }
     }, [screen])
 
+    if (screen === 'menu' && sharedLink.status !== 'none') {
+        return (
+            <SharedShowSplash
+                link={sharedLink}
+                onWatch={handleWatchShared}
+                onBack={() => setSharedLink({ status: 'none' })}
+            />
+        )
+    }
+
     if (screen === 'menu') {
-        return <MainMenu hasSave={hasSave} onNewGame={handleNewGame} onLoadGame={handleLoadGame} onTraining={handleOpenTraining} onTugboatMode={handleTugboatMode} />
+        return <MainMenu hasSave={hasSave} onNewGame={handleNewGame} onLoadGame={handleLoadGame} onTraining={handleOpenTraining} onTugboatMode={handleTugboatMode} onOpenShowFile={handleOpenShowFile} />
     }
     
     if (screen === 'training') {
