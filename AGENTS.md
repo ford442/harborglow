@@ -527,8 +527,19 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
 | `gate-size` | `npm run typecheck && vite build && npm run check:bundle` | Bundle size budget regressions |
+| `gate-boot` | `npm run build` + `npx playwright test --project=boot --retries=0` (`e2e/boot.spec.ts`) | The production bundle fails to evaluate in a browser: menu never renders, an uncaught page error, a TDZ / `extends value undefined` console error, or any emitted chunk that throws when imported. 6-minute timeout, no retries — see [Chunk groups and boot](#chunk-groups-and-boot) |
 | `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
-| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
+| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×1 on failure (×2 once made a fully red run outlive the 20-minute job timeout, so GitHub reported it "cancelled", not "failed"). Uploads `playwright-report/` artifact on failure. Broad suite, **not** a merge gate — `gate-boot` is. |
+
+### Chunk groups and boot
+
+The production split is defined by `codeSplitting.groups` in `scripts/chunkGroups.mjs` (imported by `vite.config.ts`). It runs with `includeDependenciesRecursively: false` on purpose: the default drags every dependency of a matched module into that group (e.g. `three.core.js` into `vendor-3d-webgpu`), so each group claims only what its regex matches. The cost is that **a package no regex matches is emitted wherever rolldown first reaches it** — an app chunk such as `MainScene`, or a chunk of its own — and a vendor chunk that needs it imports it back. That is a chunk cycle, and from 2026-09-27 to 2026-10-04 one shipped: `GLTFLoader extends Loader` evaluated before `Loader` existed, the entry threw "Class extends value undefined is not a constructor or null", and main was a blank page for a week while every gate was green.
+
+Rules:
+
+- **Any new R3F-ecosystem dependency** (a new direct dep, or a new transitive `dependencies` entry of `@react-three/fiber`, `@react-three/drei`, `three-stdlib` or `troika-three-text` after an upgrade) **must be added to the `vendor-3d-core` list** in `scripts/chunkGroups.mjs`. `src/test/__tests__/viteChunkGroups.test.ts` walks that closure from `node_modules` and names every unclaimed package, so the fix is a one-line list edit. Its `KNOWN_UNCLAIMED` set lists closure packages no bundled module reaches today; claim them rather than adding to it.
+- `npm run check:bundle` also runs `scripts/check-chunk-cycles.mjs` over `dist/assets`: it fails on any static import cycle between chunks (dynamic `import()` may close a loop) and on any `vendor-*` chunk statically importing a non-vendor chunk (except `rolldown-runtime-*`, `with-selector-*`, and a lazy vendor chunk importing only Vite's preload helper from the entry).
+- **`gate-boot` is the merge gate that proves the production bundle evaluates.** It loads the preview build in headless Chromium, waits for the menu, imports every emitted chunk, and fails on any page error. Run it locally with `ALLOW_MISSING_EMSDK=1 npm run build && npx playwright test --project=boot` (`npm run test:e2e:install` once). Every Playwright spec imports `test` from `e2e/helpers.ts`, which fails a test on any uncaught page error; a spec that provokes one on purpose opts out with `test.use({ allowPageErrors: true })` and a comment.
 
 ### Local verify (`npm run verify`)
 
@@ -539,7 +550,7 @@ rm -rf node_modules && npm ci   # once per lockfile change, or when deps look wr
 npm run verify                  # ~3–5 min on a typical dev machine
 ```
 
-`npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
+`npm run verify` covers **7 of 9** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run `gate-boot` (needs Playwright Chromium; command in [Chunk groups and boot](#chunk-groups-and-boot)), nor:
 
 - **`gate-wasm`** — requires Emscripten 6.0.6, and even with it installed **do not commit its output** (see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally)). If you changed `cpp/`, you may run `npm run build:wasm && make -C cpp test && npm run check:wasm` locally to test, then discard the binaries (`git checkout -- public/wasm`) and let the `WASM rebuild` workflow produce the committed ones.
   - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of the workflow's `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` fails locally on that drift (and warns when your local `em++` is not the pinned release); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating.
