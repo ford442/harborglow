@@ -1,4 +1,40 @@
-import { expect, type Locator, type Page } from '@playwright/test'
+import { test as base, expect, type Locator, type Page } from '@playwright/test'
+
+export { expect }
+
+type PageErrorGuard = {
+  /**
+   * Opt-out for a spec that deliberately provokes an uncaught page error:
+   * `test.use({ allowPageErrors: true })`, with a comment saying why.
+   */
+  allowPageErrors: boolean
+  failOnPageError: void
+}
+
+/**
+ * Shared `test` for every spec: any uncaught page error (`pageerror`) fails the
+ * test after its body ran, even when the body's own assertions passed. A
+ * production bundle that throws at module evaluation (the vendor chunk cycle
+ * that blanked main 2026-09-27 → 2026-10-04) surfaces as a page error.
+ */
+export const test = base.extend<PageErrorGuard>({
+  allowPageErrors: [false, { option: true }],
+  failOnPageError: [
+    async ({ page, allowPageErrors }, use) => {
+      const errors: string[] = []
+      const onPageError = (err: Error) => {
+        errors.push(err.stack ?? err.message)
+      }
+      page.on('pageerror', onPageError)
+      await use()
+      page.off('pageerror', onPageError)
+      if (!allowPageErrors) {
+        expect(errors, `Uncaught page errors:\n${errors.join('\n\n')}`).toHaveLength(0)
+      }
+    },
+    { auto: true },
+  ],
+})
 
 export type ConsoleCollector = {
   errors: string[]

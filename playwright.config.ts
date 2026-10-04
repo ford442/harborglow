@@ -14,7 +14,10 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // e2e-visual is the broad suite; one retry keeps a fully red run inside the
+  // job timeout so GitHub reports "failed", not "cancelled". The boot project
+  // below overrides this with zero retries.
+  retries: process.env.CI ? 1 : 0,
   workers: 1,
   timeout: 120_000,
   reporter: process.env.CI
@@ -42,6 +45,21 @@ export default defineConfig({
       timeout: 15_000,
     },
   },
+  projects: [
+    // gate-boot (a merge gate): does the production bundle evaluate at all?
+    // A chunk cycle in the vendor split once left main blank-at-boot for a
+    // week while every other gate stayed green. Fast and never retried.
+    {
+      name: 'boot',
+      testMatch: /(^|[\\/])boot\.spec\.ts$/,
+      timeout: 60_000,
+      retries: 0,
+    },
+    // Unnamed so existing snapshot paths ({projectName} = '') stay valid.
+    {
+      testIgnore: /(^|[\\/])boot\.spec\.ts$/,
+    },
+  ],
   snapshotPathTemplate:
     '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}',
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER

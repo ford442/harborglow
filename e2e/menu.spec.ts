@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers'
 
 test.describe('Main menu', () => {
   test('shows New Game button', async ({ page }) => {
