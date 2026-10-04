@@ -81,9 +81,57 @@ export default defineConfig(({ mode }) => ({
                             test: /examples[\\/]jsm[\\/]tsl[\\/]|addons[\\/]tsl[\\/]/,
                             priority: 40,
                         },
+                        // The R3F ecosystem's transitive deps MUST be grouped here with
+                        // three/fiber/drei. With includeDependenciesRecursively: false,
+                        // anything left ungrouped (three-stdlib's GLTFLoader, troika-three-text,
+                        // fflate, suspend-react, ...) is emitted into whichever app chunk first
+                        // reaches it (MainScene, or a chunk of its own), and vendor-3d-core
+                        // (drei) imports it back. That chunk cycle evaluates
+                        // `GLTFLoader extends Loader` before `Loader` exists and the production
+                        // build dies at boot with "Class extends value undefined is not a
+                        // constructor or null" (main, 2026-09-27 → 2026-10-04). The list is the
+                        // runtime `dependencies` closure of @react-three/fiber 9.7,
+                        // @react-three/drei 10.7, three-stdlib 2.36 and troika-three-text 0.52,
+                        // minus react/react-dom/scheduler (vendor-react), zustand and
+                        // use-sync-external-store (shared with the store, stay in the main graph)
+                        // and @react-three/rapier (its own group below).
                         {
                             name: 'vendor-3d-core',
-                            test: /node_modules[\\/](three[\\/]|@react-three[\\/](fiber|drei))/,
+                            test: new RegExp(
+                                `node_modules[\\\\/](${[
+                                    'three',
+                                    'three-stdlib',
+                                    'three-mesh-bvh',
+                                    '@react-three[\\\\/](fiber|drei)',
+                                    '@babel[\\\\/]runtime',
+                                    '@mediapipe',
+                                    '@monogrid',
+                                    '@use-gesture',
+                                    'base64-js',
+                                    'bidi-js',
+                                    'buffer',
+                                    'camera-controls',
+                                    'detect-gpu',
+                                    'draco3d',
+                                    'fflate',
+                                    'glsl-noise',
+                                    'hls\\.js',
+                                    'its-fine',
+                                    'maath',
+                                    'meshline',
+                                    'potpack',
+                                    'react-use-measure',
+                                    'stats-gl',
+                                    'stats\\.js',
+                                    'suspend-react',
+                                    'troika-three-text',
+                                    'troika-three-utils',
+                                    'troika-worker-utils',
+                                    'tunnel-rat',
+                                    'utility-types',
+                                    'webgl-sdf-generator',
+                                ].join('|')})[\\\\/]`,
+                            ),
                             priority: 30,
                         },
                         {
