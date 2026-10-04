@@ -297,6 +297,55 @@ jobs:
           ALLOW_MISSING_EMSDK: "1"
         run: npm run typecheck && npx vite build && npm run check:bundle
 
+  gate-boot:
+    # Proves the production bundle evaluates in a browser. From 2026-09-27 to
+    # 2026-10-04 main shipped a vendor chunk cycle that threw at module
+    # evaluation (blank page) while every other gate stayed green: e2e-visual
+    # saw it but was not a merge gate, and its retries outlived its timeout so
+    # GitHub reported "cancelled". This job is small, never retried, and tight.
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    needs: gate-lockfile
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npm run test:e2e:install
+
+      - name: Production build
+        env:
+          ALLOW_MISSING_EMSDK: "1"
+        run: npm run build
+
+      - name: Boot the production bundle (Playwright project `boot`)
+        run: npx playwright test --project=boot --retries=0
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-boot
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   merge-gate:
     name: merge-gate
     runs-on: ubuntu-latest
@@ -311,6 +360,7 @@ jobs:
       - gate-smoke
       - gate-build
       - gate-size
+      - gate-boot
     if: always()
     steps:
       - name: Require all merge gates
@@ -323,9 +373,10 @@ jobs:
           GATE_SMOKE: ${{ needs.gate-smoke.result }}
           GATE_BUILD: ${{ needs.gate-build.result }}
           GATE_SIZE: ${{ needs.gate-size.result }}
+          GATE_BOOT: ${{ needs.gate-boot.result }}
         run: |
           failed=0
-          for label in GATE_LOCKFILE GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD GATE_SIZE; do
+          for label in GATE_LOCKFILE GATE_WASM GATE_TYPECHECK GATE_LINT GATE_TEST GATE_SMOKE GATE_BUILD GATE_SIZE GATE_BOOT; do
             result="${!label}"
             echo "$label: $result"
             if [ "$result" != "success" ]; then
