@@ -3,10 +3,12 @@
 //
 // Pins the ring to the `high` budget and keeps it full: four glitter streams
 // and four firework streams around the first docked ship (or the origin),
-// each spawning at capacity / (8 × life) per second. Read the frame budget
-// overlay (`&frameBudget=1`) or `window.__particleBench`.
+// each spawning at capacity / (8 × life) per second. `window.__particleBench`
+// reports average and p95 frame time over the last 30 s (raw R3F delta) —
+// the numbers the acceptance run records in docs/systems/PARTICLES.md.
 // =============================================================================
 
+import { percentile } from '../../rendering/frameBudgetState'
 import { EMITTER_PRESETS, type EmitterPresetId } from '../../rendering/particles/emitterPresets'
 
 export function parseParticleBench(
@@ -19,7 +21,14 @@ export function parseParticleBench(
 export interface ParticleBenchStats {
   capacity: number
   spawnedPerSec: number
+  /** Rolling 30 s window of raw frame times. */
+  frameMsAvg: number
+  frameMsP95: number
+  frameSamples: number
 }
+
+/** 30 s at 60 fps. */
+export const BENCH_WINDOW_FRAMES = 1800
 
 type Emit = (
   preset: EmitterPresetId,
@@ -48,13 +57,22 @@ export class ParticleBench {
   private readonly acc = new Float64Array(BENCH_EMITTERS.length)
   private spawned = 0
   private window = 0
+  private readonly frameMs = new Float64Array(BENCH_WINDOW_FRAMES)
+  private readonly sortScratch = new Float64Array(BENCH_WINDOW_FRAMES)
+  private frames = 0
   readonly stats: ParticleBenchStats
 
   constructor(readonly capacity: number) {
-    this.stats = { capacity, spawnedPerSec: 0 }
+    this.stats = { capacity, spawnedPerSec: 0, frameMsAvg: 0, frameMsP95: 0, frameSamples: 0 }
     if (typeof window !== 'undefined') {
       ;(window as unknown as { __particleBench?: ParticleBenchStats }).__particleBench = this.stats
     }
+  }
+
+  /** Record one raw (unclamped) frame delta, in seconds. */
+  recordFrame(deltaS: number): void {
+    this.frameMs[this.frames % BENCH_WINDOW_FRAMES] = deltaS * 1000
+    this.frames++
   }
 
   step(dt: number, cx: number, cz: number, emit: Emit): void {
@@ -74,6 +92,12 @@ export class ParticleBench {
       this.stats.spawnedPerSec = Math.round(this.spawned / this.window)
       this.spawned = 0
       this.window = 0
+      const n = Math.min(this.frames, BENCH_WINDOW_FRAMES)
+      let sum = 0
+      for (let i = 0; i < n; i++) sum += this.frameMs[i]
+      this.stats.frameSamples = n
+      this.stats.frameMsAvg = n > 0 ? sum / n : 0
+      this.stats.frameMsP95 = percentile(this.frameMs, n, 0.95, this.sortScratch)
     }
   }
 }

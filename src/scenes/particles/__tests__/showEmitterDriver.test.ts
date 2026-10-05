@@ -110,4 +110,17 @@ describe('ParticleBench', () => {
     expect(spawned).toBeGreaterThan(expected - 10)
     expect(bench.stats.spawnedPerSec).toBeGreaterThan(0)
   })
+
+  it('reports rolling average and p95 frame time', () => {
+    const bench = new ParticleBench(64)
+    const emit = () => 0
+    // Stats refresh once per simulated second: 120 frames, the last 4 slow (< 5%).
+    for (let i = 0; i < 120; i++) {
+      bench.recordFrame(i < 116 ? 0.016 : 0.05)
+      bench.step(1 / 60, 0, 0, emit)
+    }
+    expect(bench.stats.frameSamples).toBe(120)
+    expect(bench.stats.frameMsAvg).toBeGreaterThan(16)
+    expect(bench.stats.frameMsP95).toBeCloseTo(16, 0)
+  })
 })

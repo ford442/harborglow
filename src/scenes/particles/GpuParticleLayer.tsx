@@ -13,6 +13,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+import { setFrameBudgetParticles } from '../../rendering/frameBudgetState'
 import { GpuParticleSystem, type ParticleRenderer } from '../../rendering/particles/GpuParticleSystem'
 import { EMITTER_PRESETS } from '../../rendering/particles/emitterPresets'
 import { writeFxFrameUniforms } from '../../rendering/particles/fxFrameUniforms'
@@ -105,8 +106,9 @@ function ParticleEngine({ budget, bench }: { budget: number; bench: boolean }) {
       )
     }
 
-    return (stepDt: number) => {
+    return (stepDt: number, rawDelta: number) => {
       dt = stepDt
+      benchRig?.recordFrame(rawDelta)
       drainFxRequests(visitBurst)
       forEachContinuousEmitter(visitStream)
 
@@ -133,12 +135,17 @@ function ParticleEngine({ budget, bench }: { budget: number; bench: boolean }) {
   useEffect(() => {
     let cancelled = false
     sys.init(gl).then(
-      () => { if (!cancelled) setFxBusEnabled(true) },
+      () => {
+        if (cancelled) return
+        setFxBusEnabled(true)
+        setFrameBudgetParticles(sys.capacity)
+      },
       (err) => console.warn('✨ GPU particles disabled — init failed:', err),
     )
     return () => {
       cancelled = true
       setFxBusEnabled(false)
+      setFrameBudgetParticles(0)
       sys.dispose(gl)
     }
   }, [sys, gl])
@@ -146,7 +153,7 @@ function ParticleEngine({ budget, bench }: { budget: number; bench: boolean }) {
   useFrame((state, delta) => {
     const dt = writeFxFrameUniforms(delta, state.clock.elapsedTime)
     if (!sys.ready) return
-    tick(dt)
+    tick(dt, delta)
     sys.step(gl)
   })
 

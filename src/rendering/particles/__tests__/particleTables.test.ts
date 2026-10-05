@@ -93,3 +93,15 @@ describe('PaletteAllocator', () => {
     expect(assigned.length).toBe(1 + (PALETTE_SLOTS - 1) + 1)
   })
 })
+
+describe('frame budget percentile', () => {
+  it('sorts into scratch without touching the source', async () => {
+    const { percentile } = await import('../../frameBudgetState')
+    const src = [5, 1, 4, 2, 3]
+    const scratch = new Float64Array(8)
+    expect(percentile(src, 5, 0.95, scratch)).toBe(5)
+    expect(percentile(src, 5, 0.5, scratch)).toBe(3)
+    expect(percentile(src, 0, 0.5, scratch)).toBe(0)
+    expect(src).toEqual([5, 1, 4, 2, 3])
+  })
+})

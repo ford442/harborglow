@@ -8,7 +8,15 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { WebGLRenderer } from 'three'
 import { getGpuChoresBreadcrumb } from './gpuChores'
-import { createHeapChurnTracker, getCommitCounts, updateFrameBudgetSnapshot } from './frameBudgetState'
+import {
+  createHeapChurnTracker,
+  getCommitCounts,
+  getFrameBudgetParticles,
+  percentile,
+  updateFrameBudgetSnapshot,
+} from './frameBudgetState'
+
+const p95Scratch = new Float64Array(120)
 
 function isFrameBudgetEnabled(): boolean {
   const meta = import.meta as ImportMeta & { env?: { DEV?: boolean } }
@@ -77,6 +85,8 @@ export default function FrameBudgetMonitor() {
 
     const avgMs = times.reduce((sum, t) => sum + t, 0) / times.length
     const maxMs = Math.max(...times)
+    const p95Ms = percentile(times, times.length, 0.95, p95Scratch)
+    const particles = getFrameBudgetParticles()
     const renderer = gl as WebGLRenderer
     const info = renderer.info?.render
     const calls = info?.calls ?? 0
@@ -95,6 +105,7 @@ export default function FrameBudgetMonitor() {
 
     updateFrameBudgetSnapshot({
       frameMs: avgMs,
+      frameMsP95: p95Ms,
       frameMsMax: maxMs,
       drawCalls: calls,
       triangles,
@@ -102,10 +113,12 @@ export default function FrameBudgetMonitor() {
       allocMbPerSec,
       gcPerSec,
       commitsPerSec,
+      particles,
     })
 
     overlayRef.current.textContent =
-      `frame ${avgMs.toFixed(1)}ms (peak ${maxMs.toFixed(1)}ms)\n` +
+      `frame ${avgMs.toFixed(1)}ms (p95 ${p95Ms.toFixed(1)}ms, peak ${maxMs.toFixed(1)}ms)\n` +
+      `particles ${particles > 0 ? particles.toLocaleString('en-US') : 'off'}\n` +
       `draws ${calls}  tris ${triangles}\n` +
       `heap Δ ${heapDeltaMb >= 0 ? '+' : ''}${heapDeltaMb.toFixed(2)} MB  alloc ${allocMbPerSec.toFixed(2)} MB/s  gc ${gcPerSec.toFixed(1)}/s\n` +
       `commits ${commitLine || 'n/a (needs dev/profiling React build)'}\n` +
