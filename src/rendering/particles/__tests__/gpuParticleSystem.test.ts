@@ -2,35 +2,7 @@ import * as THREE from 'three/webgpu'
 import { describe, expect, it } from 'vitest'
 import { GpuParticleSystem, type ParticleRenderer } from '../GpuParticleSystem'
 import { PARTICLE_WORKGROUP } from '../particleBudget'
-
-/**
- * A WebGPURenderer that never touches a device: enough for its backend's
- * WGSL node builder to compile kernels and materials under Node.
- */
-function wgslCompiler() {
-  const canvas = { style: {}, addEventListener() {}, removeEventListener() {}, getContext: () => null, width: 1, height: 1 }
-  const renderer = new THREE.WebGPURenderer({ canvas: canvas as unknown as HTMLCanvasElement }) as any
-  renderer.hasFeature = () => false
-  renderer._initialized = true
-  return {
-    compute(node: unknown): string {
-      const b = renderer.backend.createNodeBuilder(node, renderer)
-      b.build()
-      return String(b.computeShader)
-    },
-    material(object: THREE.Object3D, material: THREE.Material): { vertex: string; fragment: string } {
-      const scene = new THREE.Scene()
-      scene.add(object)
-      const b = renderer.backend.createNodeBuilder(object, renderer)
-      b.scene = scene
-      b.camera = new THREE.PerspectiveCamera()
-      b.material = material
-      b.context.material = material
-      b.build()
-      return { vertex: String(b.vertexShader), fragment: String(b.fragmentShader) }
-    },
-  }
-}
+import { wgslCompiler } from './wgslTestCompiler'
 
 function fakeRenderer() {
   const calls: Array<{ node: unknown; n: number | undefined }> = []

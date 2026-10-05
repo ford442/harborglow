@@ -1,7 +1,9 @@
 // =============================================================================
-// GpuParticleLayer — mounts the TSL compute particle engine (#248)
+// GpuParticleLayer — mounts the TSL compute particle engine + laser beams (#248)
 //
 // Lazy-loaded from MainScene (own chunk, outside the game-initial budget).
+// Lasers need no compute and mount whenever the layer does; particles mount
+// only when canUseGpuParticles passes.
 // Each frame, in one useFrame at default priority (so R3F still owns the
 // render): write the shared fx uniforms → drain fxBus bursts → continuous
 // streams → show-driven emitters → bench → dispatch update + spawn compute.
@@ -27,6 +29,7 @@ import {
   type ContinuousEmitterSpec,
   type FxRequest,
 } from './fxBus'
+import LaserBeamLayer from './LaserBeamLayer'
 import { ParticleBench, parseParticleBench } from './particleBench'
 import { ShowEmitterDriver, StreamAccumulator, type ShowFrame } from './showEmitterDriver'
 
@@ -39,8 +42,12 @@ export default function GpuParticleLayer() {
   const gpuOk = useMemo(() => canUseGpuParticles(gl), [gl])
   const bench = useMemo(() => parseParticleBench(), [])
   const budget = bench ? PARTICLE_BUDGET.high : PARTICLE_BUDGET[quality]
-  if (!gpuOk) return null
-  return <ParticleEngine key={budget} budget={budget} bench={bench} />
+  return (
+    <>
+      {gpuOk && <ParticleEngine key={budget} budget={budget} bench={bench} />}
+      <LaserBeamLayer quality={quality} />
+    </>
+  )
 }
 
 function ParticleEngine({ budget, bench }: { budget: number; bench: boolean }) {
