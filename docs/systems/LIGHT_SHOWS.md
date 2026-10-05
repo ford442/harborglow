@@ -114,6 +114,21 @@ The full per-ship mapping is snapshotted in `rigGroups.test.ts`; a new blueprint
 appears there as a reviewable diff. A show may target a group a hull lacks — that
 imports fine and is a play-time no-op: no rig of that group exists to light.
 
+## FX hooks
+
+GPU particles and laser beams (#248, [PARTICLES.md](./PARTICLES.md)) read the active cue
+through `lightingSystem.getCueState()` / `getActiveCue()`:
+
+- The `pattern` picks the effect: strobe sparks, snap fireworks, breathe/sweep glitter, and
+  laser motion.
+- `target` limits emission to installed rigs in that group.
+- `color` and `intensity` tint and scale it.
+
+There is no `fx` field yet. When slice 3 or 7 adds one, make it optional
+(`fx?: EmitterPresetId`), so existing shows and share links stay valid without a version
+bump. Play it through `triggerEmitter(cue.fx, { anchorKey }, { color: cue.color })` per
+targeted anchor. The pattern-based defaults remain for cues without `fx`.
+
 ## Save rule
 
 Saves hold no light-show data today. `loadGameState()` returns `null` on **any**
