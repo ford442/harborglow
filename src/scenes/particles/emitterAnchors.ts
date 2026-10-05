@@ -1,8 +1,8 @@
 // =============================================================================
-// EMITTER ANCHORS — world-space poses of installed attachment points
+// EMITTER ANCHORS — world-space poses of ship attachment points
 //
 // EmitterAnchors.tsx (mounted per ship inside ProceduralShip, so it inherits
-// scale and bob) writes each installed point's world pose here every frame.
+// scale and bob) writes every attachment point's world pose here each frame.
 // Entries are mutated in place, like the rig flare registry in
 // lightRigs/rigPolish.ts.
 // =============================================================================
@@ -18,6 +18,8 @@ export interface EmitterAnchor {
   partName: string
   rigType: RigType
   group: RigGroupId
+  /** A rig is installed here (only installed points emit during shows). */
+  installed: boolean
   position: THREE.Vector3
   quaternion: THREE.Quaternion
 }
@@ -39,6 +41,11 @@ export function getEmitterAnchor(key: string): EmitterAnchor | undefined {
 
 export function forEachEmitterAnchor(visit: (anchor: EmitterAnchor) => void): void {
   anchors.forEach(visit)
+}
+
+/** Live iterator over registered anchors (do not mutate the registry while iterating). */
+export function emitterAnchors(): IterableIterator<EmitterAnchor> {
+  return anchors.values()
 }
 
 export function emitterAnchorCount(): number {

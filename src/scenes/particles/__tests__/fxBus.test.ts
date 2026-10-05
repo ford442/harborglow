@@ -73,7 +73,7 @@ describe('emitterAnchors', () => {
     expect(key).toBe('ship-1:funnel_top')
     setEmitterAnchor(key, {
       key, shipId: 'ship-1', shipType: 'cruise', partName: 'funnel_top',
-      rigType: 'rgb_matrix', group: 'funnel',
+      rigType: 'rgb_matrix', group: 'funnel', installed: true,
       position: new THREE.Vector3(1, 2, 3), quaternion: new THREE.Quaternion(),
     })
     expect(getEmitterAnchor(key)?.position.y).toBe(2)

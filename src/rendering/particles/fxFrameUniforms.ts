@@ -27,17 +27,18 @@ export const fxUniforms = {
   uCueColor: uniform(new THREE.Color(1, 1, 1)),
 }
 
-let lastFrame = -1
+let lastFrameKey = Number.NaN
 
 /**
  * Write audio analysis + cue state into the shared uniforms. Idempotent per
- * `frame` (pass R3F's frame counter), so a second caller in the same frame is
- * a no-op. Returns the clamped dt.
+ * `frameKey` (pass R3F's `state.clock.elapsedTime`, identical for every
+ * useFrame callback in one frame), so particles and lasers can both call it
+ * and only the first write lands. Returns the clamped dt.
  */
-export function writeFxFrameUniforms(delta: number, frame: number): number {
+export function writeFxFrameUniforms(delta: number, frameKey: number): number {
   const dt = Math.min(Math.max(delta, 0), FX_MAX_DT)
-  if (frame === lastFrame) return dt
-  lastFrame = frame
+  if (frameKey === lastFrameKey) return dt
+  lastFrameKey = frameKey
   const u = fxUniforms
   const audio = getAudioAnalysisData()
   u.uDt.value = dt

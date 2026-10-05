@@ -6,6 +6,7 @@
     "vendor-3d-rapier": 900,
     "GameShell": 600,
     "MainScene": 600,
+    "GpuParticleLayer": 8,
     "index": 200
   },
   "profiles": {
