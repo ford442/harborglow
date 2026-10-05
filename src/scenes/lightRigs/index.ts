@@ -1,4 +1,3 @@
-export { SparkEffect } from './SparkEffect'
 export { useShaderTime, weatheringShader } from './LightRigAnimations'
 export { InstalledRigVisual } from './InstalledRigVisual'
 export { default as TankerFlareHeat } from './TankerFlareHeat'
