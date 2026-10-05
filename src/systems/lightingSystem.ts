@@ -29,6 +29,8 @@ class LightingSystem {
   private intensityMultiplier = 1.0
   private beatPulse = 0
   private activeCue: LightCueV2 | null = null
+  /** Imported show (share link / .hgshow) that replaces the preset; plays until cleared. */
+  private showOverride: LightShowV2 | null = null
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
 
   // ============================================================================
@@ -49,9 +51,18 @@ class LightingSystem {
     console.log('   Duration: 30 seconds')
     console.log('   All LEDs, funnels, deck lights PULSING to beat!')
 
-    setTimeout(() => {
-      this.endHarborShow()
-    }, this.currentShow.duration)
+    // An imported show loops until the override is cleared.
+    if (!this.showOverride) {
+      setTimeout(() => {
+        this.endHarborShow()
+      }, this.currentShow.duration)
+    }
+  }
+
+  /** Install (or clear with null) a show that replaces the factory preset. */
+  setShowOverride(show: LightShowV2 | null) {
+    this.showOverride = show
+    if (!show) this.endHarborShow()
   }
 
   endHarborShow() {
@@ -79,7 +90,7 @@ class LightingSystem {
       const effectiveBpm = this.currentShow.bpm || bpm
       const beatDuration = 60 / effectiveBpm
       const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
-      const show = this.currentShow.shipType ? getLightShowV2(this.currentShow.shipType) : undefined
+      const show = this.showOverride ?? (this.currentShow.shipType ? getLightShowV2(this.currentShow.shipType) : undefined)
 
       if (show && show.cues.length > 0) {
         const elapsedBeats = (elapsed / 1000) / beatDuration

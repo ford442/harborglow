@@ -13,6 +13,8 @@ export interface MainMenuProps {
     onLoadGame: () => void
     onTraining?: () => void
     onTugboatMode?: () => void
+    /** A .hgshow file was picked from the menu. */
+    onOpenShowFile?: (file: File) => void
 }
 import HowToPlayModal from './MainMenu/HowToPlayModal'
 import SettingsModal from './MainMenu/SettingsModal'
@@ -353,7 +355,8 @@ function HarborLightsBackground() {
   )
 }
 
-export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, onTugboatMode }: MainMenuProps) {
+export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, onTugboatMode, onOpenShowFile }: MainMenuProps) {
+    const showFileInputRef = useRef<HTMLInputElement>(null)
     const [activeModal, setActiveModal] = useState<ModalType>(null)
     const [saveInfo, setSaveInfo] = useState<{ reputation?: number; shipCount?: number } | null>(null)
     const [hasNewVersion, setHasNewVersion] = useState(false)
@@ -588,6 +591,29 @@ export default function MainMenu({ hasSave, onNewGame, onLoadGame, onTraining, o
                         variant="secondary"
                         onClick={onTugboatMode || (() => {})}
                     />
+
+                    {onOpenShowFile && (
+                        <>
+                            <MenuButton
+                                label="Open .hgshow"
+                                icon="📂"
+                                variant="secondary"
+                                onClick={() => showFileInputRef.current?.click()}
+                            />
+                            <input
+                                ref={showFileInputRef}
+                                type="file"
+                                accept=".hgshow"
+                                data-testid="hgshow-file-input"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    e.target.value = ''
+                                    if (file) onOpenShowFile(file)
+                                }}
+                            />
+                        </>
+                    )}
 
                     <MenuButton
                         label="How to Play"

@@ -17,6 +17,7 @@ import { economySystem } from '../systems/economySystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
 import type { WaveParams } from '../systems/WaveSystem'
 import { AcousticNote } from '../systems/commsSystem'
+import { isSharedPlaybackActive } from '../systems/share/sharedPlaybackState'
 
 // =============================================================================
 // TYPES - HarborGlow Game State
@@ -675,8 +676,11 @@ export const getSerializableState = (state: GameState): StorageGameState => ({
 })
 
 export const scheduleSave = (state: GameState) => {
+    // A shared-link playback must never overwrite the viewer's own save.
+    if (isSharedPlaybackActive()) return
     if (saveTimeout) clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
+        if (isSharedPlaybackActive()) return
         saveGameState(getSerializableState(state))
     }, 500)
 }
