@@ -7,6 +7,7 @@ import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { triggerInstallation } from '../systems/attachmentSystem'
 import { startQueueTravelHum, stopQueueTravelHum } from '../systems/soundEffects'
 
@@ -168,7 +169,7 @@ export default function CraneAutoPilot() {
         if (active.length === 0) return []
 
         const points: THREE.Vector3[] = [
-            _queuePointBuffer.set(store.spreaderPos.x, store.spreaderPos.y, store.spreaderPos.z).clone(),
+            _queuePointBuffer.set(getCraneKinematics().spreaderPos.x, getCraneKinematics().spreaderPos.y, getCraneKinematics().spreaderPos.z).clone(),
         ]
 
         for (const item of active) {
@@ -208,7 +209,7 @@ export default function CraneAutoPilot() {
             ship.position[1] + point.position[1],
             ship.position[2] + point.position[2]
         )
-        startSpreaderRef.current = { ...store.spreaderPos }
+        startSpreaderRef.current = { ...getCraneKinematics().spreaderPos }
         shipIdRef.current = pending.shipId
         partNameRef.current = pending.partName
         return targetRef.current
@@ -281,7 +282,7 @@ export default function CraneAutoPilot() {
         }
 
         const target = targetRef.current
-        const spreader = store.spreaderPos
+        const spreader = getCraneKinematics().spreaderPos
         const speed = 8 // m/s
 
         _currentVec.set(spreader.x, spreader.y, spreader.z)
@@ -298,7 +299,7 @@ export default function CraneAutoPilot() {
                 phaseRef.current = 'lock'
                 store.setTwistlockEngaged(true)
                 bindStartTimeRef.current = state.clock.elapsedTime
-                startSpreaderRef.current = { ...store.spreaderPos }
+                startSpreaderRef.current = { ...getCraneKinematics().spreaderPos }
                 if (queueTravelHumActiveRef.current) {
                     stopQueueTravelHum()
                     queueTravelHumActiveRef.current = false
@@ -311,7 +312,7 @@ export default function CraneAutoPilot() {
             const step = Math.min(distance, speed * delta)
             const nextPos = _currentVec.add(direction.multiplyScalar(step))
 
-            store.setSpreaderPos({ x: nextPos.x, y: nextPos.y, z: nextPos.z })
+            getCraneKinematics().setSpreaderPos({ x: nextPos.x, y: nextPos.y, z: nextPos.z })
 
             // Update trolley position to match X (mapped from world x to trolley 0..1)
             const CRANE_JIB_SPAN = 40
@@ -320,16 +321,16 @@ export default function CraneAutoPilot() {
                 0,
                 1
             )
-            store.setTrolleyPosition(trolleyNormalized)
+            getCraneKinematics().setTrolleyPosition(trolleyNormalized)
 
             // Update cable depth to match Y (cable length from trolley height)
             const CRANE_TROLLEY_HEIGHT = 9.2
             const cableDepth = Math.max(0, CRANE_TROLLEY_HEIGHT - nextPos.y)
-            store.setCableDepth(cableDepth)
+            getCraneKinematics().setCableDepth(cableDepth)
 
             // Face the ship (look toward target on XZ plane)
             const angle = Math.atan2(target.z - nextPos.z, target.x - nextPos.x)
-            store.setSpreaderRotation(angle)
+            getCraneKinematics().setSpreaderRotation(angle)
         }
 
         // -----------------------------------------------------------------
@@ -344,7 +345,7 @@ export default function CraneAutoPilot() {
 
             if (startSpreaderRef.current) {
                 const start = startSpreaderRef.current
-                store.setSpreaderPos({
+                getCraneKinematics().setSpreaderPos({
                     x: start.x + (target.x - start.x) * t,
                     y: start.y + (target.y - start.y) * t,
                     z: start.z + (target.z - start.z) * t,
@@ -383,7 +384,7 @@ export default function CraneAutoPilot() {
 
         if (phaseRef.current === 'staging' && targetRef.current) {
             const safeY = targetRef.current.y + 5
-            const dist = Math.abs(store.spreaderPos.y - safeY)
+            const dist = Math.abs(getCraneKinematics().spreaderPos.y - safeY)
             if (dist < 0.2) {
                 store.advanceInstallQueue()
                 phaseRef.current = 'idle'
@@ -394,11 +395,11 @@ export default function CraneAutoPilot() {
                 stopQueueTravelHum()
                 queueTravelHumActiveRef.current = false
             } else {
-                const dy = Math.sign(safeY - store.spreaderPos.y) * Math.min(dist, speed * delta)
-                const nextY = store.spreaderPos.y + dy
-                store.setSpreaderPos({ ...store.spreaderPos, y: nextY })
+                const dy = Math.sign(safeY - getCraneKinematics().spreaderPos.y) * Math.min(dist, speed * delta)
+                const nextY = getCraneKinematics().spreaderPos.y + dy
+                getCraneKinematics().setSpreaderPos({ ...getCraneKinematics().spreaderPos, y: nextY })
                 const CRANE_TROLLEY_HEIGHT = 9.2
-                store.setCableDepth(Math.max(0, CRANE_TROLLEY_HEIGHT - nextY))
+                getCraneKinematics().setCableDepth(Math.max(0, CRANE_TROLLEY_HEIGHT - nextY))
             }
         }
     })
@@ -410,8 +411,7 @@ export default function CraneAutoPilot() {
         return null
     }
 
-    const store = useGameStore.getState()
-    _guideStart.set(store.spreaderPos.x, store.spreaderPos.y, store.spreaderPos.z)
+    _guideStart.set(getCraneKinematics().spreaderPos.x, getCraneKinematics().spreaderPos.y, getCraneKinematics().spreaderPos.z)
     _guideEnd.copy(targetRef.current)
 
     return (

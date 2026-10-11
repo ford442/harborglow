@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import { useGameStore } from '../../store/useGameStore'
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics'
 import { lightingSystem } from '../../systems/lightingSystem'
 
 type MonitorRow = {
@@ -17,16 +18,19 @@ export default function CraneControlMonitor3D() {
     trolleyPosition,
     cableDepth,
     spreaderPos,
-    winchSpeed,
-    twistlockEngaged,
     loadTension,
-  } = useGameStore(useShallow(state => ({
+  } = useSampledCraneKinematics(state => ({
     trolleyPosition: state.trolleyPosition,
     cableDepth: state.cableDepth,
     spreaderPos: state.spreaderPos,
+    loadTension: state.loadTension,
+  }))
+  const {
+    winchSpeed,
+    twistlockEngaged,
+  } = useGameStore(useShallow(state => ({
     winchSpeed: state.winchSpeed,
     twistlockEngaged: state.twistlockEngaged,
-    loadTension: state.loadTension,
   })))
 
   const accentRef = useRef<THREE.MeshStandardMaterial>(null)

@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
+import { useSampledCraneKinematics } from './crane/craneKinematics'
 import { calcMagneticFalloff } from '../utils/physicsMath'
 import { swaySystem } from './swaySystem'
 import { recordHostInput } from './sim/hostInput'
@@ -406,7 +407,7 @@ export function useAttachmentSystem() {
   const [lastInstall, setLastInstall] = useState<InstallationEvent | null>(null)
   
   const config = useGameStore(s => s.attachmentSystemConfig)
-  const cranePos = useGameStore(s => s.spreaderPos)
+  const cranePos = useSampledCraneKinematics(s => s.spreaderPos)
   const twistlockEngaged = useGameStore(s => s.twistlockEngaged)
   const ships = useGameStore(s => s.ships)
   

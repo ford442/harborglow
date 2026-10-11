@@ -7,6 +7,7 @@ import { CommitProfiler } from '../rendering/CommitProfiler'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import {
   useAttachmentSystem,
   InstallationEvent,
@@ -150,7 +151,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     updateCameraPosition([camPos.x, camPos.y, camPos.z])
 
     const attachmentConfig = store.attachmentSystemConfig
-    const spreader = store.spreaderPos
+    const spreader = getCraneKinematics().spreaderPos
     const dt = Math.min(delta, 0.05)
 
     if (prevSpreaderForVelRef.current) {
@@ -212,7 +213,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
         )
 
         if (worldDeltaX !== 0 || worldDeltaZ !== 0) {
-          store.setSpreaderPos({
+          getCraneKinematics().setSpreaderPos({
             x: spreader.x + worldDeltaX,
             y: spreader.y,
             z: spreader.z + worldDeltaZ,
@@ -232,7 +233,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     const candidate = spreaderSpeed <= attachmentConfig.captureVelocity
       ? findBindCandidate(
         store.ships,
-        store.spreaderPos,
+        getCraneKinematics().spreaderPos,
         store.twistlockEngaged,
         attachmentConfig,
       )
@@ -250,7 +251,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       isBindingRef.current = true
       bindCandidateRef.current = candidate
       bindStartTimeRef.current = state.clock.elapsedTime
-      prevSpreaderPosRef.current = { ...store.spreaderPos }
+      prevSpreaderPosRef.current = { ...getCraneKinematics().spreaderPos }
       stickyTargetRef.current = {
         shipId: candidate.shipId,
         partName: candidate.partName,
@@ -282,7 +283,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       const target = bindCandidateRef.current.position
       const start = prevSpreaderPosRef.current
 
-      store.setSpreaderPos({
+      getCraneKinematics().setSpreaderPos({
         x: start.x + (target[0] - start.x) * t,
         y: start.y + (target[1] - start.y) * t,
         z: start.z + (target[2] - start.z) * t,

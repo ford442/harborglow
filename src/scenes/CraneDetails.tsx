@@ -7,6 +7,8 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import { useCraneMaterial } from './CraneMaterials'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
+import { spreaderNearAttachment } from '../systems/cranePhysics'
 
 interface SpreaderAssemblyProps {
   twistlockEngaged: boolean
@@ -16,8 +18,6 @@ interface SpreaderAssemblyProps {
 
 export function SpreaderAssembly({
   twistlockEngaged,
-  tension,
-  nearAttachment,
 }: SpreaderAssemblyProps) {
   const spreaderMat = useCraneMaterial('machinedSteel')
   const paintedMat = useCraneMaterial('paintedSteel', { baseColor: '#e06810' })
@@ -37,6 +37,8 @@ export function SpreaderAssembly({
   )
 
   useFrame((state) => {
+    const tension = Math.min(1, getCraneKinematics().loadTension / 50)
+    const nearAttachment = spreaderNearAttachment()
     const t = state.clock.elapsedTime
     const engage = twistlockEngaged ? 1 : 0
     pinRefs.current.forEach((group) => {

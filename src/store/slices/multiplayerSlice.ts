@@ -6,6 +6,7 @@ import type { StateCreator } from 'zustand';
 import type { MultiplayerSlice } from '../sliceTypes';
 import type { GameState } from '../gameStoreTypes';
 import { economySystem } from '../../systems/economySystem';
+import { getCraneKinematics } from '../../systems/crane/craneKinematics';
 
 const MAX_CHAT_MESSAGES = 100;
 
@@ -22,7 +23,15 @@ export const createMultiplayerSlice: StateCreator<GameState, [], [], Multiplayer
 
     setNetworkLatency: (ms) => set({ networkLatencyMs: ms }),
 
-    applyNetworkPatch: (patch) => set((state) => {
+    applyNetworkPatch: (patch) => {
+        const kin = getCraneKinematics()
+        if (patch.spreaderPos !== undefined) kin.setSpreaderPos(patch.spreaderPos)
+        if (patch.spreaderRotation !== undefined) kin.setSpreaderRotation(patch.spreaderRotation)
+        if (patch.cableDepth !== undefined) kin.setCableDepth(patch.cableDepth)
+        if (patch.loadTension !== undefined) kin.setLoadTension(patch.loadTension)
+        if (patch.trolleyPosition !== undefined) kin.setTrolleyPosition(patch.trolleyPosition)
+
+        set((state) => {
         const next: Partial<GameState> = {
             isApplyingNetworkPatch: true,
         };
@@ -63,11 +72,6 @@ export const createMultiplayerSlice: StateCreator<GameState, [], [], Multiplayer
             economySystem.deserialize(patch.economyData);
         }
 
-        if (patch.spreaderPos !== undefined) next.spreaderPos = patch.spreaderPos;
-        if (patch.spreaderRotation !== undefined) next.spreaderRotation = patch.spreaderRotation;
-        if (patch.cableDepth !== undefined) next.cableDepth = patch.cableDepth;
-        if (patch.loadTension !== undefined) next.loadTension = patch.loadTension;
-        if (patch.trolleyPosition !== undefined) next.trolleyPosition = patch.trolleyPosition;
         if (patch.winchSpeed !== undefined) next.winchSpeed = patch.winchSpeed;
         if (patch.twistlockEngaged !== undefined) next.twistlockEngaged = patch.twistlockEngaged;
         if (patch.craneHeight !== undefined) next.craneHeight = patch.craneHeight;
@@ -105,7 +109,8 @@ export const createMultiplayerSlice: StateCreator<GameState, [], [], Multiplayer
         if (patch.rainDensity !== undefined) next.rainDensity = patch.rainDensity;
 
         return next;
-    }),
+        })
+    },
 
     addChatMessage: (message) => set((state) => {
         const chatMessages = [...state.chatMessages, message].slice(-MAX_CHAT_MESSAGES);

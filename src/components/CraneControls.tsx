@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useGameStore } from '../store/useGameStore'
+import { useSampledCraneKinematics } from '../systems/crane/craneKinematics'
 import { useCranePhysics } from './controls/useCranePhysics'
 import { useMusicPulse } from '../hooks/useMusicPulse'
 import JoystickControl from './controls/JoystickControl'
@@ -177,6 +178,13 @@ export default function InteractiveCraneControls() {
     loadTension,
     trolleyPosition,
     spreaderRotation,
+  } = useSampledCraneKinematics(state => ({
+    cableDepth: state.cableDepth,
+    loadTension: state.loadTension,
+    trolleyPosition: state.trolleyPosition,
+    spreaderRotation: state.spreaderRotation,
+  }))
+  const {
     twistlockEngaged,
     isMoving,
     winchSpeed,
@@ -185,10 +193,6 @@ export default function InteractiveCraneControls() {
     iceBuildup,
     weather,
   } = useGameStore(useShallow(state => ({
-    cableDepth: state.cableDepth,
-    loadTension: state.loadTension,
-    trolleyPosition: state.trolleyPosition,
-    spreaderRotation: state.spreaderRotation,
     twistlockEngaged: state.twistlockEngaged,
     isMoving: state.isMoving,
     winchSpeed: state.winchSpeed,

@@ -10,13 +10,14 @@
 // affected during crane play.
 // =============================================================================
 
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
 import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { ProceduralShip } from './ProceduralShip'
 import NightShipLights from './NightShipLights'
 import { useLOD } from '../systems/performanceSystem'
@@ -24,6 +25,7 @@ import AttachmentPointVisual from './AttachmentPoint'
 import { 
   getRigTypeForPart, 
   AttachmentState,
+  type AttachmentSystemConfig,
 } from '../systems/attachmentSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
@@ -118,6 +120,47 @@ const _fEuler = new THREE.Euler()
 const _fLocalOff = new THREE.Vector3()
 const _fAway = new THREE.Vector3()
 
+function classifyShipAttachments(
+    ship: Ship,
+    spreaderPos: { x: number; y: number; z: number },
+    twistlockEngaged: boolean,
+    attachmentConfig: AttachmentSystemConfig,
+    isUpgraded: (partName: string) => boolean,
+) {
+    if (!ship.attachmentPoints) return []
+    return ship.attachmentPoints.map(point => {
+        const worldPos: [number, number, number] = [
+            ship.position[0] + point.position[0],
+            ship.position[1] + point.position[1],
+            ship.position[2] + point.position[2],
+        ]
+        const dx = worldPos[0] - spreaderPos.x
+        const dy = worldPos[1] - spreaderPos.y
+        const dz = worldPos[2] - spreaderPos.z
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        let state: AttachmentState = 'available'
+        let snapStrength = 0
+        if (isUpgraded(point.partName)) {
+            state = 'installed'
+        } else if (distance <= attachmentConfig.installDistance && twistlockEngaged) {
+            state = 'installing'
+        } else if (distance <= attachmentConfig.snapRadius) {
+            state = 'snapping'
+            snapStrength = 1 - (distance / attachmentConfig.snapRadius)
+        } else if (distance <= attachmentConfig.visibilityRange * 1.5) {
+            state = 'hovered'
+        }
+        return {
+            point,
+            worldPos,
+            state,
+            distance,
+            snapStrength,
+            rigType: getRigTypeForPart(point.partName),
+        }
+    })
+}
+
 export default function ShipComponent({ ship }: ShipProps) {
     const groupRef    = useRef<THREE.Group>(null)
     const rbRef       = useRef<RapierRigidBody>(null)
@@ -130,7 +173,6 @@ export default function ShipComponent({ ship }: ShipProps) {
     const lightIntensity    = useGameStore((state) => state.lightIntensity)
     const musicPlaying      = useGameStore((state) => state.musicPlaying)
     const bpm               = useGameStore((state) => state.bpm)
-    const spreaderPos       = useGameStore((state) => state.spreaderPos)
     const twistlockEngaged  = useGameStore((state) => state.twistlockEngaged)
     const attachmentConfig  = useGameStore((state) => state.attachmentSystemConfig)
     const operationMode     = useGameStore((state) => state.operationMode)
@@ -168,48 +210,22 @@ export default function ShipComponent({ ship }: ShipProps) {
         [installedUpgrades, ship.id]
     )
 
-    const isUpgraded = (partName: string) => shipUpgrades.some(u => u.partName === partName)
-    
-    // Calculate attachment point states
-    const attachmentPointsWithState = useMemo(() => {
-        if (!ship.attachmentPoints) return []
-        
-        return ship.attachmentPoints.map(point => {
-            const worldPos: [number, number, number] = [
-                ship.position[0] + point.position[0],
-                ship.position[1] + point.position[1],
-                ship.position[2] + point.position[2],
-            ]
-            
-            const dx = worldPos[0] - spreaderPos.x
-            const dy = worldPos[1] - spreaderPos.y
-            const dz = worldPos[2] - spreaderPos.z
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-            
-            let state: AttachmentState = 'available'
-            let snapStrength = 0
-            
-            if (isUpgraded(point.partName)) {
-                state = 'installed'
-            } else if (distance <= attachmentConfig.installDistance && twistlockEngaged) {
-                state = 'installing'
-            } else if (distance <= attachmentConfig.snapRadius) {
-                state = 'snapping'
-                snapStrength = 1 - (distance / attachmentConfig.snapRadius)
-            } else if (distance <= attachmentConfig.visibilityRange * 1.5) {
-                state = 'hovered'
-            }
-            
-            return {
-                point,
-                worldPos,
-                state,
-                distance,
-                snapStrength,
-                rigType: getRigTypeForPart(point.partName),
-            }
-        })
-    }, [ship, spreaderPos, twistlockEngaged, attachmentConfig, shipUpgrades])
+    const attachmentSigRef = useRef('')
+    const [attachmentPointsWithState, setAttachmentPointsWithState] = useState<ReturnType<typeof classifyShipAttachments>>([])
+
+    useFrame(() => {
+        const next = classifyShipAttachments(
+            ship,
+            getCraneKinematics().spreaderPos,
+            twistlockEngaged,
+            attachmentConfig,
+            (partName) => shipUpgrades.some(u => u.partName === partName),
+        )
+        const sig = next.map(p => `${p.point.partName}:${p.state}`).join('|')
+        if (sig === attachmentSigRef.current) return
+        attachmentSigRef.current = sig
+        setAttachmentPointsWithState(next)
+    })
 
     useFrame((state, delta) => {
         if (!groupRef.current) return

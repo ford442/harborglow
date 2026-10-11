@@ -12,6 +12,8 @@ import CraneCable from './CraneCable'
 import { useCraneMaterial } from './CraneMaterials'
 import { CabinGlassPane, CraneLabels, CraneTowerRivets, SpreaderAssembly } from './CraneDetails'
 import { useGameStore } from '../store/useGameStore'
+import { craneCableWorldEndpoints, getCraneKinematics } from '../systems/crane/craneKinematics'
+import { spreaderNearAttachment } from '../systems/cranePhysics'
 import { lightingSystem } from '../systems/lightingSystem'
 import { getLookDevSettings } from '../utils/lookDevControls'
 
@@ -26,15 +28,8 @@ export default function Crane() {
     const cabinWarmRef = useRef<THREE.PointLight>(null)
     const cabinCoolRef = useRef<THREE.PointLight>(null)
     const spreaderRimRefs = useRef<Array<THREE.PointLight | null>>([])
-    
-    // Get crane state from store
-    const spreaderPos = useGameStore((state) => state.spreaderPos)
-    const spreaderRotation = useGameStore((state) => state.spreaderRotation)
-    const loadTension = useGameStore((state) => state.loadTension)
+
     const twistlockEngaged = useGameStore((state) => state.twistlockEngaged)
-    const trolleyPosition = useGameStore((state) => state.trolleyPosition)
-    const ships = useGameStore((state) => state.ships)
-    const attachmentSystemConfig = useGameStore((state) => state.attachmentSystemConfig)
     const isNight = useGameStore((state) => state.isNight)
     const timeOfDay = useGameStore((state) => state.timeOfDay)
     const lightIntensity = useGameStore((state) => state.lightIntensity)
@@ -55,35 +50,13 @@ export default function Crane() {
     const structuralSteelMat = useCraneMaterial('structuralSteel')
     const cautionStripeMat = useCraneMaterial('cautionStripe')
 
-    const nearAttachmentDistance = useMemo(() => {
-        let minDistance = Infinity
-        for (const ship of ships) {
-            for (const point of ship.attachmentPoints || []) {
-                const worldX = ship.position[0] + point.position[0]
-                const worldY = ship.position[1] + point.position[1]
-                const worldZ = ship.position[2] + point.position[2]
-                const dx = worldX - spreaderPos.x
-                const dy = worldY - spreaderPos.y
-                const dz = worldZ - spreaderPos.z
-                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
-                if (dist < minDistance) minDistance = dist
-            }
-        }
-        return minDistance
-    }, [ships, spreaderPos.x, spreaderPos.y, spreaderPos.z])
-
-    const nearAttachment = nearAttachmentDistance <= Math.max(attachmentSystemConfig.snapRadius, 4)
-
-    // Animate crane operations
+    // Animate crane operations. Pose is read here so this component does not
+    // re-render while the spreader moves.
     useFrame(() => {
-        // Gentle idle movement
-
-        // Trolley moves based on store position
+        const { spreaderPos, spreaderRotation, trolleyPosition } = getCraneKinematics()
         const newTrolleyPos = (trolleyPosition - 0.5) * 40
-        
-        // Hook follows spreader position from store
-        const newHookHeight = spreaderPos.y - 20 // Relative to trolley
-        
+        const newHookHeight = spreaderPos.y - 20
+        const nearAttachment = spreaderNearAttachment()
         if (trolleyRef.current) {
             trolleyRef.current.position.x = newTrolleyPos
         }
@@ -145,20 +118,11 @@ export default function Crane() {
         }
     })
 
-    // Calculate tension normalized 0-1
-    const normalizedTension = Math.min(1, loadTension / 50)
-    
-    // Calculate cable positions
-    const trolleyWorldPos: [number, number, number] = [
-        (trolleyPosition - 0.5) * 40,
-        9.2,
-        0
-    ]
-    const hookWorldPos: [number, number, number] = [
-        trolleyWorldPos[0] + Math.sin(spreaderRotation) * 0.5,
-        spreaderPos.y - 4, // Hook is below spreader
-        trolleyWorldPos[2] + Math.cos(spreaderRotation) * 0.5
-    ]
+    const cable = craneCableWorldEndpoints()
+    const normalizedTension = cable.tension
+    const trolleyWorldPos = cable.start
+    const hookWorldPos = cable.end
+    const nearAttachment = spreaderNearAttachment()
 
     return (
         <RigidBody type="fixed" position={[0, 4, 5]}>
