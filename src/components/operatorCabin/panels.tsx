@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { CameraMode, useGameStore } from '../../store/useGameStore';
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics';
 import { useAudioData } from '../../systems/audioVisualSync';
 import { SHIP_COLORS } from '../DesignSystem';
 import { trafficSystem, useDockedShip } from '../../systems/trafficSystem';
@@ -53,11 +54,14 @@ export function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
     }
   }
 
-  const craneState = useGameStore((state: any) => ({
-    spreaderPos: state.spreaderPos,
-    rotation: state.craneRotation ?? 0.2,
-    height: state.craneHeight ?? 15.5,
-  }))
+  const spreaderPos = useSampledCraneKinematics(state => state.spreaderPos)
+  const rotation = useGameStore((state) => state.craneRotation)
+  const height = useGameStore((state) => state.craneHeight)
+  const craneState = useMemo(() => ({
+    spreaderPos,
+    rotation: rotation ?? 0.2,
+    height: height ?? 15.5,
+  }), [spreaderPos, rotation, height])
   const ships = useGameStore((state: any) => state.ships)
   const currentShip = useGameStore((state: any) =>
     state.ships.find((s: any) => s.id === state.currentShipId)
@@ -461,7 +465,7 @@ export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void })
   )
   const { credits, reputation } = useEconomySystem()
   const installedUpgrades = useGameStore((state: any) => state.installedUpgrades)
-  const craneState = useGameStore((state: any) => state.spreaderPos)
+  const craneState = useSampledCraneKinematics(state => state.spreaderPos)
   const twistlockEngaged = useGameStore((state: any) => state.twistlockEngaged)
   const [moonState, setMoonState] = useState(moonSystem.getState())
   const dockedTrafficShip = useDockedShip()

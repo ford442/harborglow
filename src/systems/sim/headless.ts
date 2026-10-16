@@ -11,6 +11,7 @@ import { stormSystem } from '../StormSystem'
 import { iceFieldSystem } from '../ice/IceFieldSystem'
 import { ShipSpawner } from '../shipSpawner'
 import { resetCraneAxes } from '../cranePhysics'
+import { craneKinematics } from '../crane/craneKinematics'
 import { applyReplayInput } from './applyInput'
 import { waveSystem } from '../WaveSystem'
 import { timeSystem } from '../timeSystem'
@@ -70,15 +71,17 @@ export function resetDeterministicSystems(opts: { preserveStoreMode?: boolean } 
     installedUpgrades: [],
     craneUpgrades: [],
     musicPlaying: new Map(),
+    twistlockEngaged: false,
+    isMoving: false,
+    joystickLeft: { x: 0, y: 0 },
+    joystickRight: { x: 0, y: 0 },
+  })
+  craneKinematics.getState().reset({
     spreaderPos: { x: 0, y: 10, z: 0 },
     spreaderRotation: 0,
     cableDepth: 15,
     loadTension: 0,
     trolleyPosition: 0.5,
-    twistlockEngaged: false,
-    isMoving: false,
-    joystickLeft: { x: 0, y: 0 },
-    joystickRight: { x: 0, y: 0 },
   })
   stormSystem.reset()
   iceFieldSystem.reset()

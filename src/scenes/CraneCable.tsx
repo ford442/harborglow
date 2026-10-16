@@ -10,6 +10,8 @@ import { useFrame } from '@react-three/fiber'
 import { useAudioData } from '../systems/audioVisualSync'
 import { getLookDevSettings } from '../utils/lookDevControls'
 import { useCraneCableMaterial, updateCraneCableUniforms } from './CraneMaterials'
+import { craneCableWorldEndpoints } from '../systems/crane/craneKinematics'
+import { spreaderNearAttachment } from '../systems/cranePhysics'
 
 interface CraneCableProps {
   startPos: [number, number, number]  // Crane trolley/head position
@@ -87,7 +89,6 @@ export default function CraneCable({
   tension,
   showPhysics = false,
   twistlockEngaged = false,
-  nearAttachment = false,
   installBoost = 0,
   lightIntensity = 1,
   isNight = false,
@@ -141,6 +142,11 @@ export default function CraneCable({
   // Update cable geometry each frame for sway animation
   useFrame((state, delta) => {
     if (!cableRef.current) return
+    const live = craneCableWorldEndpoints()
+    const startPos = live.start
+    const endPos = live.end
+    const tension = live.tension
+    const nearAttachment = spreaderNearAttachment()
     
     const time = state.clock.elapsedTime
     const { start, end, mid: midPoint, points, curve: frameCurve } = scratch
@@ -278,8 +284,7 @@ export default function CraneCable({
       </mesh>
       
       {/* Tension glow effect for high tension */}
-      {(tension > 0.7 || nearAttachment || installBoost > 0.05) && (
-        <mesh ref={glowMeshRef}>
+      <mesh ref={glowMeshRef}>
           <tubeGeometry
             args={[curve, 20, cableThickness * 1.5, 8, false]}
           />
@@ -291,7 +296,6 @@ export default function CraneCable({
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-      )}
       
       {/* Debug visualization */}
       {showPhysics && (

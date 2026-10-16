@@ -14,7 +14,7 @@ src/store/
   sliceTypes.ts       # one Pick<GameState, …> per slice + the ownership guard
   slices/
     shipsSlice.ts        # fleet lifecycle, upgrades, sail schedule, per-ship music/lyrics
-    craneSlice.ts        # kinematics, twistlock/heater, joysticks, contracts, install queue
+    craneSlice.ts        # twistlock/heater, joysticks, contracts, install queue (pose is craneKinematics)
     cameraSlice.ts       # camera modes, spectator, multiview viewports, dashboard presets
     environmentSlice.ts  # time, season, weather, storm, waves, wildlife, harbor events
     economySlice.ts      # money, reputation, salvage contracts, tugboat upgrade purchases
@@ -67,7 +67,7 @@ if a field is not listed there, it is not saved.
 
 | Persisted | Ephemeral (never saved) |
 |---|---|
-| Ships, installed upgrades, ship versions, sail/dock schedule | Crane kinematics: spreader pose/rotation, cable depth, load tension, trolley, winch, joysticks, twistlock, `installAttemptStartedAt` |
+| Ships, installed upgrades, ship versions, sail/dock schedule | Winch, joysticks, twistlock, `installAttemptStartedAt` (spreader pose is `craneKinematics`, not this store) |
 | `harborCredits` (single Harbor Credits wallet), reputation, economy serialization | Camera transforms, viewport history/pins, focused viewport |
 | Booth tier, harbor, quality preset, BPM/lyrics/light settings | Live wildlife entities, active sea events, harbor events |
 | Season, wildlife density, marine-life toggle, weather, time of day | In-flight mission state, install queue, spectator sequence |
@@ -75,6 +75,20 @@ if a field is not listed there, it is not saved.
 
 Ephemeral fields are recomputed every frame or every session; restoring them
 would resume a half-finished pick or a dead mission on load.
+
+## Per-frame kinematics
+
+Per-frame kinematics never live in `useGameStore`; they live in a vanilla store
+with subscribe; the global store holds only state that survives a frame.
+
+`spreaderPos`, `spreaderRotation`, `cableDepth`, `trolleyPosition` and
+`loadTension` change every sim tick while the crane moves. They live in
+`src/systems/crane/craneKinematics.ts` (`createStore` from `zustand/vanilla`).
+Writers call `set*` on that store. Per-frame 3D readers call
+`getCraneKinematics()` inside `useFrame` or `update()`. HUD and dashboards use
+`useSampledCraneKinematics`, which publishes at 10 Hz so a moving crane does not
+re-render React at frame rate. `hashSimSnapshot` and network patches read the
+same store, so the crane block of the sim hash stays the live pose.
 
 ## Install metrics
 

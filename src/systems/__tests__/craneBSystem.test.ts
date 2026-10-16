@@ -12,6 +12,7 @@ import {
 } from '../craneBSystem'
 import { trainingSystem } from '../trainingSystem'
 import { useGameStore } from '../../store/useGameStore'
+import { getCraneKinematics } from '../crane/craneKinematics'
 
 describe('craneBSystem helpers', () => {
     it('detects shared-zone occupancy', () => {
@@ -30,9 +31,9 @@ describe('craneBSystem lifecycle', () => {
         useGameStore.setState({
             gameMode: 'training',
             currentTrainingModule: 'multi-crane',
-            spreaderPos: { x: 0, y: 10, z: 5 },
             ships: [],
         })
+        getCraneKinematics().setSpreaderPos({ x: 0, y: 10, z: 5 })
     })
 
     it('starts inactive and activates on start()', () => {
@@ -57,7 +58,7 @@ describe('craneBSystem lifecycle', () => {
         expect(craneBSystem.getState().phase).toBe('sweep')
 
         // Player clear of shared zone (near Crane A)
-        useGameStore.setState({ spreaderPos: { x: -5, y: 10, z: 5 } })
+        getCraneKinematics().setSpreaderPos({ x: -5, y: 10, z: 5 })
 
         // Advance through sweep dwell with player clear
         for (let i = 0; i < 80; i++) craneBSystem.update(0.1)
@@ -69,12 +70,10 @@ describe('craneBSystem lifecycle', () => {
         craneBSystem.start()
         // Force spreader near player by jumping state via updates to home
         const bSpreader = craneBSystem.getSpreaderWorld()
-        useGameStore.setState({
-            spreaderPos: {
-                x: bSpreader[0],
-                y: bSpreader[1],
-                z: bSpreader[2],
-            },
+        getCraneKinematics().setSpreaderPos({
+            x: bSpreader[0],
+            y: bSpreader[1],
+            z: bSpreader[2],
         })
         craneBSystem.update(0.016)
         expect(trainingSystem.getRuntimeState().craneCollisionCount).toBeGreaterThanOrEqual(1)
@@ -94,7 +93,7 @@ describe('craneBSystem lifecycle', () => {
         craneBSystem.start()
         // Fast-forward through a full cycle
         for (let i = 0; i < 400; i++) {
-            useGameStore.setState({ spreaderPos: { x: -8, y: 12, z: 5 } })
+            getCraneKinematics().setSpreaderPos({ x: -8, y: 12, z: 5 })
             craneBSystem.update(0.1)
         }
         const runtime = trainingSystem.getRuntimeState()

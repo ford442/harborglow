@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { lightingSystem } from '../systems/lightingSystem'
 import { playBirdCall } from '../systems/ambientSoundSystem'
 
@@ -357,7 +358,7 @@ export default function SeaBirds({ isNight }: SeaBirdsProps) {
         : undefined
 
     const getJibPerchTarget = useMemo(() => () => {
-        const { trolleyPosition } = useGameStore.getState()
+        const trolleyPosition = getCraneKinematics().trolleyPosition
         const trolleyX = (trolleyPosition - 0.5) * 40
         return [trolleyX + 0.9, 15.15, 6.15] as [number, number, number]
     }, [])

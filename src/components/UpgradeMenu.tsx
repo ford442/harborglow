@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useGameStore, ShipType } from '../store/useGameStore'
+import { useSampledCraneKinematics } from '../systems/crane/craneKinematics'
 import { musicSystem } from '../systems/musicSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
@@ -60,7 +61,7 @@ function UpgradeMenuInner({ currentShip }: { currentShip: any }) {
     const setMusicPlaying = useGameStore((state) => state.setMusicPlaying)
     const setSpectatorTarget = useGameStore((state) => state.setSpectatorTarget)
     const upgradeShipVersion = useGameStore((state) => state.upgradeShipVersion)
-    const cranePosition = useGameStore(state => state.spreaderPos)
+    const cranePosition = useSampledCraneKinematics(state => state.spreaderPos)
     const highlightedUpgradePart = useGameStore(state => state.highlightedUpgradePart)
     const setHighlightedUpgradePart = useGameStore(state => state.setHighlightedUpgradePart)
     const pendingAutoInstall = useGameStore(state => state.pendingAutoInstall)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useGameStore } from '../../store/useGameStore'
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics'
 
 // =============================================================================
 // MONITOR FEED — Generic CRT monitor wrapper with scanlines, weather VFX,
@@ -28,7 +28,7 @@ export default function MonitorFeed({
   const isStormy = weather === 'storm' || weather === 'rain'
   const isArctic = tier === 3
 
-  const loadTension = useGameStore(state => state.loadTension)
+  const loadTension = useSampledCraneKinematics(state => state.loadTension)
   const [shake, setShake] = useState({ x: 0, y: 0 })
 
   useEffect(() => {

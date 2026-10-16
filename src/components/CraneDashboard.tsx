@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Html } from '@react-three/drei'
 import { useGameStore } from '../store/useGameStore'
+import { useSampledCraneKinematics } from '../systems/crane/craneKinematics'
 import MonitorFeed from './dashboard/MonitorFeed'
 import TwistlockCam from './dashboard/TwistlockCam'
 import DownwardSpreaderCam from './dashboard/DownwardSpreaderCam'
@@ -25,12 +26,18 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
   const [fourthMonitorMode, setFourthMonitorMode] = useState<'winch' | 'landside' | 'controls'>('winch')
 
   const {
-    weather,
-    boothTier,
-    twistlockEngaged,
     spreaderPos,
     cableDepth,
     loadTension,
+  } = useSampledCraneKinematics(state => ({
+    spreaderPos: state.spreaderPos,
+    cableDepth: state.cableDepth,
+    loadTension: state.loadTension,
+  }))
+  const {
+    weather,
+    boothTier,
+    twistlockEngaged,
     heaterActive,
     iceBuildup,
     isMoving,
@@ -40,9 +47,6 @@ export default function CraneDashboard({ position = [0, 0, 0] }: { position?: [n
     weather: state.weather,
     boothTier: state.boothTier,
     twistlockEngaged: state.twistlockEngaged,
-    spreaderPos: state.spreaderPos,
-    cableDepth: state.cableDepth,
-    loadTension: state.loadTension,
     heaterActive: state.heaterActive,
     iceBuildup: state.iceBuildup,
     isMoving: state.isMoving,

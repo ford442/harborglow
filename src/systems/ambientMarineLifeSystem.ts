@@ -8,6 +8,7 @@
 
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from './crane/craneKinematics'
 import {
     getAmbientCounts,
     getBeatReactiveMultiplier,
@@ -138,8 +139,8 @@ class AmbientMarineLifeSystem {
             installedUpgrades,
             ships,
             musicPlaying,
-            spreaderPos
         } = store
+        const spreaderPos = getCraneKinematics().spreaderPos
 
         if (!enableMarineLife) {
             this.clear()

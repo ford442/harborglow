@@ -26,16 +26,6 @@ export const createCraneSlice: StateCreator<GameState, [], [], CraneSlice> = (se
         return newState
     }),
 
-    setSpreaderPos: (pos) => set({ spreaderPos: pos }),
-
-    setSpreaderRotation: (rotation) => set({ spreaderRotation: rotation }),
-
-    setCableDepth: (depth) => set({ cableDepth: depth }),
-
-    setLoadTension: (tension) => set({ loadTension: tension }),
-
-    setTrolleyPosition: (position) => set({ trolleyPosition: position }),
-
     setWinchSpeed: (speed: number) => set({ winchSpeed: speed }),
 
     setHighlightedUpgradePart: (partName) => set({ highlightedUpgradePart: partName }),

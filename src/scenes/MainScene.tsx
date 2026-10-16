@@ -5,6 +5,7 @@ import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei
 import * as THREE from 'three'
 
 import { useGameStore, ShipType } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { TrainingModuleId } from '../systems/trainingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
@@ -95,7 +96,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const stormIntensity = useGameStore(s => s.stormIntensity)
     const weather = useGameStore(s => s.weather)
     const lightIntensity = useGameStore(s => s.lightIntensity)
-    const spreaderPos = useGameStore(s => s.spreaderPos)
     const installedUpgrades = useGameStore(s => s.installedUpgrades)
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
@@ -391,7 +391,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 
     // Animation frame updates
     useFrame((state, delta) => {
-        const trolleyPos = useGameStore.getState().trolleyPosition
+        const trolleyPos = getCraneKinematics().trolleyPosition
         swayTrolleyVecRef.current.set(
             (trolleyPos - 0.5) * CRANE_JIB_SPAN,
             CRANE_TROLLEY_HEIGHT,
@@ -507,7 +507,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 <WaterLightVolumes
                     lightIntensity={lightIntensity}
                     currentShip={currentShip}
-                    spreaderPos={spreaderPos}
                     installedUpgrades={installedUpgrades}
                 />
             )}

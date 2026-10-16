@@ -9,6 +9,7 @@ import { MeshStandardNodeMaterial } from 'three/webgpu'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { waveSystem } from '../systems/WaveSystem'
 import { tugboatWakeState } from '../systems/TugboatWakeSystem'
 import { useMusicPulse } from '../hooks/useMusicPulse'
@@ -95,7 +96,6 @@ export default function Water({ isNight = true }: WaterProps) {
   const musicPlaying = useGameStore((s) => s.musicPlaying)
   const ships = useGameStore((s) => s.ships)
   const installedUpgrades = useGameStore((s) => s.installedUpgrades)
-  const spreaderPos = useGameStore((s) => s.spreaderPos)
   const musicPulse = useMusicPulse(bpm)
   const musicActive = Array.from(musicPlaying.values()).some(Boolean)
 
@@ -246,6 +246,7 @@ export default function Water({ isNight = true }: WaterProps) {
     pushLight(20, 8, -8, DOCK_WARM, 2.4 * dockBase, 30)
     pushLight(-30, -3, 10, DOCK_COOL, 1.8 * dockBase, 34)
     pushLight(30, -3, 10, DOCK_COOL, 1.8 * dockBase, 34)
+    const spreaderPos = getCraneKinematics().spreaderPos
     pushLight(
       spreaderPos.x,
       spreaderPos.y + 0.8,
