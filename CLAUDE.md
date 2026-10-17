@@ -4,18 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with React, Three.js, and an in-tree WASM AudioWorklet audio engine. Players spawn different ship types, use a dock crane to install glowing light rigs, and trigger synchronized music + lyrics when ships are fully upgraded. The game features three core vessel types (Mega Cruise Liner, Container Vessel, Oil Tanker) plus expanded ship types (Bulk Carrier, LNG, RoRo, Research, Droneship), each with unique upgrade paths, music, and light shows.
+HarborGlow is a satisfying crane-operator + boat-light-upgrade game built with React, Three.js, and an in-tree WASM AudioWorklet audio engine. Players spawn different ship types, use a dock crane to install glowing light rigs, and trigger synchronized music + lyrics when ships are fully upgraded. The game features three core vessel types (Mega Cruise Liner, Container Vessel, Oil Tanker) plus expanded ship types (Bulk Carrier, LNG, RoRo, Research, Droneship, Ferry, Trawler, Horizon, Fireboat, Icebreaker — 13 total in `SHIP_TYPES`, `src/store/gameStoreDomainTypes.ts`), each with unique upgrade paths, music, and light shows.
 
 ## Tech Stack
 
-- **Frontend**: React 19.2 + TypeScript 5.2
+- **Frontend**: React 19.2 + TypeScript 5.9
 - **3D Graphics**: Three.js 0.183.1 + React Three Fiber 9.7 + WebGPU rendering
-- **Physics**: Rapier 1.3 (@react-three/rapier)
+- **Physics**: Rapier (@react-three/rapier 2.2)
 - **State Management**: Zustand 4.4
 - **Audio**: in-tree WASM AudioWorklet engine (`cpp/harborglow_audio_engine.cpp` → `src/systems/audio/`: `AudioRuntime`, beat `transport`, `voices`) — no audio npm dependency; see [docs/systems/AUDIO.md](docs/systems/AUDIO.md)
 - **UI Controls**: Leva (in-game debug panel), Tailwind CSS 3.4
-- **Build Tool**: Vite 5.0 with React plugin
-- **Bundling**: Terser minification with manual chunk splitting
+- **Build Tool**: Vite 8 (rolldown) with React plugin
+- **Bundling**: Terser minification; chunk split via `codeSplitting.groups` in `scripts/chunkGroups.mjs`
 
 ## Build & Development Commands
 
@@ -29,7 +29,12 @@ npm run dev
 
 # Production build
 npm run build
-# Outputs to dist/ with TypeScript compilation + Vite build
+# build:wasm + check:wasm + models:verify + tsc + vite build + check:bundle
+
+# Without Emscripten installed: ALLOW_MISSING_EMSDK=1 npm run build (CI does the same)
+
+# Typecheck only
+npm run typecheck
 
 # Build with bundle analysis
 npm run build:analyze
@@ -45,7 +50,7 @@ npm run knip
 npm test                 # Vitest unit tests
 npm run test:e2e         # Playwright specs in e2e/
 
-# Local mirror of the CI merge gates (all except gate-wasm)
+# Local mirror of the CI merge gates (all except gate-wasm and gate-boot)
 npm run verify
 npm run verify:fast      # lockfile + typecheck + lint only
 
@@ -74,7 +79,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 2. **Game State** (`src/store/useGameStore.ts`) — see [docs/STORE.md](docs/STORE.md)
    - Single Zustand store for all game state, composed from domain slices
      (`slices/shipsSlice`, `craneSlice`, `cameraSlice`, `environmentSlice`,
-     `economySlice`, `opsSlice`, `sessionSlice`); `gameStoreTypes.ts` is the one
+     `economySlice`, `opsSlice`, `sessionSlice`, `multiplayerSlice`); `gameStoreTypes.ts` is the one
      canonical type module and `sliceTypes.ts` enforces slice ownership at compile time
    - Manages ships, camera, UI modes, upgrades, weather, time/day cycles
    - Handles save/load via `src/utils/storage_manager.ts`; **one** subscription in
@@ -98,6 +103,10 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - **Events**: `eventSystem/` (`HarborEventSystem.ts`), `dynamicEventSystem.ts` (both ticked from `bootstrap/mainSceneSystems.ts`), `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
    - **Time & Environment**: `timeSystem.ts`, `WaveSystem.ts` (FFT-based ocean), `weatherSystem.ts`
    - **Camera/UI**: `cameraSystem.ts`, `audioVisualSync.ts`, `trainingSystem.ts`
+   - **Light shows**: `lightShows/` (per-ship V1 cue presets migrated to V2, rig groups, perform pads) — see [docs/systems/LIGHT_SHOWS.md](docs/systems/LIGHT_SHOWS.md); untrusted input validated by `src/schemas/` (lazy-load only)
+   - **Share links**: `share/` (`.hgshow` / URL-fragment show documents → spectator playback) — see [docs/systems/SHARE_LINKS.md](docs/systems/SHARE_LINKS.md)
+   - **Crane**: `cranePhysics.ts` + pure `crane/craneKinematics.ts`
+   - **Multiplayer**: `multiplayerSystem.ts` (WebRTC host ↔ spectators; seed + input-log sync per DETERMINISM.md)
 
 5. **UI Components** (`src/components/`)
    - **HUD** (`HUD.tsx`, `hud/` subdirectory): Main overlay with ship status, camera controls, time display
@@ -113,13 +122,12 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - **Visual Effects**: VolumetricLighting, PostProcessing, AudioReactiveLightShow
    - **Advanced**: ControlBooth (multiple camera presets), WildlifeRenderer, SeaEvents
    - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip
-   - **Not currently mounted**: `MultiviewSystem.tsx` (4-view multiview) exists but has no non-test importer; remount-or-archive is tracked in #233
 
 ### Key Concepts
 
 #### Ship System
 - Ships spawned via `ShipSpawner` with unique names and blueprints
-- Eight ship types with different silhouettes, attachment points, music, and light colors
+- Thirteen ship types with different silhouettes, attachment points, music, and light colors
 - Each ship stores attachment points (relative to ship origin) for crane upgrade installation
 - Ships support LOD (Level of Detail) rendering: high-fidelity nearby, impostor boxes at distance
 - Ships can sail away (despawn) on schedule or remain docked
@@ -138,7 +146,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - **Input**: Mouse look (camera), WASD for throttle/steering, with smooth acceleration
 - **Objectives**: Navigate to marked berths (floating target zones) and dock ships
 - **Progression**: Tugboat objectives count toward booth tier advancement
-- **Integration**: Shares store with crane mode (`operationMode: 'crane' | 'tugboat'`)
+- **Integration**: Shares store with crane mode (`operationMode: 'crane' | 'tugboat' | 'walking'`)
 
 #### Mission System & Storm Rescue
 - **Storm Rescue**: Time-limited mission where player must rescue a distressed ship during escalating storms
@@ -202,26 +210,26 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ### Performance Considerations
 
-- **Chunking**: 3D libraries (three, fiber, drei, rapier, postprocessing) bundled separately; audio is in-tree (WASM in `public/wasm/`, no vendor chunk)
+- **Chunking**: 3D libraries bundled into vendor groups defined in `scripts/chunkGroups.mjs`; any new R3F-ecosystem dep must be added to `vendor-3d-core` (`viteChunkGroups.test.ts` and `check-chunk-cycles.mjs` enforce this — see AGENTS.md "Chunk groups and boot"); audio is in-tree (WASM in `public/wasm/`, no vendor chunk)
 - **LOD System**: `useLOD()` in `performanceSystem.tsx` reduces detail at distance
-- **Lazy Loading**: MainScene code-split via dynamic import with webpack chunk name
+- **Lazy Loading**: `App.tsx` lazy-imports `GameShell.tsx`, which `lazy()`-loads MainScene
 - **Physics**: Rapier marked as lazy-load in Vite optimizeDeps (heavy binary)
 - **Bundle Analysis**: `npm run build:analyze` to visualize chunk composition
 
 ## Key File Locations
 
 ### Configuration
-- `tsconfig.json`: TypeScript compiler (ES2020 target, strict mode)
+- `tsconfig.json`: TypeScript compiler (ES2022 target, strict mode); `tsconfig.vitest.json` for `npm run typecheck:tests`
 - `eslint.config.js`: ESLint 9 flat config (relaxed: no-explicit-any, no-unused-vars off; `@ts-ignore`/`@ts-nocheck` banned)
 - `knip.jsonc`: unused files/exports/deps config (`scripts/archive/` and `workers/` ignored)
 - `tailwind.config.js`: Tailwind + custom cyber colors
-- `vite.config.ts`: Build optimization, manual chunks, terser options
+- `vite.config.ts`: Build optimization, code-splitting groups (from `scripts/chunkGroups.mjs`), terser options
 - `postcss.config.js`: Tailwind + autoprefixer
 
 ### Type Definitions
 - `src/types/ShipBlueprint.ts`: Ship blueprint schema (parts, attachment points)
 - `src/types/CameraPreset.ts`: Camera mode enums and dashboard viewport types
-- Game types in `src/store/useGameStore.ts`: ShipType, WeatherState, CameraMode, GameMode
+- Game types in `src/store/gameStoreDomainTypes.ts` (re-exported via `gameStoreTypes.ts`): ShipType, WeatherState, CameraMode, GameMode, OperationMode
 
 ### Ship Blueprints
 - `src/blueprints/`: JSON or TS definitions for each ship type (geometry, parts, attachment points)
@@ -234,7 +242,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 1. **Component Naming**: Capitalized React components (e.g., `ShipComponent`, `HUD`); systems as lowercase functions/classes
 2. **Zustand Selectors**: Use `useGameStore(s => s.fieldName)` to subscribe to specific slices
 3. **useFrame Hook**: Called every frame in 3D components; use for animation, state sync
-4. **Type Exports**: Game types from `store/useGameStore.ts`; 3D from Three.js/Fiber types
+4. **Type Exports**: Game types from `store/gameStoreTypes.ts`; 3D from Three.js/Fiber types
 5. **System Initialization**: Many systems (music, ambients, events) defer initialization until first use to avoid blocking
 6. **Event Names**: PascalCase for event types (e.g., `whale_migration`, `ship_fire`)
 7. **Coordinate System**: X = left/right, Y = up/down, Z = forward/back (standard Three.js)
@@ -266,7 +274,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - Update blueprint in `src/types/ShipBlueprint.ts` or `src/blueprints/`
    - Adjust attachment points (position, rotation relative to ship)
    - Update `src/systems/music/musicTracks.ts` if new track needed
-   - Register new ship type in `ShipType` enum in store
+   - Register new ship type in `SHIP_TYPES` (`src/store/gameStoreDomainTypes.ts`) and `UPGRADE_TARGETS` (`useGameStore.ts`)
 
 5. **Debugging**:
    - Leva panel (bottom-right, press collapse to expand): real-time control over audio BPM, light intensity, weather, time, storm intensity
@@ -276,12 +284,12 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Testing & Linting
 
-- **Unit tests**: Vitest (`npm test`, 52 test files)
+- **Unit tests**: Vitest (`npm test`, `src/**/*.test.ts(x)`)
 - **E2E**: Playwright (`npm run test:e2e`)
 - **Full local gate**: `npm run verify` — see [AGENTS.md](AGENTS.md) for the merge gates
 - **Sim rules**: see [docs/systems/DETERMINISM.md](docs/systems/DETERMINISM.md)
 - **Linting**: `npm run lint` (ESLint with TypeScript/React plugins; relaxed rules)
-- **Type Checking**: Part of build (`npm run build` runs `tsc` first)
+- **Type Checking**: `npm run typecheck` (also part of `npm run build`)
 
 ## Browser & Compatibility
 
@@ -291,7 +299,8 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 
 ## Git & Commit Conventions
 
-- CI: `.github/workflows/ci.yml` runs sibling gates (`gate-wasm`, `gate-typecheck`, `gate-lint`, `gate-test`, `gate-smoke`, `gate-build`, `gate-size`) behind `gate-lockfile`, rolled up by `merge-gate`; see [AGENTS.md](AGENTS.md)
+- CI: `.github/workflows/ci.yml` runs sibling gates (`gate-wasm`, `gate-typecheck`, `gate-lint`, `gate-test`, `gate-smoke`, `gate-build`, `gate-size`, `gate-boot`) behind `gate-lockfile`, rolled up by `merge-gate`; see [AGENTS.md](AGENTS.md)
+- **Never commit a locally built `public/wasm/**`**: committed binaries come only from the manual `wasm-rebuild.yml` workflow (`check:wasm` fails on unexplained drift); see AGENTS.md "Committed WASM"
 - Commits should reflect feature/fix scope
 - Save data persists via `localStorage` (storage_manager.ts)
 
@@ -302,7 +311,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 - Mission system: storm rescue is first mission type; additional mission types can be added
 - Training system: core modules in place, expansion planned
 - Tech system: booth tier progression connected, additional tier 2/3 features planned
-- No multiplayer (planned feature)
+- Multiplayer is host ↔ spectator only (WebRTC); competitive multiplayer is not implemented
 - No mobile touch controls (planned)
 
 ## Quick Reference: Common Tasks

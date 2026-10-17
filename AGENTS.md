@@ -20,9 +20,9 @@ The game includes an alternate operation mode where players control a tugboat to
 
 | Category | Technology | Version |
 |----------|------------|---------|
-| Framework | React | ^19.2.0 |
-| Language | TypeScript | ^5.2.2 |
-| Build Tool | Vite | ^5.0.8 |
+| Framework | React | ~19.2.8 |
+| Language | TypeScript | ~5.9.3 |
+| Build Tool | Vite (rolldown) | ^8.3.0 |
 | 3D Rendering | @react-three/fiber | ^9.7.0 |
 | 3D Helpers | @react-three/drei | ^10.7.8 |
 | 3D Physics | @react-three/rapier | ^2.2.0 |
@@ -33,7 +33,7 @@ The game includes an alternate operation mode where players control a tugboat to
 | Debug UI | leva | ^0.10.1 |
 | Styling | Tailwind CSS | ^3.4.19 |
 | CSS Processing | PostCSS + Autoprefixer | ^8.5.6 / ^10.4.27 |
-| Linting | ESLint + @typescript-eslint | ^8.55.0 / ^6.14.0 |
+| Linting | ESLint + typescript-eslint | ^9.39.4 / ^8.59.2 |
 | Bundle Analysis | rollup-plugin-visualizer | ^5.12.0 |
 | Minification | terser | ^5.46.1 |
 
@@ -412,9 +412,10 @@ Root files:
 - `strict: true`
 - `moduleResolution: bundler`
 - `jsx: react-jsx`
-- `noUnusedLocals: false` and `noUnusedParameters: false`
+- `noUnusedLocals: true` and `noUnusedParameters: true`
+- `noImplicitOverride: true`
 - `noFallthroughCasesInSwitch: true`
-- `target: ES2020`
+- `target: ES2022`
 - `isolatedModules: true`
 
 ### ESLint Rules
@@ -525,7 +526,7 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | `gate-lint` | `npm run lint` + `npm run knip -- --include files` (+ full `npm run knip`, report-only) | Unused files anywhere outside `scripts/archive/` and `workers/` (config `knip.jsonc`); ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
-| `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
+| `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` skips when Emscripten is absent because CI sets `ALLOW_MISSING_EMSDK=1` (locally it fails without em++ unless you set it) |
 | `gate-size` | `npm run typecheck && vite build && npm run check:bundle` | Bundle size budget regressions |
 | `gate-boot` | `npm run build` + `npx playwright test --project=boot --retries=0` (`e2e/boot.spec.ts`) | The production bundle fails to evaluate in a browser: menu never renders, an uncaught page error, a TDZ / `extends value undefined` console error, or any emitted chunk that throws when imported. 6-minute timeout, no retries — see [Chunk groups and boot](#chunk-groups-and-boot) |
 | `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
@@ -675,11 +676,16 @@ type TrainingState = 'locked' | 'available' | 'in-progress' | 'completed'
 | roro | 8 |
 | research | 7 |
 | droneship | 6 |
+| ferry | 4 |
+| trawler | 4 |
+| horizon | 4 |
+| fireboat | 6 |
+| icebreaker | 8 |
 
 ## TODOs and Future Work
 
 ### Missing Assets
-- **GLB models**: Authored hero + stretch hulls in `public/models/` (`cruise`, `container`, `tanker`, `fireboat`, `lng`) with `attachmentSocketMap` hardpoints. Remaining ship types stay procedural until assets land.
+- **GLB models**: Hulls in `public/models/` registered in `src/ships/shipModelRegistry.ts` for every ship type except `icebreaker`, which stays procedural until its asset lands.
 
 ### Partially Implemented Systems
 - **Training System**: All 7 modules (`basic-hooks` through `light-show`) have full definitions and tutorials.
