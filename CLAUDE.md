@@ -95,7 +95,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
    - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`
    - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`, `trafficSystem.ts`
    - **Operations**: `StormSystem.ts` (timed storm escalation with intensity), Tugboat mode (first-person vessel control with Rapier physics)
-   - **Events**: `eventSystem/` (`HarborEventSystem.ts`), `dynamicEventSystem.ts` (both ticked from `bootstrap/mainSceneSystems.ts`), `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
+   - **Events**: `eventSystem/` (`HarborEventSystem.ts`, `harborFestival.ts` — the 3-ship light-show setlist), `dynamicEventSystem.ts` (both ticked from `bootstrap/mainSceneSystems.ts`), `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
    - **Time & Environment**: `timeSystem.ts`, `WaveSystem.ts` (FFT-based ocean), `weatherSystem.ts`
    - **Camera/UI**: `cameraSystem.ts`, `audioVisualSync.ts`, `trainingSystem.ts`
 

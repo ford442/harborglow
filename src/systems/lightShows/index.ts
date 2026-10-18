@@ -14,6 +14,9 @@ import { trawlerLightShow } from './trawler'
 import { horizonLightShow } from './horizon'
 import { fireboatLightShow } from './fireboat'
 import { icebreakerLightShow } from './icebreaker'
+import { cruiseFinaleShow } from './cruiseFinale'
+import { fireboatWaterCannonShow } from './fireboatWaterCannon'
+import { icebreakerAuroraShow } from './icebreakerAurora'
 
 export type {
   LightCue,
@@ -66,13 +69,24 @@ export function getLightShow(shipType: ShipType): LightCue[] | undefined {
 }
 
 /**
- * V2 show documents, migrated once at module load from the authored V1 presets
- * above (which stay the source of truth for factory presets).
+ * Factory presets authored natively in V2 (rig-group targeting, easing). They
+ * supersede that ship's V1 list in `lightShowRegistryV2`; the V1 list stays in
+ * `lightShowRegistry` as the classic show.
+ */
+export const authoredShowsV2: Partial<Record<ShipType, LightShowV2>> = {
+  cruise: cruiseFinaleShow,
+  fireboat: fireboatWaterCannonShow,
+  icebreaker: icebreakerAuroraShow,
+}
+
+/**
+ * V2 show documents: the native V2 presets above, and for every other ship the
+ * authored V1 list migrated once at module load.
  */
 export const lightShowRegistryV2 = Object.fromEntries(
   (Object.keys(lightShowRegistry) as ShipType[]).map((shipType) => [
     shipType,
-    migrateShowV1toV2(shipType, lightShowRegistry[shipType], PRESET_LOOP_BEATS),
+    authoredShowsV2[shipType] ?? migrateShowV1toV2(shipType, lightShowRegistry[shipType], PRESET_LOOP_BEATS),
   ]),
 ) as Record<ShipType, LightShowV2>
 

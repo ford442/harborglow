@@ -22,6 +22,7 @@ import { wildlifeSystem } from '../wildlifeSystem'
 import { harborEventSystem } from '../eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../dynamicEventSystem'
 import { seaEventsSystem } from '../seaEventsSystem'
+import { lightingSystem } from '../lightingSystem'
 import { SIM_DT } from './SimContext'
 import { simScheduler } from './FixedStepScheduler'
 import { captureSimSnapshot, hashSimSnapshot } from './hashState'
@@ -91,6 +92,7 @@ export function resetDeterministicSystems(opts: { preserveStoreMode?: boolean } 
   weatherSystem.reset()
   trafficSystem.reset()
   wildlifeSystem.reset()
+  lightingSystem.setShowOverride(null)
   harborEventSystem.reset()
   dynamicEventSystem.reset()
   seaEventsSystem.reset()
