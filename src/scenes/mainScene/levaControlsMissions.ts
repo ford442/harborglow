@@ -118,6 +118,14 @@ export function useMissionLevaControls() {
                 console.log('Ice-escort mission started')
             }
         },
+        'Harbor Festival': {
+            value: false,
+            folder: 'Harbor Events',
+            onChange: (value: boolean, _path: string, context: { initial: boolean }) => {
+                if (context.initial) return
+                recordHostInput(value ? 'event.festival.start' : 'event.festival.stop', null)
+            }
+        },
         // Tugboat Mode Controls
         'Force Operation Mode': {
             value: 'crane',

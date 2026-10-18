@@ -457,6 +457,7 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
         cruise_arrival: true,
         cruise_departure: true,
         suspicious_vessel: true,
+        harbor_festival: true,
         clear: true
     },
     // Operator Cabin view mode - default to multiview

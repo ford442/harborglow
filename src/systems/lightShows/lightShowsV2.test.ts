@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { lightShowRegistry, lightShowRegistryV2, getLightShowV2, SHIP_BPM, PRESET_LOOP_BEATS } from './index'
+import { lightShowRegistry, lightShowRegistryV2, authoredShowsV2, getLightShowV2, SHIP_BPM, PRESET_LOOP_BEATS } from './index'
 import { migrateShowV1toV2 } from './migrate'
 import type { LightCue, LightShowV2 } from './types'
 import type { ShipType } from '../../store/gameStoreTypes'
 
 const shipTypes = Object.keys(SHIP_BPM) as ShipType[]
+const migratedShipTypes = shipTypes.filter((t) => !authoredShowsV2[t])
 
 /** Verbatim copy of the pre-V2 `resolveCue` in lightingSystem.ts. */
 function resolveCueV1(schedule: LightCue[], elapsedBeats: number): LightCue {
@@ -31,7 +32,7 @@ function resolveCueV2(show: LightShowV2, elapsedBeats: number) {
 describe('V1 → V2 playback equivalence', () => {
   it.each(shipTypes)('%s resolves identically at every 1/16 beat and cue boundary', (shipType) => {
     const v1 = lightShowRegistry[shipType]
-    const v2 = getLightShowV2(shipType)!
+    const v2 = migrateShowV1toV2(shipType, v1, PRESET_LOOP_BEATS)
     const samples = new Set<number>()
     for (let i = 0; i <= v2.loopBeats * 16; i++) samples.add(i / 16)
     for (const cue of v1) {
@@ -48,6 +49,16 @@ describe('V1 → V2 playback equivalence', () => {
         intensity: a.intensity,
       })
     }
+  })
+})
+
+describe('lightShowRegistryV2', () => {
+  it.each(migratedShipTypes)('%s plays its migrated V1 preset', (shipType) => {
+    expect(getLightShowV2(shipType)).toEqual(migrateShowV1toV2(shipType, lightShowRegistry[shipType], PRESET_LOOP_BEATS))
+  })
+
+  it.each(Object.keys(authoredShowsV2) as ShipType[])('%s plays its native V2 preset', (shipType) => {
+    expect(getLightShowV2(shipType)).toBe(authoredShowsV2[shipType])
   })
 })
 
@@ -78,6 +89,9 @@ describe('migrateShowV1toV2', () => {
   })
 
   it('matches the snapshot of all migrated presets', () => {
-    expect(lightShowRegistryV2).toMatchSnapshot()
+    const migrated = Object.fromEntries(
+      shipTypes.map((t) => [t, migrateShowV1toV2(t, lightShowRegistry[t], PRESET_LOOP_BEATS)]),
+    )
+    expect(migrated).toMatchSnapshot()
   })
 })

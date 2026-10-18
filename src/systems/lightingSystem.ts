@@ -1,6 +1,16 @@
 import { ShipType } from '../store/useGameStore'
-import { getLightShowV2, LightCueV2, LightCuePattern, LightShowV2, SHIP_BPM } from './lightShows'
+import { getLightShowV2, LightCueV2, LightCuePattern, LightShowV2, RigGroupId, SHIP_BPM } from './lightShows'
+import {
+  RIG_GROUP_IDS,
+  createRigGroupCueState,
+  patternPulse,
+  resolveRigGroupState,
+  type RigGroupCueState,
+} from './lightShows/rigCues'
 import { simNowMs } from './sim/SimContext'
+
+/** A show plays at least this long, rounded up to a whole number of loops. */
+const MIN_SHOW_MS = 30000
 
 // =============================================================================
 // LIGHTING SYSTEM - HarborGlow PBR Edition
@@ -22,7 +32,7 @@ class LightingSystem {
     shipId: null,
     shipType: null,
     startTime: 0,
-    duration: 30000, // 30 seconds
+    duration: MIN_SHOW_MS,
     bpm: 128,
   }
 
@@ -32,31 +42,36 @@ class LightingSystem {
   /** Imported show (share link / .hgshow) that replaces the preset; plays until cleared. */
   private showOverride: LightShowV2 | null = null
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
+  /** Per-rig-group cue state for the show ship, resolved in update(). */
+  private groupStates = Object.fromEntries(
+    RIG_GROUP_IDS.map((group) => [group, createRigGroupCueState()]),
+  ) as Record<RigGroupId, RigGroupCueState>
+  private groupStatesValid = false
 
   // ============================================================================
   // HARBOR LIGHT SHOW - Triggered on v2.0 upgrade
   // ============================================================================
   startHarborShow(shipId: string, shipType: ShipType) {
+    const bpm = SHIP_BPM[shipType] ?? 128
+    const show = this.showOverride ?? getLightShowV2(shipType)
+    // End on a loop boundary, not mid-phrase. Ending is checked against sim time
+    // in update(), so it is deterministic (the Harbor Festival waits on it).
+    const loopMs = show ? show.loopBeats * (60 / bpm) * 1000 : 0
+    const duration = loopMs > 0 ? Math.ceil(MIN_SHOW_MS / loopMs) * loopMs : MIN_SHOW_MS
+
     this.currentShow = {
       isActive: true,
       shipId,
       shipType,
       startTime: simNowMs(),
-      duration: 30000,
-      bpm: SHIP_BPM[shipType] ?? 128,
+      duration,
+      bpm,
     }
 
     console.log('🎆 HARBOR LIGHT SHOW ACTIVATED!')
     console.log(`   Ship: ${shipId} (${shipType})`)
-    console.log('   Duration: 30 seconds')
+    console.log(`   Duration: ${(duration / 1000).toFixed(1)} seconds`)
     console.log('   All LEDs, funnels, deck lights PULSING to beat!')
-
-    // An imported show loops until the override is cleared.
-    if (!this.showOverride) {
-      setTimeout(() => {
-        this.endHarborShow()
-      }, this.currentShow.duration)
-    }
   }
 
   /** Install (or clear with null) a show that replaces the factory preset. */
@@ -75,6 +90,7 @@ class LightingSystem {
 
     this.activeCue = null
     this.cueState = null
+    this.groupStatesValid = false
     this.beatPulse = 0
     this.intensityMultiplier = 1.0
   }
@@ -83,6 +99,15 @@ class LightingSystem {
   // UPDATE - Call in useFrame
   // ============================================================================
   update(time: number, bpm: number) {
+    // An imported show loops until the override is cleared.
+    if (
+      this.currentShow.isActive &&
+      !this.showOverride &&
+      simNowMs() - this.currentShow.startTime >= this.currentShow.duration
+    ) {
+      this.endHarborShow()
+    }
+
     if (this.currentShow.isActive) {
       const elapsed = simNowMs() - this.currentShow.startTime
       const progress = elapsed / this.currentShow.duration
@@ -94,10 +119,15 @@ class LightingSystem {
 
       if (show && show.cues.length > 0) {
         const elapsedBeats = (elapsed / 1000) / beatDuration
+        const beatInLoop = elapsedBeats % show.loopBeats
         const active = this.resolveCue(show, elapsedBeats)
 
         this.activeCue = active
-        this.beatPulse = this.computePulse(active.pattern, elapsedBeats % show.loopBeats)
+        this.beatPulse = patternPulse(active.pattern, beatInLoop)
+        for (const group of RIG_GROUP_IDS) {
+          resolveRigGroupState(show, group, beatInLoop, this.groupStates[group])
+        }
+        this.groupStatesValid = true
         this.intensityMultiplier = active.intensity
         this.cueState = {
           color: active.color,
@@ -107,6 +137,7 @@ class LightingSystem {
         }
       } else {
         this.activeCue = null
+        this.groupStatesValid = false
         this.beatPulse = genericPulse
 
         if (progress < 0.2) {
@@ -124,12 +155,14 @@ class LightingSystem {
       this.beatPulse = 0
       this.activeCue = null
       this.cueState = null
+      this.groupStatesValid = false
     }
   }
 
-  // Step function: the active cue is the last one starting at or before the
-  // loop-relative beat. lengthBeats/target/easing are not interpreted yet
-  // (#248/#249) — every cue still drives the whole rig.
+  // Harbor-wide step function: the active cue is the last one starting at or
+  // before the loop-relative beat, whatever it targets. It drives the global
+  // beat pulse; per-rig-group playback (target/lengthBeats/easing) is
+  // groupStates, read through getRigGroupState().
   private resolveCue(show: LightShowV2, elapsedBeats: number): LightCueV2 {
     const beatInLoop = elapsedBeats % show.loopBeats
     let active = show.cues[0]
@@ -138,25 +171,6 @@ class LightingSystem {
       else break
     }
     return active
-  }
-
-  private computePulse(pattern: LightCuePattern, currentBeat: number): number {
-    switch (pattern) {
-      case 'breathe':
-        return (Math.sin(currentBeat * Math.PI / 2) + 1) / 2
-      case 'sweep':
-        return (currentBeat % 4) / 4
-      case 'strobe':
-        return ((currentBeat * 8) % 2) < 1 ? 1 : 0
-      case 'snap': {
-        const frac = currentBeat % 1
-        return frac < 0.25 ? 1 - frac * 4 : 0
-      }
-      case 'blackout':
-        return 0
-      default:
-        return 0
-    }
   }
 
   private applyCuePattern(baseIntensity: number, cue: LightCueV2): number {
@@ -230,6 +244,16 @@ class LightingSystem {
 
   getCueState(): { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null {
     return this.cueState
+  }
+
+  /**
+   * Cue state of one rig group on the ship whose show is playing, or null when
+   * that ship has no cue-driven show running (callers keep the global drive).
+   * The returned object is reused every update; read it, don't keep it.
+   */
+  getRigGroupState(shipId: string, group: RigGroupId): RigGroupCueState | null {
+    if (!this.groupStatesValid || this.currentShow.shipId !== shipId) return null
+    return this.groupStates[group]
   }
 
   // ============================================================================

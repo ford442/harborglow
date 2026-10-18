@@ -11,6 +11,10 @@ import { HarborEvent, HarborEventType, BusinessPattern, BusinessPatternType, Por
 import { EVENT_CONFIGS } from './eventConfigs'
 import { simRandom, simNowMs } from '../sim/SimContext'
 import { timeSystem } from '../timeSystem'
+import { HarborFestival, FESTIVAL_SETLIST } from './harborFestival'
+
+/** Safety cap on a festival event; the player can also stop it. */
+const FESTIVAL_EVENT_MAX_S = 3600
 
 export class HarborEventSystem {
     private activeEvents: Map<string, HarborEvent> = new Map()
@@ -38,6 +42,7 @@ export class HarborEventSystem {
         cruise_arrival: true,
         cruise_departure: true,
         suspicious_vessel: true,
+        harbor_festival: true,
         clear: true
     }
     
@@ -50,6 +55,8 @@ export class HarborEventSystem {
     }
     private businessPatternTimer: number = 0
     private distantShipQueue: { type: ShipType; eta: number }[] = []
+    readonly festival = new HarborFestival()
+    private festivalEventId: string | null = null
 
     constructor() {
         Object.keys(EVENT_CONFIGS).forEach(type => {
@@ -606,6 +613,33 @@ export class HarborEventSystem {
     }
 
     // ========================================================================
+    // HARBOR FESTIVAL
+    // ========================================================================
+
+    /** Start a festival setlist. Sim input: call via recordHostInput('event.festival.start'). */
+    startHarborFestival(setlist: readonly ShipType[] = FESTIVAL_SETLIST): HarborEvent | null {
+        if (!this.isEventEnabled('harbor_festival')) return null
+        if (!this.festival.start(setlist)) return null
+
+        const event: HarborEvent = {
+            id: `festival-${simNowMs()}`,
+            type: 'harbor_festival',
+            startTime: simNowMs(),
+            duration: FESTIVAL_EVENT_MAX_S,
+            intensity: 1,
+            position: [0, 0, 0],
+            metadata: { setlist: [...setlist] }
+        }
+        this.festivalEventId = event.id
+        this.activeEvents.set(event.id, event)
+        return event
+    }
+
+    stopHarborFestival() {
+        if (this.festivalEventId) this.endEvent(this.festivalEventId)
+    }
+
+    // ========================================================================
     // MUSIC INTEGRATION
     // ========================================================================
 
@@ -668,6 +702,12 @@ export class HarborEventSystem {
                 this.updateEvent(event, delta)
             }
         })
+
+        this.festival.update(delta)
+        if (this.festivalEventId && !this.festival.isActive()) {
+            this.activeEvents.delete(this.festivalEventId)
+            this.festivalEventId = null
+        }
 
         this.eventTimers.forEach((timer, type) => {
             if (type === 'clear') return
@@ -781,6 +821,10 @@ export class HarborEventSystem {
             case 'whale_migration':
                 console.log(`🐋 Whales continued migration`)
                 break
+            case 'harbor_festival':
+                this.festival.stop()
+                this.festivalEventId = null
+                break
         }
 
         this.activeEvents.delete(id)
@@ -847,7 +891,10 @@ export class HarborEventSystem {
     }
 
     hasActiveEvent(type: HarborEventType): boolean {
-        return this.activeEvents.has(type)
+        for (const event of this.activeEvents.values()) {
+            if (event.type === type) return true
+        }
+        return false
     }
 
     forceEvent(type: HarborEventType, shipId?: string): HarborEvent | null {
@@ -860,6 +907,8 @@ export class HarborEventSystem {
                 return this.triggerShipFire(shipId)
             case 'atmospheric_river':
                 return this.triggerAtmosphericRiver()
+            case 'harbor_festival':
+                return this.startHarborFestival()
             default:
                 return this.spawnEvent(type)
         }
@@ -870,6 +919,8 @@ export class HarborEventSystem {
     }
 
     reset() {
+        this.festival.reset()
+        this.festivalEventId = null
         this.activeEvents.clear()
         this.activeBusinessPatterns.clear()
         this.distantShipQueue = []
