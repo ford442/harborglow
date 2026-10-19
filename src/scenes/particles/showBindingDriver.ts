@@ -29,7 +29,7 @@ import {
 import { emitterAnchorKey, type EmitterAnchor } from './emitterAnchors'
 import { FIREWORK_ALTITUDE, type EmitSink } from './showEmitterDriver'
 
-export const SHOW_EMITTER_PRESET: Readonly<Record<ShowEmitterKind, EmitterPresetId>> = {
+const SHOW_EMITTER_PRESET: Readonly<Record<ShowEmitterKind, EmitterPresetId>> = {
   fireworks: 'firework',
   mist: 'mist',
   glitter: 'glitter',
