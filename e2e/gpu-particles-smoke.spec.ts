@@ -24,6 +24,10 @@ test.use({
       '--enable-features=Vulkan',
       '--use-vulkan=swiftshader',
       '--use-webgpu-adapter=swiftshader',
+      // Without ANGLE-on-SwiftShader GL, presenting to a canvas loses the WebGPU
+      // device. launchOptions.args replaces the base config's args, so repeat them.
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
       '--disable-dev-shm-usage',
     ],
   },
@@ -75,6 +79,18 @@ test.describe('GPU particles smoke', () => {
     expect(r.allFinite).toBe(true)
     expect(r.deviceErrors).toEqual([])
     expect(r.aliveAfterIdle).toBe(0)
+
+    // Show bindings through the real driver into the real ring (read back from the GPU).
+    const { fireworks, mist } = r.bindings
+    expect(fireworks.emitted).toBeGreaterThan(0)
+    expect(fireworks.alive).toBe(fireworks.emitted)
+    expect(fireworks.nearOrigin, 'shells burst 22 m above each funnel').toBe(fireworks.alive)
+    expect(fireworks.estimate).toBe(fireworks.alive)
+    expect(mist.emitted).toBeGreaterThan(0)
+    expect(mist.alive).toBeGreaterThan(0)
+    expect(mist.nearCannon, 'mist rises from the cannons').toBe(mist.alive)
+    // Lives vary +-30% and nothing has expired yet in 1/3 s, so the estimate is exact here.
+    expect(mist.estimate).toBe(mist.alive)
     if (r.render === 'canary-failed') {
       // Not a particle failure: a plain floor already lost the device (SwiftShader in current Chromium).
       test.info().annotations.push({

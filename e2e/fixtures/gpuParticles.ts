@@ -7,6 +7,10 @@ import * as THREE from 'three/webgpu'
 import { GpuParticleSystem } from '../../src/rendering/particles/GpuParticleSystem'
 import { fxUniforms } from '../../src/rendering/particles/fxFrameUniforms'
 import { createLaserBeamGeometry, createLaserBeamMaterial } from '../../src/rendering/particles/laserBeamMaterial'
+import { AliveEstimator } from '../../src/scenes/particles/aliveEstimate'
+import { emitterAnchorKey } from '../../src/scenes/particles/emitterAnchors'
+import { createBindingFrame, ShowBindingDriver } from '../../src/scenes/particles/showBindingDriver'
+import { FIREWORK_ALTITUDE } from '../../src/scenes/particles/showEmitterDriver'
 
 export interface GpuParticlesSmokeResult {
   adapter: boolean
@@ -24,6 +28,8 @@ export interface GpuParticlesSmokeResult {
   meanAgeAfterBurst: number
   /** Max height reached by a burst launched upward from y = 10. */
   maxY: number
+  /** The real ShowBindingDriver feeding the real ring, read back from the GPU. */
+  bindings: BindingsStage
   /**
    * 'ok': a trivial scene and the particle + laser draw both submitted.
    * 'canary-failed': even a plain floor lost the device, so this adapter cannot present
@@ -32,6 +38,13 @@ export interface GpuParticlesSmokeResult {
    */
   render: 'ok' | 'canary-failed' | 'failed'
   deviceErrors: string[]
+}
+
+export interface BindingsStage {
+  /** Cruise beat 24: shells emitted, particles alive on the GPU, and how many sit within 2 m of a shell origin. */
+  fireworks: { emitted: number; alive: number; nearOrigin: number; estimate: number }
+  /** Fireboat beat 2: particles alive after 20 frames, and how many sit within 8 m of a cannon, above its muzzle. */
+  mist: { emitted: number; alive: number; nearCannon: number; estimate: number }
 }
 
 const DT = 1 / 60
@@ -79,6 +92,10 @@ export async function runGpuParticlesSmoke(): Promise<GpuParticlesSmokeResult> {
     adapter: false, capacity: 0, maxSpawn: 0,
     aliveAfterBurst: 0, aliveAfterWrap: 0, aliveAfterIdle: 0,
     cursorWrapped: false, allFinite: false, meanAgeAfterBurst: 0, maxY: 0,
+    bindings: {
+      fireworks: { emitted: 0, alive: 0, nearOrigin: 0, estimate: 0 },
+      mist: { emitted: 0, alive: 0, nearCannon: 0, estimate: 0 },
+    },
     render: 'failed', deviceErrors: [],
   }
   const adapter = await navigator.gpu?.requestAdapter()
@@ -130,6 +147,74 @@ export async function runGpuParticlesSmoke(): Promise<GpuParticlesSmokeResult> {
   result.aliveAfterIdle = s.alive
   finite &&= s.finite
   result.allFinite = finite
+
+  // D: show bindings -> driver -> ring, on the GPU. Everything is dead after C, so what is
+  // alive afterwards is what the driver emitted, and where it is says whether the anchor
+  // lookup, the firework altitude and the stream direction reached the kernels.
+  const anchors = new Map<string, { position: THREE.Vector3; quaternion: THREE.Quaternion }>()
+  const place = (id: string, x: number, y: number, z: number) =>
+    anchors.set(emitterAnchorKey('ship-1', id), { position: new THREE.Vector3(x, y, z), quaternion: new THREE.Quaternion() })
+  place('funnel1', -30, 12, 0)
+  place('funnel2', 30, 12, 0)
+  place('waterCannonPort', -4, 5, 40)
+  place('waterCannonStbd', 4, 5, 40)
+  place('foamDeck', 0, 3, 50)
+  const estimator = new AliveEstimator()
+  let clock = 0
+  let emittedNow = 0
+  const driver = new ShowBindingDriver(sys.capacity, sys.maxSpawn, (key) => anchors.get(key))
+  const emit = (
+    preset: Parameters<GpuParticleSystem['emit']>[0],
+    ox: number, oy: number, oz: number,
+    dx: number, dy: number, dz: number,
+    count: number, color: string | null, seed: number,
+  ) => {
+    const fit = sys.emit(preset, ox, oy, oz, dx, dy, dz, count, color, seed)
+    estimator.add(preset, clock, fit)
+    emittedNow += fit
+  }
+  const bframe = createBindingFrame()
+  const near = (posAge: Float32Array, origins: Array<[number, number, number]>, radius: number, aboveOnly = false) => {
+    let alive = 0
+    let hits = 0
+    for (let i = 0; i < posAge.length; i += 4) {
+      if (posAge[i + 3] > 1) continue
+      alive++
+      for (const [ox, oy, oz] of origins) {
+        const d = Math.hypot(posAge[i] - ox, posAge[i + 1] - oy, posAge[i + 2] - oz)
+        if (d <= radius && (!aboveOnly || posAge[i + 1] >= oy - 0.5)) { hits++; break }
+      }
+    }
+    return { alive, hits }
+  }
+
+  // D1: cruise, beat 24 -> one shell above each funnel.
+  Object.assign(bframe, { shipId: 'ship-1', shipType: 'cruise', beatInLoop: 24, beatSeconds: 0.5, dt: DT })
+  driver.update(bframe, emit)
+  sys.step(renderer)
+  sys.step(renderer)
+  clock += 2 * DT
+  let d = near(
+    await readPosAge(renderer, sys),
+    [[-30, 12 + FIREWORK_ALTITUDE, 0], [30, 12 + FIREWORK_ALTITUDE, 0]],
+    2,
+  )
+  result.bindings.fireworks = { emitted: emittedNow, alive: d.alive, nearOrigin: d.hits, estimate: estimator.estimate(clock, sys.capacity) }
+
+  // Let the shells die, then D2: fireboat, beat 2 -> mist from both cannons for 20 frames.
+  for (let i = 0; i < 300; i++) sys.step(renderer)
+  clock += 300 * DT
+  emittedNow = 0
+  Object.assign(bframe, { shipId: 'ship-1', shipType: 'fireboat', beatInLoop: 2, beatSeconds: 60 / 152, dt: DT })
+  for (let i = 0; i < 20; i++) {
+    driver.update(bframe, emit)
+    sys.step(renderer)
+    clock += DT
+  }
+  d = near(await readPosAge(renderer, sys), [[-4, 5, 40], [4, 5, 40]], 8, true)
+  result.bindings.mist = { emitted: emittedNow, alive: d.alive, nearCannon: d.hits, estimate: estimator.estimate(clock, sys.capacity) }
+  // Idle again so the render stage below starts from a clean ring.
+  for (let i = 0; i < 300; i++) sys.step(renderer)
 
   // Re-seed a burst so the draw below has live particles to rasterise.
   sys.emit('firework', 0, 8, 0, 0, 1, 0, 500, '#ffcc00', 0.5)
