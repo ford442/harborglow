@@ -16,7 +16,7 @@ export interface GpuParticlesSmokeResult {
   aliveAfterBurst: number
   /** Alive slots after enough spawns to wrap the ring. */
   aliveAfterWrap: number
-  /** Alive slots after 2 s with no spawning. */
+  /** Alive slots after 5 s with no spawning (longer than any preset's longest life, 3.5 s × 1.3). */
   aliveAfterIdle: number
   cursorWrapped: boolean
   allFinite: boolean
@@ -24,11 +24,33 @@ export interface GpuParticlesSmokeResult {
   meanAgeAfterBurst: number
   /** Max height reached by a burst launched upward from y = 10. */
   maxY: number
-  rendered: boolean
+  /**
+   * 'ok': a trivial scene and the particle + laser draw both submitted.
+   * 'canary-failed': even a plain floor lost the device, so this adapter cannot present
+   *   to a canvas (current SwiftShader builds) and the draw cannot be judged here.
+   * 'failed': the floor rendered but the particle / laser draw did not.
+   */
+  render: 'ok' | 'canary-failed' | 'failed'
   deviceErrors: string[]
 }
 
 const DT = 1 / 60
+
+/** Render once and wait for the queue; false if the device was lost or the submit threw. */
+async function submit(
+  renderer: THREE.WebGPURenderer,
+  device: GPUDevice,
+  scene: THREE.Scene,
+  camera: THREE.Camera,
+): Promise<boolean> {
+  try {
+    await renderer.renderAsync(scene, camera)
+    await device.queue.onSubmittedWorkDone()
+    return true
+  } catch {
+    return false
+  }
+}
 
 async function readPosAge(renderer: THREE.WebGPURenderer, sys: GpuParticleSystem): Promise<Float32Array> {
   const buf = await renderer.getArrayBufferAsync(sys.buffers.posAge)
@@ -57,7 +79,7 @@ export async function runGpuParticlesSmoke(): Promise<GpuParticlesSmokeResult> {
     adapter: false, capacity: 0, maxSpawn: 0,
     aliveAfterBurst: 0, aliveAfterWrap: 0, aliveAfterIdle: 0,
     cursorWrapped: false, allFinite: false, meanAgeAfterBurst: 0, maxY: 0,
-    rendered: false, deviceErrors: [],
+    render: 'failed', deviceErrors: [],
   }
   const adapter = await navigator.gpu?.requestAdapter()
   if (!adapter) return result
@@ -102,6 +124,17 @@ export async function runGpuParticlesSmoke(): Promise<GpuParticlesSmokeResult> {
   result.aliveAfterWrap = s.alive
   finite &&= s.finite
 
+  // C: five idle seconds — every particle should age out (longest life is 3.5 s × 1.3).
+  for (let i = 0; i < 300; i++) sys.step(renderer)
+  s = stats(await readPosAge(renderer, sys))
+  result.aliveAfterIdle = s.alive
+  finite &&= s.finite
+  result.allFinite = finite
+
+  // Re-seed a burst so the draw below has live particles to rasterise.
+  sys.emit('firework', 0, 8, 0, 0, 1, 0, 500, '#ffcc00', 0.5)
+  sys.step(renderer)
+
   // Draw the particles and a depth-faded laser over an opaque floor (MSAA on).
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 500)
@@ -117,16 +150,16 @@ export async function runGpuParticlesSmoke(): Promise<GpuParticlesSmokeResult> {
     new THREE.Vector3(0, 0, 0), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.4), new THREE.Vector3(0.4, 40, 0.4),
   ))
   scene.add(laser)
-  await renderer.renderAsync(scene, camera)
-  await device.queue.onSubmittedWorkDone()
-  result.rendered = true
 
-  // C: two idle seconds — every particle should age out.
-  for (let i = 0; i < 120; i++) sys.step(renderer)
-  s = stats(await readPosAge(renderer, sys))
-  result.aliveAfterIdle = s.alive
-  finite &&= s.finite
-  result.allFinite = finite
+  // Canary first: a plain floor. If that already loses the device, the adapter cannot
+  // present to a canvas and the particle draw below would only repeat the loss.
+  const canary = new THREE.Scene()
+  canary.add(floor.clone())
+  if (!(await submit(renderer, device, canary, camera))) {
+    result.render = 'canary-failed'
+  } else {
+    result.render = (await submit(renderer, device, scene, camera)) ? 'ok' : 'failed'
+  }
 
   sys.dispose(renderer)
   renderer.dispose()
