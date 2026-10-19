@@ -86,15 +86,25 @@ test.describe('show particles', () => {
     await page.getByRole('button', { name: 'New Game' }).click()
 
     // The engine publishes its counter once it has initialised; the fatal overlay means no WebGPU.
+    // Each side swallows its own timeout so a slow boot reports as one clear failure, not as
+    // whichever locator timed out first.
     const outcome = await Promise.race([
-      page.getByTestId('webgpu-fatal-overlay').waitFor({ timeout: 120_000 }).then(() => 'fatal' as const),
+      page
+        .getByTestId('webgpu-fatal-overlay')
+        .waitFor({ timeout: 120_000 })
+        .then(() => 'fatal' as const, () => 'pending' as const),
       page
         .waitForFunction(() => !!(window as unknown as { harborglowDebug?: { showParticles?: unknown } }).harborglowDebug?.showParticles, null, {
           timeout: 120_000,
         })
-        .then(() => 'ready' as const),
+        .then(() => 'ready' as const, () => 'pending' as const),
     ])
     test.skip(outcome === 'fatal', 'app probe rejected this adapter (WebGPU fatal overlay)')
+    expect(
+      outcome,
+      'neither the WebGPU fatal overlay nor harborglowDebug.showParticles appeared within 120 s: ' +
+        'the scene did not boot (slow software rendering, or the particle layer never mounted)',
+    ).toBe('ready')
 
     const read = () =>
       page.evaluate(
