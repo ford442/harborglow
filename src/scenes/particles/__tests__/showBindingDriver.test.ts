@@ -247,7 +247,7 @@ describe('ShowBindingDriver', () => {
     expect(new Set(calls.map((c) => c.preset))).toEqual(new Set(['firework', 'mist', 'glitter']))
   })
 
-  it('does not allocate on the steady-state frame path', () => {
+  it('does not allocate on the per-frame bookkeeping path', () => {
     const d = new ShowBindingDriver(CAPACITY, MAX_SPAWN, anchorsFor('ship-1'))
     // A Float64Array slot, not a captured `let`: boxing a double into a closure
     // slot would itself allocate and hide what the driver does.
@@ -255,20 +255,25 @@ describe('ShowBindingDriver', () => {
     const emit = ((_p: string, x: number, _y: number, _z: number, _dx: number, _dy: number, _dz: number, count: number) => {
       sink[0] += x + count
     }) as unknown as Parameters<ShowBindingDriver['update']>[1]
-    const f = frame({ shipType: 'cruise', beatInLoop: 24, beatSeconds: 0.5 })
+    // Cruise at beat 24.3: both firework bindings are live and already fired for beat 24,
+    // so every frame runs the whole path (collect, shares, state, anchor lookup) and emits
+    // nothing. Emitting frames are left out on purpose: they pass doubles across the
+    // emit() call, whose boxing cost depends on the V8 version and JIT state (3-46 B/frame
+    // measured across Node 20 and 24), which would make a byte bound here a flake.
+    const f = frame({ shipType: 'cruise', beatInLoop: 24.3, beatSeconds: 0.5 })
+    d.update(f, emit)
+    expect(sink[0]).toBeGreaterThan(0)
     const run = (n: number) => {
-      for (let i = 0; i < n; i++) {
-        f.beatInLoop = 24 + (i % 700) * 0.01
-        d.update(f, emit)
-      }
+      for (let i = 0; i < n; i++) d.update(f, emit)
     }
-    run(30_000) // warm the JIT and create the per-binding state
+    run(30_000) // warm the JIT
     forceGc()?.()
     const before = process.memoryUsage().heapUsed
     run(100_000)
     const grown = process.memoryUsage().heapUsed - before
-    expect(sink[0]).toBeGreaterThan(0)
-    // 100k frames; even a 32-byte allocation per frame would show as > 3 MB.
-    expect(grown).toBeLessThan(1_000_000)
+    // The regressions this guards (a key string per binding per frame, `out.length = 0` on a
+    // reused array) cost 30-70 B/frame, i.e. 3-7 MB here. This path measures ~0.1 B/frame; the
+    // rest of the bound is the test runner's own noise (up to ~300 KB seen).
+    expect(grown).toBeLessThan(700_000)
   })
 })
