@@ -41,6 +41,7 @@ export interface HUDProps {
 import { useSharedPlayback } from '../systems/share/sharedPlaybackState'
 import SharedPlaybackBadge from './hud/SharedPlaybackBadge'
 import ShareShowButton from './hud/ShareShowButton'
+import ExportShowButton from './hud/ExportShowButton'
 
 export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const [shopOpen, setShopOpen] = useState(false)
@@ -94,6 +95,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <LobbyPanel />
       <SharedPlaybackBadge />
       {isCraneMode && !isSpectator && <ShareShowButton />}
+      {isCraneMode && !isSpectator && <ExportShowButton />}
 
       {isCraneMode && !isSpectator && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
       

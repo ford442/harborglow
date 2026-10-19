@@ -27,6 +27,7 @@ import {
 } from '../../systems/ambientSoundSystem'
 import { useEnvironmentLevaControls } from './levaControlsEnvironment'
 import { useMissionLevaControls } from './levaControlsMissions'
+import { usePerformLevaControls } from './levaPerform'
 import type { LevaControlsConfig } from './types'
 
 export type { LevaControlsConfig } from './types'
@@ -404,4 +405,5 @@ export function useLevaControls(config: LevaControlsConfig) {
 
     useEnvironmentLevaControls(config)
     useMissionLevaControls()
+    usePerformLevaControls()
 }

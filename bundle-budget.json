@@ -6,7 +6,8 @@
     "vendor-3d-rapier": 900,
     "GameShell": 600,
     "MainScene": 600,
-    "index": 200
+    "index": 200,
+    "show-export": 280
   },
   "profiles": {
     "menu-eager": {

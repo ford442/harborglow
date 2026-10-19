@@ -1,5 +1,9 @@
 import { ShipType } from '../store/useGameStore'
 import { getLightShowV2, LightCueV2, LightCuePattern, LightShowV2, SHIP_BPM } from './lightShows'
+import { getAuthoredShow } from './lightShows/authoredShows'
+import { easedIntensity, resolveActiveCue } from './lightShows/cueEdit'
+import { activeFiredCue } from './lightShows/performLog'
+import { getSim } from './sim/SimContext'
 import { simNowMs } from './sim/SimContext'
 
 // =============================================================================
@@ -32,6 +36,8 @@ class LightingSystem {
   /** Imported show (share link / .hgshow) that replaces the preset; plays until cleared. */
   private showOverride: LightShowV2 | null = null
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
+  /** Editor preview. While set, the sim-driven update does not clobber the cue. */
+  private previewing = false
 
   // ============================================================================
   // HARBOR LIGHT SHOW - Triggered on v2.0 upgrade
@@ -82,7 +88,21 @@ class LightingSystem {
   // ============================================================================
   // UPDATE - Call in useFrame
   // ============================================================================
+  /**
+   * Drive the active cue from the editor's audio-clock playhead.
+   * Does not read or write sim time.
+   */
+  setPreview(show: LightShowV2, elapsedBeats: number) {
+    this.previewing = true
+    this.applyResolved(show, elapsedBeats)
+  }
+
+  clearPreview() {
+    this.previewing = false
+  }
+
   update(time: number, bpm: number) {
+    if (this.previewing) return
     if (this.currentShow.isActive) {
       const elapsed = simNowMs() - this.currentShow.startTime
       const progress = elapsed / this.currentShow.duration
@@ -90,21 +110,14 @@ class LightingSystem {
       const effectiveBpm = this.currentShow.bpm || bpm
       const beatDuration = 60 / effectiveBpm
       const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
-      const show = this.showOverride ?? (this.currentShow.shipType ? getLightShowV2(this.currentShow.shipType) : undefined)
+      const shipType = this.currentShow.shipType
+      const show = this.showOverride
+        ?? (shipType ? getAuthoredShow(shipType) : undefined)
+        ?? (shipType ? getLightShowV2(shipType) : undefined)
 
       if (show && show.cues.length > 0) {
         const elapsedBeats = (elapsed / 1000) / beatDuration
-        const active = this.resolveCue(show, elapsedBeats)
-
-        this.activeCue = active
-        this.beatPulse = this.computePulse(active.pattern, elapsedBeats % show.loopBeats)
-        this.intensityMultiplier = active.intensity
-        this.cueState = {
-          color: active.color,
-          intensity: active.intensity,
-          pattern: active.pattern,
-          pulse: this.beatPulse,
-        }
+        this.applyResolved(show, elapsedBeats)
       } else {
         this.activeCue = null
         this.beatPulse = genericPulse
@@ -119,6 +132,18 @@ class LightingSystem {
 
         this.cueState = null
       }
+      const performed = activeFiredCue(getSim().simTime)
+      if (performed) {
+        this.activeCue = performed
+        this.beatPulse = this.computePulse(performed.pattern, performed.beat)
+        this.intensityMultiplier = performed.intensity
+        this.cueState = {
+          color: performed.color,
+          intensity: performed.intensity,
+          pattern: performed.pattern,
+          pulse: this.beatPulse,
+        }
+      }
     } else {
       this.intensityMultiplier = 1.0
       this.beatPulse = 0
@@ -127,17 +152,18 @@ class LightingSystem {
     }
   }
 
-  // Step function: the active cue is the last one starting at or before the
-  // loop-relative beat. lengthBeats/target/easing are not interpreted yet
-  // (#248/#249) — every cue still drives the whole rig.
-  private resolveCue(show: LightShowV2, elapsedBeats: number): LightCueV2 {
-    const beatInLoop = elapsedBeats % show.loopBeats
-    let active = show.cues[0]
-    for (const cue of show.cues) {
-      if (cue.beat <= beatInLoop) active = cue
-      else break
+  private applyResolved(show: LightShowV2, elapsedBeats: number) {
+    const active = resolveActiveCue(show, elapsedBeats)
+    this.activeCue = active
+    if (!active) return
+    this.beatPulse = this.computePulse(active.pattern, elapsedBeats % show.loopBeats)
+    this.intensityMultiplier = easedIntensity(active, elapsedBeats, show.loopBeats)
+    this.cueState = {
+      color: active.color,
+      intensity: active.intensity,
+      pattern: active.pattern,
+      pulse: this.beatPulse,
     }
-    return active
   }
 
   private computePulse(pattern: LightCuePattern, currentBeat: number): number {
@@ -189,6 +215,7 @@ class LightingSystem {
   // GETTERS for ship components
   // ============================================================================
   getLightIntensity(baseIntensity: number): number {
+    if (this.previewing && this.activeCue) return this.applyCuePattern(baseIntensity, this.activeCue)
     if (!this.currentShow.isActive) return baseIntensity
 
     if (this.activeCue) {
@@ -200,6 +227,7 @@ class LightingSystem {
   }
 
   getEmissiveColor(baseColor: string, shipId: string): string {
+    if (this.previewing && this.activeCue) return this.activeCue.color
     if (!this.currentShow.isActive || this.currentShow.shipId !== shipId) {
       return baseColor
     }

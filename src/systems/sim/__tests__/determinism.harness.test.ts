@@ -14,6 +14,9 @@ import {
 } from '../headless'
 import { stormSystem } from '../../StormSystem'
 import { SIM_DT } from '../SimContext'
+import { recordHostInput } from '../hostInput'
+import { applyReplayInput } from '../applyInput'
+import { performanceSnapshot } from '../../lightShows/performLog'
 
 const STORM = { startStorm: true as const }
 
@@ -77,6 +80,46 @@ describe('two headless instances share a spawn + storm input log', () => {
     const b = runHeadlessReplay(file, 240)
     expect(a).toBe(b)
     expect(a).toMatch(/^[0-9a-f]{8}$/)
+  })
+})
+
+describe('performed light-show cues', () => {
+  it('replays a recorded performance to the same sim hash', () => {
+    const payload = {
+      quantize: '1/16' as const,
+      source: 'pad' as const,
+      bpm: 120,
+      accuracyWeight: 1,
+      varietyWeight: 1,
+      creditScale: 40,
+      reputationScale: 8,
+    }
+    simScheduler.reset(11)
+    resetDeterministicSystems()
+    bootHeadlessRegistry()
+    simScheduler.setInputHandler((entry) => applyReplayInput(entry))
+    simScheduler.startRecording()
+    try {
+      while (simScheduler.tick < 20) stepHeadless(SIM_DT)
+      stepHeadless(SIM_DT, () => {
+        recordHostInput('show.cue', { ...payload, pattern: 'breathe', target: 'funnel' })
+      })
+      stepHeadless(SIM_DT, () => {
+        recordHostInput('show.cue', { ...payload, pattern: 'strobe', target: 'mast' })
+      })
+      while (simScheduler.tick < 80) stepHeadless(SIM_DT)
+      const file = simScheduler.stopRecording()
+      const liveHash = hashSimSnapshot()
+      const liveCues = performanceSnapshot().cues
+      const parsed = parseReplay(serializeReplay(file))
+
+      expect(parsed.inputs.filter((entry) => entry.action === 'show.cue')).toHaveLength(2)
+      expect(liveCues.length).toBe(2)
+      expect(runHeadlessReplay(parsed, 80)).toBe(liveHash)
+      expect(performanceSnapshot().cues).toEqual(liveCues)
+    } finally {
+      simScheduler.setInputHandler(null)
+    }
   })
 })
 

@@ -4,6 +4,12 @@
 // the build uses. See AGENTS.md "Chunk groups and boot".
 
 export const codeSplittingGroups = [
+    // Light-show muxer. Lazy: nothing in game-initial imports it statically.
+    {
+        name: 'show-export',
+        test: /node_modules[\\/]mediabunny[\\/]|src[\\/]systems[\\/]export[\\/]showMuxer/,
+        priority: 55,
+    },
     // React/ReactDOM/Scheduler: own chunk, kept out of vendor-3d, to
     // avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED errors.
     {

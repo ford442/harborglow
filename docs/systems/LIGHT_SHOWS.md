@@ -25,9 +25,24 @@ Slice 1 of the Light Show Director epic (#236). Data only: no rendering or save 
 | show `loopBeats` | `32` (the upgrade-cinematic cycle) |
 | show `seed` | omitted (reserved for #235) |
 
-**Not yet interpreted:** `lengthBeats`, `target` and `easing` are carried but ignored at
-play time. `lightingSystem.ts` still resolves cues as a step function (last cue with
-`beat <= t mod loopBeats`) and every cue drives the whole rig. Interpreting them is #248/#249.
+**Play time:** a cue is active while the playhead sits in `[beat, beat + lengthBeats)`.
+`easing` shapes that cue's intensity (`step` stays flat). Cue `target` selects
+which attachment points emit GPU particles — see [PARTICLES.md](PARTICLES.md).
+The rig's color follows the one active cue. `'all'` keeps every point. A gap
+falls back to the last cue that has started, which matches the tiled factory presets.
+
+## Perform
+
+During a harbor show, pads `1`–`5`, a crane-joystick threshold crossing, and tug-throttle gates fire a cue on the next 1/8 or 1/16. The gesture is `recordHostInput('show.cue', …)`. `applyReplayInput` quantizes from sim time and scores a timing-accuracy plus variety bonus (`economySystem.grantPerformanceBonus`). Weights and the grid live in the Leva folder **Light Show Perform**. The fired sequence is part of `hashSimSnapshot`, so a recorded log replays to the same hash.
+
+## Editor
+
+The booth piano roll and full-screen overlay live in `components/operatorCabin/LightShowDesk.tsx`
+(lazy, so they stay out of `menu-eager`). Fork copies a factory show; Save writes
+`authoredShows` on the existing v4 save (the field is optional, so the save version
+does not change). Ship completion plays that fork. Preview scrubs a private transport
+on the `'audio'` clock and does not write the sim or the store, so the canvas is not
+re-rendered by the playhead.
 
 ## Rig groups
 
@@ -51,8 +66,10 @@ imports fine and is a play-time no-op (decided in #249).
 
 Saves hold no light-show data today. `loadGameState()` returns `null` on **any**
 version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
-When #249 persists user shows: add an **optional** `GameState` field, and do not bump
-`VERSION` until `loadGameState` migrates instead of returning `null`.
+`authoredShows` is an optional v4 field (forked shows keyed by ship type). Missing
+on older v4 saves, and `loadGameState` still accepts those. Do not bump `VERSION`
+until `loadGameState` migrates instead of returning `null`. Loaded shows go through
+the lazy `parseLightShow` schema.
 
 ## Sharing
 

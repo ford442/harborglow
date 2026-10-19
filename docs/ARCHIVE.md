@@ -38,7 +38,7 @@ Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any
 |-------------|-------|
 | `LightShow.tsx` | Superseded by `AudioReactiveLightShow.tsx` |
 | `UpgradeCelebration.tsx` | Superseded by `cinematicSystem` |
-| `ParticleSystem.tsx` | Live bursts use `components/ParticleBurst3D.tsx` |
+| `ParticleSystem.tsx` | Install bursts go through `scenes/particles/fxBus.ts` |
 | `MonitorSystem.tsx` | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
 
 Recover from git history before the deletion commit if needed.

@@ -15,6 +15,8 @@ import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
 import { startAmbientSystem, stopAmbientSystem } from '../systems/ambientSoundSystem'
+import { usePerformPads } from '../systems/lightShows/usePerformPads'
+import { exportFrameDelta } from '../systems/export/fixedDt'
 
 import Crane from './Crane'
 import CraneB from './CraneB'
@@ -38,6 +40,7 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 const PostProcessing = lazy(() => import('./PostProcessing'))
+const GpuParticleLayer = lazy(() => import('./particles/GpuParticleLayer'))
 import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
 import WildlifeRenderer from './Wildlife'
@@ -287,6 +290,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         }
     }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, gameMode, currentTrainingModule, setTugboatObjectives, resetTugboatMode])
 
+    usePerformPads()
+
     // Leva controls
     useLevaControls({
         currentShip,
@@ -404,7 +409,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         const watermark = role === 'spectator'
             ? multiplayerSystem.getTickWatermark()
             : verifyAtTick ?? undefined
-        simScheduler.advance(delta, (sim) => {
+        simScheduler.advance(exportFrameDelta(delta), (sim) => {
             systemRegistry.tick(
                 sim.dt,
                 buildFrameContext({
@@ -564,6 +569,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <LightFlareSystem />
+            <Suspense fallback={null}>
+              <GpuParticleLayer />
+            </Suspense>
             {qualityPreset !== 'low' && (
               <Suspense fallback={null}>
                 <PostProcessing enabled={true} audioData={audioData} />

@@ -18,6 +18,9 @@ import { cavitationSystem, cavitationState, CAVITATION_CONFIG } from '../systems
 import { tugboatSoundSystem } from '../systems/tugboatSoundSystem'
 import { getNearestAssistShip } from '../systems/harborAssistSystem'
 import { iceFieldSystem } from '../systems/ice/IceFieldSystem'
+import { lightingSystem } from '../systems/lightingSystem'
+import { cuesFromThrottle } from '../systems/lightShows/perform'
+import { firePerformCue } from '../systems/lightShows/firePerformCue'
 import {
   scratchVec3a, scratchQuat, scratchEuler,
   hullScratchXs, hullScratchZs, hullScratchYs,
@@ -370,10 +373,16 @@ export default function Tugboat() {
     if (keys.has('s') || keys.has('arrowdown')) targetThrottle -= 1
 
     const accel = tuning.acceleration * delta
+    const throttleBefore = throttleRef.current
     if (throttleRef.current < targetThrottle) {
       throttleRef.current = Math.min(targetThrottle, throttleRef.current + accel)
     } else if (throttleRef.current > targetThrottle) {
       throttleRef.current = Math.max(targetThrottle, throttleRef.current - accel)
+    }
+    if (lightingSystem.isShowActive()) {
+      for (const cue of cuesFromThrottle(throttleBefore, throttleRef.current)) {
+        firePerformCue(cue, 'throttle')
+      }
     }
 
     // --- Smooth steering ---

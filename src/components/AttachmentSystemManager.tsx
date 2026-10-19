@@ -23,7 +23,7 @@ import { playInstallationLock } from '../systems/craneSoundSystem'
 import { economySystem } from '../systems/economySystem'
 import { trainingSystem } from '../systems/trainingSystem'
 import { swaySystem } from '../systems/swaySystem'
-import ParticleBurst3D from './ParticleBurst3D'
+import { spawnBurst } from '../scenes/particles/fxBus'
 import MagicalInstallFlash from './MagicalInstallFlash'
 import InstallationFeedback from './InstallationFeedback'
 
@@ -352,6 +352,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       trainingSystem.recordInstallation(event.shipId)
     }
 
+    spawnBurst(event.position, RIG_TYPE_COLORS[event.rigType].primary)
     setFeedbackData({
       shipId: event.shipId,
       partName: event.partName,
@@ -393,12 +394,6 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
             position={lastInstall.position}
             color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
             active={true}
-          />
-          <ParticleBurst3D
-            position={lastInstall.position}
-            rigType={lastInstall.rigType}
-            active={true}
-            onComplete={() => {}}
           />
         </>
       )}

@@ -22,6 +22,8 @@ vi.mock('../../systems/commsSystem', () => ({
 import { useGameStore } from '../useGameStore'
 import { getSerializableState } from '../gameStoreTypes'
 import type { Ship } from '../gameStoreTypes'
+import { forkFactoryShow } from '../../systems/lightShows/cueEdit'
+import { getAuthoredShow } from '../../systems/lightShows/authoredShows'
 
 /** The debounce inside scheduleSave; tests drive it with fake timers. */
 const SAVE_DEBOUNCE_MS = 500
@@ -207,6 +209,17 @@ describe('install metrics', () => {
     ).not.toThrow()
 
     expect(useGameStore.getState().installedUpgrades).toHaveLength(2)
+  })
+
+  it('persists a forked light show on the v4 payload', () => {
+    const fork = forkFactoryShow('cruise')
+    expect(fork).not.toBeNull()
+    useGameStore.getState().saveAuthoredShow(fork!)
+    const payload = flushSave() as { authoredShows?: Record<string, { id: string; cues: { id: string }[] }> } | null
+    expect(payload?.authoredShows?.cruise.cues[0].id).toBe('cruise:fork:0')
+    expect(getAuthoredShow('cruise')?.id).toBe('cruise')
+    const serialized = getSerializableState(useGameStore.getState()).authoredShows as Record<string, { id: string }>
+    expect(serialized.cruise.id).toBe('cruise')
   })
 })
 

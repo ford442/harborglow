@@ -519,6 +519,27 @@ export class AudioRuntime {
     this.setEffects({ room, roomMix })
   }
 
+  /**
+   * Tap the master gain into a media-stream destination for export.
+   * The speakers stay connected. Returns null before the context exists.
+   */
+  openExportTap(): { stream: MediaStream; close: () => void } | null {
+    if (!this.contextValue || !this.masterGain) return null
+    if (typeof this.contextValue.createMediaStreamDestination !== 'function') return null
+    const node = this.contextValue.createMediaStreamDestination()
+    this.masterGain.connect(node)
+    return {
+      stream: node.stream,
+      close: () => {
+        try {
+          this.masterGain?.disconnect(node)
+        } catch {
+          // The tap was already torn down with the context.
+        }
+      },
+    }
+  }
+
   /** Silence (or restore) everything the engine and sample players output. */
   setMasterMuted(muted: boolean): void {
     this.masterMuted = muted

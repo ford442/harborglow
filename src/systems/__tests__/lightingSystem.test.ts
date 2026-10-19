@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { lightingSystem } from '../lightingSystem'
 import { getLightShow } from '../lightShows'
+import { replaceAuthoredShows } from '../lightShows/authoredShows'
+import { resetPerformance } from '../lightShows/performLog'
+import { forkFactoryShow, updateCue } from '../lightShows/cueEdit'
 import { ShipType } from '../../store/useGameStore'
 import { createSimContext, setSim } from '../sim/SimContext'
 
@@ -26,10 +29,13 @@ describe('lightShows registry', () => {
 describe('LightingSystem cue dispatch', () => {
   beforeEach(() => {
     setSimMs(0)
+    resetPerformance()
   })
 
   afterEach(() => {
-    lightingSystem.endHarborShow()
+    lightingSystem.clearPreview()
+    lightingSystem.setShowOverride(null)
+    replaceAuthoredShows({})
     setSimMs(0)
   })
 
@@ -61,6 +67,50 @@ describe('LightingSystem cue dispatch', () => {
 
     expect(lightingSystem.getActiveCue()?.pattern).toBe('blackout')
     expect(lightingSystem.getLightIntensity(1)).toBeCloseTo(0.02)
+  })
+
+  it('plays a saved fork in place of the factory preset', () => {
+    const forked = forkFactoryShow('lng')
+    expect(forked).not.toBeNull()
+    const edited = updateCue(forked!, forked!.cues[0].id, { color: '#112233', pattern: 'snap' })
+    replaceAuthoredShows({ lng: edited })
+    lightingSystem.startHarborShow('ship-lng', 'lng')
+    lightingSystem.update(0, 118)
+    expect(lightingSystem.getActiveCue()?.pattern).toBe('snap')
+    expect(lightingSystem.getEmissiveColor('#ffffff', 'ship-lng')).toBe('#112233')
+  })
+
+  it('keeps a share-link override ahead of an authored show', () => {
+    const forked = forkFactoryShow('lng')!
+    replaceAuthoredShows({ lng: forked })
+    lightingSystem.setShowOverride({
+      v: 2,
+      id: 'lng',
+      loopBeats: 32,
+      cues: [{
+        id: 'share',
+        beat: 0,
+        lengthBeats: 32,
+        target: 'all',
+        pattern: 'sweep',
+        color: '#abcdef',
+        intensity: 1,
+        easing: 'step',
+      }],
+    })
+    lightingSystem.startHarborShow('ship-lng', 'lng')
+    lightingSystem.update(0, 118)
+    expect(lightingSystem.getActiveCue()?.color).toBe('#abcdef')
+  })
+
+  it('preview scrubs cues without moving sim time', () => {
+    setSimMs(4)
+    const forked = forkFactoryShow('tanker')!
+    lightingSystem.setPreview(forked, 0)
+    expect(lightingSystem.getActiveCue()?.beat).toBe(0)
+    lightingSystem.update(99, 140)
+    expect(lightingSystem.getActiveCue()?.beat).toBe(0)
+    expect(lightingSystem.getEmissiveColor('#ffffff', 'other-ship')).toBe(forked.cues[0].color)
   })
 
   it('falls back to the generic beat-intensity curve for ships without a cue schedule', () => {

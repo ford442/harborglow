@@ -485,6 +485,12 @@ export class EconomySystem {
     return earnings
   }
 
+  /** Timing-accuracy and variety bonus for a performed cue. Amounts are precomputed. */
+  grantPerformanceBonus(credits: number, reputation: number): void {
+    if (credits > 0) this.addCredits(credits, 'light_show_perform')
+    if (reputation > 0) this.addReputation(reputation)
+  }
+
   recordShipCompletion(shipType: ShipType, completionRate: number): void {
     // Big bonus for fully upgrading ships
     const baseBonus = shipType === 'cruise' ? 500 :

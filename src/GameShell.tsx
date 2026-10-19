@@ -16,7 +16,8 @@ import {
   runWebgpuBootProbe,
   getWebgpuProbe,
   toWebgpuProbePublic,
-  readScreenshotPixelsAsync,
+  capturePosterPng,
+  setLiveRenderer,
   reportWebgpuDeviceLost,
   type WebgpuProbePublic,
 } from './rendering'
@@ -141,6 +142,7 @@ export default function GameShell({
     // Device loss: the factory already disposed the renderer; unmount the dead Canvas.
     const handleGpuFatal = () => {
       rendererRef.current = null
+      setLiveRenderer(null)
       setFactoryFailed(true)
       const latest = getWebgpuProbe()
       if (latest) setProbe(toWebgpuProbePublic(latest))
@@ -154,24 +156,16 @@ export default function GameShell({
   }, [])
 
   useEffect(() => {
-    if (!screenshotMode) return
-    const debug = {
-      /** RGBA8 swapchain readback of the next rendered frame as a PNG data URL. */
-      captureCanvasPng: async () => {
-        const renderer = rendererRef.current
-        if (!renderer) return null
-        const pixels = await readScreenshotPixelsAsync(renderer)
-        if (!pixels) return null
-        const out = document.createElement('canvas')
-        out.width = pixels.width
-        out.height = pixels.height
-        const image = new ImageData(new Uint8ClampedArray(pixels.data), pixels.width, pixels.height)
-        out.getContext('2d')?.putImageData(image, 0, 0)
-        return { width: pixels.width, height: pixels.height, format: pixels.format, dataUrl: out.toDataURL('image/png') }
-      },
-      /** Test double for `device.lost` (reason 'unknown') — same path as a real loss. */
-      forceDeviceLost: (message = 'forced by harborglowDebug') =>
-        reportWebgpuDeviceLost({ reason: 'unknown', message }),
+    const debug: {
+      captureCanvasPng: () => Promise<{ width: number; height: number; format: string; dataUrl: string } | null>
+      forceDeviceLost?: (message?: string) => void
+    } = {
+      /** Poster/thumbnail. Same COPY_SRC readback the screenshot hook uses. */
+      captureCanvasPng: () => capturePosterPng(rendererRef.current),
+    }
+    if (screenshotMode) {
+      debug.forceDeviceLost = (message = 'forced by harborglowDebug') =>
+        reportWebgpuDeviceLost({ reason: 'unknown', message })
     }
     ;(window as unknown as { harborglowDebug?: typeof debug }).harborglowDebug = debug
     return () => {
@@ -199,6 +193,7 @@ export default function GameShell({
         }}
         onCreated={(state) => {
           rendererRef.current = state.gl
+          setLiveRenderer(state.gl)
           const canvas = (state.gl as { domElement?: HTMLCanvasElement }).domElement
           if (canvas) {
             canvas.dataset.renderer = 'webgpu'
