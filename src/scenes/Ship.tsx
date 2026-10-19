@@ -14,7 +14,7 @@ import { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
-import type { RapierRigidBody } from '@react-three/rapier'
+import type { RapierRigidBody, RigidBodyProps } from '@react-three/rapier'
 import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
 import { getCraneKinematics } from '../systems/crane/craneKinematics'
@@ -22,6 +22,7 @@ import { ProceduralShip } from './ProceduralShip'
 import NightShipLights from './NightShipLights'
 import { useLOD } from '../systems/performanceSystem'
 import AttachmentPointVisual from './AttachmentPoint'
+import EmitterAnchors from './particles/EmitterAnchors'
 import { 
   getRigTypeForPart, 
   AttachmentState,
@@ -181,6 +182,21 @@ export default function ShipComponent({ ship }: ShipProps) {
 
     const isDynamic = operationMode === 'tugboat'
 
+    // @react-three/rapier applies every key present in props, even with an undefined value, and
+    // destructures `enabledRotations` — so `enabledRotations={undefined}` throws as soon as a body
+    // mounts after the physics world is up (any ship spawned mid-game). Fixed ships omit the keys.
+    const bodyProps = useMemo<Pick<RigidBodyProps, 'mass' | 'linearDamping' | 'angularDamping' | 'enabledRotations'>>(
+        () => isDynamic
+            ? {
+                mass: FLEET_SHIP_MASS,
+                linearDamping: FLEET_SHIP_LINEAR_DAMPING,
+                angularDamping: FLEET_SHIP_ANGULAR_DAMPING,
+                enabledRotations: [true, true, true],
+            }
+            : {},
+        [isDynamic],
+    )
+
     // PHASE 10: Get LOD level based on distance
     const lod = useLOD(ship.position)
 
@@ -208,6 +224,11 @@ export default function ShipComponent({ ship }: ShipProps) {
     const shipUpgrades = useMemo(() => 
         installedUpgrades.filter(u => u.shipId === ship.id),
         [installedUpgrades, ship.id]
+    )
+
+    const installedParts = useMemo(
+        () => new Set(shipUpgrades.map(u => u.partName)),
+        [shipUpgrades]
     )
 
     const attachmentSigRef = useRef('')
@@ -460,11 +481,8 @@ export default function ShipComponent({ ship }: ShipProps) {
             <RigidBody
                 ref={rbRef}
                 type={isDynamic ? 'dynamic' : 'fixed'}
-                mass={isDynamic ? FLEET_SHIP_MASS : undefined}
-                linearDamping={isDynamic ? FLEET_SHIP_LINEAR_DAMPING : undefined}
-                angularDamping={isDynamic ? FLEET_SHIP_ANGULAR_DAMPING : undefined}
+                {...bodyProps}
                 position={ship.position}
-                enabledRotations={isDynamic ? [true, true, true] : undefined}
                 colliders="cuboid"
             >
                 <ShipImpostor type={ship.type} />
@@ -477,16 +495,23 @@ export default function ShipComponent({ ship }: ShipProps) {
             <RigidBody
                 ref={rbRef}
                 type={isDynamic ? 'dynamic' : 'fixed'}
-                mass={isDynamic ? FLEET_SHIP_MASS : undefined}
-                linearDamping={isDynamic ? FLEET_SHIP_LINEAR_DAMPING : undefined}
-                angularDamping={isDynamic ? FLEET_SHIP_ANGULAR_DAMPING : undefined}
+                {...bodyProps}
                 position={ship.position}
-                enabledRotations={isDynamic ? [true, true, true] : undefined}
                 colliders="cuboid"
             >
                 <group ref={groupRef}>
                     <ProceduralShip blueprintId={ship.type} version={ship.version}>
                         <NightShipLights ship={ship} lod={lod} />
+
+                        {/* World poses for GPU particle / laser emitters — not gated by showPoints or LOD < 2 */}
+                        {ship.attachmentPoints && (
+                            <EmitterAnchors
+                                shipId={ship.id}
+                                shipType={ship.type}
+                                points={ship.attachmentPoints}
+                                installed={installedParts}
+                            />
+                        )}
 
                         {/* Tow attachment hint ring (tugboat mode only) */}
                         {isDynamic && TowHintIndicator}

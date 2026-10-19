@@ -195,7 +195,6 @@ src/
 │   ├── LyricsDisplay.tsx
 │   ├── MainMenu.tsx
 │   ├── OperatorCabin.tsx
-│   ├── ParticleBurst3D.tsx
 │   ├── ReputationPanel.tsx
 │   ├── ShipSpawner.tsx
 │   ├── ShipVersionDisplay.tsx
