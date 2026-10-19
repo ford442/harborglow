@@ -17,7 +17,9 @@ attachment points and driven by the active light cue and the beat.
 | `src/rendering/particles/particleGate.ts` | `canUseGpuParticles()`, `?particles=0` |
 | `src/scenes/particles/fxBus.ts` | **Public API**: `triggerEmitter`, `setContinuousEmitter` |
 | `src/scenes/particles/emitterAnchors.ts` / `EmitterAnchors.tsx` | World poses of attachment points, keyed `shipId:partName` |
-| `src/scenes/particles/showEmitterDriver.ts` | Active cue → sparks / fireworks / glitter |
+| `src/scenes/particles/showEmitterDriver.ts` | Active cue → sparks / fireworks / glitter (ships without emitter bindings) |
+| `src/scenes/particles/showBindingDriver.ts` / `showPlayhead.ts` | Factory show emitter bindings → fireworks / mist / glitter (cruise, fireboat, icebreaker) |
+| `src/scenes/particles/aliveEstimate.ts` / `showParticlesDebug.ts` | Emit-side live-particle estimate and `window.harborglowDebug.showParticles` |
 | `src/scenes/particles/laserBeams.ts` / `LaserBeamLayer.tsx` | Beam poses and gating from the cue pattern |
 | `src/scenes/particles/GpuParticleLayer.tsx` | Lazy-mounted layer (own chunk); hosts particles + lasers |
 | `src/scenes/particles/particleBench.ts` | `?particleBench=1` stress fixture |
@@ -102,6 +104,53 @@ attachment points on the show's ship, filtered by the active cue's rig-group `ta
 
 Projector rigs host two laser beams each instead of particles.
 
+This table applies to ships **without** factory emitter bindings. The cruise, fireboat and
+icebreaker play their bindings instead (next section), so the two never double-emit.
+
+## Factory show bindings
+
+`src/systems/lightShows/showEmitters.ts` binds fireworks, mist and glitter to attachment-point
+ids and loop-relative beat windows. `showPlayhead.ts` reads the show (`lightingSystem
+.getCurrentShow()`, the sim clock, the preset's `loopBeats`) and computes `beatInLoop` with the
+same arithmetic as `lightingSystem.update()`, so a window opens on the frame its cue does
+(`showPlayhead.test.ts` checks this at beats 16 / 24 / 28 of the cruise). `ShowBindingDriver`
+then plays whatever is live:
+
+| Kind | Preset | Emission |
+|---|---|---|
+| `fireworks` | `firework` | One shell per beat, `FIREWORK_ALTITUDE` (22 m) above the anchor |
+| `mist` | `mist` | Stream along the anchor's up axis (the cannon barrel), `share / lifeS` per second |
+| `glitter` | `glitter` | Stream around the anchor, `share / lifeS` per second |
+
+- **Budget.** A binding's `density` is a share of the ring: it may keep `density × capacity`
+  particles alive. Concurrent shares are scaled together if their densities sum past 1, and one
+  frame never asks for more than the engine's per-frame spawn cap (`capacity / 20`), divided
+  between the live bindings. Stream particles over the cap are dropped, never queued behind
+  later frames, so a stalled frame cannot cause a burst.
+- **Missing anchors.** A binding whose `attachmentPoint` has no registered anchor on the show's
+  ship is skipped, with one `console.warn` per `shipType:id`. It never throws.
+- **Imported shows.** While shared/imported playback is active (`isSharedPlaybackActive()`) no
+  bindings play: the imported cues replace the timeline the bindings were authored against,
+  and the cue-pattern driver runs instead.
+- **Festival.** Per-binding state resets whenever a window reopens, so back-to-back acts
+  (cruise → fireboat → icebreaker) start clean.
+- **Allocation.** The per-frame path writes into reused arrays and caches the anchor key per
+  ship. `showBindingDriver.test.ts` runs 100k frames and fails if the heap grows by 1 MB;
+  using `getActiveShowEmitters` there measured ~72 B per frame.
+
+## Debug counter
+
+In screenshot mode (`?screenshot=1`, which is when `window.harborglowDebug` exists) the layer
+publishes `window.harborglowDebug.showParticles = { budget, alive, emitters }`:
+
+- `budget` is the ring capacity for the quality tier.
+- `alive` is an **estimate**: spawns binned by time and counted while younger than their
+  preset's mean life, capped at `budget`. The frame path never reads the GPU back, and lives
+  vary ±30%.
+- `emitters` is the number of factory-show bindings playing now.
+
+`e2e/show-particles.spec.ts` uses it.
+
 ## Anchors
 
 `EmitterAnchors` is mounted per ship **inside `ProceduralShip`**, so poses include
@@ -178,8 +227,10 @@ frame cadence.
 | `src/rendering/particles/__tests__/gpuParticleSystem.test.ts` | Kernels and sprite material compile to WGSL (Node, via the backend's node builder: `wgslTestCompiler.ts`), branch-free; dispatch sizes, cursor wrap, init gating |
 | `src/rendering/particles/__tests__/laserBeams.test.ts` | Laser material with and without depth fade; beam layout, target filter, budget, gating |
 | `src/rendering/particles/__tests__/particleTables.test.ts`, `particleGate.test.ts` | Budget, presets, packer, palette, gate truth table |
-| `src/scenes/particles/__tests__/*.test.ts` | fxBus ring, anchors, show driver, bench |
-| `e2e/gpu-particles-smoke.spec.ts` | On SwiftShader WebGPU, checks that the kernels run, a burst rises, the ring wraps with no NaNs, particles age out, and the sprite and depth-faded laser (MSAA) draws validate. Skips without an adapter |
+| `src/scenes/particles/__tests__/*.test.ts` | fxBus ring, anchors, cue-pattern driver, bench; binding driver (budget clamp, per-kind emission, missing anchors, festival order, heap growth), playhead vs `lightingSystem`, alive estimate |
+| `src/systems/lightShows/showEmitters.test.ts` | `collectActiveShowEmitters` agrees with `getActiveShowEmitters` for every ship at every quarter beat |
+| `e2e/gpu-particles-smoke.spec.ts` | On SwiftShader WebGPU, checks that the kernels run, a burst rises, the ring wraps with no NaNs, particles age out (5 s idle), the real `ShowBindingDriver` + `AliveEstimator` feed the real ring (cruise shells land 22 m above each funnel, fireboat mist rises from the cannons, the estimate matches the readback), and the sprite and depth-faded laser (MSAA) draws validate. Needs `--use-gl=angle --use-angle=swiftshader`: without them presenting to a canvas loses the device. A trivial-scene canary separates "this adapter cannot present" (annotated; compute still asserted) from "the particle draw failed" (fails). Skips without an adapter |
+| `e2e/show-particles.spec.ts` | Boots the app on a WebGPU adapter, starts the cruise show and waits (in sim time) for `showParticles.emitters` and `alive` to go positive, with no page errors or GPU console errors. Skips without WebGPU or on the fatal overlay (the CI default). `PLAYWRIGHT_WEBGPU=1` opts into a SwiftShader adapter locally; if the sim clock does not advance it fails saying so instead of timing out on a poll. Software rendering runs the scene at a few fps, so expect minutes there |
 
 ## Acceptance: 250k at `high` ≥ 60 fps on the reference GPU
 

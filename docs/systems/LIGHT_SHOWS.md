@@ -10,7 +10,7 @@ interprets it at play time, ships three native V2 factory shows and the Harbor F
 | `src/systems/lightShows/<ship>.ts` | Authored V1 cue lists — the **factory presets** |
 | `src/systems/lightShows/{cruiseFinale,fireboatWaterCannon,icebreakerAurora}.ts` | Native V2 factory presets (rig-group targeting, easing), built with `author.ts` |
 | `src/systems/lightShows/rigCues.ts` | Play-time resolution of `target` / `lengthBeats` / `easing` per rig group |
-| `src/systems/lightShows/showEmitters.ts` | GPU-particle emitter bindings for the native V2 shows (consumed by #248) |
+| `src/systems/lightShows/showEmitters.ts` | GPU-particle emitter bindings for the native V2 shows (played by `showBindingDriver.ts`, #248) |
 | `src/systems/lightShows/types.ts` | `LightCue` (= `LightCueV1`), `LightCueV2`, `LightShowV2`, `RigGroupId`, `LightCueEasing` |
 | `src/systems/lightShows/migrate.ts` | `migrateShowV1toV2()` — pure, deterministic |
 | `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1), `authoredShowsV2`, and `lightShowRegistryV2` (native V2 where authored, else migrated once at module load) |
@@ -72,11 +72,15 @@ no rig. The fireboat's water cannons stay in `accent`, which on that hull means 
 two cannons.
 
 **Emitters:** `showEmitters.ts` binds each emitter to an attachment-point id and a beat
-window. `getActiveShowEmitters(shipType, beatInLoop, out)` is the query the TSL compute
-particle system (#248) will read; until it lands, nothing renders the bindings. They live
-outside `LightShowV2`, so share links and the schema are unchanged. The icebreaker anchors
-are blueprint parts; they become GLB sockets with no further change once the Yamal GLB
-(#203) lands.
+window. The GPU particle layer (#248, [PARTICLES.md](./PARTICLES.md#factory-show-bindings))
+plays them: it derives `beatInLoop` from the sim clock with the same arithmetic as
+`update()`, asks `collectActiveShowEmitters(shipType, beatInLoop, out)` which bindings are
+live (the allocation-free sibling of `getActiveShowEmitters`, which drops its backing store
+every frame), and resolves each `attachmentPoint` to that ship's world pose. A missing id is
+skipped with one `console.warn`. They live outside `LightShowV2`, so share links and the
+schema are unchanged; a shared/imported show replaces the factory timeline the bindings were
+authored against, so it plays none. The icebreaker anchors are blueprint parts; they become
+GLB sockets with no further change once the Yamal GLB (#203) lands.
 
 ## Harbor Festival
 
@@ -120,7 +124,8 @@ GPU particles and laser beams (#248, [PARTICLES.md](./PARTICLES.md)) read the ac
 through `lightingSystem.getCueState()` / `getActiveCue()`:
 
 - The `pattern` picks the effect: strobe sparks, snap fireworks, breathe/sweep glitter, and
-  laser motion.
+  laser motion. A ship whose factory show has emitter bindings (cruise, fireboat, icebreaker)
+  plays those instead of the pattern look; lasers still follow the pattern.
 - `target` limits emission to installed rigs in that group.
 - `color` and `intensity` tint and scale it.
 
