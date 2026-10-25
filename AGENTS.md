@@ -469,6 +469,15 @@ python deploy.py
 token, so it is the safe way to inspect a bundle. A real run refuses to start when `DEPLOY_TOKEN`
 is unset rather than building and sending an archive the server will reject.
 
+**Preferred path: the `Deploy` workflow** (`.github/workflows/deploy.yml`, Actions → Deploy →
+Run workflow). It is manual-only, builds the chosen ref the same way `gate-build` does, and is a
+dry run by default. Untick `dry_run` for a real upload; that needs the `DEPLOY_TOKEN` repository
+secret (Settings → Secrets and variables → Actions). After a real upload the job probes
+`https://test.1ink.us/harborglow/` and fails if the served `index.html` predates the build, if the
+COOP/COEP headers are missing, or if a hashed asset referenced by the page does not resolve. Do not
+commit helper scripts that pull, `add .`, commit and push in one go (the old `git.sh`); every change
+to `main` goes through a PR and `merge-gate`.
+
 **Deployment Configuration** (in `deploy.py`):
 - Target: `https://storage.noahcohn.com/api/deploy/harborglow/bundle`
 - Local source: `dist/`

@@ -1,0 +1,139 @@
+name: Deploy
+
+# One-click deploy of a green `main` to the test site, so the upload no longer
+# depends on a local session running `python deploy.py`.
+#
+#   - Manual only (`workflow_dispatch`); nothing deploys on push.
+#   - Dry run by default: lists what would be uploaded and sends nothing.
+#   - A real run needs the `DEPLOY_TOKEN` repository secret. `deploy.py` reads
+#     it from the environment and refuses to start without it.
+#   - After a real run the job probes the public URL and fails if the served
+#     `index.html` is older than the build, or the COOP/COEP headers that the
+#     SharedArrayBuffer audio worklet needs are missing.
+#
+# Build steps mirror `gate-build` in ci.yml (Node 22, `npm ci`, `npm run build`
+# with ALLOW_MISSING_EMSDK so the committed WASM is used as-is; gate-wasm is the
+# drift check).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: list the files that would be uploaded, send nothing"
+        type: boolean
+        default: true
+      ref:
+        description: "Git ref to build and deploy (default: the branch this run was started from)"
+        type: string
+        default: ""
+
+concurrency:
+  group: deploy-test-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLIC_URL: https://test.1ink.us/harborglow/
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          python -m pip install --quiet requests
+
+      - name: Production build
+        env:
+          ALLOW_MISSING_EMSDK: "1"
+        run: npm run build
+
+      - name: Record build identity
+        run: |
+          echo "BUILD_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "BUILD_STARTED_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          du -sh dist
+          find dist -type f | wc -l
+
+      - name: Dry run (list files, send nothing)
+        if: ${{ inputs.dry_run }}
+        run: python deploy.py --dry-run
+
+      - name: Check the deploy token is configured
+        if: ${{ !inputs.dry_run }}
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "::error::DEPLOY_TOKEN secret is not set. Add it under Settings → Secrets and variables → Actions, then re-run with dry_run unchecked."
+            exit 1
+          fi
+
+      - name: Deploy to the test site
+        if: ${{ !inputs.dry_run }}
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: python deploy.py
+
+      - name: Probe the deployed build
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          echo "Probing $PUBLIC_URL"
+          headers="$(curl -sS -I -L "$PUBLIC_URL" | tr -d '\r')"
+          echo "$headers"
+
+          # 1. The served index.html must be at least as new as this build.
+          last_modified="$(echo "$headers" | awk -F': ' 'tolower($1)=="last-modified"{print $2}' | tail -n1)"
+          if [ -z "$last_modified" ]; then
+            echo "::warning::No Last-Modified header; cannot confirm the upload replaced the old build."
+          else
+            served=$(date -u -d "$last_modified" +%s)
+            built=$(date -u -d "$BUILD_STARTED_UTC" +%s)
+            if [ "$served" -lt $((built - 600)) ]; then
+              echo "::error::Served index.html is dated $last_modified, older than this build ($BUILD_STARTED_UTC). The upload did not replace it."
+              exit 1
+            fi
+          fi
+
+          # 2. COOP/COEP: without them crossOriginIsolated is false and the WASM
+          #    audio worklet silently falls back (see docs/DEPLOY_SUBPATH_PROBE.md).
+          for h in cross-origin-opener-policy cross-origin-embedder-policy; do
+            if ! echo "$headers" | grep -qi "^$h:"; then
+              echo "::error::Missing $h header on $PUBLIC_URL — the SharedArrayBuffer audio path will not load."
+              exit 1
+            fi
+          done
+
+          # 3. One hashed asset referenced by the served index.html must resolve.
+          asset="$(curl -sS -L "$PUBLIC_URL" | grep -oE 'assets/[A-Za-z0-9_.-]+\.js' | head -n1 || true)"
+          if [ -z "$asset" ]; then
+            echo "::error::Served index.html references no assets/*.js — wrong file or wrong base path."
+            exit 1
+          fi
+          code="$(curl -sS -o /dev/null -w '%{http_code}' -L "${PUBLIC_URL}${asset}")"
+          if [ "$code" != "200" ]; then
+            echo "::error::${PUBLIC_URL}${asset} returned HTTP $code."
+            exit 1
+          fi
+          echo "Deployed $BUILD_SHA: index.html dated '$last_modified', COOP/COEP present, $asset → 200."
