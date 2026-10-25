@@ -7,9 +7,10 @@ name: Deploy
 #   - Dry run by default: lists what would be uploaded and sends nothing.
 #   - A real run needs the `DEPLOY_TOKEN` repository secret. `deploy.py` reads
 #     it from the environment and refuses to start without it.
-#   - After a real run the job probes the public URL and fails if the served
-#     `index.html` is older than the build, or the COOP/COEP headers that the
-#     SharedArrayBuffer audio worklet needs are missing.
+#   - After a real run the job probes the public URL and fails unless the
+#     served `index.html` is byte-identical to the one just built, the
+#     COOP/COEP headers that the SharedArrayBuffer audio worklet needs carry
+#     isolating values, and a hashed asset the page references resolves.
 #
 # Build steps mirror `gate-build` in ci.yml (Node 22, `npm ci`, `npm run build`
 # with ALLOW_MISSING_EMSDK so the committed WASM is used as-is; gate-wasm is the
@@ -71,7 +72,6 @@ jobs:
       - name: Record build identity
         run: |
           echo "BUILD_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-          echo "BUILD_STARTED_UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
           du -sh dist
           find dist -type f | wc -l
 
@@ -100,40 +100,53 @@ jobs:
         run: |
           set -euo pipefail
           echo "Probing $PUBLIC_URL"
-          headers="$(curl -sS -I -L "$PUBLIC_URL" | tr -d '\r')"
-          echo "$headers"
+          probe_dir="$(mktemp -d)"
 
-          # 1. The served index.html must be at least as new as this build.
-          last_modified="$(echo "$headers" | awk -F': ' 'tolower($1)=="last-modified"{print $2}' | tail -n1)"
-          if [ -z "$last_modified" ]; then
-            echo "::warning::No Last-Modified header; cannot confirm the upload replaced the old build."
-          else
-            served=$(date -u -d "$last_modified" +%s)
-            built=$(date -u -d "$BUILD_STARTED_UTC" +%s)
-            if [ "$served" -lt $((built - 600)) ]; then
-              echo "::error::Served index.html is dated $last_modified, older than this build ($BUILD_STARTED_UTC). The upload did not replace it."
-              exit 1
-            fi
+          # 1. The page itself must answer 200 at this exact URL (no redirect
+          #    following: a 30x here means PUBLIC_URL is not the served URL).
+          status="$(curl -sS -o "$probe_dir/index.html" -D "$probe_dir/headers.txt" -w '%{http_code}' "$PUBLIC_URL")"
+          headers="$(tr -d '\r' < "$probe_dir/headers.txt")"
+          echo "$headers"
+          if [ "$status" != "200" ]; then
+            echo "::error::$PUBLIC_URL returned HTTP $status (expected 200)."
+            exit 1
           fi
 
-          # 2. COOP/COEP: without them crossOriginIsolated is false and the WASM
-          #    audio worklet silently falls back (see docs/DEPLOY_SUBPATH_PROBE.md).
-          for h in cross-origin-opener-policy cross-origin-embedder-policy; do
-            if ! echo "$headers" | grep -qi "^$h:"; then
-              echo "::error::Missing $h header on $PUBLIC_URL — the SharedArrayBuffer audio path will not load."
-              exit 1
-            fi
-          done
+          # 2. The served index.html must be byte-identical to the one just built.
+          #    Last-Modified is not build identity, and deploy.py skips a file
+          #    whose size matches the remote copy, so compare content.
+          if ! cmp -s "$probe_dir/index.html" dist/index.html; then
+            echo "::error::Served index.html differs from dist/index.html — the upload did not replace the old build."
+            diff <(grep -oE 'assets/[A-Za-z0-9_.-]+' "$probe_dir/index.html" | sort -u) \
+                 <(grep -oE 'assets/[A-Za-z0-9_.-]+' dist/index.html | sort -u) || true
+            exit 1
+          fi
+          last_modified="$(echo "$headers" | awk -F': ' 'tolower($1)=="last-modified"{print $2}' | tail -n1)"
 
-          # 3. One hashed asset referenced by the served index.html must resolve.
-          asset="$(curl -sS -L "$PUBLIC_URL" | grep -oE 'assets/[A-Za-z0-9_.-]+\.js' | head -n1 || true)"
+          # 3. COOP/COEP must carry isolating values: without them
+          #    crossOriginIsolated is false and the WASM audio worklet silently
+          #    falls back (see docs/DEPLOY_SUBPATH_PROBE.md). Presence is not enough —
+          #    `unsafe-none` is a valid header value that isolates nothing.
+          if ! echo "$headers" | grep -qiE '^cross-origin-opener-policy: *same-origin *$'; then
+            echo "::error::Cross-Origin-Opener-Policy on $PUBLIC_URL is not 'same-origin' — the SharedArrayBuffer audio path will not load."
+            exit 1
+          fi
+          if ! echo "$headers" | grep -qiE '^cross-origin-embedder-policy: *(require-corp|credentialless) *$'; then
+            echo "::error::Cross-Origin-Embedder-Policy on $PUBLIC_URL is not 'require-corp' or 'credentialless' — the SharedArrayBuffer audio path will not load."
+            exit 1
+          fi
+
+          # 4. One hashed asset referenced by the served index.html must resolve.
+          asset="$(grep -oE 'assets/[A-Za-z0-9_.-]+\.js' "$probe_dir/index.html" | head -n1 || true)"
           if [ -z "$asset" ]; then
             echo "::error::Served index.html references no assets/*.js — wrong file or wrong base path."
             exit 1
           fi
-          code="$(curl -sS -o /dev/null -w '%{http_code}' -L "${PUBLIC_URL}${asset}")"
-          if [ "$code" != "200" ]; then
-            echo "::error::${PUBLIC_URL}${asset} returned HTTP $code."
-            exit 1
-          fi
-          echo "Deployed $BUILD_SHA: index.html dated '$last_modified', COOP/COEP present, $asset → 200."
+          #    Status alone is not enough: a host with SPA fallback answers 200
+          #    with index.html for any missing path, so the type must be JS too.
+          asset_meta="$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' "${PUBLIC_URL}${asset}")"
+          case "$asset_meta" in
+            200\ *javascript*) ;;
+            *) echo "::error::${PUBLIC_URL}${asset} returned '$asset_meta' (expected 200 with a JavaScript content-type)."; exit 1 ;;
+          esac
+          echo "Deployed $BUILD_SHA: served index.html matches dist/index.html (Last-Modified: ${last_modified:-n/a}), COOP/COEP isolating, $asset → 200."
