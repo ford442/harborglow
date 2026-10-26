@@ -1,0 +1,152 @@
+name: Deploy
+
+# One-click deploy of a green `main` to the test site, so the upload no longer
+# depends on a local session running `python deploy.py`.
+#
+#   - Manual only (`workflow_dispatch`); nothing deploys on push.
+#   - Dry run by default: lists what would be uploaded and sends nothing.
+#   - A real run needs the `DEPLOY_TOKEN` repository secret. `deploy.py` reads
+#     it from the environment and refuses to start without it.
+#   - After a real run the job probes the public URL and fails unless the
+#     served `index.html` is byte-identical to the one just built, the
+#     COOP/COEP headers that the SharedArrayBuffer audio worklet needs carry
+#     isolating values, and a hashed asset the page references resolves.
+#
+# Build steps mirror `gate-build` in ci.yml (Node 22, `npm ci`, `npm run build`
+# with ALLOW_MISSING_EMSDK so the committed WASM is used as-is; gate-wasm is the
+# drift check).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: list the files that would be uploaded, send nothing"
+        type: boolean
+        default: true
+      ref:
+        description: "Git ref to build and deploy (default: the branch this run was started from)"
+        type: string
+        default: ""
+
+concurrency:
+  group: deploy-test-site
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PUBLIC_URL: https://test.1ink.us/harborglow/
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          python -m pip install --quiet requests
+
+      - name: Production build
+        env:
+          ALLOW_MISSING_EMSDK: "1"
+        run: npm run build
+
+      - name: Record build identity
+        run: |
+          echo "BUILD_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          du -sh dist
+          find dist -type f | wc -l
+
+      - name: Dry run (list files, send nothing)
+        if: ${{ inputs.dry_run }}
+        run: python deploy.py --dry-run
+
+      - name: Check the deploy token is configured
+        if: ${{ !inputs.dry_run }}
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "::error::DEPLOY_TOKEN secret is not set. Add it under Settings → Secrets and variables → Actions, then re-run with dry_run unchecked."
+            exit 1
+          fi
+
+      - name: Deploy to the test site
+        if: ${{ !inputs.dry_run }}
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: python deploy.py
+
+      - name: Probe the deployed build
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          echo "Probing $PUBLIC_URL"
+          probe_dir="$(mktemp -d)"
+
+          # 1. The page itself must answer 200 at this exact URL (no redirect
+          #    following: a 30x here means PUBLIC_URL is not the served URL).
+          status="$(curl -sS -o "$probe_dir/index.html" -D "$probe_dir/headers.txt" -w '%{http_code}' "$PUBLIC_URL")"
+          headers="$(tr -d '\r' < "$probe_dir/headers.txt")"
+          echo "$headers"
+          if [ "$status" != "200" ]; then
+            echo "::error::$PUBLIC_URL returned HTTP $status (expected 200)."
+            exit 1
+          fi
+
+          # 2. The served index.html must be byte-identical to the one just built.
+          #    Last-Modified is not build identity, and deploy.py skips a file
+          #    whose size matches the remote copy, so compare content.
+          if ! cmp -s "$probe_dir/index.html" dist/index.html; then
+            echo "::error::Served index.html differs from dist/index.html — the upload did not replace the old build."
+            diff <(grep -oE 'assets/[A-Za-z0-9_.-]+' "$probe_dir/index.html" | sort -u) \
+                 <(grep -oE 'assets/[A-Za-z0-9_.-]+' dist/index.html | sort -u) || true
+            exit 1
+          fi
+          last_modified="$(echo "$headers" | awk -F': ' 'tolower($1)=="last-modified"{print $2}' | tail -n1)"
+
+          # 3. COOP/COEP must carry isolating values: without them
+          #    crossOriginIsolated is false and the WASM audio worklet silently
+          #    falls back (see docs/DEPLOY_SUBPATH_PROBE.md). Presence is not enough —
+          #    `unsafe-none` is a valid header value that isolates nothing.
+          if ! echo "$headers" | grep -qiE '^cross-origin-opener-policy: *same-origin *$'; then
+            echo "::error::Cross-Origin-Opener-Policy on $PUBLIC_URL is not 'same-origin' — the SharedArrayBuffer audio path will not load."
+            exit 1
+          fi
+          if ! echo "$headers" | grep -qiE '^cross-origin-embedder-policy: *(require-corp|credentialless) *$'; then
+            echo "::error::Cross-Origin-Embedder-Policy on $PUBLIC_URL is not 'require-corp' or 'credentialless' — the SharedArrayBuffer audio path will not load."
+            exit 1
+          fi
+
+          # 4. One hashed asset referenced by the served index.html must resolve.
+          asset="$(grep -oE 'assets/[A-Za-z0-9_.-]+\.js' "$probe_dir/index.html" | head -n1 || true)"
+          if [ -z "$asset" ]; then
+            echo "::error::Served index.html references no assets/*.js — wrong file or wrong base path."
+            exit 1
+          fi
+          #    Status alone is not enough: a host with SPA fallback answers 200
+          #    with index.html for any missing path, so the type must be JS too.
+          asset_meta="$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' "${PUBLIC_URL}${asset}")"
+          case "$asset_meta" in
+            200\ *javascript*) ;;
+            *) echo "::error::${PUBLIC_URL}${asset} returned '$asset_meta' (expected 200 with a JavaScript content-type)."; exit 1 ;;
+          esac
+          echo "Deployed $BUILD_SHA: served index.html matches dist/index.html (Last-Modified: ${last_modified:-n/a}), COOP/COEP isolating, $asset → 200."
