@@ -38,7 +38,7 @@ Deleted in the vendor-3d chunk-split work — unreferenced by `MainScene` or any
 |-------------|-------|
 | `LightShow.tsx` | Superseded by `AudioReactiveLightShow.tsx` |
 | `UpgradeCelebration.tsx` | Superseded by `cinematicSystem` |
-| `ParticleSystem.tsx` | Live bursts use `components/ParticleBurst3D.tsx` |
+| `ParticleSystem.tsx` | Live bursts use the GPU particle engine (`scenes/particles/`, see `docs/systems/PARTICLES.md`) |
 | `MonitorSystem.tsx` | Booth monitors use `controlBooth/ControlBoothMonitors.tsx` |
 
 Recover from git history before the deletion commit if needed.
@@ -70,3 +70,14 @@ The old root docs and screenshots moved to `docs/archive/`.
 
 `npm run knip` (CI `gate-lint`) now fails on unused files, so this list can't regrow.
 Config: `knip.jsonc`.
+
+## CPU particle components retired by the GPU particle engine (Oct 2026)
+
+Removed in #248 (epic #236 slice 2). Install bursts and show effects now go
+through `scenes/particles/fxBus.ts` into the TSL compute engine — see
+[`docs/systems/PARTICLES.md`](./systems/PARTICLES.md).
+
+| Former file | Notes |
+|-------------|-------|
+| `components/ParticleBurst3D.tsx` | 90-particle CPU `InstancedMesh` install burst plus a shadow-casting directional light per install. Replaced by `triggerEmitter('installBurst', …)` in `AttachmentSystemManager`. That call also fixes two bugs: the burst restarted on every re-render (inline `onComplete`), and its position was offset twice. `MagicalInstallFlash` stays, and is the only install feedback when compute is unavailable. |
+| `scenes/lightRigs/SparkEffect.tsx` | 20-point spark effect driven by `setInterval` + `setState`; exported but never mounted |

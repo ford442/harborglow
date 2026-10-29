@@ -22,6 +22,7 @@ import { ProceduralShip } from './ProceduralShip'
 import NightShipLights from './NightShipLights'
 import { useLOD } from '../systems/performanceSystem'
 import AttachmentPointVisual from './AttachmentPoint'
+import EmitterAnchors from './particles/EmitterAnchors'
 import { 
   getRigTypeForPart, 
   AttachmentState,
@@ -223,6 +224,11 @@ export default function ShipComponent({ ship }: ShipProps) {
     const shipUpgrades = useMemo(() => 
         installedUpgrades.filter(u => u.shipId === ship.id),
         [installedUpgrades, ship.id]
+    )
+
+    const installedParts = useMemo(
+        () => new Set(shipUpgrades.map(u => u.partName)),
+        [shipUpgrades]
     )
 
     const attachmentSigRef = useRef('')
@@ -496,6 +502,16 @@ export default function ShipComponent({ ship }: ShipProps) {
                 <group ref={groupRef}>
                     <ProceduralShip blueprintId={ship.type} version={ship.version}>
                         <NightShipLights ship={ship} lod={lod} />
+
+                        {/* World poses for GPU particle / laser emitters — not gated by showPoints or LOD < 2 */}
+                        {ship.attachmentPoints && (
+                            <EmitterAnchors
+                                shipId={ship.id}
+                                shipType={ship.type}
+                                points={ship.attachmentPoints}
+                                installed={installedParts}
+                            />
+                        )}
 
                         {/* Tow attachment hint ring (tugboat mode only) */}
                         {isDynamic && TowHintIndicator}

@@ -181,6 +181,11 @@ export function getWebgpuProbe(): WebgpuProbeOutcome | null {
   return lastProbe
 }
 
+/** True when the boot probe's device was granted `name` (e.g. `float32-filterable`). */
+export function hasGpuFeature(name: string): boolean {
+  return lastProbe?.grantedFeatures?.includes(name) ?? false
+}
+
 export function toWebgpuProbePublic(outcome: WebgpuProbeOutcome): WebgpuProbePublic {
   return {
     ok: outcome.ok,
