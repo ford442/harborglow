@@ -1,73 +1,84 @@
+import * as THREE from 'three'
 import { afterEach, describe, expect, it } from 'vitest'
-import { EMITTER_STRIDE, MAX_EMITTERS } from '../../../rendering/particles/particleBudget'
 import {
-  EMITTER_KIND,
-  burstStorage,
-  emitterKindForPoint,
-  emitterStorage,
-  fireworkSlotCount,
-  laserSlotCount,
+  FX_QUEUE_SIZE,
+  drainFxRequests,
+  forEachContinuousEmitter,
+  pendingFxRequests,
   resetFxBus,
-  spawnBurst,
-  syncShowEmitters,
-  tickBursts,
+  setContinuousEmitter,
+  setFxBusEnabled,
+  triggerEmitter,
+  type FxRequest,
 } from '../fxBus'
+import {
+  emitterAnchorCount,
+  emitterAnchorKey,
+  getEmitterAnchor,
+  setEmitterAnchor,
+} from '../emitterAnchors'
 
-afterEach(() => {
-  resetFxBus()
-})
-
-const funnel = { partName: 'funnel', position: [0, 5, 0] as const, rotation: [0, 0, 0] as const }
-const mast = { partName: 'mast', position: [1, 8, 0] as const, rotation: [0, 0, 0] as const }
+afterEach(() => resetFxBus())
 
 describe('fxBus', () => {
-  it('spawnBurst reuses one table', () => {
-    const bursts = burstStorage()
-    const emitters = emitterStorage()
-    for (let i = 0; i < 20; i++) spawnBurst([i, 1, 2], '#ff00aa')
-    expect(burstStorage()).toBe(bursts)
-    expect(emitterStorage()).toBe(emitters)
-    expect(bursts[0]).toBe(16)
-    expect(bursts[3]).toBeCloseTo(1)
-    expect(bursts[4]).toBeCloseTo(0)
-    expect(bursts[5]).toBeCloseTo(170 / 255)
+  it('drops bursts while no engine is running', () => {
+    triggerEmitter('spark', { position: [0, 0, 0] })
+    expect(pendingFxRequests()).toBe(0)
   })
 
-  it('packs fireworks in front of lasers and filters by cue target', () => {
-    const table = emitterStorage()
-    syncShowEmitters(10, 0, 0, [funnel, mast], 'all', '#ff0000', 0.5)
-    expect(emitterStorage()).toBe(table)
-    expect(fireworkSlotCount()).toBe(1)
-    expect(laserSlotCount()).toBe(1)
-    expect(table[0]).toBe(10)
-    expect(table[1]).toBe(5)
-    expect(table[5]).toBeCloseTo(1)
-    expect(table[7]).toBe(EMITTER_KIND.firework)
-    expect(table[EMITTER_STRIDE + 7]).toBe(EMITTER_KIND.laser)
-    expect(table[8]).toBeCloseTo(1)
-    expect(table[11]).toBeCloseTo(0.5)
-
-    syncShowEmitters(10, 0, 0, [funnel, mast], 'funnel', '#00ff00', 1)
-    expect(fireworkSlotCount()).toBe(1)
-    expect(laserSlotCount()).toBe(0)
-    expect(table[EMITTER_STRIDE + 3]).toBe(0)
+  it('queues and drains in order with defaults filled in', () => {
+    setFxBusEnabled(true)
+    triggerEmitter('spark', { position: [1, 2, 3] }, { color: '#fff', count: 10 })
+    triggerEmitter('mist', { anchorKey: 'ship:mast' })
+    const seen: Array<Pick<FxRequest, 'preset' | 'anchorKey' | 'hasPosition' | 'count' | 'color'>> = []
+    drainFxRequests((r) => seen.push({ preset: r.preset, anchorKey: r.anchorKey, hasPosition: r.hasPosition, count: r.count, color: r.color }))
+    expect(seen).toEqual([
+      { preset: 'spark', anchorKey: null, hasPosition: true, count: 10, color: '#fff' },
+      { preset: 'mist', anchorKey: 'ship:mast', hasPosition: false, count: -1, color: null },
+    ])
+    expect(pendingFxRequests()).toBe(0)
   })
 
-  it('appends live bursts after show fireworks', () => {
-    spawnBurst([3, 4, 5], '#ffffff')
-    syncShowEmitters(0, 0, 0, [funnel], 'all', '#ffffff', 1)
-    expect(fireworkSlotCount()).toBe(2)
-    expect(emitterStorage()[EMITTER_STRIDE]).toBe(3)
-    tickBursts(3)
-    syncShowEmitters(0, 0, 0, [funnel], 'all', '#ffffff', 1)
-    expect(fireworkSlotCount()).toBe(1)
+  it('wraps by dropping the oldest request and reuses request objects', () => {
+    setFxBusEnabled(true)
+    for (let i = 0; i < FX_QUEUE_SIZE + 3; i++) triggerEmitter('spark', { position: [i, 0, 0] })
+    expect(pendingFxRequests()).toBe(FX_QUEUE_SIZE)
+    const xs: number[] = []
+    const objs = new Set<FxRequest>()
+    drainFxRequests((r) => { xs.push(r.px); objs.add(r) })
+    expect(xs[0]).toBe(3)
+    expect(xs[xs.length - 1]).toBe(FX_QUEUE_SIZE + 2)
+    expect(objs.size).toBe(FX_QUEUE_SIZE)
   })
 
-  it('classifies mast, gantry, and searchlight as lasers', () => {
-    expect(emitterKindForPoint('mast', 'mast')).toBe(EMITTER_KIND.laser)
-    expect(emitterKindForPoint('loadingArm', 'gantry')).toBe(EMITTER_KIND.laser)
-    expect(emitterKindForPoint('bowSearchlight', 'accent')).toBe(EMITTER_KIND.laser)
-    expect(emitterKindForPoint('funnel', 'funnel')).toBe(EMITTER_KIND.firework)
-    expect(MAX_EMITTERS).toBe(64)
+  it('disabling clears the queue; streams are kept until removed', () => {
+    setFxBusEnabled(true)
+    triggerEmitter('spark', { position: [0, 0, 0] })
+    setContinuousEmitter('a', { preset: 'glitter', position: [0, 0, 0] })
+    setFxBusEnabled(false)
+    expect(pendingFxRequests()).toBe(0)
+    const keys: string[] = []
+    forEachContinuousEmitter((k) => keys.push(k))
+    expect(keys).toEqual(['a'])
+    setContinuousEmitter('a', null)
+    keys.length = 0
+    forEachContinuousEmitter((k) => keys.push(k))
+    expect(keys).toEqual([])
+  })
+})
+
+describe('emitterAnchors', () => {
+  it('registers and unregisters by ship:part key', () => {
+    const key = emitterAnchorKey('ship-1', 'funnel_top')
+    expect(key).toBe('ship-1:funnel_top')
+    setEmitterAnchor(key, {
+      key, shipId: 'ship-1', shipType: 'cruise', partName: 'funnel_top',
+      rigType: 'rgb_matrix', group: 'funnel', installed: true,
+      position: new THREE.Vector3(1, 2, 3), quaternion: new THREE.Quaternion(),
+    })
+    expect(getEmitterAnchor(key)?.position.y).toBe(2)
+    expect(emitterAnchorCount()).toBe(1)
+    setEmitterAnchor(key, null)
+    expect(getEmitterAnchor(key)).toBeUndefined()
   })
 })

@@ -56,6 +56,6 @@ exports the show alone.
 ## Caveats
 
 - The hash covers the core sim only (not lighting) until #235 adds per-system hashes.
-- `lengthBeats` / `target` / `easing` are carried but not interpreted (see LIGHT_SHOWS.md).
+- `lengthBeats` / `target` / `easing` play per rig group (see LIGHT_SHOWS.md → Play time).
 - Headless CI has no WebGPU, so the scene itself can't boot in e2e; playback is covered by
   the unit tests, the menu-level flow by `e2e/share-link.spec.ts`.

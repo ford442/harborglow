@@ -4,6 +4,8 @@
 
 export interface FrameBudgetSnapshot {
   frameMs: number
+  /** 95th-percentile frame time over the rolling window. */
+  frameMsP95: number
   frameMsMax: number
   drawCalls: number
   triangles: number
@@ -14,10 +16,13 @@ export interface FrameBudgetSnapshot {
   gcPerSec: number
   /** React commits per second per <CommitProfiler id>. Only fires in dev / profiling React builds. */
   commitsPerSec: Record<string, number>
+  /** GPU particle ring capacity currently mounted (0 = engine off). */
+  particles: number
 }
 
 const empty: FrameBudgetSnapshot = {
   frameMs: 0,
+  frameMsP95: 0,
   frameMsMax: 0,
   drawCalls: 0,
   triangles: 0,
@@ -25,6 +30,7 @@ const empty: FrameBudgetSnapshot = {
   allocMbPerSec: 0,
   gcPerSec: 0,
   commitsPerSec: {},
+  particles: 0,
 }
 
 let snapshot: FrameBudgetSnapshot = { ...empty }
@@ -42,6 +48,26 @@ export function updateFrameBudgetSnapshot(partial: Partial<FrameBudgetSnapshot>)
 export function subscribeFrameBudget(fn: () => void): () => void {
   listeners.add(fn)
   return () => listeners.delete(fn)
+}
+
+let particleCapacity = 0
+
+/** Called by the GPU particle layer on mount (capacity) and unmount (0). */
+export function setFrameBudgetParticles(capacity: number): void {
+  particleCapacity = capacity
+}
+
+export function getFrameBudgetParticles(): number {
+  return particleCapacity
+}
+
+/** p-th percentile (0..1) of `values[0..count)`, sorting into `scratch` (no allocation). */
+export function percentile(values: ArrayLike<number>, count: number, p: number, scratch: Float64Array): number {
+  const n = Math.min(count, values.length, scratch.length)
+  if (n === 0) return 0
+  for (let i = 0; i < n; i++) scratch[i] = values[i]
+  const view = scratch.subarray(0, n).sort()
+  return view[Math.min(n - 1, Math.floor(p * n))]
 }
 
 export function resetFrameBudgetSnapshot(): void {

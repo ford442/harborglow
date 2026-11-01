@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { publishWebgpuProbe, resetWebgpuProbe } from '../../webgpuProbe'
-import { canUseGpuParticles, hasFloat32Filterable } from '../particleGate'
+import { hasGpuFeature, publishWebgpuProbe, resetWebgpuProbe } from '../../webgpuProbe'
+import { canUseGpuParticles, parseParticlesOff } from '../particleGate'
 
 afterEach(() => {
   resetWebgpuProbe()
 })
 
-function passedProbe(grantedFeatures: string[]) {
+function probe(compute: 'passed' | 'failed', grantedFeatures: string[] = []) {
   publishWebgpuProbe({
     ok: true,
     browser: { brand: 'test', ua: '' },
     adapterInfo: null,
     limits: null,
-    compute: 'passed',
+    compute,
     reason: null,
     ignoredForceGl: false,
     grantedFeatures,
@@ -21,38 +21,52 @@ function passedProbe(grantedFeatures: string[]) {
 }
 
 const renderer = {
+  compute: () => {},
   computeAsync: async () => {},
-  backend: { isWebGPUBackend: true, device: { id: 'adopted' } },
+  backend: { isWebGPUBackend: true },
 }
 
 describe('canUseGpuParticles', () => {
-  it('is false without a passed compute probe', () => {
-    expect(canUseGpuParticles(renderer)).toBe(false)
+  it('is false before the probe publishes or when compute failed', () => {
+    expect(canUseGpuParticles(renderer, '')).toBe(false)
+    probe('failed')
+    expect(canUseGpuParticles(renderer, '')).toBe(false)
   })
 
-  it('is true without float32-filterable', () => {
-    passedProbe([])
-    expect(hasFloat32Filterable([])).toBe(false)
-    expect(canUseGpuParticles(renderer)).toBe(true)
+  it('is true with a passed probe on a WebGPU backend with compute', () => {
+    probe('passed')
+    expect(canUseGpuParticles(renderer, '')).toBe(true)
   })
 
-  it('stays true when float32-filterable was granted', () => {
-    passedProbe(['float32-filterable'])
-    expect(hasFloat32Filterable(['float32-filterable'])).toBe(true)
-    expect(canUseGpuParticles(renderer)).toBe(true)
-  })
-
-  it('forces the layer off under ?no_gpu_compute=1', () => {
-    passedProbe([])
+  it('honours ?no_gpu_compute=1 and ?particles=0', () => {
+    probe('passed')
     expect(canUseGpuParticles(renderer, '?no_gpu_compute=1')).toBe(false)
-    expect(canUseGpuParticles(renderer, '?no_gpu_compute=true')).toBe(false)
-    expect(canUseGpuParticles(renderer, '?no_gpu_compute=0')).toBe(true)
+    expect(canUseGpuParticles(renderer, '?particles=0')).toBe(false)
+    expect(canUseGpuParticles(renderer, '?particles=1')).toBe(true)
   })
 
-  it('rejects renderers without computeAsync or an adopted device', () => {
-    passedProbe([])
-    expect(canUseGpuParticles({ backend: { isWebGPUBackend: true, device: {} } })).toBe(false)
-    expect(canUseGpuParticles({ computeAsync: async () => {}, backend: { isWebGPUBackend: false } })).toBe(false)
-    expect(canUseGpuParticles(null)).toBe(false)
+  it('rejects non-WebGPU backends and renderers without compute', () => {
+    probe('passed')
+    expect(canUseGpuParticles({ ...renderer, backend: { isWebGPUBackend: false } }, '')).toBe(false)
+    expect(canUseGpuParticles({ computeAsync: renderer.computeAsync, backend: renderer.backend }, '')).toBe(false)
+    expect(canUseGpuParticles(null, '')).toBe(false)
+  })
+})
+
+describe('parseParticlesOff', () => {
+  it('is on only for explicit off values', () => {
+    expect(parseParticlesOff('')).toBe(false)
+    expect(parseParticlesOff('?particles=0')).toBe(true)
+    expect(parseParticlesOff('?particles=off')).toBe(true)
+    expect(parseParticlesOff('?particles=1')).toBe(false)
+  })
+})
+
+describe('hasGpuFeature', () => {
+  it('reads the probe grantedFeatures', () => {
+    expect(hasGpuFeature('float32-filterable')).toBe(false)
+    probe('passed', ['float32-filterable'])
+    expect(hasGpuFeature('float32-filterable')).toBe(true)
+    expect(hasGpuFeature('timestamp-query')).toBe(false)
   })
 })

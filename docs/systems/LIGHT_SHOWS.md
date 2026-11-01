@@ -1,16 +1,24 @@
-# Light Shows (data model)
+# Light Shows
 
-Slice 1 of the Light Show Director epic (#236). Data only: no rendering or save change.
+Slice 1 of the Light Show Director epic (#236) added the V2 data model; slice 7 (#253)
+interprets it at play time, ships three native V2 factory shows and the Harbor Festival.
 
 ## Files
 
 | File | Role |
 |---|---|
 | `src/systems/lightShows/<ship>.ts` | Authored V1 cue lists — the **factory presets** |
+| `src/systems/lightShows/{cruiseFinale,fireboatWaterCannon,icebreakerAurora}.ts` | Native V2 factory presets (rig-group targeting, easing), built with `author.ts` |
+| `src/systems/lightShows/rigCues.ts` | Play-time resolution of `target` / `lengthBeats` / `easing` per rig group |
+| `src/systems/lightShows/showEmitters.ts` | GPU-particle emitter bindings for the native V2 shows (played by `showBindingDriver.ts`, #248) |
 | `src/systems/lightShows/types.ts` | `LightCue` (= `LightCueV1`), `LightCueV2`, `LightShowV2`, `RigGroupId`, `LightCueEasing` |
 | `src/systems/lightShows/migrate.ts` | `migrateShowV1toV2()` — pure, deterministic |
-| `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1) and `lightShowRegistryV2`, migrated once at module load |
+| `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1), `authoredShowsV2`, and `lightShowRegistryV2` (native V2 where authored, else migrated once at module load) |
 | `src/systems/lightShows/rigGroups.ts` | Attachment point → rig group mapping, `getRigGroups(shipType)` |
+| `src/systems/lightShows/cueEdit.ts` | Piano-roll edits on a `LightShowV2` (fork, place, update). Pure |
+| `src/systems/lightShows/authoredShows.ts` | Player forks keyed by ship type; lighting prefers these over the factory preset |
+| `src/systems/lightShows/perform.ts` / `performLog.ts` | Pad and gesture cues, scored into the sim hash |
+| `src/components/operatorCabin/LightShowDesk.tsx` | Lazy booth piano roll and preview overlay |
 | `src/schemas/lightShow.ts` | valibot `parseLightShow()` for untrusted input. **Lazy-load only** (`await import(...)`) |
 
 ## V1 → V2 mapping
@@ -25,24 +33,76 @@ Slice 1 of the Light Show Director epic (#236). Data only: no rendering or save 
 | show `loopBeats` | `32` (the upgrade-cinematic cycle) |
 | show `seed` | omitted (reserved for #235) |
 
-**Play time:** a cue is active while the playhead sits in `[beat, beat + lengthBeats)`.
-`easing` shapes that cue's intensity (`step` stays flat). Cue `target` selects
-which attachment points emit GPU particles — see [PARTICLES.md](PARTICLES.md).
-The rig's color follows the one active cue. `'all'` keeps every point. A gap
-falls back to the last cue that has started, which matches the tiled factory presets.
+A migrated show has only `'all'` cues that tile the loop, so every rig group plays exactly
+the V1 step cue (`rigCues.test.ts` checks this at every 1/16 beat for all 13 presets).
 
-## Perform
+## Play time
 
-During a harbor show, pads `1`–`5`, a crane-joystick threshold crossing, and tug-throttle gates fire a cue on the next 1/8 or 1/16. The gesture is `recordHostInput('show.cue', …)`. `applyReplayInput` quantizes from sim time and scores a timing-accuracy plus variety bonus (`economySystem.grantPerformanceBonus`). Weights and the grid live in the Leva folder **Light Show Perform**. The fired sequence is part of `hashSimSnapshot`, so a recorded log replays to the same hash.
+`lightingSystem.update()` resolves two things from the active show, both at
+`t = elapsedBeats mod loopBeats`:
 
-## Editor
+- **Harbor-wide cue** (unchanged step function): the last cue with `beat <= t`, whatever
+  it targets. Drives `getBeatPulse()` / `getActiveCue()`, which harbor ambience reads.
+- **Per rig group** (`rigCues.ts`): for each of the 7 groups, the latest-starting cue that
+  targets that group or `'all'` and whose `[beat, beat + lengthBeats)` window covers `t`.
+  When two cues start on the same beat, the one authored later wins. When no cue covers
+  the group, it is **inactive** (dark). Easing scales the cue's intensity across its
+  length: `step` holds full level; `linear` / `easeIn` / `easeOut` / `easeInOut` swell
+  from 0 to full. `getRigGroupState(shipId, group)` returns that state for the ship whose
+  show is playing, and `null` for every other ship.
 
-The booth piano roll and full-screen overlay live in `components/operatorCabin/LightShowDesk.tsx`
-(lazy, so they stay out of `menu-eager`). Fork copies a factory show; Save writes
-`authoredShows` on the existing v4 save (the field is optional, so the save version
-does not change). Ship completion plays that fork. Preview scrubs a private transport
-on the `'audio'` clock and does not write the sim or the store, so the canvas is not
-re-rendered by the playhead.
+`InstalledRigVisual` maps its `partName` to a group (`rigGroupForAttachmentPoint`) and,
+during its own ship's show, drives from that group: it pulses on the cue pulse, its power
+scales with the cue level, and its colour is tinted 65% toward the cue colour. An inactive
+group idles dim, and a `blackout` cue takes it nearly dark. Rigs on other ships, and the
+`AudioReactiveLightShow` rigs, keep the harbor-wide drive.
+
+**Show length:** at least 30 s, rounded up to a whole number of loops at the ship's BPM
+(cruise: 32 s; fireboat: 3 loops ≈ 37.9 s; icebreaker: 2 loops ≈ 35.6 s). The end is
+checked against sim time in `update()`, not a `setTimeout`, so it replays deterministically.
+An imported show (`setShowOverride`) still loops until it is cleared.
+
+## Native V2 factory presets
+
+| Ship | Show | Groups targeted | Emitters (#248) |
+|---|---|---|---|
+| cruise (120 BPM) | Aurora Glow finale: gold balcony swell → funnel snaps → whole-ship build → white strobe/snap finale | funnel, hullStrip | fireworks on `funnel1/2`, `balcony5/6` |
+| fireboat (152 BPM) | Rescue Pulse water-cannon show: red/blue siren mast, cannons arc/hold/fire, foam deck swell | accent (the two water cannons), mast, bridge, hullStrip, deck | water-cannon mist on both cannons, `foamDeck` |
+| icebreaker (108 BPM) | Aurora: green curtains rise, teal/violet ripple, ice-white glitter, escort-orange gantry | funnel, mast, deck, bridge, gantry, accent (spoon bow) | ice-crystal glitter on `funnelMain`, `mastArray`, `heliDeck` |
+
+The cruise targets only the groups its blueprint attachment points have. The stern
+water-curtain is an upgrade-menu part with no blueprint attachment point, so it renders
+no rig. The fireboat's water cannons stay in `accent`, which on that hull means exactly the
+two cannons.
+
+**Emitters:** `showEmitters.ts` binds each emitter to an attachment-point id and a beat
+window. The GPU particle layer (#248, [PARTICLES.md](./PARTICLES.md#factory-show-bindings))
+plays them: it derives `beatInLoop` from the sim clock with the same arithmetic as
+`update()`, asks `collectActiveShowEmitters(shipType, beatInLoop, out)` which bindings are
+live (the allocation-free sibling of `getActiveShowEmitters`, which drops its backing store
+every frame), and resolves each `attachmentPoint` to that ship's world pose. A missing id is
+skipped with one `console.warn`. They live outside `LightShowV2`, so share links and the
+schema are unchanged; a shared/imported show replaces the factory timeline the bindings were
+authored against, so it plays none. The icebreaker anchors are blueprint parts; they become
+GLB sockets with no further change once the Yamal GLB (#203) lands.
+
+## Harbor Festival
+
+`src/systems/eventSystem/harborFestival.ts`, owned by `harborEventSystem.festival`, and a
+`harbor_festival` `HarborEvent` while it runs. Player-started only (probability 0): the
+HUD button or the Leva **Harbor Events → Harbor Festival** toggle records
+`event.festival.start` / `event.festival.stop` through `recordHostInput`, so spectators
+and replays run the same festival. The optional payload is `{ setlist: ShipType[] }`; the
+default setlist is cruise → fireboat → icebreaker.
+
+Each act runs: spawn the ship and select it → **awaitingRigs** until
+`selectIsShipFullyUpgraded` → **playing** (`maybeStartShipMusic`, a no-op if the install
+path already started it) until the lighting show for that ship ends → **intermission**
+(4 s) → next act. Everything advances on the sim tick (accumulated `dt` and the sim-time
+show end). An act whose ship leaves the harbor is counted missed. At the end:
+300 HC per show played, +600 HC for the full setlist, +10 reputation per show
+(`FESTIVAL_*` constants). `FestivalHUD` shows "Act n/3" through `useSyncExternalStore`.
+`harborEventSystem.reset()` (from `resetDeterministicSystems()`) resets it.
 
 ## Rig groups
 
@@ -60,11 +120,40 @@ checked first, then these rules in order; anything unmatched is `accent`:
 
 The full per-ship mapping is snapshotted in `rigGroups.test.ts`; a new blueprint id
 appears there as a reviewable diff. A show may target a group a hull lacks — that
-imports fine and is a play-time no-op (decided in #249).
+imports fine and is a play-time no-op: no rig of that group exists to light.
+
+## FX hooks
+
+GPU particles and laser beams (#248, [PARTICLES.md](./PARTICLES.md)) read the active cue
+through `lightingSystem.getCueState()` / `getActiveCue()`:
+
+- The `pattern` picks the effect: strobe sparks, snap fireworks, breathe/sweep glitter, and
+  laser motion. A ship whose factory show has emitter bindings (cruise, fireboat, icebreaker)
+  plays those instead of the pattern look; lasers still follow the pattern.
+- `target` limits emission to installed rigs in that group.
+- `color` and `intensity` tint and scale it.
+
+There is no `fx` field yet. When slice 3 or 7 adds one, make it optional
+(`fx?: EmitterPresetId`), so existing shows and share links stay valid without a version
+bump. Play it through `triggerEmitter(cue.fx, { anchorKey }, { color: cue.color })` per
+targeted anchor. The pattern-based defaults remain for cues without `fx`.
+
+## Perform
+
+During a harbor show, pads `1`–`5`, a crane-joystick threshold crossing, and tug-throttle gates fire a cue on the next 1/8 or 1/16. The gesture is `recordHostInput('show.cue', …)`. `applyReplayInput` quantizes from sim time and scores a timing-accuracy plus variety bonus (`economySystem.grantPerformanceBonus`). Weights and the grid live in the Leva folder **Light Show Perform**. The fired sequence is part of `hashSimSnapshot`, so a recorded log replays to the same hash. A fired cue overrides the harbor-wide cue; per-rig-group playback stays on the show timeline.
+
+## Editor
+
+The booth piano roll and full-screen overlay live in `components/operatorCabin/LightShowDesk.tsx`
+(lazy, so they stay out of `menu-eager`). Fork copies a factory show; Save writes
+`authoredShows` on the existing v4 save (the field is optional, so the save version
+does not change). Ship completion plays that fork ahead of the factory preset. A share-link
+override still wins. Preview scrubs a private transport on the `'audio'` clock and does not
+write the sim or the store, so the canvas is not re-rendered by the playhead.
 
 ## Save rule
 
-Saves hold no light-show data today. `loadGameState()` returns `null` on **any**
+Saves hold no light-show data besides optional forks. `loadGameState()` returns `null` on **any**
 version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
 `authoredShows` is an optional v4 field (forked shows keyed by ship type). Missing
 on older v4 saves, and `loadGameState` still accepts those. Do not bump `VERSION`

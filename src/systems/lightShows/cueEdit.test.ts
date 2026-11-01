@@ -38,13 +38,13 @@ describe('cue editor', () => {
       intensity: 0.5,
       easing: 'linear',
     })
-    const added = placed.cues.find((cue) => cue.target === 'funnel')!
+    const added = placed.cues.find((cue) => cue.color === '#ff6b9d')!
     expect(added.beat).toBe(1)
     expect(added.lengthBeats).toBe(1)
     const stretched = stretchCue(placed, added.id, 3.2)
     expect(stretched.cues.find((cue) => cue.id === added.id)?.lengthBeats).toBe(3.2)
     const copied = copyCueByBar(stretched, added.id)
-    const copy = copied.cues.find((cue) => cue.id !== added.id && cue.target === 'funnel')!
+    const copy = copied.cues.find((cue) => cue.id !== added.id && cue.color === '#ff6b9d')!
     expect(copy.beat).toBe(added.beat + BAR_BEATS)
     const snapped = quantizeCue(copied, added.id, QUANTIZE_BEATS['1/16'])
     expect(snapped.cues.find((cue) => cue.id === added.id)?.beat).toBe(1)
@@ -76,10 +76,13 @@ describe('cue editor', () => {
       rows: ['all', 'funnel'],
       loopBeats: show.loopBeats,
     }
-    const cue = show.cues[0]
+    const cue = show.cues.find((item) => item.target === 'all')!
+    const rowIndex = metrics.rows.indexOf(cue.target)
+    const rowH = (metrics.height - metrics.rulerHeight) / metrics.rows.length
+    const y = metrics.rulerHeight + rowIndex * rowH + rowH / 2
     const x = 40 + ((cue.beat + 0.1) / show.loopBeats) * 360
     expect(yToRow(metrics, 10)).toBeNull()
-    expect(hitCue(show, metrics, x, 30)?.cue.id).toBe(cue.id)
+    expect(hitCue(show, metrics, x, y)?.cue.id).toBe(cue.id)
     expect(xToBeat(metrics, x)).toBeGreaterThan(cue.beat)
   })
 

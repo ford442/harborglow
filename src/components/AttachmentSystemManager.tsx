@@ -23,9 +23,10 @@ import { playInstallationLock } from '../systems/craneSoundSystem'
 import { economySystem } from '../systems/economySystem'
 import { trainingSystem } from '../systems/trainingSystem'
 import { swaySystem } from '../systems/swaySystem'
-import { spawnBurst } from '../scenes/particles/fxBus'
 import MagicalInstallFlash from './MagicalInstallFlash'
 import InstallationFeedback from './InstallationFeedback'
+import { triggerEmitter } from '../scenes/particles/fxBus'
+import { emitterAnchorKey } from '../scenes/particles/emitterAnchors'
 
 interface AttachmentSystemManagerProps {
   children?: React.ReactNode
@@ -352,7 +353,6 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       trainingSystem.recordInstallation(event.shipId)
     }
 
-    spawnBurst(event.position, RIG_TYPE_COLORS[event.rigType].primary)
     setFeedbackData({
       shipId: event.shipId,
       partName: event.partName,
@@ -366,6 +366,13 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     if (lastInstall && lastInstall.timestamp !== Number(prevInstallRef.current)) {
       handleInstallComplete(lastInstall)
       prevInstallRef.current = String(lastInstall.timestamp)
+      // GPU burst at the attachment point's true world pose (falls back to the
+      // event position); a no-op when the compute particle engine is off.
+      triggerEmitter(
+        'installBurst',
+        { anchorKey: emitterAnchorKey(lastInstall.shipId, lastInstall.partName), position: lastInstall.position },
+        { color: RIG_TYPE_COLORS[lastInstall.rigType].primary },
+      )
     }
   }, [lastInstall, handleInstallComplete])
 
@@ -389,13 +396,11 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     <>
       <CommitProfiler id="AttachmentSystemManager">
       {lastInstall && (
-        <>
-          <MagicalInstallFlash
-            position={lastInstall.position}
-            color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
-            active={true}
-          />
-        </>
+        <MagicalInstallFlash
+          position={lastInstall.position}
+          color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
+          active={true}
+        />
       )}
 
       {showFeedback && feedbackData && (

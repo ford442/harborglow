@@ -1,34 +1,35 @@
 // =============================================================================
-// PARTICLE GPU GATE — when the TSL compute pool may run
+// GPU PARTICLE GATE — when the TSL compute particle engine may run (#248)
 //
-// Adopt-only, same rule as the ocean FFT. `?no_gpu_compute=1` forces the
-// layer off. `float32-filterable` is read from the probe and is not required:
-// particle state lives in storage buffers, which are not sampled.
+// Particles dispatch through the renderer's own device (`renderer.compute`),
+// so unlike the ocean FFT there is no device adoption here. Storage is plain
+// storage buffers — no StorageTexture — so three #33147 (float32 StorageTexture
+// without `float32-filterable`) does not apply. If a texture-backed field is
+// ever added, AND `hasGpuFeature('float32-filterable')` onto this predicate or
+// keep the texture at HalfFloat.
 // =============================================================================
 
-import { adoptComputeDevice, parseNoGpuCompute } from '../gpuChores'
+import { parseNoGpuCompute } from '../gpuChores/killSwitch'
 import { getWebgpuProbe } from '../webgpuProbe'
 
-const FLOAT32_FILTERABLE = 'float32-filterable'
-
-export function hasFloat32Filterable(features: readonly string[] | undefined): boolean {
-  return (features ?? []).includes(FLOAT32_FILTERABLE)
+export interface ParticleGpuRenderer {
+  compute?: (computeNode: unknown, dispatchSize?: unknown) => unknown
+  computeAsync?: (computeNode: unknown) => Promise<void>
+  backend?: { isWebGPUBackend?: boolean } | null
 }
 
-/**
- * True when the compute particle layer may dispatch.
- * Absence of `float32-filterable` does not turn the layer off.
- */
+/** `?particles=0` turns the particle engine off (A/B baseline for the bench). */
+export function parseParticlesOff(
+  search = typeof window === 'undefined' ? '' : window.location.search,
+): boolean {
+  const raw = new URLSearchParams(search).get('particles')
+  return raw === '0' || raw === 'false' || raw === 'off'
+}
+
 export function canUseGpuParticles(renderer?: unknown, search?: string): boolean {
-  if (parseNoGpuCompute(search)) return false
-  const probe = getWebgpuProbe()
-  if (!probe || probe.compute !== 'passed') return false
-  // Observed on purpose. A sampled float path would have to require this;
-  // storage buffers stay enabled either way.
-  hasFloat32Filterable(probe.grantedFeatures)
-  const gl = renderer as Parameters<typeof adoptComputeDevice>[0] & {
-    computeAsync?: unknown
-  } | null
-  if (!gl || typeof gl.computeAsync !== 'function') return false
-  return adoptComputeDevice(gl) != null
+  if (parseNoGpuCompute(search) || parseParticlesOff(search)) return false
+  if (getWebgpuProbe()?.compute !== 'passed') return false
+  const gl = renderer as ParticleGpuRenderer | null | undefined
+  if (!gl || gl.backend?.isWebGPUBackend !== true) return false
+  return typeof gl.compute === 'function' && typeof gl.computeAsync === 'function'
 }

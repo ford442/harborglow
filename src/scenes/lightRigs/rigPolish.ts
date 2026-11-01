@@ -52,14 +52,19 @@ export interface RigMusicState {
   prevBeat: boolean
 }
 
+/**
+ * `beatPulse` overrides the harbor-wide pulse, e.g. with a rig group's own cue
+ * pulse (lightingSystem.getRigGroupState).
+ */
 export function computeRigMusicDrive(
   power: number,
   state: RigMusicState,
-  delta: number
+  delta: number,
+  beatPulse?: number
 ): { emissive: number; light: number; hueShift: number; state: RigMusicState; bass: number } {
   const audio = getAudioAnalysisData()
   const lookDev = getLookDevSettings()
-  const beat = lightingSystem.getBeatPulse()
+  const beat = beatPulse ?? lightingSystem.getBeatPulse()
   const pulse = lookDev.rigPulseAmount
 
   let afterglow = state.afterglow

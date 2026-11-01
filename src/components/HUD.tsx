@@ -42,6 +42,7 @@ import { useSharedPlayback } from '../systems/share/sharedPlaybackState'
 import SharedPlaybackBadge from './hud/SharedPlaybackBadge'
 import ShareShowButton from './hud/ShareShowButton'
 import ExportShowButton from './hud/ExportShowButton'
+import FestivalHUD from './hud/FestivalHUD'
 
 export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const [shopOpen, setShopOpen] = useState(false)
@@ -56,6 +57,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const operationMode = useGameStore(state => state.operationMode)
   const cameraMode = useGameStore(state => state.cameraMode)
   const multiplayerRole = useGameStore(state => state.multiplayerRole)
+  const gameMode = useGameStore(state => state.gameMode)
   const isSharedPlayback = useSharedPlayback(state => state.active)
   const isSpectator = multiplayerRole === 'spectator' || isSharedPlayback
   const walkingPosition = useGameStore(state => state.walkingPosition)
@@ -96,6 +98,9 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <SharedPlaybackBadge />
       {isCraneMode && !isSpectator && <ShareShowButton />}
       {isCraneMode && !isSpectator && <ExportShowButton />}
+      {!isWalkingMode && (
+        <FestivalHUD canControl={isCraneMode && !isSpectator && gameMode !== 'training'} />
+      )}
 
       {isCraneMode && !isSpectator && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
       

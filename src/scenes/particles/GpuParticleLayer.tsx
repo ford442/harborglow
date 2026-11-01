@@ -1,166 +1,194 @@
 // =============================================================================
-// GPU PARTICLE LAYER — lazy scene mount for the compute firework pool
-// and the volumetric laser mesh. Audio and ship poses are read inside
-// useFrame; this component does not subscribe to per-frame store fields.
+// GpuParticleLayer — mounts the TSL compute particle engine + laser beams (#248)
+//
+// Lazy-loaded from MainScene (own chunk, outside the game-initial budget).
+// Lasers need no compute and mount whenever the layer does; particles mount
+// only when canUseGpuParticles passes.
+// Each frame, in one useFrame at default priority (so R3F still owns the
+// render): write the shared fx uniforms → drain fxBus bursts → continuous
+// streams → show-driven emitters → bench → dispatch update + spawn compute.
+// Show-driven emitters come from the factory show's emitter bindings
+// (showBindingDriver) when the ship has them, else from the cue pattern.
+// Remounts the engine (key = budget) when the quality tier changes.
 // =============================================================================
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { useGameStore } from '../../store/useGameStore'
+import { setFrameBudgetParticles } from '../../rendering/frameBudgetState'
+import { GpuParticleSystem, type ParticleRenderer } from '../../rendering/particles/GpuParticleSystem'
+import { EMITTER_PRESETS } from '../../rendering/particles/emitterPresets'
+import { writeFxFrameUniforms } from '../../rendering/particles/fxFrameUniforms'
+import { PARTICLE_BUDGET } from '../../rendering/particles/particleBudget'
+import { canUseGpuParticles } from '../../rendering/particles/particleGate'
 import { getAudioAnalysisData } from '../../systems/audioVisualSync'
 import { lightingSystem } from '../../systems/lightingSystem'
-import { canUseGpuParticles } from '../../rendering/particles/particleGate'
-import { particleCountFor, MAX_LASERS, EMITTER_STRIDE } from '../../rendering/particles/particleBudget'
-import { createParticleSystem } from '../../rendering/particles/particleKernel'
+import { useGameStore } from '../../store/useGameStore'
+import { AliveEstimator } from './aliveEstimate'
+import { emitterAnchors, getEmitterAnchor } from './emitterAnchors'
 import {
-  emitterStorage,
-  fireworkSlotCount,
-  laserSlotCount,
-  syncShowEmitters,
-  tickBursts,
-  type EmitterPoint,
+  drainFxRequests,
+  forEachContinuousEmitter,
+  setFxBusEnabled,
+  type ContinuousEmitterSpec,
+  type FxRequest,
 } from './fxBus'
+import LaserBeamLayer from './LaserBeamLayer'
+import { ParticleBench, parseParticleBench } from './particleBench'
+import { createBindingFrame, hasShowBindings, ShowBindingDriver } from './showBindingDriver'
+import { ShowEmitterDriver, StreamAccumulator, type EmitSink, type ShowFrame } from './showEmitterDriver'
+import { publishShowParticlesDebug, type ShowParticlesStats } from './showParticlesDebug'
+import { readShowPlayhead } from './showPlayhead'
 
-const EMPTY_POINTS: readonly EmitterPoint[] = []
-const DEFAULT_COLOR = '#ffd27a'
-const _up = new THREE.Vector3(0, 1, 0)
-const _dir = new THREE.Vector3()
-const _pos = new THREE.Vector3()
-const _quat = new THREE.Quaternion()
-const _scale = new THREE.Vector3()
-const _matrix = new THREE.Matrix4()
-
-function hashId(id: string): number {
-  let h = 2166136261
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return (h >>> 0) / 4294967296
-}
-
-function publishEmitters(): void {
-  const show = lightingSystem.getCurrentShow()
-  if (!show.isActive || !show.shipId) {
-    syncShowEmitters(0, 0, 0, EMPTY_POINTS, 'all', DEFAULT_COLOR, 1)
-    return
-  }
-  const ships = useGameStore.getState().ships
-  let ship: (typeof ships)[number] | undefined
-  for (let i = 0; i < ships.length; i++) {
-    if (ships[i].id === show.shipId) {
-      ship = ships[i]
-      break
-    }
-  }
-  if (!ship) {
-    syncShowEmitters(0, 0, 0, EMPTY_POINTS, 'all', DEFAULT_COLOR, 1)
-    return
-  }
-  const cue = lightingSystem.getActiveCue()
-  const origin = ship.position
-  syncShowEmitters(
-    origin[0],
-    origin[1],
-    origin[2],
-    ship.attachmentPoints,
-    cue?.target ?? 'all',
-    cue?.color ?? DEFAULT_COLOR,
-    cue?.intensity ?? 1,
-  )
-}
-
-function writeLasers(mesh: THREE.InstancedMesh | null, treble: number, beatPhase: number): void {
-  if (!mesh) return
-  const lasers = laserSlotCount()
-  const fireworks = fireworkSlotCount()
-  mesh.count = lasers
-  mesh.visible = lasers > 0
-  if (lasers === 0) return
-  const table = emitterStorage()
-  const pulse = (0.35 + treble * 0.9) * (1 - beatPhase * 0.35)
-  const color = mesh.instanceColor
-  for (let i = 0; i < lasers; i++) {
-    const o = (fireworks + i) * EMITTER_STRIDE
-    const intensity = table[o + 11]
-    const len = (8 + intensity * 18) * Math.max(pulse, 0.05)
-    _dir.set(table[o + 4], table[o + 5], table[o + 6])
-    if (_dir.lengthSq() < 1e-8) _dir.copy(_up)
-    else _dir.normalize()
-    _quat.setFromUnitVectors(_up, _dir)
-    _pos.set(table[o], table[o + 1], table[o + 2]).addScaledVector(_dir, len * 0.5)
-    _scale.set(0.15, len, 0.15)
-    _matrix.compose(_pos, _quat, _scale)
-    mesh.setMatrixAt(i, _matrix)
-    color?.setXYZ(i, table[o + 8], table[o + 9], table[o + 10])
-  }
-  mesh.instanceMatrix.needsUpdate = true
-  if (color) color.needsUpdate = true
-}
-
-function ParticlePool({ drawnCount }: { drawnCount: number }) {
-  const gl = useThree((s) => s.gl)
-  const system = useMemo(() => createParticleSystem(drawnCount), [drawnCount])
-  const laserRef = useRef<THREE.InstancedMesh>(null)
-  const seedRef = useRef({ id: '', seed: 1 })
-
-  useLayoutEffect(() => {
-    const mesh = laserRef.current
-    if (mesh) {
-      mesh.count = 0
-      mesh.frustumCulled = false
-      if (!mesh.instanceColor) {
-        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_LASERS * 3), 3)
-      }
-    }
-    return () => system.dispose()
-  }, [system])
-
-  useFrame((_, dt) => {
-    if (!system.isReady) {
-      void system.init(gl)
-      return
-    }
-    const step = dt > 0.05 ? 0.05 : dt
-    tickBursts(step)
-    publishEmitters()
-    system.uploadEmitters(emitterStorage(), fireworkSlotCount())
-    const audio = getAudioAnalysisData()
-    const showId = lightingSystem.getCurrentShow().shipId ?? ''
-    if (seedRef.current.id !== showId) {
-      seedRef.current.id = showId
-      seedRef.current.seed = hashId(showId)
-    }
-    system.writeAudio(audio.bass, audio.mid, audio.treble, audio.beatPhase, step, seedRef.current.seed)
-    const fireworks = fireworkSlotCount()
-    system.sprite.count = fireworks > 0 ? system.drawnCount : 0
-    system.sprite.visible = fireworks > 0
-    if (fireworks > 0) system.dispatch(gl)
-    writeLasers(laserRef.current, audio.treble, audio.beatPhase)
-  })
-
-  return (
-    <>
-      <primitive object={system.sprite} />
-      <instancedMesh
-        ref={laserRef}
-        args={[system.laserGeometry, system.laserMaterial, MAX_LASERS]}
-        frustumCulled={false}
-      />
-    </>
-  )
-}
+const UP = new THREE.Vector3(0, 1, 0)
+const scratchDir = new THREE.Vector3()
 
 export default function GpuParticleLayer() {
   const gl = useThree((s) => s.gl)
   const quality = useGameStore((s) => s.qualityPreset)
-  const [enabled, setEnabled] = useState(false)
+  const gpuOk = useMemo(() => canUseGpuParticles(gl), [gl])
+  const bench = useMemo(() => parseParticleBench(), [])
+  const budget = bench ? PARTICLE_BUDGET.high : PARTICLE_BUDGET[quality]
+  return (
+    <>
+      {gpuOk && <ParticleEngine key={budget} budget={budget} bench={bench} />}
+      <LaserBeamLayer quality={quality} />
+    </>
+  )
+}
 
-  useFrame(() => {
-    if (!enabled && canUseGpuParticles(gl)) setEnabled(true)
+function ParticleEngine({ budget, bench }: { budget: number; bench: boolean }) {
+  const gl = useThree((s) => s.gl) as unknown as ParticleRenderer
+  const sys = useMemo(() => new GpuParticleSystem(budget), [budget])
+
+  const { tick, stats } = useMemo(() => {
+    const budgetScale = sys.capacity / PARTICLE_BUDGET.high
+    const driver = new ShowEmitterDriver(budgetScale)
+    const bindingDriver = new ShowBindingDriver(sys.capacity, sys.maxSpawn, getEmitterAnchor)
+    const bindingFrame = createBindingFrame()
+    const alive = new AliveEstimator()
+    const stats: ShowParticlesStats = { budget: sys.capacity, alive: 0, emitters: 0 }
+    let visualTime = 0
+    let frameNo = 0
+    const streams = new StreamAccumulator()
+    const benchRig = bench ? new ParticleBench(sys.capacity) : null
+    const frame: ShowFrame = {
+      shipId: null, pattern: 'breathe', target: 'all', intensity: 0, color: null, beatPhase: 0, bass: 0, dt: 0,
+    }
+    let dt = 0
+
+    // Every emit goes through here so the alive estimate sees what actually fit.
+    const emit = (
+      preset: Parameters<EmitSink>[0],
+      ox: number, oy: number, oz: number,
+      dx: number, dy: number, dz: number,
+      count: number, color: string | null, seed: number,
+    ): number => {
+      const fit = sys.emit(preset, ox, oy, oz, dx, dy, dz, count, color, seed)
+      alive.add(preset, visualTime, fit)
+      return fit
+    }
+
+    const visitBurst = (r: FxRequest) => {
+      const anchor = r.anchorKey ? getEmitterAnchor(r.anchorKey) : undefined
+      if (!anchor && !r.hasPosition) return
+      const p = anchor?.position
+      if (r.hasDirection) scratchDir.set(r.dx, r.dy, r.dz)
+      else if (anchor) scratchDir.copy(UP).applyQuaternion(anchor.quaternion)
+      else scratchDir.copy(UP)
+      const count = r.count >= 0 ? r.count : EMITTER_PRESETS[r.preset].burstCount * budgetScale
+      emit(
+        r.preset,
+        p ? p.x : r.px, p ? p.y : r.py, p ? p.z : r.pz,
+        scratchDir.x, scratchDir.y, scratchDir.z,
+        count, r.color, r.seed,
+      )
+    }
+
+    const visitStream = (key: string, spec: ContinuousEmitterSpec) => {
+      const anchor = spec.anchorKey ? getEmitterAnchor(spec.anchorKey) : undefined
+      if (!anchor && !spec.position) return
+      const rate = (spec.ratePerS ?? EMITTER_PRESETS[spec.preset].ratePerS) * (spec.gain ?? 1) * budgetScale
+      const n = streams.take(key, rate, dt)
+      if (n <= 0) return
+      const p = anchor ? anchor.position : null
+      if (spec.direction) scratchDir.set(spec.direction[0], spec.direction[1], spec.direction[2])
+      else if (anchor) scratchDir.copy(UP).applyQuaternion(anchor.quaternion)
+      else scratchDir.copy(UP)
+      emit(
+        spec.preset,
+        p ? p.x : spec.position![0], p ? p.y : spec.position![1], p ? p.z : spec.position![2],
+        scratchDir.x, scratchDir.y, scratchDir.z,
+        n, spec.color ?? null, (key.length * 0.173 + n * 0.031) % 1,
+      )
+    }
+
+    const tick = (stepDt: number, rawDelta: number) => {
+      dt = stepDt
+      visualTime += stepDt
+      benchRig?.recordFrame(rawDelta)
+      drainFxRequests(visitBurst)
+      forEachContinuousEmitter(visitStream)
+
+      const show = lightingSystem.getCurrentShow()
+      const cue = show.isActive ? lightingSystem.getCueState() : null
+      const audio = getAudioAnalysisData()
+      // A ship whose factory show has emitter bindings plays those instead of the cue-pattern look.
+      readShowPlayhead(bindingFrame, dt)
+      const bound = hasShowBindings(bindingFrame.shipType)
+      bindingDriver.update(bindingFrame, emit)
+      frame.shipId = cue && !bound ? show.shipId : null
+      frame.pattern = cue ? cue.pattern : 'blackout'
+      frame.target = lightingSystem.getActiveCue()?.target ?? 'all'
+      frame.intensity = cue ? cue.intensity : 0
+      frame.color = cue ? cue.color : null
+      frame.beatPhase = audio.beatPhase
+      frame.bass = audio.bass
+      frame.dt = dt
+      driver.update(frame, emitterAnchors(), emit)
+
+      if (benchRig) {
+        const ship = useGameStore.getState().ships[0]
+        benchRig.step(dt, ship ? ship.position[0] : 0, ship ? ship.position[2] : 0, emit)
+      }
+
+      stats.alive = alive.estimate(visualTime, sys.capacity)
+      stats.emitters = bindingDriver.activeCount
+      // The shell can recreate harborglowDebug; re-attaching is a no-op while it is still set.
+      if ((++frameNo & 63) === 0) publishShowParticlesDebug(stats)
+    }
+    return { tick, stats }
+  }, [sys, bench])
+
+  useEffect(() => {
+    publishShowParticlesDebug(stats)
+    return () => publishShowParticlesDebug(null)
+  }, [stats])
+
+  useEffect(() => {
+    let cancelled = false
+    sys.init(gl).then(
+      () => {
+        if (cancelled) return
+        setFxBusEnabled(true)
+        setFrameBudgetParticles(sys.capacity)
+      },
+      (err) => console.warn('✨ GPU particles disabled — init failed:', err),
+    )
+    return () => {
+      cancelled = true
+      setFxBusEnabled(false)
+      setFrameBudgetParticles(0)
+      sys.dispose(gl)
+    }
+  }, [sys, gl])
+
+  useFrame((state, delta) => {
+    const dt = writeFxFrameUniforms(delta, state.clock.elapsedTime)
+    if (!sys.ready) return
+    tick(dt, delta)
+    sys.step(gl)
   })
 
-  if (!enabled) return null
-  return <ParticlePool key={quality} drawnCount={particleCountFor(quality)} />
+  return <primitive object={sys.object3d} />
 }
