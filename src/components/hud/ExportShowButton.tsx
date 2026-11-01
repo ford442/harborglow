@@ -9,14 +9,19 @@ export default function ExportShowButton() {
 
   const poster = async () => {
     setStatus('Capturing poster…')
-    const shot = await capturePosterPng(getLiveRenderer())
-    if (!shot) {
-      setStatus('Poster unavailable')
-      return
+    try {
+      const shot = await capturePosterPng(getLiveRenderer())
+      if (!shot) {
+        setStatus('Poster unavailable')
+        return
+      }
+      downloadDataUrl(shot.dataUrl, 'harborglow-poster.png')
+      setStatus('Poster saved')
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Poster failed')
+    } finally {
+      window.setTimeout(() => setStatus(null), 2500)
     }
-    downloadDataUrl(shot.dataUrl, 'harborglow-poster.png')
-    setStatus('Poster saved')
-    window.setTimeout(() => setStatus(null), 2500)
   }
 
   const exp = async (mode: 'live' | 'offline') => {

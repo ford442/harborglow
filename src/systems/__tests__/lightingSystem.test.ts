@@ -103,6 +103,12 @@ describe('LightingSystem cue dispatch', () => {
     expect(lightingSystem.getActiveCue()?.color).toBe('#abcdef')
   })
 
+  it('preview of an empty show leaves the cue unset', () => {
+    lightingSystem.setPreview({ v: 2, id: 'lng', loopBeats: 32, cues: [] }, 4)
+    expect(lightingSystem.getActiveCue()).toBeNull()
+    expect(lightingSystem.getEmissiveColor('#ffffff', 'other-ship')).toBe('#ffffff')
+  })
+
   it('preview scrubs cues without moving sim time', () => {
     setSimMs(4)
     const forked = forkFactoryShow('tanker')!

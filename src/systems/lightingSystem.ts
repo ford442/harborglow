@@ -108,6 +108,13 @@ class LightingSystem {
    */
   setPreview(show: LightShowV2, elapsedBeats: number) {
     this.previewing = true
+    if (show.cues.length === 0) {
+      this.activeCue = null
+      this.cueState = null
+      this.groupStatesValid = false
+      this.beatPulse = 0
+      return
+    }
     this.applyShow(show, elapsedBeats)
   }
 

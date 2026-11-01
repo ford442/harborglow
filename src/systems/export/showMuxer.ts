@@ -61,7 +61,7 @@ export async function createShowMuxer(container: ExportContainer): Promise<ShowM
     },
   })
   videoEncoder.configure({
-    codec: container === 'mp4' ? 'avc1.640028' : 'vp09.00.10.08',
+    codec: container === 'mp4' ? 'avc1.64002a' : 'vp09.00.10.08',
     width: EXPORT_WIDTH,
     height: EXPORT_HEIGHT,
     bitrate: 8_000_000,

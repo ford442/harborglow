@@ -3,6 +3,7 @@
 // does that on the tick the log entry lands, so replay uses the same clock.
 // =============================================================================
 
+import { useGameStore } from '../../store/useGameStore'
 import { recordHostInput } from '../sim/hostInput'
 import { lightingSystem } from '../lightingSystem'
 import { getPerformTuning, type PerformSource } from './perform'
@@ -12,6 +13,7 @@ export function firePerformCue(
   gesture: { pattern: LightCuePattern; target: RigGroupId | 'all' },
   source: PerformSource,
 ): void {
+  if (useGameStore.getState().multiplayerRole === 'spectator') return
   const show = lightingSystem.getCurrentShow()
   if (!show.isActive) return
   const tuning = getPerformTuning()

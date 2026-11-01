@@ -64,6 +64,7 @@ async function exportLive(muxer: ShowMuxer, canvas: HTMLCanvasElement): Promise<
     ? new Processor({ track: audioTrack }).readable.getReader() as TrackReader<AudioData>
     : null
   const audioTask = audioReader ? pumpAudio(audioReader, muxer) : Promise.resolve()
+  let videoError: unknown
   try {
     for (let i = 0; i < EXPORT_FRAMES; i++) {
       const next = await videoReader.read()
@@ -75,12 +76,23 @@ async function exportLive(muxer: ShowMuxer, canvas: HTMLCanvasElement): Promise<
       next.value.close()
       await paintAndEncode(muxer, stamped)
     }
+  } catch (err) {
+    videoError = err
   } finally {
-    await videoReader.cancel?.()
+    await videoReader.cancel?.().catch(() => {})
     videoTrack.stop()
     tap?.close()
+    if (videoError) {
+      await audioReader?.cancel?.().catch(() => {})
+      audioTrack?.stop()
+    }
+    try {
+      await audioTask
+    } catch (err) {
+      videoError ??= err
+    }
   }
-  await audioTask
+  if (videoError) throw videoError
   return muxer.finalize()
 }
 
