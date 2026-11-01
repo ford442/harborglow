@@ -1,5 +1,5 @@
 import { ShipType } from '../store/useGameStore'
-import { getLightShowV2, LightCueV2, LightCuePattern, LightShowV2, RigGroupId, SHIP_BPM } from './lightShows'
+import { resolveShowForShip, LightCueV2, LightCuePattern, LightShowV2, RigGroupId, SHIP_BPM } from './lightShows'
 import {
   RIG_GROUP_IDS,
   createRigGroupCueState,
@@ -41,6 +41,12 @@ class LightingSystem {
   private activeCue: LightCueV2 | null = null
   /** Imported show (share link / .hgshow) that replaces the preset; plays until cleared. */
   private showOverride: LightShowV2 | null = null
+  /**
+   * Cue-editor scrub position (loop-relative beats). While set, update() reads
+   * cues at this beat instead of elapsed sim time. Visual only: it changes
+   * which cue is resolved, never the clock, so nothing in the sim moves.
+   */
+  private previewBeat: number | null = null
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
   /** Per-rig-group cue state for the show ship, resolved in update(). */
   private groupStates = Object.fromEntries(
@@ -53,7 +59,7 @@ class LightingSystem {
   // ============================================================================
   startHarborShow(shipId: string, shipType: ShipType) {
     const bpm = SHIP_BPM[shipType] ?? 128
-    const show = this.showOverride ?? getLightShowV2(shipType)
+    const show = this.showOverride ?? resolveShowForShip(shipType)
     // End on a loop boundary, not mid-phrase. Ending is checked against sim time
     // in update(), so it is deterministic (the Harbor Festival waits on it).
     const loopMs = show ? show.loopBeats * (60 / bpm) * 1000 : 0
@@ -80,6 +86,23 @@ class LightingSystem {
     if (!show) this.endHarborShow()
   }
 
+  /** An override (share link or cue-editor play) is installed. */
+  hasShowOverride(): boolean {
+    return this.showOverride !== null
+  }
+
+  /**
+   * Hold the playing show at `beat` (cue-editor scrub / preview), or resume
+   * normal playback with null. Needs an active show; ending the show clears it.
+   */
+  setPreviewBeat(beat: number | null) {
+    this.previewBeat = beat !== null && Number.isFinite(beat) ? Math.max(0, beat) : null
+  }
+
+  getPreviewBeat(): number | null {
+    return this.previewBeat
+  }
+
   endHarborShow() {
     if (this.currentShow.isActive) {
       console.log('🎆 Harbor light show complete!')
@@ -91,6 +114,7 @@ class LightingSystem {
     this.activeCue = null
     this.cueState = null
     this.groupStatesValid = false
+    this.previewBeat = null
     this.beatPulse = 0
     this.intensityMultiplier = 1.0
   }
@@ -115,10 +139,10 @@ class LightingSystem {
       const effectiveBpm = this.currentShow.bpm || bpm
       const beatDuration = 60 / effectiveBpm
       const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
-      const show = this.showOverride ?? (this.currentShow.shipType ? getLightShowV2(this.currentShow.shipType) : undefined)
+      const show = this.showOverride ?? (this.currentShow.shipType ? resolveShowForShip(this.currentShow.shipType) : undefined)
 
       if (show && show.cues.length > 0) {
-        const elapsedBeats = (elapsed / 1000) / beatDuration
+        const elapsedBeats = this.previewBeat ?? (elapsed / 1000) / beatDuration
         const beatInLoop = elapsedBeats % show.loopBeats
         const active = this.resolveCue(show, elapsedBeats)
 
