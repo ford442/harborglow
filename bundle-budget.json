@@ -7,6 +7,7 @@
     "GameShell": 600,
     "MainScene": 600,
     "GpuParticleLayer": 8,
+    "LightShowEditor": 16,
     "index": 200
   },
   "profiles": {

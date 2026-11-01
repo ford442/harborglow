@@ -97,4 +97,39 @@ describe('GpuParticleSystem dispatch', () => {
     sys.step(r)
     expect(calls).toHaveLength(0)
   })
+
+  it('goes live again on init → dispose → init (StrictMode effect replay)', async () => {
+    const sys = new GpuParticleSystem(1000)
+    const { r, calls } = fakeRenderer()
+    const first = sys.init(r)
+    sys.dispose()
+    const second = sys.init(r)
+    await Promise.all([first, second])
+    expect(sys.ready).toBe(true)
+    calls.length = 0
+    sys.step(r)
+    expect(calls.at(-1)?.node).toBe(sys.computeNodes.update)
+  })
+
+  it('revives after a completed init → dispose → init', async () => {
+    const sys = new GpuParticleSystem(1000)
+    const { r } = fakeRenderer()
+    await sys.init(r)
+    sys.dispose()
+    expect(sys.ready).toBe(false)
+    await sys.init(r)
+    expect(sys.ready).toBe(true)
+  })
+
+  it('a superseded init resolving late does not resurrect a disposed system', async () => {
+    const sys = new GpuParticleSystem(1000)
+    let release!: () => void
+    const gate = new Promise<void>((res) => { release = res })
+    const slow: ParticleRenderer = { compute: () => {}, computeAsync: () => gate }
+    const pending = sys.init(slow)
+    sys.dispose()
+    release()
+    await pending
+    expect(sys.ready).toBe(false)
+  })
 })

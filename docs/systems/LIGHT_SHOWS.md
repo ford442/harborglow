@@ -16,6 +16,9 @@ interprets it at play time, ships three native V2 factory shows and the Harbor F
 | `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1), `authoredShowsV2`, and `lightShowRegistryV2` (native V2 where authored, else migrated once at module load) |
 | `src/systems/lightShows/rigGroups.ts` | Attachment point → rig group mapping, `getRigGroups(shipType)` |
 | `src/schemas/lightShow.ts` | valibot `parseLightShow()` for untrusted input. **Lazy-load only** (`await import(...)`) |
+| `src/systems/lightShows/userShows.ts` | The player's saved show per ship (own `localStorage` key); `resolveShowForShip()` in `index.ts` = user show ?? factory show |
+| `src/systems/lightShows/editor/` | Cue editor logic, no React: `editorModel.ts` (pure draft operations + history), `editorSession.ts` (vanilla store + lighting/music side effects), `timelineGeometry.ts` (canvas hit-testing), `shareDraft.ts` |
+| `src/components/lightShowEditor/` | The cue editor UI — a `React.lazy` chunk opened from the operator cabin |
 
 ## V1 → V2 mapping
 
@@ -118,6 +121,81 @@ The full per-ship mapping is snapshotted in `rigGroups.test.ts`; a new blueprint
 appears there as a reviewable diff. A show may target a group a hull lacks — that
 imports fine and is a play-time no-op: no rig of that group exists to light.
 
+## Cue editor
+
+Slice 3 of the epic (#270). In the operator cabin, with a ship selected, **🎛️ Edit show**
+opens a full-screen piano roll (a lazy chunk, `LightShowEditor`, with its own cap in
+`bundle-budget.json`). It opens on the player's saved show for that ship, or on a fork of
+the factory show.
+
+**Timeline.** Rows are the rig groups plus `all`; columns are beats with a bar line every
+`BEATS_PER_BAR` (4). Loop length is 16–64 beats (default 32). Groups the hull does not have
+(`getRigGroups`) are greyed and hatched; cues there are still allowed and are a play-time
+no-op, like any cue for a group a ship lacks.
+
+| Gesture | Effect |
+|---|---|
+| Click empty | Place the toolbar's cue in the clicked grid cell |
+| Drag a cue | Move it (and across rows) |
+| Drag a cue's edge | Stretch it (min 1/16 beat, never past the loop) |
+| Shift + drag | Copy |
+| Click / drag the ruler | Scrub: holds the show at that beat (`lightingSystem.setPreviewBeat`) |
+| Space, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y, Ctrl+S, Delete, Esc | Play/stop, undo, redo, save, delete selection, close |
+
+The toolbar sets pattern, easing, colour (the ship's light colour + the show's colours + a
+picker), intensity, length and snap (1/4, 1/8, 1/16 note or free); it also has loop length,
+copy bar *a* → *b* (replaces the cues that start in *b*), quantize, undo/redo, **Fork
+factory** (undoable reset), **Delete mine** (back to the factory show), **Share** and **Save**.
+A drag is one undo step.
+
+**Model** (`editorModel.ts`). Every operation is immutable and deterministic and returns the
+*same* object when it changes nothing; each change makes a new show object because
+`rigCues` caches per show identity. Invariants after every operation, tighter than
+`parseLightShow`: `0 <= beat < loopBeats`, `lengthBeats >= 1/16`, `beat + lengthBeats <= loopBeats`,
+`intensity` in 0..1, `#rrggbb` colours, ids `${showId}:${n}` from a counter kept in the draft
+(never random, never reused after a delete, restored by undo), cues sorted by beat with
+ties in insertion order. History is capped at 100 steps. A cue that would overrun the loop
+is *shortened*, not moved; copies are clipped at the loop end.
+
+**State.** The editor's state is a vanilla zustand store (`editorSession.ts`), not
+`useGameStore`: dragging cues must not notify the game store or re-render the R3F canvas
+(`editorSession.test.ts` counts store notifications over a 1800-tick session: 0). While the
+editor is open a capture-phase `keydown` handler stops crane/HUD hotkeys; `keyup` is left
+alone so a key held at open time still releases.
+
+**Playing.** *Play* installs the draft with `lightingSystem.setShowOverride(draft)` and
+starts the ship's show; edits while playing are pushed live. It loops until stopped and,
+with the ♪ toggle, starts the ship's music (`musicSystem.startMusic`, sim-clocked from beat 0
+so it lines up with the lights). The editor refuses to take over a show-link playback.
+Scrubbing and playing only *read* sim time, so neither can change the sim hash
+(`lightingSystemUserShows.test.ts`).
+
+**Saving.** *Save* writes `Record<ShipType, LightShowV2>` to its own key,
+`harborglow:userShows:v1` (see **Save rule**). A user show's id is `${shipType}-user`.
+`resolveShowForShip(shipType)` returns the user show if there is one; `startHarborShow`
+and the per-frame update use it, so every start path (upgrade menu, cinematic, Harbor
+Festival, multiplayer) plays the player's show, with the show duration sized to *its* loop.
+A share-link override still wins.
+
+**Sharing.** *Share* packs the draft (saved or not) with the normal codec into a
+`#hgshow=` link, or a `.hgshow` file when it will not fit — see [SHARE_LINKS.md](SHARE_LINKS.md).
+
+**Known limits.**
+- The GPU emitter bindings (`showEmitters.ts`, fireworks/mist/glitter) belong to the *factory*
+  timeline: `showPlayhead.ts` reads the factory loop, so a user show changes the lights but
+  not the bound particles.
+- A user show with a different `loopBeats` changes how long the show lasts, which the Harbor
+  Festival waits on. That is local to the player's own harbor; shared playback uses the override.
+- Audible preview runs on the sim clock (`musicSystem` hardcodes it), not the `'audio'` transport.
+- One user show per ship; no named list or picker.
+
+**Tests.** Logic lives beside the code under `src/systems/lightShows/editor/`; the toolbar
+has a server-render smoke test; `e2e/light-show-editor.spec.ts` drives the real app and, like
+`show-particles.spec.ts`, skips without a WebGPU adapter (opt in with `PLAYWRIGHT_WEBGPU=1`).
+It asserts a cue-specific value: after place → move → stretch → save → close, the funnel plays
+the saved cue's colour (via `window.harborglowDebug.lightShow`, screenshot mode only) and the
+hull strip does not.
+
 ## FX hooks
 
 GPU particles and laser beams (#248, [PARTICLES.md](./PARTICLES.md)) read the active cue
@@ -136,10 +214,19 @@ targeted anchor. The pattern-based defaults remain for cues without `fx`.
 
 ## Save rule
 
-Saves hold no light-show data today. `loadGameState()` returns `null` on **any**
-version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
-When #249 persists user shows: add an **optional** `GameState` field, and do not bump
-`VERSION` until `loadGameState` migrates instead of returning `null`.
+The game save holds no light-show data, and the cue editor keeps it that way: user shows
+live under their own `localStorage` key, `harborglow:userShows:v1` (`userShows.ts`), so
+there is no `VERSION` bump, `loadGameState` is untouched, and nothing waits on #261.
+`loadGameState()` returns `null` on **any** version mismatch, so bumping `VERSION` in
+`storage_manager.ts` wipes every save — keep it that way until it migrates instead.
+
+Everything read from that key is untrusted: each entry goes through `parseLightShow()`
+(loaded with a dynamic `import()`, only when something is stored), and an entry that fails
+— or names an unknown ship — is dropped with one `console.warn`, never thrown. Saving
+validates too, waits for hydration so it cannot overwrite entries that have not loaded
+yet, and falls back to playing from memory when storage is full or blocked. If a later
+change moves user shows into `GameState`, add an **optional** field and read this key once
+as a migration.
 
 ## Sharing
 

@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { CameraMode, useGameStore } from '../../store/useGameStore';
 import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics';
 import { useAudioData } from '../../systems/audioVisualSync';
@@ -213,6 +214,64 @@ export function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
         borderRadius: '12px',
       }} />
     </div>
+  )
+}
+
+// =============================================================================
+// LIGHT SHOW EDITOR LAUNCHER (#270) — the cue editor is a lazy chunk, loaded on
+// the first click and portalled to <body> so cabin styles cannot clip it.
+// =============================================================================
+
+const LightShowEditor = lazy(() => import('../lightShowEditor/LightShowEditor'))
+
+const editorOverlayStyle: React.CSSProperties = {
+  position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexDirection: 'column', gap: 12, background: 'rgba(4,8,16,0.94)', color: '#d8e6f0', fontFamily: 'monospace', pointerEvents: 'auto',
+}
+
+/** A failed chunk load must not take the HUD down; the shared ErrorBoundary would reload the page. */
+class EditorLoadBoundary extends React.Component<{ onClose: () => void; children: React.ReactNode }, { failed: boolean }> {
+  override state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  override componentDidCatch(error: unknown) {
+    console.error('🎛️ light show editor failed to load', error)
+  }
+  override render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div style={editorOverlayStyle}>
+        <div>The light show editor could not be loaded.</div>
+        <button type="button" onClick={this.props.onClose} style={shopInlineButtonStyle}>Close</button>
+      </div>
+    )
+  }
+}
+
+export function LightShowEditorLauncher({ shipId, shipType }: { shipId: string; shipType: string }) {
+  const [open, setOpen] = useState(false)
+  const close = () => setOpen(false)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ ...shopInlineButtonStyle, margin: '8px 0', width: '100%' }}
+        title="Fork this ship's light show, edit its cues, and play it"
+        data-testid="edit-show-button"
+      >
+        🎛️ Edit show
+      </button>
+      {open && createPortal(
+        <EditorLoadBoundary onClose={close}>
+          <Suspense fallback={<div style={editorOverlayStyle}>Loading editor…</div>}>
+            <LightShowEditor shipId={shipId} shipType={shipType as any} onClose={close} />
+          </Suspense>
+        </EditorLoadBoundary>,
+        document.body,
+      )}
+    </>
   )
 }
 
@@ -560,6 +619,8 @@ export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void })
           </div>
         </div>
       </div>
+
+      <LightShowEditorLauncher shipId={currentShip.id} shipType={currentShip.type} />
 
       {/* Progress Bar */}
       <div style={styles.progressContainerStyle}>

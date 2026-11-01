@@ -79,7 +79,8 @@ export class GpuParticleSystem {
   private cursor = 0
   private frame = 0
   private live = false
-  private disposed = false
+  /** Bumped by every init() and dispose(); only the latest init may go live. */
+  private generation = 0
 
   constructor(budget: number) {
     this.capacity = particleCapacity(budget)
@@ -239,10 +240,16 @@ export class GpuParticleSystem {
     return this.live
   }
 
-  /** Clears every slot. Must resolve before step() dispatches. */
+  /**
+   * Clears every slot. Must resolve before step() dispatches. Re-entrant: init
+   * after dispose() revives the system (React StrictMode replays effects as
+   * init → dispose → init), and an init() that was superseded by a later
+   * init() or dispose() never sets `ready`.
+   */
   async init(renderer: ParticleRenderer): Promise<void> {
+    const gen = ++this.generation
     await renderer.computeAsync(this.computeNodes.init)
-    if (!this.disposed) this.live = true
+    if (gen === this.generation) this.live = true
   }
 
   /** Bind a CSS colour to a palette slot (slot 0 is white). */
@@ -293,7 +300,7 @@ export class GpuParticleSystem {
   }
 
   dispose(renderer?: unknown): void {
-    this.disposed = true
+    this.generation++
     this.live = false
     this.material.dispose()
     // Storage buffers have no public dispose in three 0.183; release them via
