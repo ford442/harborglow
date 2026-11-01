@@ -149,6 +149,17 @@ Rules:
 
 Breadcrumbs: `window.harborglowRenderer.gpuChores`, `window.webgpuProbe`.
 
+Domain compute users:
+
+- **Ocean FFT** ([OCEAN_FFT.md](./systems/OCEAN_FFT.md)) adopts the probe device and runs
+  raw WGSL.
+- **GPU particles** ([PARTICLES.md](./systems/PARTICLES.md), #248) dispatch TSL kernels
+  through `renderer.compute` on the renderer's own device, gated by
+  `canUseGpuParticles()`. They also honour `?no_gpu_compute=1`, and add `?particles=0`.
+
+`hasGpuFeature(name)` in `webgpuProbe.ts` reads the probe's `grantedFeatures`
+(e.g. `float32-filterable`).
+
 ## three.js upgrade notes
 
 Pinned: `three@0.183.1` / `@types/three@0.183.1`. Imports: `three/webgpu`, `three/tsl`.

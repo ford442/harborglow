@@ -70,3 +70,26 @@ export function getActiveShowEmitters(
   }
   return out
 }
+
+/**
+ * Same query as `getActiveShowEmitters`, without its per-frame allocation: that
+ * one resets `out.length = 0`, which drops the array's backing store, so every
+ * push after it allocates a new one. This overwrites in place and trims once at
+ * the end, which keeps the backing store. Use it from frame loops (#248).
+ */
+export function collectActiveShowEmitters(
+  shipType: ShipType,
+  beatInLoop: number,
+  out: ShowEmitterBinding[],
+): ShowEmitterBinding[] {
+  const bindings = FACTORY_SHOW_EMITTERS[shipType]
+  let n = 0
+  if (bindings) {
+    for (let i = 0; i < bindings.length; i++) {
+      const binding = bindings[i]
+      if (beatInLoop >= binding.beat && beatInLoop < binding.beat + binding.lengthBeats) out[n++] = binding
+    }
+  }
+  out.length = n
+  return out
+}

@@ -38,6 +38,7 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 const PostProcessing = lazy(() => import('./PostProcessing'))
+const GpuParticleLayer = lazy(() => import('./particles/GpuParticleLayer'))
 import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
 import WildlifeRenderer from './Wildlife'
@@ -564,6 +565,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <LightFlareSystem />
+            <Suspense fallback={null}>
+              <GpuParticleLayer />
+            </Suspense>
             {qualityPreset !== 'low' && (
               <Suspense fallback={null}>
                 <PostProcessing enabled={true} audioData={audioData} />

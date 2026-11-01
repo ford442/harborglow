@@ -92,7 +92,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 4. **Systems** (`src/systems/`)
    - Modular gameplay systems with no direct mutual dependencies
    - **Music/Audio**: `music/` (`MusicSystem.ts`, `musicSynthChains.ts`, `musicTracks.ts`, `lyrics.ts`; `musicSystem.ts` is a re-export shim), `craneSoundSystem.ts`, `ambientSoundSystem.ts`, `soundEffects.ts`
-   - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`
+   - **Visual**: `lightingSystem.ts`, `weatherSystem.ts`, `moonSystem.ts`, `swaySystem.ts`; GPU compute particles + laser beams in `rendering/particles/` + `scenes/particles/` (public API `scenes/particles/fxBus.ts`; see [docs/systems/PARTICLES.md](docs/systems/PARTICLES.md))
    - **Gameplay**: `attachmentSystem.ts`, `shipSpawner.ts`, `economySystem.ts`, `reputationSystem.ts`, `trafficSystem.ts`
    - **Operations**: `StormSystem.ts` (timed storm escalation with intensity), Tugboat mode (first-person vessel control with Rapier physics)
    - **Events**: `eventSystem/` (`HarborEventSystem.ts`, `harborFestival.ts` — the 3-ship light-show setlist), `dynamicEventSystem.ts` (both ticked from `bootstrap/mainSceneSystems.ts`), `wildlifeSystem.ts`, `seaEventsSystem.ts`, mission system (storm rescue)
@@ -110,7 +110,7 @@ HarborGlow follows a modular architecture with clear separation of concerns:
 6. **3D Components** (`src/scenes/`)
    - **Core**: Ship (with LOD impostors), Crane, Dock, Water, FoamSystem, Tugboat (vessel with buoyancy physics)
    - **Vessels**: Tugboat, TugboatTargetShip, DistressedShip (storm rescue mission)
-   - **Visual Effects**: VolumetricLighting, PostProcessing, AudioReactiveLightShow
+   - **Visual Effects**: VolumetricLighting, PostProcessing, AudioReactiveLightShow, `particles/GpuParticleLayer` (lazy: TSL compute particles + lasers)
    - **Advanced**: ControlBooth (multiple camera presets), WildlifeRenderer, SeaEvents
    - **Utilities**: AttachmentPoint, CraneCable, ProceduralShip
    - **Not currently mounted**: `MultiviewSystem.tsx` (4-view multiview) exists but has no non-test importer; remount-or-archive is tracked in #233
