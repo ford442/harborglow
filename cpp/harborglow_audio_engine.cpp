@@ -1,10 +1,13 @@
 #include "harborglow_audio_engine.h"
 #include "harborglow_dsp.h"
+#include "dsp_ring_buffer.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
@@ -21,6 +24,46 @@ constexpr int MAX_VOICES = 64;
 constexpr int MAX_DELAY_SAMPLES = 192000;
 constexpr int MAX_RENDER_BLOCK = 1024;
 constexpr int ROOM_IR_CAPACITY = 4096;
+constexpr int PROTOCOL_VERSION = 2;
+constexpr int COMMAND_QUEUE_CAPACITY = 1024;
+
+enum CommandType : std::int32_t {
+    COMMAND_NOTE_ON = 1,
+    COMMAND_NOTE_OFF = 2,
+    COMMAND_STOP_ALL = 3,
+    COMMAND_SET_EFFECTS = 4,
+};
+
+// Wire layout documented in harborglow_audio_engine.h.
+struct CommandRecord {
+    std::int32_t type;
+    std::int32_t voice_id;
+    float frequency;
+    float velocity;
+    std::int32_t waveform;
+    float attack;
+    float decay;
+    float sustain;
+    float release;
+    float lowpass_hz;
+    float distortion;
+    std::int32_t bit_depth;
+    float delay_seconds;
+    float delay_feedback;
+    float chorus_depth;
+    std::uint8_t room_preset;
+    std::uint8_t room_mix;
+    std::uint8_t reserved_a[2];
+    double frame;
+    std::uint32_t note_id;
+    std::uint32_t reserved_b;
+};
+
+static_assert(sizeof(CommandRecord) == 80, "command record is 80 bytes");
+static_assert(offsetof(CommandRecord, lowpass_hz) == 36, "lowpass_hz offset");
+static_assert(offsetof(CommandRecord, room_preset) == 60, "room_preset offset");
+static_assert(offsetof(CommandRecord, frame) == 64, "frame offset");
+static_assert(offsetof(CommandRecord, note_id) == 72, "note_id offset");
 
 enum class EnvelopeStage : std::uint8_t {
     Idle,
@@ -41,6 +84,7 @@ struct Voice {
     float sustain = 0.7f;
     float release = 0.2f;
     int waveform = 0;
+    std::uint32_t note_id = 0;
     EnvelopeStage stage = EnvelopeStage::Idle;
     std::uint32_t noise = 1U;
 };
@@ -68,6 +112,12 @@ float filter_right = 0.0f;
 float chorus_phase = 0.0f;
 float last_rms = 0.0f;
 float last_peak = 0.0f;
+
+// Commands waiting for their frame, sorted by frame; equal frames keep
+// arrival order. Storage is fixed so the render path never allocates.
+std::array<CommandRecord, COMMAND_QUEUE_CAPACITY> command_queue{};
+int command_head = 0;
+int command_count = 0;
 
 float wrap_phase(float phase) {
     phase -= TWO_PI * std::floor(phase / TWO_PI);
@@ -163,86 +213,14 @@ void rebuild_room() {
     }
 }
 
-}  // namespace
-
-extern "C" AUDIO_EXPORT
-int dsp_audio_engine_init(float sample_rate) {
-    if (sample_rate < 8000.0f || sample_rate > 192000.0f) {
-        return 0;
-    }
-    engine_sample_rate = sample_rate;
-    dsp_audio_engine_stop_all();
-    std::fill(delay_left.begin(), delay_left.end(), 0.0f);
-    std::fill(delay_right.begin(), delay_right.end(), 0.0f);
-    delay_cursor = 0;
-    filter_left = filter_right = 0.0f;
-    rebuild_room();
-    return 1;
-}
-
-extern "C" AUDIO_EXPORT
-void dsp_audio_engine_note_on(
-        int voice_id, float frequency, float velocity, int waveform,
-        float attack, float decay, float sustain, float release) {
-    if (voice_id < 0 || voice_id >= MAX_VOICES || frequency <= 0.0f) {
-        return;
-    }
-    Voice& voice = voices[static_cast<std::size_t>(voice_id)];
-    voice.frequency = frequency;
-    voice.velocity = std::clamp(velocity, 0.0f, 1.0f);
-    voice.waveform = waveform;
-    voice.attack = std::max(attack, 0.0001f);
-    voice.decay = std::max(decay, 0.0001f);
-    voice.sustain = std::clamp(sustain, 0.0f, 1.0f);
-    voice.release = std::max(release, 0.0001f);
-    voice.phase = 0.0f;
-    voice.mod_phase = 0.0f;
-    voice.envelope = 0.0f;
-    voice.stage = EnvelopeStage::Attack;
-    voice.noise = 0x9e3779b9U ^ static_cast<std::uint32_t>(voice_id + 1);
-}
-
-extern "C" AUDIO_EXPORT
-void dsp_audio_engine_note_off(int voice_id) {
-    if (voice_id >= 0 && voice_id < MAX_VOICES) {
-        Voice& voice = voices[static_cast<std::size_t>(voice_id)];
-        if (voice.stage != EnvelopeStage::Idle) {
-            voice.stage = EnvelopeStage::Release;
-        }
-    }
-}
-
-extern "C" AUDIO_EXPORT
-void dsp_audio_engine_set_effects(
-        float requested_lowpass_hz, float requested_distortion, int requested_bit_depth,
-        float requested_delay_seconds, float requested_delay_feedback,
-        float requested_chorus_depth, int requested_room_preset,
-        float requested_room_mix) {
-    lowpass_hz = std::clamp(requested_lowpass_hz, 20.0f, engine_sample_rate * 0.49f);
-    distortion_amount = std::clamp(requested_distortion, 0.0f, 1.0f);
-    bit_depth = std::clamp(requested_bit_depth, 2, 24);
-    delay_seconds = std::clamp(requested_delay_seconds, 0.0f, 2.0f);
-    delay_feedback = std::clamp(requested_delay_feedback, 0.0f, 0.95f);
-    chorus_depth = std::clamp(requested_chorus_depth, 0.0f, 1.0f);
-    requested_room_preset = std::clamp(requested_room_preset, 0, 4);
-    requested_room_mix = std::clamp(requested_room_mix, 0.0f, 1.0f);
-    const bool room_changed =
-        requested_room_preset != room_preset || requested_room_mix != room_mix;
-    room_preset = requested_room_preset;
-    room_mix = requested_room_mix;
-    if (room_changed) {
-        rebuild_room();
-    }
-}
-
-extern "C" AUDIO_EXPORT
-void dsp_audio_engine_render(float* out_left, float* out_right, int frame_count) {
-    if (!out_left || !out_right || frame_count <= 0) {
-        return;
-    }
-
+struct BlockLevels {
     float sum_squares = 0.0f;
     float peak = 0.0f;
+};
+
+void render_span(float* out_left, float* out_right, int frame_count, BlockLevels& levels) {
+    float sum_squares = levels.sum_squares;
+    float peak = levels.peak;
     int rendered = 0;
     while (rendered < frame_count) {
         const int block = std::min(MAX_RENDER_BLOCK, frame_count - rendered);
@@ -327,8 +305,119 @@ void dsp_audio_engine_render(float* out_left, float* out_right, int frame_count)
         rendered += block;
     }
 
-    last_rms = std::sqrt(sum_squares / static_cast<float>(frame_count));
-    last_peak = peak;
+    levels.sum_squares = sum_squares;
+    levels.peak = peak;
+}
+
+void publish_levels(const BlockLevels& levels, int frame_count) {
+    last_rms = std::sqrt(levels.sum_squares / static_cast<float>(frame_count));
+    last_peak = levels.peak;
+}
+
+CommandRecord& queued(int index) {
+    return command_queue[static_cast<std::size_t>(
+        (command_head + index) % COMMAND_QUEUE_CAPACITY)];
+}
+
+void pop_front() {
+    command_head = (command_head + 1) % COMMAND_QUEUE_CAPACITY;
+    --command_count;
+}
+
+void apply_command(const CommandRecord& command);
+
+}  // namespace
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_protocol_version(void) {
+    return PROTOCOL_VERSION;
+}
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_command_bytes(void) {
+    return static_cast<int>(sizeof(CommandRecord));
+}
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_init(float sample_rate) {
+    if (sample_rate < 8000.0f || sample_rate > 192000.0f) {
+        return 0;
+    }
+    engine_sample_rate = sample_rate;
+    dsp_audio_engine_stop_all();
+    std::fill(delay_left.begin(), delay_left.end(), 0.0f);
+    std::fill(delay_right.begin(), delay_right.end(), 0.0f);
+    delay_cursor = 0;
+    filter_left = filter_right = 0.0f;
+    command_head = command_count = 0;
+    rebuild_room();
+    return 1;
+}
+
+extern "C" AUDIO_EXPORT
+void dsp_audio_engine_note_on(
+        int voice_id, float frequency, float velocity, int waveform,
+        float attack, float decay, float sustain, float release) {
+    if (voice_id < 0 || voice_id >= MAX_VOICES || frequency <= 0.0f) {
+        return;
+    }
+    Voice& voice = voices[static_cast<std::size_t>(voice_id)];
+    voice.frequency = frequency;
+    voice.velocity = std::clamp(velocity, 0.0f, 1.0f);
+    voice.waveform = waveform;
+    voice.attack = std::max(attack, 0.0001f);
+    voice.decay = std::max(decay, 0.0001f);
+    voice.sustain = std::clamp(sustain, 0.0f, 1.0f);
+    voice.release = std::max(release, 0.0001f);
+    voice.phase = 0.0f;
+    voice.mod_phase = 0.0f;
+    voice.envelope = 0.0f;
+    voice.stage = EnvelopeStage::Attack;
+    voice.note_id = 0;
+    voice.noise = 0x9e3779b9U ^ static_cast<std::uint32_t>(voice_id + 1);
+}
+
+extern "C" AUDIO_EXPORT
+void dsp_audio_engine_note_off(int voice_id) {
+    if (voice_id >= 0 && voice_id < MAX_VOICES) {
+        Voice& voice = voices[static_cast<std::size_t>(voice_id)];
+        if (voice.stage != EnvelopeStage::Idle) {
+            voice.stage = EnvelopeStage::Release;
+        }
+    }
+}
+
+extern "C" AUDIO_EXPORT
+void dsp_audio_engine_set_effects(
+        float requested_lowpass_hz, float requested_distortion, int requested_bit_depth,
+        float requested_delay_seconds, float requested_delay_feedback,
+        float requested_chorus_depth, int requested_room_preset,
+        float requested_room_mix) {
+    lowpass_hz = std::clamp(requested_lowpass_hz, 20.0f, engine_sample_rate * 0.49f);
+    distortion_amount = std::clamp(requested_distortion, 0.0f, 1.0f);
+    bit_depth = std::clamp(requested_bit_depth, 2, 24);
+    delay_seconds = std::clamp(requested_delay_seconds, 0.0f, 2.0f);
+    delay_feedback = std::clamp(requested_delay_feedback, 0.0f, 0.95f);
+    chorus_depth = std::clamp(requested_chorus_depth, 0.0f, 1.0f);
+    requested_room_preset = std::clamp(requested_room_preset, 0, 4);
+    requested_room_mix = std::clamp(requested_room_mix, 0.0f, 1.0f);
+    const bool room_changed =
+        requested_room_preset != room_preset || requested_room_mix != room_mix;
+    room_preset = requested_room_preset;
+    room_mix = requested_room_mix;
+    if (room_changed) {
+        rebuild_room();
+    }
+}
+
+extern "C" AUDIO_EXPORT
+void dsp_audio_engine_render(float* out_left, float* out_right, int frame_count) {
+    if (!out_left || !out_right || frame_count <= 0) {
+        return;
+    }
+    BlockLevels levels;
+    render_span(out_left, out_right, frame_count, levels);
+    publish_levels(levels, frame_count);
 }
 
 extern "C" AUDIO_EXPORT
@@ -348,3 +437,119 @@ extern "C" AUDIO_EXPORT
 float dsp_audio_engine_peak(void) {
     return last_peak;
 }
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_enqueue(const void* record) {
+    if (!record) {
+        return 0;
+    }
+    CommandRecord command;
+    std::memcpy(&command, record, sizeof(command));
+    if (command.type == COMMAND_STOP_ALL) {
+        command_head = command_count = 0;
+        dsp_audio_engine_stop_all();
+        return 1;
+    }
+    if (command_count >= COMMAND_QUEUE_CAPACITY) {
+        return 0;
+    }
+    // Whole frames; anything non-positive or non-finite means "now".
+    command.frame = std::isfinite(command.frame) && command.frame > 0.0
+        ? std::floor(command.frame + 0.5)
+        : 0.0;
+    // Commands usually arrive in frame order, so this scan stops at once.
+    int index = command_count;
+    while (index > 0 && queued(index - 1).frame > command.frame) {
+        queued(index) = queued(index - 1);
+        --index;
+    }
+    queued(index) = command;
+    ++command_count;
+    return 1;
+}
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_drain(void* command_ring) {
+    if (!command_ring) {
+        return 0;
+    }
+    int moved = 0;
+    CommandRecord command;
+    // A full queue leaves the rest in the ring for the next quantum.
+    while (command_count < COMMAND_QUEUE_CAPACITY &&
+            dsp_ring_pop(command_ring, &command)) {
+        dsp_audio_engine_enqueue(&command);
+        ++moved;
+    }
+    return moved;
+}
+
+extern "C" AUDIO_EXPORT
+int dsp_audio_engine_pending(void) {
+    return command_count;
+}
+
+extern "C" AUDIO_EXPORT
+void dsp_audio_engine_process(
+        float* out_left, float* out_right, int frame_count, double start_frame) {
+    if (!out_left || !out_right || frame_count <= 0) {
+        return;
+    }
+    const double first_frame = std::isfinite(start_frame)
+        ? std::floor(start_frame + 0.5)
+        : 0.0;
+    BlockLevels levels;
+    int rendered = 0;
+    while (rendered < frame_count) {
+        const double now = first_frame + rendered;
+        while (command_count > 0 && queued(0).frame <= now) {
+            const CommandRecord command = queued(0);
+            pop_front();
+            apply_command(command);
+        }
+        int end = frame_count;
+        if (command_count > 0) {
+            end = static_cast<int>(std::min(
+                static_cast<double>(frame_count), queued(0).frame - first_frame));
+        }
+        render_span(out_left + rendered, out_right + rendered, end - rendered, levels);
+        rendered = end;
+    }
+    publish_levels(levels, frame_count);
+}
+
+namespace {
+
+void apply_command(const CommandRecord& command) {
+    switch (command.type) {
+        case COMMAND_NOTE_ON:
+            dsp_audio_engine_note_on(
+                command.voice_id, command.frequency, command.velocity, command.waveform,
+                command.attack, command.decay, command.sustain, command.release);
+            if (command.voice_id >= 0 && command.voice_id < MAX_VOICES) {
+                voices[static_cast<std::size_t>(command.voice_id)].note_id = command.note_id;
+            }
+            break;
+        case COMMAND_NOTE_OFF:
+            if (command.voice_id >= 0 && command.voice_id < MAX_VOICES) {
+                const Voice& voice = voices[static_cast<std::size_t>(command.voice_id)];
+                if (command.note_id == 0 || command.note_id == voice.note_id) {
+                    dsp_audio_engine_note_off(command.voice_id);
+                }
+            }
+            break;
+        case COMMAND_STOP_ALL:
+            dsp_audio_engine_stop_all();
+            break;
+        case COMMAND_SET_EFFECTS:
+            dsp_audio_engine_set_effects(
+                command.lowpass_hz, command.distortion, command.bit_depth,
+                command.delay_seconds, command.delay_feedback, command.chorus_depth,
+                command.room_preset, static_cast<float>(command.room_mix) / 255.0f);
+            break;
+        default:
+            break;
+    }
+}
+
+}  // namespace

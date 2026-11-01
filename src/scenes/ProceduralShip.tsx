@@ -431,7 +431,7 @@ const BulkCarrierDetails = ({ shipLength, shipWidth }: { shipLength: number; shi
   </group>
 );
 
-const LNGDetails = ({ shipLength, shipWidth }: { shipLength: number; shipWidth: number }) => (
+const LNGDetails = ({ shipWidth }: { shipLength: number; shipWidth: number }) => (
   <group>
     {[-0.18, 0, 0.18].map((z, i) => (
       <mesh key={i} position={[0, 5, z * shipWidth]}>

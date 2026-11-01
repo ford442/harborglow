@@ -4,6 +4,7 @@
 // =============================================================================
 
 import { useGameStore, Ship, AttachmentPoint, ShipType } from '../store/useGameStore'
+import { useSampledCraneKinematics } from './crane/craneKinematics'
 import { calcMagneticFalloff } from '../utils/physicsMath'
 import { swaySystem } from './swaySystem'
 import { recordHostInput } from './sim/hostInput'
@@ -405,11 +406,10 @@ export function useAttachmentSystem() {
   const [nearestPoint, setNearestPoint] = useState<ActiveAttachmentPoint | null>(null)
   const [lastInstall, setLastInstall] = useState<InstallationEvent | null>(null)
   
-  const state = useGameStore()
-  const config = state.attachmentSystemConfig
-  const cranePos = state.spreaderPos
-  const twistlockEngaged = state.twistlockEngaged
-  const ships = state.ships
+  const config = useGameStore(s => s.attachmentSystemConfig)
+  const cranePos = useSampledCraneKinematics(s => s.spreaderPos)
+  const twistlockEngaged = useGameStore(s => s.twistlockEngaged)
+  const ships = useGameStore(s => s.ships)
   
   // Refs for camera position (updated by component)
   const cameraPositionRef = useRef<[number, number, number]>([0, 20, 50])

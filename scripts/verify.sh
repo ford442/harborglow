@@ -18,10 +18,13 @@ fi
 banner() {
   cat <<'BANNER'
 =============================================================================
-npm run verify — local CI merge gates (7 of 8)
+npm run verify — local CI merge gates (7 of 8), plus check-duplicate-assets
 
   COVERED: gate-lockfile, gate-typecheck, gate-lint, gate-test,
            gate-smoke, gate-build, gate-size
+
+  ALSO RUNS: check-duplicate-assets (local-only, not a CI job — fails on any
+             two files under public/ sharing a sha256)
 
   SKIPPED: gate-wasm (Emscripten rebuild + git diff public/wasm)
            If you changed cpp/ or public/wasm/, run gate-wasm steps from
@@ -44,8 +47,8 @@ step() {
 }
 
 # A local run on a different Node major than CI can pass here and still fail
-# there — Node 20 rejects the relaxed-SIMD audio artifact that Node 22 accepts,
-# which is exactly how gate-build/gate-wasm went red while `verify` was green.
+# there (Node 20 once rejected a relaxed-SIMD audio artifact that Node 22
+# accepted — that is how gate-build/gate-wasm went red while `verify` was green).
 check_node_major() {
   local ci_major local_major
   ci_major="$(grep -m1 -oE 'node-version: "[0-9]+"' .github/workflows/ci.yml | grep -oE '[0-9]+' || true)"
@@ -63,9 +66,11 @@ banner
 check_node_major
 
 step "gate-lockfile (check-lockfile)" bash scripts/check-lockfile.sh
+step "check-duplicate-assets (check:duplicate-assets)" npm run check:duplicate-assets
 step "gate-typecheck (typecheck)" npm run typecheck
 step "gate-typecheck (typecheck:tests)" npm run typecheck:tests
 step "gate-lint (lint)" npm run lint
+step "gate-lint (knip unused files)" npm run knip -- --include files
 
 if [[ "$FAST" -eq 1 ]]; then
   TOTAL_END=$(date +%s)

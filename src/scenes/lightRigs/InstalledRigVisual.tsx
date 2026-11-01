@@ -6,6 +6,8 @@ import { useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { RigType } from '../../systems/attachmentSystem'
+import { lightingSystem } from '../../systems/lightingSystem'
+import { rigGroupForAttachmentPoint } from '../../systems/lightShows/rigGroups'
 import {
   computeRigMusicDrive,
   rigVariationSeed,
@@ -20,6 +22,14 @@ interface InstalledRigVisualProps {
   partName: string
   baseIntensity: number
 }
+
+// During this ship's show, a rig follows its group's cue: covered → level-scaled
+// power tinted toward the cue colour; uncovered → idles dim; blackout → near dark.
+const CUE_TINT = 0.65
+const CUE_POWER_FLOOR = 0.3
+const CUE_POWER_RANGE = 0.9
+const UNCOVERED_POWER = 0.2
+const BLACKOUT_POWER = 0.06
 
 const HOUSING: Record<RigType, { w: number; h: number; d: number }> = {
   led_strip: { w: 1.4, h: 0.28, d: 0.42 },
@@ -40,16 +50,28 @@ export function InstalledRigVisual({
   const lensRef = useRef<THREE.MeshStandardMaterial>(null)
   const lightRef = useRef<THREE.PointLight>(null)
   const musicStateRef = useRef<RigMusicState>({ afterglow: 0, prevBeat: false })
+  const colorRef = useRef(new THREE.Color())
+  const cueColorRef = useRef(new THREE.Color())
   const seed = rigVariationSeed(shipId, partName, rigType)
   const housing = HOUSING[rigType]
   const flareId = `rig-${shipId}-${partName}`
+  const rigGroup = rigGroupForAttachmentPoint(partName)
 
   useFrame((_, delta) => {
-    const drive = computeRigMusicDrive(baseIntensity / 3, musicStateRef.current, delta)
+    const cue = lightingSystem.getRigGroupState(shipId, rigGroup)
+    const cuePower = !cue
+      ? 1
+      : !cue.active
+        ? UNCOVERED_POWER
+        : cue.pattern === 'blackout'
+          ? BLACKOUT_POWER
+          : CUE_POWER_FLOOR + cue.level * CUE_POWER_RANGE
+    const drive = computeRigMusicDrive((baseIntensity / 3) * cuePower, musicStateRef.current, delta, cue?.pulse)
     musicStateRef.current = drive.state
     powerRef.current = drive.emissive
 
-    const c = new THREE.Color(shipColor)
+    const c = colorRef.current.set(shipColor)
+    if (cue?.active && cue.pattern !== 'blackout') c.lerp(cueColorRef.current.set(cue.color), CUE_TINT)
     c.offsetHSL(drive.hueShift + (seed - 0.5) * 0.04, 0, 0)
 
     if (lensRef.current) {

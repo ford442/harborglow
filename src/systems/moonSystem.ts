@@ -3,7 +3,6 @@
 // Realistic moon phases with visual and gameplay effects
 // =============================================================================
 
-import { useGameStore } from '../store/useGameStore'
 
 // =============================================================================
 // TYPES
@@ -181,7 +180,6 @@ export function colorTempToRGB(temp: number): [number, number, number] {
 class MoonSystem {
     private state: MoonState
     private listeners: Set<(state: MoonState) => void> = new Set()
-    private overridePhase: MoonPhaseName | null = null
     private brightnessMultiplier: number = 1.0
     private tideStrength: number = 1.0
     
@@ -326,7 +324,6 @@ class MoonSystem {
     // ========================================================================
     
     setPhaseOverride(phase: MoonPhaseName | null) {
-        this.overridePhase = phase
         if (phase) {
             // Apply override to current state
             this.state = {
@@ -369,7 +366,6 @@ class MoonSystem {
     }
 
     reset() {
-        this.overridePhase = null
         this.update(24 * 60 + 6 * 60)
     }
     
@@ -378,7 +374,6 @@ class MoonSystem {
         const currentIndex = Object.keys(MOON_PHASES).indexOf(this.state.phase)
         const nextIndex = (currentIndex + 1) % 8
         const daysPerPhase = LUNAR_CYCLE_DAYS / 8
-        const currentPhaseStart = currentIndex * daysPerPhase
         const nextPhaseStart = nextIndex * daysPerPhase
         const daysRemaining = nextPhaseStart - (this.state.lunarDay % LUNAR_CYCLE_DAYS)
         return daysRemaining * 24 * 60 // Return minutes

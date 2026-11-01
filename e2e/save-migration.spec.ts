@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers'
 
 /**
  * v3 → v4 save migration, end to end.

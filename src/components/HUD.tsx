@@ -1,3 +1,4 @@
+import { CommitProfiler } from '../rendering/CommitProfiler'
 import { useEffect, useState } from 'react'
 import ShipSpawner from './ShipSpawner'
 import UpgradeMenu from './UpgradeMenu'
@@ -37,6 +38,11 @@ export interface HUDProps {
   onOpenTraining?: () => void
 }
 
+import { useSharedPlayback } from '../systems/share/sharedPlaybackState'
+import SharedPlaybackBadge from './hud/SharedPlaybackBadge'
+import ShareShowButton from './hud/ShareShowButton'
+import FestivalHUD from './hud/FestivalHUD'
+
 export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const [shopOpen, setShopOpen] = useState(false)
 
@@ -50,7 +56,9 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   const operationMode = useGameStore(state => state.operationMode)
   const cameraMode = useGameStore(state => state.cameraMode)
   const multiplayerRole = useGameStore(state => state.multiplayerRole)
-  const isSpectator = multiplayerRole === 'spectator'
+  const gameMode = useGameStore(state => state.gameMode)
+  const isSharedPlayback = useSharedPlayback(state => state.active)
+  const isSpectator = multiplayerRole === 'spectator' || isSharedPlayback
   const walkingPosition = useGameStore(state => state.walkingPosition)
   const walkingSpawnPoint = useGameStore(state => state.walkingSpawnPoint)
   const beginWalkingFromCab = useGameStore(state => state.beginWalkingFromCab)
@@ -83,8 +91,14 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
   }, [beginWalkingFromCab, canEnterCab, canLeaveCab, returnToCraneFromWalking])
   
   return (
+    <CommitProfiler id="HUD">
     <div style={hudContainerStyle}>
       <LobbyPanel />
+      <SharedPlaybackBadge />
+      {isCraneMode && !isSpectator && <ShareShowButton />}
+      {!isWalkingMode && (
+        <FestivalHUD canControl={isCraneMode && !isSpectator && gameMode !== 'training'} />
+      )}
 
       {isCraneMode && !isSpectator && <OperatorCabinUI onOpenTraining={onOpenTraining} onOpenShop={() => setShopOpen(true)} />}
       
@@ -151,6 +165,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
         </div>
       )}
     </div>
+    </CommitProfiler>
   )
 }
 

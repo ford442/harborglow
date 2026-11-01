@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test } from './helpers'
 
 /**
  * MainScene lazy-load / LevaControlsConfig smoke is deferred until a WebGPU

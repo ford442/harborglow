@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-import { bootToFatalOverlay } from './helpers'
+import { bootToFatalOverlay, expect, test } from './helpers'
 
 test.describe('WebGPU boot probe', () => {
   test('failed probe hard-fails with overlay JSON and no WebGL scene', async ({ page }) => {

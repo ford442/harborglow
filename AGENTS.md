@@ -193,10 +193,8 @@ src/
 │   ├── InteractiveFeedback.tsx
 │   ├── LoadingScreen.tsx
 │   ├── LyricsDisplay.tsx
-│   ├── LyricsOverlay.tsx
 │   ├── MainMenu.tsx
 │   ├── OperatorCabin.tsx
-│   ├── ParticleBurst3D.tsx
 │   ├── ReputationPanel.tsx
 │   ├── ShipSpawner.tsx
 │   ├── ShipVersionDisplay.tsx
@@ -227,7 +225,6 @@ src/
 │   ├── HolographicUI.tsx
 │   ├── LightFlareSystem.tsx
 │   ├── MainScene.tsx        # Scene composition (lazy-loaded)
-│   ├── MultiviewSystem.tsx
 │   ├── OnDockRail.tsx
 │   ├── PostProcessing.tsx
 │   ├── ProceduralShip.tsx   # Blueprint-driven procedural ships
@@ -240,12 +237,11 @@ src/
 │   ├── VolumetricLighting.tsx
 │   ├── Water.tsx            # **Sole water authority** (Gerstner + WaveSystem + quality tiers)
 │   └── Wildlife.tsx
-│   # Archived parallel stacks → scripts/archive/scenes/ (FFTOcean, PBRWater, InteractiveWater, ExperimentalTech, MonitorMinimalExample)
+│   # Archived parallel stacks → scripts/archive/scenes/ (FFTOcean, PBRWater, InteractiveWater, ExperimentalTech, MonitorMinimalExample, MultiviewSystem)
 ├── store/                   # State management (domain slices — see docs/STORE.md)
 │   ├── useGameStore.ts      # create() + composition + selectors + save subscription (~85 lines)
 │   ├── gameStoreTypes.ts    # canonical GameState types + defaultState + persistence projection
 │   ├── sliceTypes.ts        # compile-time slice ownership guard
-│   ├── harborThemes.ts      # static theme tables
 │   └── slices/              # ships, crane, camera, environment, economy, ops, session
 ├── systems/                 # Game logic singletons (~34 files)
 │   ├── StormSystem.ts
@@ -264,13 +260,11 @@ src/
 │   │   ├── index.ts
 │   │   ├── speciesData.ts
 │   │   └── types.ts
-│   ├── introLyrics.ts
 │   ├── introMusicSystem.ts
 │   ├── lightingSystem.ts    # Beat-synced lighting
 │   ├── moonSystem.ts
 │   ├── musicSystem.ts       # re-export of music/ (MusicSystem, synth chains, lyrics)
 │   ├── performanceSystem.tsx
-│   ├── physicsSystem.ts
 │   ├── reputationSystem.ts
 │   ├── seaEventsSystem.ts
 │   ├── sequencerSystem.ts
@@ -474,6 +468,16 @@ python deploy.py
 token, so it is the safe way to inspect a bundle. A real run refuses to start when `DEPLOY_TOKEN`
 is unset rather than building and sending an archive the server will reject.
 
+**Preferred path: the `Deploy` workflow** (`.github/workflows/deploy.yml`, Actions → Deploy →
+Run workflow). It is manual-only, builds the chosen ref the same way `gate-build` does, and is a
+dry run by default. Untick `dry_run` for a real upload; that needs the `DEPLOY_TOKEN` repository
+secret (Settings → Secrets and variables → Actions). After a real upload the job probes
+`https://test.1ink.us/harborglow/` and fails unless the page answers 200, the served `index.html` is
+byte-identical to the one just built, COOP is `same-origin`, COEP is `require-corp` or
+`credentialless`, and a hashed asset referenced by the page resolves. Do not
+commit helper scripts that pull, `add .`, commit and push in one go (the old `git.sh`); every change
+to `main` goes through a PR and `merge-gate`.
+
 **Deployment Configuration** (in `deploy.py`):
 - Target: `https://storage.noahcohn.com/api/deploy/harborglow/bundle`
 - Local source: `dist/`
@@ -515,6 +519,7 @@ been removed.
 ## GitHub Actions
 
 - `.github/workflows/ci.yml`: **Merge gates** on PRs and pushes to `main` — see [CI merge gates](#ci-merge-gates) below.
+- `.github/workflows/wasm-rebuild.yml`: **The only sanctioned producer of committed `public/wasm/**`** — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally). `workflow_dispatch` with one input, `branch`. Installs the emsdk release that `ci.yml` pins (read via `node scripts/emsdk-pin.mjs`, not duplicated), runs `npm ci && npm run build:wasm && make -C cpp test && npm run check:wasm`, and commits `public/wasm/**` back to that branch only if the bytes changed. Its job has `contents: write` solely for that push; if the push is refused (protected branch, ruleset) it uploads a binary patch plus the files as a `public-wasm-<version>` artifact and prints apply instructions in the step summary instead of failing. Only branches of this repository are accepted (no fork branches).
 - `.github/workflows/copilot-setup-steps.yml`: Sets up Node.js 22 (matching `ci.yml`), installs dependencies with `npm ci`, and installs Chromium for Playwright MCP integration. Triggered on workflow dispatch, push, or PR changes to the workflow or MCP config files.
 
 ### CI merge gates
@@ -524,15 +529,26 @@ Merge gates run as **parallel GitHub Actions jobs** in `.github/workflows/ci.yml
 | Job | Command | What it catches |
 |------|---------|-----------------|
 | `gate-lockfile` | `npm ci` + `npm ls three @react-three/fiber @react-three/drei @react-three/rapier` | `package-lock.json` drift from `package.json`, and any dep floating a `three` peer range past our pin (the class of bug that broke `npm ci` for two weeks — see git history on `package-lock.json`). Runs first and fast (~1 min) so a broken lockfile gives one clear signal instead of every other gate failing identically after its own multi-minute timeout; all other gates depend on it. |
-| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries |
+| `gate-wasm` | `npm run build:wasm` + `make -C cpp test` + `npm run check:wasm` + `git diff --exit-code -- public/wasm` | Rebuilds WASM from source with a pinned Emscripten, runs native DSP tests, then fails on any drift between the rebuild and the committed `public/wasm/*.wasm` binaries. Committed binaries come from `wasm-rebuild.yml`, never a local build — see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally) |
 | `gate-typecheck` | `npm run typecheck` + `npm run typecheck:tests` | Strict `tsc` errors in application code (`src/`, excluding `__tests__`) and in Vitest suites (`tsconfig.vitest.json`) |
-| `gate-lint` | `npm run lint` | ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
+| `gate-lint` | `npm run lint` + `npm run knip -- --include files` (+ full `npm run knip`, report-only) | Unused files anywhere outside `scripts/archive/` and `workers/` (config `knip.jsonc`); ESLint **errors** (e.g. banned `@ts-nocheck` / `@ts-ignore`, duplicate redeclarations); ~39 `react-refresh/only-export-components` **warnings** do not fail the job |
 | `gate-test` | `npm run test` | Vitest regressions in systems and store |
 | `gate-smoke` | `npm run smoke:dev-transform` | Real `vite dev` + HTTP fetch of every `src/scenes/**` and `src/store/**` module through the Babel pipeline — catches duplicate declarations and other dev-only parse errors that `tsc` and esbuild tolerate but break `npm run dev` |
 | `gate-build` | `npm run build` | Full `tsc` + Vite bundle + terser + lazy chunks; `build:wasm` self-skips when Emscripten is absent |
 | `gate-size` | `npm run typecheck && vite build && npm run check:bundle` | Bundle size budget regressions |
+| `gate-boot` | `npm run build` + `npx playwright test --project=boot --retries=0` (`e2e/boot.spec.ts`) | The production bundle fails to evaluate in a browser: menu never renders, an uncaught page error, a TDZ / `extends value undefined` console error, or any emitted chunk that throws when imported. 6-minute timeout, no retries — see [Chunk groups and boot](#chunk-groups-and-boot) |
 | `merge-gate` | (aggregator) | Fails when any gate job above fails — use this job name as the required PR check |
-| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×2 on failure. Uploads `playwright-report/` artifact on failure. |
+| `e2e-visual` | `npm run build && npm run test:e2e` | Playwright: menu boot + WebGPU probe hard-fail overlay on SwiftShader. Harbor screenshots deferred. **Path-filtered on PRs**. Retries ×1 on failure (×2 once made a fully red run outlive the 20-minute job timeout, so GitHub reported it "cancelled", not "failed"). Uploads `playwright-report/` artifact on failure. Broad suite, **not** a merge gate — `gate-boot` is. |
+
+### Chunk groups and boot
+
+The production split is defined by `codeSplitting.groups` in `scripts/chunkGroups.mjs` (imported by `vite.config.ts`). It runs with `includeDependenciesRecursively: false` on purpose: the default drags every dependency of a matched module into that group (e.g. `three.core.js` into `vendor-3d-webgpu`), so each group claims only what its regex matches. The cost is that **a package no regex matches is emitted wherever rolldown first reaches it** — an app chunk such as `MainScene`, or a chunk of its own — and a vendor chunk that needs it imports it back. That is a chunk cycle, and from 2026-09-27 to 2026-10-04 one shipped: `GLTFLoader extends Loader` evaluated before `Loader` existed, the entry threw "Class extends value undefined is not a constructor or null", and main was a blank page for a week while every gate was green.
+
+Rules:
+
+- **Any new R3F-ecosystem dependency** (a new direct dep, or a new transitive `dependencies` entry of `@react-three/fiber`, `@react-three/drei`, `three-stdlib` or `troika-three-text` after an upgrade) **must be added to the `vendor-3d-core` list** in `scripts/chunkGroups.mjs`. `src/test/__tests__/viteChunkGroups.test.ts` walks that closure from `node_modules` and names every unclaimed package, so the fix is a one-line list edit. Its `KNOWN_UNCLAIMED` set lists closure packages no bundled module reaches today; claim them rather than adding to it.
+- `npm run check:bundle` also runs `scripts/check-chunk-cycles.mjs` over `dist/assets`: it fails on any static import cycle between chunks (dynamic `import()` may close a loop) and on any `vendor-*` chunk statically importing a non-vendor chunk (except `rolldown-runtime-*`, `with-selector-*`, and a lazy vendor chunk importing only Vite's preload helper from the entry).
+- **`gate-boot` is the merge gate that proves the production bundle evaluates.** It loads the preview build in headless Chromium, waits for the menu, imports every emitted chunk, and fails on any page error. Run it locally with `ALLOW_MISSING_EMSDK=1 npm run build && npx playwright test --project=boot` (`npm run test:e2e:install` once). Every Playwright spec imports `test` from `e2e/helpers.ts`, which fails a test on any uncaught page error; a spec that provokes one on purpose opts out with `test.use({ allowPageErrors: true })` and a comment.
 
 ### Local verify (`npm run verify`)
 
@@ -543,10 +559,27 @@ rm -rf node_modules && npm ci   # once per lockfile change, or when deps look wr
 npm run verify                  # ~3–5 min on a typical dev machine
 ```
 
-`npm run verify` covers **7 of 8** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run:
+`npm run verify` covers **7 of 9** merge gates: `gate-lockfile` through `gate-size` (see table above). It does **not** run `gate-boot` (needs Playwright Chromium; command in [Chunk groups and boot](#chunk-groups-and-boot)), nor:
 
-- **`gate-wasm`** — requires Emscripten 6.0.6. If you changed `cpp/` or `public/wasm/`, run locally: `npm run build:wasm && make -C cpp test && npm run check:wasm && git diff --exit-code -- public/wasm`
-  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` now fails locally on that drift (and warns when your local `em++` is not the pinned release, since a rebuild here would rewrite the provenance); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating. If your emsdk is not 6.0.6, run `emsdk install 6.0.6 && emsdk activate 6.0.6` rather than editing the manifest.
+- **`gate-wasm`** — requires Emscripten 6.0.6, and even with it installed **do not commit its output** (see [Committed WASM: never build it locally](#committed-wasm-never-build-it-locally)). If you changed `cpp/`, you may run `npm run build:wasm && make -C cpp test && npm run check:wasm` locally to test, then discard the binaries (`git checkout -- public/wasm`) and let the `WASM rebuild` workflow produce the committed ones.
+  - `public/wasm/manifest.json` is **generated** by `scripts/write-wasm-manifest.mjs`; it must only ever change as the output of the workflow's `npm run build:wasm`. **Never hand-edit it** — three hand-edits have each cost a red `gate-wasm`. Its `toolchain` string must name the emsdk release pinned in `ci.yml` (6.0.6), because `gate-wasm` rebuilds with that release and then runs `git diff --exit-code`. `npm run check:wasm` fails locally on that drift (and warns when your local `em++` is not the pinned release); `ALLOW_WASM_TOOLCHAIN_DRIFT=1` downgrades it to a warning while iterating.
+  - `npm run check:wasm` also fails when `public/wasm/*` differs from `origin/main` (merge base) while nothing under `cpp/`, `scripts/wasm-exports.mjs`, or the emsdk pin in `ci.yml` changed in the same diff (`scripts/check-wasm-drift.mjs`). `ALLOW_WASM_BINARY_DRIFT=1` downgrades it to a warning; `gate-wasm` and `wasm-rebuild.yml` set it because a from-source rebuild plus `git diff` is the stronger proof there. Never set it on a developer machine to get a commit through.
+
+### Committed WASM: never build it locally
+
+**Rule: `public/wasm/**` is produced by CI only. Never commit locally built WASM, and binaries must never change without a source change.**
+
+Why: `gate-wasm` rebuilds `public/wasm` with the emsdk pinned in `ci.yml` and fails on any byte of `git diff`. On 2026-09-23, PR #254 committed binaries built outside CI that carried the *correct* toolchain string but different bytes (Emscripten output is only reproducible for an identical toolchain install, cache state, and host), so main went red and the string-only provenance guard could not catch it.
+
+How to change the audio engine:
+
+1. Edit `cpp/**` (or `scripts/wasm-exports.mjs`) on your branch. Test locally however you like, including `npm run build:wasm`, but **do not stage `public/wasm/`** — `git checkout -- public/wasm` before committing. `npm run check:wasm` will report the source digest as stale until step 3; that is expected.
+2. Push the branch **to this repository**. The workflow checks out and pushes with the repo's own token, so branches on forks are not supported.
+3. Run the **WASM rebuild** workflow (Actions → *WASM rebuild* → *Run workflow*, input `branch` = your branch; or `gh workflow run wasm-rebuild.yml -f branch=<your-branch>`). It rebuilds with the pinned emsdk, runs the native tests and `check:wasm`, and pushes a `chore(wasm): rebuild public/wasm …` commit to your branch when the bytes changed.
+4. Pull the bot commit. A push made with the default `GITHUB_TOKEN` does not trigger CI, and re-running the PR's existing Actions run does not help: a re-run reuses that run's original SHA and never sees the bot commit. Push a new commit to the branch (or dispatch a fresh run against it) and confirm the new run's head SHA is the bot commit or a descendant of it before trusting its `gate-wasm` result.
+5. If the workflow's push was refused, download its `public-wasm-<version>` artifact and `git apply` the `public-wasm.patch` it contains (a binary patch, so it also carries deleted files) on a checkout of the same branch head, as the step summary describes. Then run `ALLOW_WASM_BINARY_DRIFT=1 npm run check:wasm` — the override is correct here because the bytes were built and checked by CI, and the drift guard exists to reject *local* builds — and commit the result with `git add -A public/wasm`.
+
+Bumping the emsdk pin is the same flow: change `version:` under `setup-emsdk` in `ci.yml`, push, run the workflow. The drift guard treats a pin change as a source change.
 - **`e2e-visual`** — Playwright + Chromium (CI only, path-filtered on PRs)
 
 The lockfile step uses `npm ci --dry-run` (npm 10 semantics; npm 11 alone may miss incomplete lockfiles). Host npm ≥ 11 triggers an automatic `npx npm@10.9.2` for that step only.

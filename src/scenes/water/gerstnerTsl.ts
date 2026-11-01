@@ -1,6 +1,6 @@
 // =============================================================================
 // GERSTNER TSL — MeshStandardNodeMaterial ocean (WaveSystem uniforms)
-// GLSL reference: waterGerstner.glsl.ts / TugboatWakeSystem TUGBOAT_WAKE_GLSL
+// GLSL reference: TugboatWakeSystem TUGBOAT_WAKE_GLSL
 // =============================================================================
 
 import * as THREE from 'three'

@@ -32,11 +32,6 @@ export type CraneSlice = Pick<
     GameState,
     | 'setCraneContract'
     | 'completeCraneContract'
-    | 'setSpreaderPos'
-    | 'setSpreaderRotation'
-    | 'setCableDepth'
-    | 'setLoadTension'
-    | 'setTrolleyPosition'
     | 'setWinchSpeed'
     | 'setHighlightedUpgradePart'
     | 'setPendingAutoInstall'

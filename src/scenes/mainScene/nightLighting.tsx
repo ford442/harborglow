@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { Ship } from '../../store/useGameStore'
 import { lightingSystem } from '../../systems/lightingSystem'
+import { getCraneKinematics } from '../../systems/crane/craneKinematics'
 import { VolumetricLightCone } from '../VolumetricLighting'
 import { buildGodRayMaterial, updateGodRay } from '../../shaders/lightShowNodes'
 
@@ -76,15 +77,34 @@ export function NightVolumetricCones({ lightIntensity, currentShip }: { lightInt
     )
 }
 
+function SpreaderWorkBeam({ intensity }: { intensity: number }) {
+    const groupRef = useRef<THREE.Group>(null)
+    useFrame(() => {
+        const p = getCraneKinematics().spreaderPos
+        groupRef.current?.position.set(p.x, p.y, p.z)
+    })
+    return (
+        <group ref={groupRef}>
+            <VolumetricLightCone
+                type="spot"
+                position={[0, 0.6, 0]}
+                target={[0, -5, 0]}
+                color="#ffd79e"
+                intensity={intensity}
+                angle={Math.PI / 5}
+                distance={16}
+            />
+        </group>
+    )
+}
+
 export function WaterLightVolumes({
     lightIntensity,
     currentShip,
-    spreaderPos,
     installedUpgrades,
 }: {
     lightIntensity: number
     currentShip?: Ship
-    spreaderPos: { x: number; y: number; z: number }
     installedUpgrades: Array<{ shipId: string; partName: string }>
 }) {
     const beat = lightingSystem.getBeatPulse()
@@ -120,16 +140,7 @@ export function WaterLightVolumes({
                 distance={14}
             />
 
-            {/* Crane hook working beam into water/ship deck vicinity */}
-            <VolumetricLightCone
-                type="spot"
-                position={[spreaderPos.x, spreaderPos.y + 0.6, spreaderPos.z]}
-                target={[spreaderPos.x, spreaderPos.y - 5, spreaderPos.z]}
-                color="#ffd79e"
-                intensity={0.22 * scale}
-                angle={Math.PI / 5}
-                distance={16}
-            />
+            <SpreaderWorkBeam intensity={0.22 * scale} />
 
             {/* Bright ship source, stronger after upgrades */}
             {currentShip && (

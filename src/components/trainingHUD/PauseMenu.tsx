@@ -1,4 +1,3 @@
-import React from 'react';
 import * as styles from './trainingHUDStyles';
 
 export function PauseMenu({ onResume, onRestart, onExit }: { onResume: () => void; onRestart: () => void; onExit: () => void }) {

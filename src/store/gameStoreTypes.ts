@@ -1,8 +1,6 @@
 
 import {
   saveGameState,
-  loadGameState,
-  clearSave,
   type GameState as StorageGameState
 } from '../utils/storage_manager'
 import {
@@ -14,15 +12,13 @@ import {
   TrainingProgress,
   DEFAULT_TRAINING_PROGRESS,
   TrainingModuleId,
-  trainingSystem,
-  isTugboatTrainingModule,
 } from '../systems/trainingSystem'
-import { reputationSystem } from '../systems/reputationSystem'
 import { economySystem } from '../systems/economySystem'
 import type { CameraPresetId, DashboardPresets, DashboardViewportId } from '../types/CameraPreset'
 import type { WaveParams } from '../systems/WaveSystem'
-import { isCameraPresetId } from '../types/CameraPreset'
-import { ACOUSTIC_NOTE_LAYOUT, AcousticNote } from '../systems/commsSystem'
+import { AcousticNote } from '../systems/commsSystem'
+import { isSharedPlaybackActive } from '../systems/share/sharedPlaybackState'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 
 // =============================================================================
 // TYPES - HarborGlow Game State
@@ -39,7 +35,6 @@ export * from './gameStoreSalvage'
 export * from './gameStoreMultiplayer'
 
 import {
-  ShipType,
   CameraMode,
   CabinViewMode,
   GameMode,
@@ -127,12 +122,7 @@ interface SerializableState {
     // Harbor research-based events
     activeHarborEvents: HarborEvent[]
     eventEnabledSettings: Record<HarborEventType, boolean>
-    // Full crane mechanics
-    spreaderPos: { x: number; y: number; z: number }
-    spreaderRotation: number
-    cableDepth: number
-    loadTension: number
-    trolleyPosition: number
+    // Crane mechanics that survive a frame (pose lives in craneKinematics)
     winchSpeed: number
     joystickLeft: { x: number; y: number }
     joystickRight: { x: number; y: number }
@@ -295,12 +285,7 @@ export interface GameState extends SerializableState {
     pinViewportCamera: (viewportId: DashboardViewportId, transform: CameraTransform) => void
     recallPinnedViewportCamera: (viewportId: DashboardViewportId, pinIndex: number) => void
     setFocusedViewport: (viewportId: DashboardViewportId | null) => void
-    // Crane control actions
-    setSpreaderPos: (pos: { x: number; y: number; z: number }) => void
-    setSpreaderRotation: (rotation: number) => void
-    setCableDepth: (depth: number) => void
-    setLoadTension: (tension: number) => void
-    setTrolleyPosition: (position: number) => void
+    // Crane control actions. Per-frame pose setters live on craneKinematics.
     setWinchSpeed: (speed: number) => void
     setHighlightedUpgradePart: (partName: string | null) => void
     setPendingAutoInstall: (pending: { shipId: string; partName: string } | null) => void
@@ -419,11 +404,6 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
     installAttemptStartedAt: null,
     craneHeight: 15.5,
     craneRotation: 0.2,
-    spreaderPos: { x: 0, y: 10, z: 0 },
-    spreaderRotation: 0,
-    cableDepth: 15,
-    loadTension: 0,
-    trolleyPosition: 0.5,
     winchSpeed: 1.0,
     highlightedUpgradePart: null,
     pendingAutoInstall: null,
@@ -477,6 +457,7 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
         cruise_arrival: true,
         cruise_departure: true,
         suspicious_vessel: true,
+        harbor_festival: true,
         clear: true
     },
     // Operator Cabin view mode - default to multiview
@@ -612,11 +593,11 @@ export const getNetworkSyncState = (state: GameState): NetworkSyncState => {
         season: state.season,
         wildlifeDensity: state.wildlifeDensity,
         enableMarineLife: state.enableMarineLife,
-        spreaderPos: state.spreaderPos,
-        spreaderRotation: state.spreaderRotation,
-        cableDepth: state.cableDepth,
-        loadTension: state.loadTension,
-        trolleyPosition: state.trolleyPosition,
+        spreaderPos: getCraneKinematics().spreaderPos,
+        spreaderRotation: getCraneKinematics().spreaderRotation,
+        cableDepth: getCraneKinematics().cableDepth,
+        loadTension: getCraneKinematics().loadTension,
+        trolleyPosition: getCraneKinematics().trolleyPosition,
         winchSpeed: state.winchSpeed,
         twistlockEngaged: state.twistlockEngaged,
         craneHeight: state.craneHeight,
@@ -682,8 +663,11 @@ export const getSerializableState = (state: GameState): StorageGameState => ({
 })
 
 export const scheduleSave = (state: GameState) => {
+    // A shared-link playback must never overwrite the viewer's own save.
+    if (isSharedPlaybackActive()) return
     if (saveTimeout) clearTimeout(saveTimeout)
     saveTimeout = setTimeout(() => {
+        if (isSharedPlaybackActive()) return
         saveGameState(getSerializableState(state))
     }, 500)
 }

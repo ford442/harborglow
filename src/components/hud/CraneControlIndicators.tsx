@@ -3,6 +3,8 @@
 // =============================================================================
 
 import { useGameStore } from '../../store/useGameStore'
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics'
+import { useShallow } from 'zustand/react/shallow'
 import {
   craneIndicatorsContainerStyle,
   craneIndicatorsPanelStyle,
@@ -30,22 +32,25 @@ import {
 
 export default function CraneControlIndicators() {
   const {
-    joystickLeft,
-    joystickRight,
     spreaderPos,
     cableDepth,
     loadTension,
-    twistlockEngaged,
-    isMoving,
-  } = useGameStore(state => ({
-    joystickLeft: state.joystickLeft,
-    joystickRight: state.joystickRight,
+  } = useSampledCraneKinematics(state => ({
     spreaderPos: state.spreaderPos,
     cableDepth: state.cableDepth,
     loadTension: state.loadTension,
+  }))
+  const {
+    joystickLeft,
+    joystickRight,
+    twistlockEngaged,
+    isMoving,
+  } = useGameStore(useShallow(state => ({
+    joystickLeft: state.joystickLeft,
+    joystickRight: state.joystickRight,
     twistlockEngaged: state.twistlockEngaged,
     isMoving: state.isMoving,
-  }))
+  })))
   
   return (
     <div style={craneIndicatorsContainerStyle}>

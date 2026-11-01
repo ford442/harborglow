@@ -251,9 +251,7 @@ function InstallProgressOverlay({ progress }: { progress: number }) {
 
 export default function InstallationFeedback({
   shipId,
-  partName,
   rigType,
-  position,
   onComplete,
 }: InstallationFeedbackProps) {
   const [phase, setPhase] = useState<'idle' | 'installing' | 'locked' | 'celebrating'>('idle')

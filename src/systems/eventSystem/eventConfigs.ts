@@ -107,6 +107,12 @@ export const EVENT_CONFIGS: Record<HarborEventType, EventConfig> = {
         maxConcurrent: 1,
         timeOfDay: 'night'
     },
+    harbor_festival: {
+        enabled: true,
+        probability: 0,     // Player-started only (event.festival.start)
+        minInterval: 0,
+        maxConcurrent: 1
+    },
     clear: {
         enabled: false,
         probability: 0,

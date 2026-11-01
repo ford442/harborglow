@@ -349,7 +349,6 @@ export default function AttachmentPointVisual({
   // Don't render if not visible
   if (visibilityOpacity <= 0.01 && state !== 'installed') return null
   
-  const isSnapZone = state === 'snapping' || state === 'installing'
   
   return (
     <group 

@@ -12,7 +12,7 @@ import { useGameStore } from '../store/useGameStore'
 // =============================================================================
 
 export default function ReputationPanel() {
-  const { state, tierConfig, progress, isUnlocked } = useReputationSystem()
+  const { state, tierConfig, progress } = useReputationSystem()
   const [activeTab, setActiveTab] = useState<'overview' | 'ships' | 'rigs' | 'training' | 'harbors'>('overview')
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -194,7 +194,7 @@ function OverviewTab() {
 }
 
 function UnlocksTab({ items, type }: { items: typeof UNLOCKABLE_SHIPS; type: string }) {
-  const { state, isUnlocked } = useReputationSystem()
+  const { isUnlocked } = useReputationSystem()
 
   return (
     <div style={unlocksStyle}>

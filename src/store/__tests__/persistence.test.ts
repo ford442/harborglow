@@ -162,7 +162,6 @@ describe('store persistence', () => {
 
   it('excludes ephemeral frame state from the serialized payload', () => {
     const store = useGameStore.getState()
-    store.setSpreaderPos({ x: 1, y: 2, z: 3 })
     store.setTwistlockEngaged(true)
     store.setIsMoving(true)
 

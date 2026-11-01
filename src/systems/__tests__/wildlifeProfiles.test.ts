@@ -16,9 +16,7 @@ import {
     getFishSchoolCohesionFactor,
     getFinaleConvergenceEnvelope,
     type AmbientSpecies,
-    type TimeOfDay,
 } from '../wildlifeProfiles'
-import type { Season, WeatherState, QualityPreset } from '../../store/gameStoreTypes'
 
 describe('wildlifeProfiles', () => {
     describe('getTimeOfDay', () => {
@@ -178,7 +176,6 @@ describe('wildlifeProfiles', () => {
             for (const species of Object.keys(WILDLIFE_PROFILES) as AmbientSpecies[]) {
                 const spring = getSeasonalColor(species, 'spring')
                 const summer = getSeasonalColor(species, 'summer')
-                const fall = getSeasonalColor(species, 'fall')
                 const winter = getSeasonalColor(species, 'winter')
                 expect(spring).not.toBe(summer)
                 expect(spring).toMatch(/^#[0-9a-f]{6}$/i)

@@ -2,6 +2,8 @@
 
 > A simulation-focused dockside lighting game with scientific accuracy and cutting-edge rendering.
 
+> **Archived (historical plan).** Renderer claims here (WebGL 2.0, r163) are stale — the game is WebGPU-required on Three 0.183.1 with TSL materials and post. Current state: [`docs/RENDERER.md`](../RENDERER.md).
+
 ---
 
 ## Current State Assessment

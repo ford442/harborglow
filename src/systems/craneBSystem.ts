@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from './crane/craneKinematics'
 import { trainingSystem } from './trainingSystem'
 
 /** World-space base of NPC Crane B (adjacent berth). */
@@ -185,8 +186,9 @@ class CraneBSystem {
             isInSharedZone(this.state.spreaderWorld[0], this.state.spreaderWorld[2])
         this.state.zoneHot = zoneHot
 
-        this.evaluateCoordination(elapsed, store.spreaderPos, zoneHot)
-        this.evaluateCollision(store.spreaderPos)
+        const playerSpreader = getCraneKinematics().spreaderPos
+        this.evaluateCoordination(elapsed, playerSpreader, zoneHot)
+        this.evaluateCollision(playerSpreader)
     }
 
     private advancePhase(dt: number): void {

@@ -17,6 +17,7 @@ export type HarborEventType =
     | 'cruise_arrival'       // Tourism ship arrival
     | 'cruise_departure'     // Mexico/Alaska bound
     | 'suspicious_vessel'    // Rare small boat alert
+    | 'harbor_festival'      // Player-started 3-ship light-show setlist
     | 'clear'                // No active event
 
 export interface HarborEvent {

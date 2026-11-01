@@ -9,7 +9,6 @@
 import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { useGameStore } from '../store/useGameStore'
 import { harborEventSystem } from '../systems/eventSystem/HarborEventSystem'
 
 // =============================================================================
@@ -180,7 +179,6 @@ function IntermodalTrain({ position, direction, trainId }: TrainProps) {
         
         // Train moves slowly through the yard
         const speed = 0.5 + railActivity * 2  // 0.5-2.5 m/s
-        const directionMultiplier = direction === 'outbound' ? 1 : -1
         
         // Movement along track with occasional stops
         const cycle = (time * speed * 0.1 + trainId * 100) % 200

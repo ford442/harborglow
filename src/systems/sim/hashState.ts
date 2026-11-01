@@ -8,6 +8,7 @@ import { wildlifeSystem } from '../wildlifeSystem'
 import { harborEventSystem } from '../eventSystem/HarborEventSystem'
 import { dynamicEventSystem } from '../dynamicEventSystem'
 import { useGameStore } from '../../store/useGameStore'
+import { getCraneKinematics } from '../crane/craneKinematics'
 import { getSim } from './SimContext'
 import { iceFieldSystem } from '../ice/IceFieldSystem'
 
@@ -20,6 +21,7 @@ function round(value: number, digits = 5): number {
 export function captureSimSnapshot(): Record<string, unknown> {
   const sim = getSim()
   const store = useGameStore.getState()
+  const cranePose = getCraneKinematics()
   const storm = stormSystem.getState()
   const waves = waveSystem.getState()
   const time = timeSystem.getState()
@@ -61,12 +63,12 @@ export function captureSimSnapshot(): Record<string, unknown> {
     events: harborEventSystem.snapshotIds(),
     dynamic: dynamicEventSystem.snapshotIds(),
     crane: {
-      x: round(store.spreaderPos.x, 4),
-      y: round(store.spreaderPos.y, 4),
-      z: round(store.spreaderPos.z, 4),
-      rot: round(store.spreaderRotation, 4),
-      depth: round(store.cableDepth, 4),
-      trolley: round(store.trolleyPosition, 4),
+      x: round(cranePose.spreaderPos.x, 4),
+      y: round(cranePose.spreaderPos.y, 4),
+      z: round(cranePose.spreaderPos.z, 4),
+      rot: round(cranePose.spreaderRotation, 4),
+      depth: round(cranePose.cableDepth, 4),
+      trolley: round(cranePose.trolleyPosition, 4),
       twistlock: store.twistlockEngaged,
     },
     ice: (() => {

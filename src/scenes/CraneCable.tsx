@@ -5,10 +5,13 @@
 
 import { useRef, useMemo } from 'react'
 import * as THREE from 'three'
+import { updateTubeGeometryInPlace } from './craneCableTube'
 import { useFrame } from '@react-three/fiber'
 import { useAudioData } from '../systems/audioVisualSync'
 import { getLookDevSettings } from '../utils/lookDevControls'
 import { useCraneCableMaterial, updateCraneCableUniforms } from './CraneMaterials'
+import { craneCableWorldEndpoints } from '../systems/crane/craneKinematics'
+import { spreaderNearAttachment } from '../systems/cranePhysics'
 
 interface CraneCableProps {
   startPos: [number, number, number]  // Crane trolley/head position
@@ -86,7 +89,6 @@ export default function CraneCable({
   tension,
   showPhysics = false,
   twistlockEngaged = false,
-  nearAttachment = false,
   installBoost = 0,
   lightIntensity = 1,
   isNight = false,
@@ -103,6 +105,19 @@ export default function CraneCable({
   const tempColor1 = useMemo(() => new THREE.Color(), [])
   const tempColor2 = useMemo(() => new THREE.Color(), [])
   
+  // Per-instance scratch so the frame loop allocates nothing
+  const scratch = useMemo(() => {
+    const points: THREE.Vector3[] = []
+    for (let i = 0; i <= 16; i++) points.push(new THREE.Vector3())
+    return {
+      start: new THREE.Vector3(),
+      end: new THREE.Vector3(),
+      mid: new THREE.Vector3(),
+      points,
+      curve: new THREE.CatmullRomCurve3(points),
+    }
+  }, [])
+
   // Delta-corrected sway state
   const swayAmplitudeRef = useRef(0)
   const prevTensionRef = useRef(tension)
@@ -127,10 +142,16 @@ export default function CraneCable({
   // Update cable geometry each frame for sway animation
   useFrame((state, delta) => {
     if (!cableRef.current) return
+    const live = craneCableWorldEndpoints()
+    const startPos = live.start
+    const endPos = live.end
+    const tension = live.tension
+    const nearAttachment = spreaderNearAttachment()
     
     const time = state.clock.elapsedTime
-    const start = new THREE.Vector3(...startPos)
-    const end = new THREE.Vector3(...endPos)
+    const { start, end, mid: midPoint, points, curve: frameCurve } = scratch
+    start.set(startPos[0], startPos[1], startPos[2])
+    end.set(endPos[0], endPos[1], endPos[2])
     
     const slack = twistlockEngaged
       ? Math.max(0, 0.02 * (1 - tension))
@@ -158,8 +179,7 @@ export default function CraneCable({
     const swayZ = Math.cos(time * 0.3) * musicSway * 0.8
     
     // Generate points with sway
-    const points: THREE.Vector3[] = []
-    const midPoint = new THREE.Vector3().lerpVectors(start, end, 0.5)
+    midPoint.lerpVectors(start, end, 0.5)
     midPoint.y -= start.distanceTo(end) * slack * 0.3
     midPoint.x += swayX
     midPoint.z += swayZ
@@ -170,43 +190,29 @@ export default function CraneCable({
       const mt = 1 - t
       const mt2 = mt * mt
       
-      const point = new THREE.Vector3()
+      const point = points[i]
       point.x = mt2 * start.x + 2 * mt * t * midPoint.x + t2 * end.x
       point.y = mt2 * start.y + 2 * mt * t * midPoint.y + t2 * end.y
       point.z = mt2 * start.z + 2 * mt * t * midPoint.z + t2 * end.z
-      
-      points.push(point)
     }
     
-    // Update curve
-    curveRef.current = new THREE.CatmullRomCurve3(points)
+    // Update curve in place (points are mutated; invalidate its arc-length cache)
+    frameCurve.updateArcLengths()
+    curveRef.current = frameCurve
     
-    // Update geometry
-    const tubeGeometry = cableRef.current.geometry as THREE.TubeGeometry
-    tubeGeometry.dispose()
-    
-    const newGeometry = new THREE.TubeGeometry(
-      curveRef.current,
+    // Update geometry in place (same topology every frame)
+    updateTubeGeometryInPlace(
+      cableRef.current.geometry,
+      frameCurve,
       20,
       getCableThickness(tension) * (twistlockEngaged ? 0.92 : 1),
       8,
-      false
     )
-    
-    cableRef.current.geometry = newGeometry
 
     // Update glow mesh geometry with beat-pulse thickness
     if (glowMeshRef.current) {
-      const glowGeo = glowMeshRef.current.geometry as THREE.TubeGeometry
-      glowGeo.dispose()
       const pulseThickness = getCableThickness(tension) * 1.5 * (1 + audioData.beatIntensity * 0.3)
-      glowMeshRef.current.geometry = new THREE.TubeGeometry(
-        curveRef.current,
-        20,
-        pulseThickness,
-        8,
-        false
-      )
+      updateTubeGeometryInPlace(glowMeshRef.current.geometry, frameCurve, 20, pulseThickness, 8)
     }
 
     updateCraneCableUniforms(cableMat, {
@@ -278,8 +284,7 @@ export default function CraneCable({
       </mesh>
       
       {/* Tension glow effect for high tension */}
-      {(tension > 0.7 || nearAttachment || installBoost > 0.05) && (
-        <mesh ref={glowMeshRef}>
+      <mesh ref={glowMeshRef}>
           <tubeGeometry
             args={[curve, 20, cableThickness * 1.5, 8, false]}
           />
@@ -291,7 +296,6 @@ export default function CraneCable({
             blending={THREE.AdditiveBlending}
           />
         </mesh>
-      )}
       
       {/* Debug visualization */}
       {showPhysics && (

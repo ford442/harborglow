@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-import { bootToFatalOverlay } from './helpers'
+import { bootToFatalOverlay, expect, test } from './helpers'
 
 /**
  * GLB hull pipeline resilience.

@@ -1,26 +1,21 @@
-import { LevaControlsConfig, ShipSchedulingConfig, SpectatorCameraConfig, DepartingShipsConfig, NightDockLights, NightVolumetricCones, WaterLightVolumes, SpectatorNightCinematicEffects, ShipWrapper, SpectatorOverlay, triggerGeopoliticalEvent, triggerTariffEvent, triggerLaborAction, triggerPeakSeason, useLevaControls, useShipScheduling, UnderwaterEffects, getSunPosition, updateSpectatorCamera, animateDepartingShips } from './mainScene/MainSceneHelpers';
+import { NightDockLights, NightVolumetricCones, WaterLightVolumes, SpectatorNightCinematicEffects, ShipWrapper, useLevaControls, useShipScheduling, UnderwaterEffects, getSunPosition, updateSpectatorCamera, animateDepartingShips } from './mainScene/MainSceneHelpers';
 import { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
-import { useControls } from 'leva'
 import * as THREE from 'three'
 
-import { useGameStore, ShipType, Ship, CameraMode, GameMode } from '../store/useGameStore'
-import { TrainingModuleId, trainingSystem } from '../systems/trainingSystem'
-import { reputationSystem } from '../systems/reputationSystem'
-import { economySystem } from '../systems/economySystem'
-import { musicSystem } from '../systems/musicSystem'
+import { useGameStore, ShipType } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
+import { TrainingModuleId } from '../systems/trainingSystem'
 import { triggerUpgradeCinematic } from '../systems/cinematicSystem'
 import { triggerTugObjectiveCinematic, triggerTugWinCinematic, triggerSalvageCinematic } from '../systems/tugCinematicSystem'
-import { weatherSystem, WeatherType } from '../systems/weatherSystem'
+import { weatherSystem } from '../systems/weatherSystem'
 import { useCinematicCamera } from '../systems/cameraSystem'
 import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
-import { startAmbientSystem, stopAmbientSystem, playRadioChatter, playBirdCall, playFoghorn, playShipHorn } from '../systems/ambientSoundSystem'
-import { setCraneSoundVolume, setCraneSoundsEnabled, playContainerImpact, playTwistlockEngage } from '../systems/craneSoundSystem'
+import { startAmbientSystem, stopAmbientSystem } from '../systems/ambientSoundSystem'
 
-import ShipComponent from './Ship'
 import Crane from './Crane'
 import CraneB from './CraneB'
 import Tugboat from './Tugboat'
@@ -43,40 +38,27 @@ import AudioReactiveLightShow from './AudioReactiveLightShow'
 import { HolographicElements } from './HolographicUI'
 import EnhancedWeather from './EnhancedWeather'
 const PostProcessing = lazy(() => import('./PostProcessing'))
+const GpuParticleLayer = lazy(() => import('./particles/GpuParticleLayer'))
 import LightFlareSystem from './LightFlareSystem'
 import { TankerFlareHeat } from './lightRigs'
-import { buildGodRayMaterial, updateGodRay } from '../shaders/lightShowNodes'
 import WildlifeRenderer from './Wildlife'
 import AmbientMarineLife from './AmbientMarineLife'
 import SeaEvents from './SeaEvents'
 import ControlBooth from './ControlBooth'
 import OnDockRail from './OnDockRail'
 import SeaBirds from './SeaBirds'
-import UnderwaterCamera from './UnderwaterCamera'
 import HarborAmbiance from './HarborAmbiance'
 import DistantShipQueue from './DistantShipQueue'
 import { setSceneCamera } from '../utils/sceneCamera'
 import { buildFrameContext, systemRegistry, useMainSceneSystemBootstrap } from '../systems/bootstrap'
-import { simScheduler } from '../systems/sim'
+import { simScheduler, hashSimSnapshot } from '../systems/sim'
+import { useSharedPlayback, finishVerification } from '../systems/share/sharedPlaybackState'
 import { multiplayerSystem } from '../systems/multiplayerSystem'
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 
-const CAMERA_MODES = [
-    'orbit',
-    'crane-cockpit', 
-    'crane-shoulder',
-    'crane-top',
-    'ship-low',
-    'ship-aerial',
-    'ship-water',
-    'ship-rig',
-    'spectator',
-    'crane',
-    'booth'
-] as const
 
 // Total crane jib travel span in world units (matches Crane.tsx trolley calc)
 const CRANE_JIB_SPAN = 40
@@ -115,7 +97,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const stormIntensity = useGameStore(s => s.stormIntensity)
     const weather = useGameStore(s => s.weather)
     const lightIntensity = useGameStore(s => s.lightIntensity)
-    const spreaderPos = useGameStore(s => s.spreaderPos)
     const installedUpgrades = useGameStore(s => s.installedUpgrades)
     const multiviewMode = useGameStore(s => s.multiviewMode)
     const underwaterIntensity = useGameStore(s => s.underwaterIntensity)
@@ -152,7 +133,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
     const triggerTugboatWin = useGameStore(s => s.triggerTugboatWin)
     const resetTugboatMode = useGameStore(s => s.resetTugboatMode)
     const activeMission = useGameStore(s => s.activeMission)
-    const setActiveMission = useGameStore(s => s.setActiveMission)
     const updateMission = useGameStore(s => s.updateMission)
     const completeMission = useGameStore(s => s.completeMission)
     const failMission = useGameStore(s => s.failMission)
@@ -412,7 +392,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
 
     // Animation frame updates
     useFrame((state, delta) => {
-        const trolleyPos = useGameStore.getState().trolleyPosition
+        const trolleyPos = getCraneKinematics().trolleyPosition
         swayTrolleyVecRef.current.set(
             (trolleyPos - 0.5) * CRANE_JIB_SPAN,
             CRANE_TROLLEY_HEIGHT,
@@ -420,7 +400,11 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         )
 
         const role = useGameStore.getState().multiplayerRole
-        const watermark = role === 'spectator' ? multiplayerSystem.getTickWatermark() : undefined
+        // Shared-link playback holds at the document's final tick so its hash can be checked.
+        const verifyAtTick = useSharedPlayback.getState().verifyAtTick
+        const watermark = role === 'spectator'
+            ? multiplayerSystem.getTickWatermark()
+            : verifyAtTick ?? undefined
         simScheduler.advance(delta, (sim) => {
             systemRegistry.tick(
                 sim.dt,
@@ -432,6 +416,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 })
             )
         }, watermark ?? undefined)
+        if (verifyAtTick !== null && simScheduler.tick >= verifyAtTick) {
+            finishVerification(hashSimSnapshot())
+        }
         if (role === 'host') {
             multiplayerSystem.onHostSimTick()
         } else if (role === 'spectator') {
@@ -521,7 +508,6 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                 <WaterLightVolumes
                     lightIntensity={lightIntensity}
                     currentShip={currentShip}
-                    spreaderPos={spreaderPos}
                     installedUpgrades={installedUpgrades}
                 />
             )}
@@ -579,6 +565,9 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
             <HolographicElements />
             <EnhancedWeather enabled={true} />
             <LightFlareSystem />
+            <Suspense fallback={null}>
+              <GpuParticleLayer />
+            </Suspense>
             {qualityPreset !== 'low' && (
               <Suspense fallback={null}>
                 <PostProcessing enabled={true} audioData={audioData} />
@@ -632,7 +621,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
                                     )
                                 }
                             }}
-                            onDestroyed={(id) => {
+                            onDestroyed={() => {
                                 failMission()
                             }}
                         />

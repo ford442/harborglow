@@ -113,6 +113,13 @@ Harborglow day…
 
 **Purpose:** Plays during the Loading screen. Stripped of vocals, high-energy instrumental loop.
 
+**Status (2026-09-21):** not yet authored. A prior `clear_harbor_glow_loop.mp3`
+committed to this directory turned out to be a byte-identical copy of the intro
+track (same sha256), so it was removed; `src/systems/introMusicSystem.ts`'s
+`LOOP_TRACK_URL` currently points at `clear_harbor_glow_intro.mp3` as a
+conservative fallback. Generate this track per the prompts below, drop it in
+as `clear_harbor_glow_loop.mp3`, and repoint `LOOP_TRACK_URL` at it (one line).
+
 ### Style / Music Description (paste into MiniMax style field)
 
 ```

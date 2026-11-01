@@ -24,21 +24,7 @@ interface EmissiveSource {
 }
 
 // GLSL array size constants — must match shader declarations
-const MAX_PROBES = 32
-const MAX_EMISSIVE = 16
-const _ZERO_VEC3 = new THREE.Vector3(0, 0, 0)
-const _ZERO_COLOR = new THREE.Color(0, 0, 0)
 
-function padVec3(arr: THREE.Vector3[], size: number): THREE.Vector3[] {
-  const padded = arr.slice(0, size)
-  while (padded.length < size) padded.push(_ZERO_VEC3)
-  return padded
-}
-function padColor(arr: THREE.Color[], size: number): THREE.Color[] {
-  const padded = arr.slice(0, size)
-  while (padded.length < size) padded.push(_ZERO_COLOR)
-  return padded
-}
 
 // SSGI Configuration - available for future use
 // const SSGI_CONFIG = {
@@ -50,37 +36,8 @@ function padColor(arr: THREE.Color[], size: number): THREE.Color[] {
 // }
 
 // Hash helper used by irradiance sampling
-const ssgiFunctions = `
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-  }
-`
 
 // Irradiance sampling function — loop uses compile-time constant bound (GLSL ES 1.0 safe)
-const irradianceFunctions = `
-  vec3 sampleIrradiance(vec3 worldPos, vec3 normal) {
-    vec3 irradiance = vec3(0.0);
-    float totalWeight = 0.0;
-
-    for (int i = 0; i < ${MAX_PROBES}; i++) {
-      if (i >= uNumProbes) break;
-      vec3 probePos = uProbePositions[i];
-      vec3 probeIrradiance = uProbeIrradiance[i];
-      float probeRadius = uProbeRadii[i];
-
-      float dist = length(worldPos - probePos);
-      if (dist > probeRadius) continue;
-
-      float weight = 1.0 - dist / probeRadius;
-      weight *= max(0.0, dot(normal, normalize(probePos - worldPos)));
-
-      irradiance += probeIrradiance * weight;
-      totalWeight += weight;
-    }
-
-    return totalWeight > 0.0 ? irradiance / totalWeight : vec3(0.0);
-  }
-`
 
 interface GlobalIlluminationProps {
   enabled?: boolean
@@ -93,12 +50,11 @@ export default function GlobalIllumination({
 }: GlobalIlluminationProps) {
   const meshRef = useRef<THREE.Mesh>(null)
   const materialRef = useRef<THREE.MeshBasicMaterial>(null)
-  const { camera, size } = useThree()
+  useThree()
   const giStrength = enabled ? 1 : 0
   
   const timeOfDay = useGameStore(state => state.timeOfDay)
   const ships = useGameStore(state => state.ships)
-  const lightIntensity = useGameStore(state => state.lightIntensity)
   
   // Create emissive sources from ships
   const emissiveSources = useMemo(() => {
@@ -216,132 +172,10 @@ export default function GlobalIllumination({
   }, [probes, emissiveSources, timeOfDay])
   
   // SSGI uniforms
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uCameraPos: { value: new THREE.Vector3() },
-    uResolution: { value: new THREE.Vector2(size.width, size.height) },
-    uGIOffset: { value: new THREE.Vector3(0, 0, 0) },
-    uGIStrength: { value: enabled ? 1.0 : 0.0 },
-    uProbePositions: { value: padVec3(probes.map(p => p.position), MAX_PROBES) },
-    uProbeIrradiance: { value: padColor(probes.map(p => p.irradiance), MAX_PROBES) },
-    uProbeRadii: { value: probes.map(p => p.influence) },
-    uNumProbes: { value: probes.length },
-    uEmissivePositions: { value: padVec3(emissiveSources.map(s => s.position), MAX_EMISSIVE) },
-    uEmissiveColors: { value: padColor(emissiveSources.map(s => s.color), MAX_EMISSIVE) },
-    uEmissiveIntensities: { value: emissiveSources.map(s => s.intensity) },
-    uEmissiveRadii: { value: emissiveSources.map(s => s.radius) },
-    uNumEmissive: { value: emissiveSources.length },
-    uTimeOfDay: { value: timeOfDay },
-    uLightIntensity: { value: lightIntensity }
-  }), [probes, emissiveSources, enabled, size, timeOfDay, lightIntensity])
   
   // Vertex shader
-  const vertexShader = `
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-    
-    void main() {
-      vUv = uv;
-      vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
-      vNormal = normalize(mat3(modelMatrix) * normal);
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `
   
   // Fragment shader with SSGI + irradiance
-  const fragmentShader = `
-    uniform float uTime;
-    uniform vec3 uCameraPos;
-    uniform vec2 uResolution;
-    uniform float uGIStrength;
-    uniform vec3 uProbePositions[32];
-    uniform vec3 uProbeIrradiance[32];
-    uniform float uProbeRadii[32];
-    uniform int uNumProbes;
-    uniform vec3 uEmissivePositions[16];
-    uniform vec3 uEmissiveColors[16];
-    uniform float uEmissiveIntensities[16];
-    uniform float uEmissiveRadii[16];
-    uniform int uNumEmissive;
-    uniform float uTimeOfDay;
-    uniform float uLightIntensity;
-    
-    varying vec2 vUv;
-    varying vec3 vWorldPos;
-    varying vec3 vNormal;
-    
-    ${ssgiFunctions}
-    ${irradianceFunctions}
-    
-    // Sample emissive lighting
-    vec3 sampleEmissive(vec3 worldPos, vec3 normal) {
-      vec3 emissive = vec3(0.0);
-      
-      for (int i = 0; i < 16; i++) {
-        if (i >= uNumEmissive) break;
-        
-        vec3 toLight = uEmissivePositions[i] - worldPos;
-        float dist = length(toLight);
-        
-        if (dist > uEmissiveRadii[i]) continue;
-        
-        toLight = normalize(toLight);
-        float NdotL = max(0.0, dot(normal, toLight));
-        
-        float attenuation = 1.0 - dist / uEmissiveRadii[i];
-        attenuation *= attenuation;
-        
-        emissive += uEmissiveColors[i] * uEmissiveIntensities[i] * NdotL * attenuation;
-      }
-      
-      return emissive;
-    }
-    
-    // Color bleeding approximation
-    vec3 colorBleed(vec3 worldPos, vec3 normal) {
-      vec3 bleed = vec3(0.0);
-      
-      // Sample nearby emissive sources for color bleeding
-      for (int i = 0; i < 16; i++) {
-        if (i >= uNumEmissive) break;
-        
-        vec3 toSource = uEmissivePositions[i] - worldPos;
-        float dist = length(toSource);
-        
-        if (dist > uEmissiveRadii[i] * 0.5) continue;
-        
-        // Color bleeding is stronger on grazing angles
-        float fresnel = 1.0 - abs(dot(normalize(toSource), normal));
-        fresnel = pow(fresnel, 2.0);
-        
-        float attenuation = 1.0 - dist / (uEmissiveRadii[i] * 0.5);
-        
-        bleed += uEmissiveColors[i] * fresnel * attenuation * 0.5;
-      }
-      
-      return bleed;
-    }
-    
-    void main() {
-      vec3 viewDir = normalize(uCameraPos - vWorldPos);
-      
-      // Base indirect lighting from probes
-      vec3 indirectLight = sampleIrradiance(vWorldPos, vNormal) * uLightIntensity;
-      
-      // Emissive light propagation
-      vec3 emissiveLight = sampleEmissive(vWorldPos, vNormal);
-      
-      // Color bleeding effect
-      vec3 bleed = colorBleed(vWorldPos, vNormal);
-      
-      // Combine
-      vec3 gi = (indirectLight + emissiveLight + bleed) * uGIStrength;
-      
-      // Output as additive light
-      gl_FragColor = vec4(gi, 1.0);
-    }
-  `
   
   useFrame((state) => {
     if (materialRef.current) {

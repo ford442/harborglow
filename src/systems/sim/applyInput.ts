@@ -5,6 +5,15 @@ import { setCraneAxes, type CraneAxes } from '../cranePhysics'
 import { maybeStartShipMusic } from '../multiplayerMusicSync'
 import type { InputLogEntry } from './replay'
 import { startIceEscort } from '../ice/iceEscortMission'
+import { harborEventSystem } from '../eventSystem/HarborEventSystem'
+import { FESTIVAL_SETLIST } from '../eventSystem/harborFestival'
+import { SHIP_BPM } from '../lightShows'
+
+function parseSetlist(payload: unknown): ShipType[] {
+  const setlist = (payload as { setlist?: unknown } | null)?.setlist
+  if (!Array.isArray(setlist)) return [...FESTIVAL_SETLIST]
+  return setlist.filter((t): t is ShipType => typeof t === 'string' && t in SHIP_BPM)
+}
 
 function isCraneAxes(value: unknown): value is CraneAxes {
   if (!value || typeof value !== 'object') return false
@@ -35,6 +44,14 @@ export function applyReplayInput(entry: InputLogEntry): void {
   }
   if (entry.action === 'mission.iceEscort.fail') {
     useGameStore.getState().failMission()
+    return
+  }
+  if (entry.action === 'event.festival.start') {
+    harborEventSystem.startHarborFestival(parseSetlist(entry.payload))
+    return
+  }
+  if (entry.action === 'event.festival.stop') {
+    harborEventSystem.stopHarborFestival()
     return
   }
   if (entry.action === 'ship.spawn') {

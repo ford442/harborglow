@@ -3,9 +3,11 @@
 // Central manager that ties together attachment system, effects, and feedback
 // =============================================================================
 
+import { CommitProfiler } from '../rendering/CommitProfiler'
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import {
   useAttachmentSystem,
   InstallationEvent,
@@ -21,9 +23,10 @@ import { playInstallationLock } from '../systems/craneSoundSystem'
 import { economySystem } from '../systems/economySystem'
 import { trainingSystem } from '../systems/trainingSystem'
 import { swaySystem } from '../systems/swaySystem'
-import ParticleBurst3D from './ParticleBurst3D'
 import MagicalInstallFlash from './MagicalInstallFlash'
 import InstallationFeedback from './InstallationFeedback'
+import { triggerEmitter } from '../scenes/particles/fxBus'
+import { emitterAnchorKey } from '../scenes/particles/emitterAnchors'
 
 interface AttachmentSystemManagerProps {
   children?: React.ReactNode
@@ -149,7 +152,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     updateCameraPosition([camPos.x, camPos.y, camPos.z])
 
     const attachmentConfig = store.attachmentSystemConfig
-    const spreader = store.spreaderPos
+    const spreader = getCraneKinematics().spreaderPos
     const dt = Math.min(delta, 0.05)
 
     if (prevSpreaderForVelRef.current) {
@@ -211,7 +214,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
         )
 
         if (worldDeltaX !== 0 || worldDeltaZ !== 0) {
-          store.setSpreaderPos({
+          getCraneKinematics().setSpreaderPos({
             x: spreader.x + worldDeltaX,
             y: spreader.y,
             z: spreader.z + worldDeltaZ,
@@ -231,7 +234,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     const candidate = spreaderSpeed <= attachmentConfig.captureVelocity
       ? findBindCandidate(
         store.ships,
-        store.spreaderPos,
+        getCraneKinematics().spreaderPos,
         store.twistlockEngaged,
         attachmentConfig,
       )
@@ -249,7 +252,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       isBindingRef.current = true
       bindCandidateRef.current = candidate
       bindStartTimeRef.current = state.clock.elapsedTime
-      prevSpreaderPosRef.current = { ...store.spreaderPos }
+      prevSpreaderPosRef.current = { ...getCraneKinematics().spreaderPos }
       stickyTargetRef.current = {
         shipId: candidate.shipId,
         partName: candidate.partName,
@@ -281,7 +284,7 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
       const target = bindCandidateRef.current.position
       const start = prevSpreaderPosRef.current
 
-      store.setSpreaderPos({
+      getCraneKinematics().setSpreaderPos({
         x: start.x + (target[0] - start.x) * t,
         y: start.y + (target[1] - start.y) * t,
         z: start.z + (target[2] - start.z) * t,
@@ -363,6 +366,13 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
     if (lastInstall && lastInstall.timestamp !== Number(prevInstallRef.current)) {
       handleInstallComplete(lastInstall)
       prevInstallRef.current = String(lastInstall.timestamp)
+      // GPU burst at the attachment point's true world pose (falls back to the
+      // event position); a no-op when the compute particle engine is off.
+      triggerEmitter(
+        'installBurst',
+        { anchorKey: emitterAnchorKey(lastInstall.shipId, lastInstall.partName), position: lastInstall.position },
+        { color: RIG_TYPE_COLORS[lastInstall.rigType].primary },
+      )
     }
   }, [lastInstall, handleInstallComplete])
 
@@ -384,20 +394,13 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
 
   return (
     <>
+      <CommitProfiler id="AttachmentSystemManager">
       {lastInstall && (
-        <>
-          <MagicalInstallFlash
-            position={lastInstall.position}
-            color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
-            active={true}
-          />
-          <ParticleBurst3D
-            position={lastInstall.position}
-            rigType={lastInstall.rigType}
-            active={true}
-            onComplete={() => {}}
-          />
-        </>
+        <MagicalInstallFlash
+          position={lastInstall.position}
+          color={RIG_TYPE_COLORS[lastInstall.rigType].primary}
+          active={true}
+        />
       )}
 
       {showFeedback && feedbackData && (
@@ -409,6 +412,8 @@ export default function AttachmentSystemManager({ children }: AttachmentSystemMa
           onComplete={handleFeedbackComplete}
         />
       )}
+
+      </CommitProfiler>
 
       {children}
     </>

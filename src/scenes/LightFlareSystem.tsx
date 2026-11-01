@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore, type Ship } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { weatherSystem } from '../systems/weatherSystem'
 import { lightingSystem } from '../systems/lightingSystem'
 import { getAudioAnalysisData } from '../systems/audioVisualSync'
@@ -62,7 +63,6 @@ function collectFlareSources(args: {
   ships: Ship[]
   currentShipId: string | null
   installedUpgrades: Array<{ shipId: string; partName: string }>
-  spreaderPos: { x: number; y: number; z: number }
   weatherLensFlare: boolean
   musicActive: boolean
   beatPulse: number
@@ -74,7 +74,6 @@ function collectFlareSources(args: {
     ships,
     currentShipId,
     installedUpgrades,
-    spreaderPos,
     weatherLensFlare,
     musicActive,
     beatPulse,
@@ -108,15 +107,6 @@ function collectFlareSources(args: {
         brightness: dockScale * (i >= 3 ? 0.85 : 1),
         priority: 38 - i,
       })
-    })
-
-    sources.push({
-      id: 'crane-spreader',
-      position: [spreaderPos.x, spreaderPos.y + 0.55, spreaderPos.z],
-      color: '#ffd79e',
-      preset: 'warm',
-      brightness: 0.28 * dockScale * pulse,
-      priority: 34,
     })
   }
 
@@ -228,6 +218,26 @@ function RigFlareSources({ qualityScale }: { qualityScale: number }) {
   )
 }
 
+function SpreaderFlare({ qualityScale }: { qualityScale: number }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const lightIntensity = useGameStore((s) => s.lightIntensity)
+  useFrame(() => {
+    const p = getCraneKinematics().spreaderPos
+    groupRef.current?.position.set(p.x, p.y + 0.55, p.z)
+  })
+  const dockScale = Math.max(0.2, lightIntensity) * 0.42
+  return (
+    <group ref={groupRef}>
+      <LightFlare
+        position={[0, 0, 0]}
+        color="#ffd79e"
+        preset="warm"
+        brightness={0.28 * dockScale * qualityScale}
+      />
+    </group>
+  )
+}
+
 export default function LightFlareSystem() {
   const lookDev = getLookDevSettings()
 
@@ -237,7 +247,6 @@ export default function LightFlareSystem() {
   const ships = useGameStore((s) => s.ships)
   const currentShipId = useGameStore((s) => s.currentShipId)
   const installedUpgrades = useGameStore((s) => s.installedUpgrades)
-  const spreaderPos = useGameStore((s) => s.spreaderPos)
   const qualityPreset = useGameStore((s) => s.qualityPreset)
 
   const weatherLensFlare = weatherSystem.getWeatherEffects().lensFlare
@@ -258,7 +267,6 @@ export default function LightFlareSystem() {
       ships,
       currentShipId,
       installedUpgrades,
-      spreaderPos,
       weatherLensFlare,
       musicActive,
       beatPulse,
@@ -277,7 +285,6 @@ export default function LightFlareSystem() {
     ships,
     currentShipId,
     installedUpgrades,
-    spreaderPos,
     weatherLensFlare,
     musicActive,
     beatPulse,
@@ -285,10 +292,11 @@ export default function LightFlareSystem() {
     qualityScale,
   ])
 
-  if (!lookDev.flaresEnabled || activeFlares.length === 0) return null
+  if (!lookDev.flaresEnabled) return null
 
   return (
     <group name="light-flare-system">
+      {isNight && <SpreaderFlare qualityScale={qualityScale * lookDev.flareIntensity} />}
       {activeFlares.map((flare) => (
         <LightFlare
           key={flare.id}

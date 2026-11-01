@@ -10,20 +10,23 @@
 // affected during crane play.
 // =============================================================================
 
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
-import type { RapierRigidBody } from '@react-three/rapier'
+import type { RapierRigidBody, RigidBodyProps } from '@react-three/rapier'
 import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from '../systems/crane/craneKinematics'
 import { ProceduralShip } from './ProceduralShip'
 import NightShipLights from './NightShipLights'
 import { useLOD } from '../systems/performanceSystem'
 import AttachmentPointVisual from './AttachmentPoint'
+import EmitterAnchors from './particles/EmitterAnchors'
 import { 
   getRigTypeForPart, 
   AttachmentState,
+  type AttachmentSystemConfig,
 } from '../systems/attachmentSystem'
 import { waveSystem } from '../systems/WaveSystem'
 import { stormSystem, windVectorLengthSq } from '../systems/StormSystem'
@@ -62,7 +65,6 @@ const FLEET_PROBE_OFFSETS = [
 ]
 
 // Distance within which tow-attachment indicator is shown (metres)
-const TOW_HINT_RADIUS = 25
 
 interface ShipProps {
     ship: Ship
@@ -113,6 +115,53 @@ function ShipImpostor({ type }: { type: Ship['type'] }) {
     )
 }
 
+// Frame-loop scratch (used synchronously inside useFrame)
+const _fQuat = new THREE.Quaternion()
+const _fEuler = new THREE.Euler()
+const _fLocalOff = new THREE.Vector3()
+const _fAway = new THREE.Vector3()
+
+function classifyShipAttachments(
+    ship: Ship,
+    spreaderPos: { x: number; y: number; z: number },
+    twistlockEngaged: boolean,
+    attachmentConfig: AttachmentSystemConfig,
+    isUpgraded: (partName: string) => boolean,
+) {
+    if (!ship.attachmentPoints) return []
+    return ship.attachmentPoints.map(point => {
+        const worldPos: [number, number, number] = [
+            ship.position[0] + point.position[0],
+            ship.position[1] + point.position[1],
+            ship.position[2] + point.position[2],
+        ]
+        const dx = worldPos[0] - spreaderPos.x
+        const dy = worldPos[1] - spreaderPos.y
+        const dz = worldPos[2] - spreaderPos.z
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        let state: AttachmentState = 'available'
+        let snapStrength = 0
+        if (isUpgraded(point.partName)) {
+            state = 'installed'
+        } else if (distance <= attachmentConfig.installDistance && twistlockEngaged) {
+            state = 'installing'
+        } else if (distance <= attachmentConfig.snapRadius) {
+            state = 'snapping'
+            snapStrength = 1 - (distance / attachmentConfig.snapRadius)
+        } else if (distance <= attachmentConfig.visibilityRange * 1.5) {
+            state = 'hovered'
+        }
+        return {
+            point,
+            worldPos,
+            state,
+            distance,
+            snapStrength,
+            rigType: getRigTypeForPart(point.partName),
+        }
+    })
+}
+
 export default function ShipComponent({ ship }: ShipProps) {
     const groupRef    = useRef<THREE.Group>(null)
     const rbRef       = useRef<RapierRigidBody>(null)
@@ -125,7 +174,6 @@ export default function ShipComponent({ ship }: ShipProps) {
     const lightIntensity    = useGameStore((state) => state.lightIntensity)
     const musicPlaying      = useGameStore((state) => state.musicPlaying)
     const bpm               = useGameStore((state) => state.bpm)
-    const spreaderPos       = useGameStore((state) => state.spreaderPos)
     const twistlockEngaged  = useGameStore((state) => state.twistlockEngaged)
     const attachmentConfig  = useGameStore((state) => state.attachmentSystemConfig)
     const operationMode     = useGameStore((state) => state.operationMode)
@@ -133,6 +181,21 @@ export default function ShipComponent({ ship }: ShipProps) {
     const highlightedUpgradePart = useGameStore((state) => state.highlightedUpgradePart)
 
     const isDynamic = operationMode === 'tugboat'
+
+    // @react-three/rapier applies every key present in props, even with an undefined value, and
+    // destructures `enabledRotations` — so `enabledRotations={undefined}` throws as soon as a body
+    // mounts after the physics world is up (any ship spawned mid-game). Fixed ships omit the keys.
+    const bodyProps = useMemo<Pick<RigidBodyProps, 'mass' | 'linearDamping' | 'angularDamping' | 'enabledRotations'>>(
+        () => isDynamic
+            ? {
+                mass: FLEET_SHIP_MASS,
+                linearDamping: FLEET_SHIP_LINEAR_DAMPING,
+                angularDamping: FLEET_SHIP_ANGULAR_DAMPING,
+                enabledRotations: [true, true, true],
+            }
+            : {},
+        [isDynamic],
+    )
 
     // PHASE 10: Get LOD level based on distance
     const lod = useLOD(ship.position)
@@ -163,48 +226,27 @@ export default function ShipComponent({ ship }: ShipProps) {
         [installedUpgrades, ship.id]
     )
 
-    const isUpgraded = (partName: string) => shipUpgrades.some(u => u.partName === partName)
-    
-    // Calculate attachment point states
-    const attachmentPointsWithState = useMemo(() => {
-        if (!ship.attachmentPoints) return []
-        
-        return ship.attachmentPoints.map(point => {
-            const worldPos: [number, number, number] = [
-                ship.position[0] + point.position[0],
-                ship.position[1] + point.position[1],
-                ship.position[2] + point.position[2],
-            ]
-            
-            const dx = worldPos[0] - spreaderPos.x
-            const dy = worldPos[1] - spreaderPos.y
-            const dz = worldPos[2] - spreaderPos.z
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-            
-            let state: AttachmentState = 'available'
-            let snapStrength = 0
-            
-            if (isUpgraded(point.partName)) {
-                state = 'installed'
-            } else if (distance <= attachmentConfig.installDistance && twistlockEngaged) {
-                state = 'installing'
-            } else if (distance <= attachmentConfig.snapRadius) {
-                state = 'snapping'
-                snapStrength = 1 - (distance / attachmentConfig.snapRadius)
-            } else if (distance <= attachmentConfig.visibilityRange * 1.5) {
-                state = 'hovered'
-            }
-            
-            return {
-                point,
-                worldPos,
-                state,
-                distance,
-                snapStrength,
-                rigType: getRigTypeForPart(point.partName),
-            }
-        })
-    }, [ship, spreaderPos, twistlockEngaged, attachmentConfig, shipUpgrades])
+    const installedParts = useMemo(
+        () => new Set(shipUpgrades.map(u => u.partName)),
+        [shipUpgrades]
+    )
+
+    const attachmentSigRef = useRef('')
+    const [attachmentPointsWithState, setAttachmentPointsWithState] = useState<ReturnType<typeof classifyShipAttachments>>([])
+
+    useFrame(() => {
+        const next = classifyShipAttachments(
+            ship,
+            getCraneKinematics().spreaderPos,
+            twistlockEngaged,
+            attachmentConfig,
+            (partName) => shipUpgrades.some(u => u.partName === partName),
+        )
+        const sig = next.map(p => `${p.point.partName}:${p.state}`).join('|')
+        if (sig === attachmentSigRef.current) return
+        attachmentSigRef.current = sig
+        setAttachmentPointsWithState(next)
+    })
 
     useFrame((state, delta) => {
         if (!groupRef.current) return
@@ -220,8 +262,8 @@ export default function ShipComponent({ ship }: ShipProps) {
 
             const pos   = rb.translation()
             const rot   = rb.rotation()
-            const quat  = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w)
-            const euler = new THREE.Euler().setFromQuaternion(quat)
+            const quat  = _fQuat.set(rot.x, rot.y, rot.z, rot.w)
+            const euler = _fEuler.setFromQuaternion(quat)
             const vel   = rb.linvel()
             const time  = waveSystem.getTime()
 
@@ -242,7 +284,7 @@ export default function ShipComponent({ ship }: ShipProps) {
 
             // --- Buoyancy (multi-probe) ---
             for (const offset of FLEET_PROBE_OFFSETS) {
-                const localOff = new THREE.Vector3(offset.x, 0, offset.z)
+                const localOff = _fLocalOff.set(offset.x, 0, offset.z)
                 localOff.applyQuaternion(quat)
 
                 const probeX = pos.x + localOff.x
@@ -330,7 +372,7 @@ export default function ShipComponent({ ship }: ShipProps) {
 
                 if (sustainedSnap || spikeSnap) {
                     const whipImpulse = towLineCableConfig.maxTension * 0.0002
-                    const away = _toTug.clone().negate().normalize()
+                    const away = _fAway.copy(_toTug).negate().normalize()
                     rb.applyImpulse({ x: away.x * whipImpulse, y: 0, z: away.z * whipImpulse }, true)
                     towLineState.snapFlag = true
                     setTimeout(() => { towLineState.snapFlag = false }, 1200)
@@ -439,11 +481,8 @@ export default function ShipComponent({ ship }: ShipProps) {
             <RigidBody
                 ref={rbRef}
                 type={isDynamic ? 'dynamic' : 'fixed'}
-                mass={isDynamic ? FLEET_SHIP_MASS : undefined}
-                linearDamping={isDynamic ? FLEET_SHIP_LINEAR_DAMPING : undefined}
-                angularDamping={isDynamic ? FLEET_SHIP_ANGULAR_DAMPING : undefined}
+                {...bodyProps}
                 position={ship.position}
-                enabledRotations={isDynamic ? [true, true, true] : undefined}
                 colliders="cuboid"
             >
                 <ShipImpostor type={ship.type} />
@@ -456,16 +495,23 @@ export default function ShipComponent({ ship }: ShipProps) {
             <RigidBody
                 ref={rbRef}
                 type={isDynamic ? 'dynamic' : 'fixed'}
-                mass={isDynamic ? FLEET_SHIP_MASS : undefined}
-                linearDamping={isDynamic ? FLEET_SHIP_LINEAR_DAMPING : undefined}
-                angularDamping={isDynamic ? FLEET_SHIP_ANGULAR_DAMPING : undefined}
+                {...bodyProps}
                 position={ship.position}
-                enabledRotations={isDynamic ? [true, true, true] : undefined}
                 colliders="cuboid"
             >
                 <group ref={groupRef}>
                     <ProceduralShip blueprintId={ship.type} version={ship.version}>
                         <NightShipLights ship={ship} lod={lod} />
+
+                        {/* World poses for GPU particle / laser emitters — not gated by showPoints or LOD < 2 */}
+                        {ship.attachmentPoints && (
+                            <EmitterAnchors
+                                shipId={ship.id}
+                                shipType={ship.type}
+                                points={ship.attachmentPoints}
+                                installed={installedParts}
+                            />
+                        )}
 
                         {/* Tow attachment hint ring (tugboat mode only) */}
                         {isDynamic && TowHintIndicator}
@@ -473,7 +519,6 @@ export default function ShipComponent({ ship }: ShipProps) {
                         {/* PHASE 9: Enhanced attachment points (crane mode) */}
                         {!isDynamic && attachmentConfig.showPoints && lod < 2 && attachmentPointsWithState.map(({ 
                             point, 
-                            worldPos, 
                             state, 
                             distance,
                             snapStrength,

@@ -8,10 +8,10 @@
 
 import * as THREE from 'three'
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from './crane/craneKinematics'
 import {
     getAmbientCounts,
     getBeatReactiveMultiplier,
-    getCameraAwareMultiplier,
     getFinaleConvergenceEnvelope,
     getFishSchoolCohesionFactor,
     getLightAttractionMultiplier,
@@ -139,15 +139,14 @@ class AmbientMarineLifeSystem {
             installedUpgrades,
             ships,
             musicPlaying,
-            spreaderPos
         } = store
+        const spreaderPos = getCraneKinematics().spreaderPos
 
         if (!enableMarineLife) {
             this.clear()
             return
         }
 
-        const cameraMultiplier = getCameraAwareMultiplier(cameraMode, focusedViewport)
         const lightMultiplier = getLightAttractionMultiplier(installedUpgrades, ships, musicPlaying)
         const distanceLodMultiplier = this.getDistanceLodMultiplier(camera)
         const showActive = lightingSystem.isShowActive()

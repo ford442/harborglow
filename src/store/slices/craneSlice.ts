@@ -9,8 +9,8 @@ import {
 } from '../gameStoreTypes';
 import type { AttachmentSystemConfig } from '../../systems/attachmentSystem';
 
-export const createCraneSlice: StateCreator<GameState, [], [], CraneSlice> = (set, get, _api) => ({
-    setCraneContract: (contract) => set((state) => {
+export const createCraneSlice: StateCreator<GameState, [], [], CraneSlice> = (set) => ({
+    setCraneContract: (contract) => set(() => {
         const newState = { craneContract: contract }
         return newState
     }),
@@ -26,23 +26,13 @@ export const createCraneSlice: StateCreator<GameState, [], [], CraneSlice> = (se
         return newState
     }),
 
-    setSpreaderPos: (pos) => set({ spreaderPos: pos }),
-
-    setSpreaderRotation: (rotation) => set({ spreaderRotation: rotation }),
-
-    setCableDepth: (depth) => set({ cableDepth: depth }),
-
-    setLoadTension: (tension) => set({ loadTension: tension }),
-
-    setTrolleyPosition: (position) => set({ trolleyPosition: position }),
-
     setWinchSpeed: (speed: number) => set({ winchSpeed: speed }),
 
     setHighlightedUpgradePart: (partName) => set({ highlightedUpgradePart: partName }),
 
     setPendingAutoInstall: (pending) => set({ pendingAutoInstall: pending }),
 
-    setInstallQueue: (queue) => set((state) => {
+    setInstallQueue: (queue) => set(() => {
         const nextState = {
             installQueue: queue,
             installQueueIndex: 0,

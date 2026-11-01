@@ -4,7 +4,14 @@ export const AUDIO_MEMORY_BYTES = AUDIO_MEMORY_PAGES * 64 * 1024
 export const COMMAND_RING_PTR = 24 * 1024 * 1024
 export const ANALYSIS_RING_PTR = 26 * 1024 * 1024
 export const COMMAND_CAPACITY = 1024
-export const COMMAND_BYTES = 64
+/**
+ * Command ring ABI version. Bump with any change to the record layout below;
+ * the worklet and the engine (`dsp_audio_engine_protocol_version`) must agree
+ * or AudioRuntime falls back to native Web Audio.
+ */
+export const PROTOCOL_VERSION = 2
+/** v2 record: the v1 64 bytes + frame (f64 @64) + note id (u32 @72) + reserved. */
+export const COMMAND_BYTES = 80
 export const ANALYSIS_CAPACITY = 8
 export const ANALYSIS_BYTES = 1088
 
@@ -45,6 +52,13 @@ export interface AudioCommand {
   chorusDepth?: number
   roomPreset?: number
   roomMix?: number
+  /**
+   * AudioContext frame the command takes effect at (`time * sampleRate`).
+   * Omitted, 0 or already past = the next render quantum. StopAll ignores it.
+   */
+  frame?: number
+  /** NoteOn tags the voice; a NoteOff with a nonzero id only releases that note. */
+  noteId?: number
 }
 
 export interface AudioAnalysisSnapshot {
@@ -135,6 +149,8 @@ export function encodeCommand(view: DataView, command: AudioCommand): void {
   view.setFloat32(56, command.chorusDepth ?? 0, true)
   view.setUint8(60, command.roomPreset ?? 0)
   view.setUint8(61, Math.round((command.roomMix ?? 0) * 255))
+  view.setFloat64(64, command.frame ?? 0, true)
+  view.setUint32(72, command.noteId ?? 0, true)
 }
 
 export function decodeAnalysis(view: DataView): AudioAnalysisSnapshot {

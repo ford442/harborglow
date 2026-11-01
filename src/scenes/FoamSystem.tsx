@@ -14,6 +14,15 @@ import { waveSystem } from '../systems/WaveSystem'
 // CONFIG
 // -------------------------------------------------------------------------
 
+// Frame-loop scratch (spawn() copies, so these are safe to reuse)
+const _crestPos = new THREE.Vector3()
+const _tbPos = new THREE.Vector3()
+const _tbVel = new THREE.Vector3()
+const _stern = new THREE.Vector3()
+const _spawnPos = new THREE.Vector3()
+const _spread = new THREE.Vector3()
+const _extraPos = new THREE.Vector3()
+
 const MAX_INSTANCES = 800
 const FOAM_LIFETIME = 3.0       // seconds
 const WAKE_LIFETIME = 2.5
@@ -65,7 +74,8 @@ export default function FoamSystem() {
 
   const nextIndexRef = useRef(0)
   const scanTimerRef = useRef(0)
-  const lastTugboatPos = useRef<THREE.Vector3 | null>(null)
+  const lastTugboatPos = useRef(new THREE.Vector3())
+  const hasLastTugPos = useRef(false)
 
   const gridCount = SPAWN_GRID_RES * SPAWN_GRID_RES
   const crestXs = useMemo(() => new Float32Array(gridCount), [gridCount])
@@ -124,7 +134,7 @@ export default function FoamSystem() {
           const foam = waveSystem.getFoamAmount(x, z, time)
 
           if (foam > 0.55 && Math.random() < foam * 0.4) {
-            const pos = new THREE.Vector3(x, h - 2.5 + 0.05, z)
+            const pos = _crestPos.set(x, h - 2.5 + 0.05, z)
             spawn(pos, 'crest', 0.5 + foam * 0.8)
           }
         }
@@ -134,12 +144,12 @@ export default function FoamSystem() {
     // ---------------------------------------------------------------
     // 2. WAKE FOAM: behind tugboat
     // ---------------------------------------------------------------
-    const tbPos = new THREE.Vector3(
+    const tbPos = _tbPos.set(
       tugboatState.position[0],
       tugboatState.position[1],
       tugboatState.position[2]
     )
-    const tbVel = new THREE.Vector3(
+    const tbVel = _tbVel.set(
       tugboatState.velocity[0],
       0,
       tugboatState.velocity[2]
@@ -148,7 +158,7 @@ export default function FoamSystem() {
 
     const stormIntensity = waveSystem.getStormIntensity()
 
-    if (speed > 0.5 && lastTugboatPos.current) {
+    if (speed > 0.5 && hasLastTugPos.current) {
       const dist = tbPos.distanceTo(lastTugboatPos.current)
       // Tighter spawn interval at high speed + in storms
       const stormFactor = 1.0 + stormIntensity * 1.5
@@ -157,12 +167,12 @@ export default function FoamSystem() {
       if (dist > spawnInterval * 0.5) {
         // Spawn behind stern
         const heading = tugboatState.heading
-        const sternOffset = new THREE.Vector3(
+        const sternOffset = _stern.set(
           -Math.cos(heading) * 2.8,
           0,
           -Math.sin(heading) * 2.8
         )
-        const spawnPos = tbPos.clone().add(sternOffset)
+        const spawnPos = _spawnPos.copy(tbPos).add(sternOffset)
         const waterH = waveSystem.getWaterHeight(spawnPos.x, spawnPos.z, time)
         spawnPos.y = waterH - 2.5 + 0.05
 
@@ -172,21 +182,22 @@ export default function FoamSystem() {
 
         // Extra wake particles in storms (spread wider)
         if (stormIntensity > 0.3) {
-          const spread = new THREE.Vector3(
+          const spread = _spread.set(
             (-Math.sin(heading)) * (0.5 + stormIntensity),
             0,
             (Math.cos(heading)) * (0.5 + stormIntensity)
           )
-          const extraPos = spawnPos.clone().add(spread)
+          const extraPos = _extraPos.copy(spawnPos).add(spread)
           spawn(extraPos, 'wake', wakeScale * 0.6)
-          const extraPos2 = spawnPos.clone().sub(spread)
+          const extraPos2 = _extraPos.copy(spawnPos).sub(spread)
           spawn(extraPos2, 'wake', wakeScale * 0.6)
         }
 
         lastTugboatPos.current.copy(tbPos)
       }
-    } else if (!lastTugboatPos.current) {
-      lastTugboatPos.current = tbPos.clone()
+    } else if (!hasLastTugPos.current) {
+      hasLastTugPos.current = true
+      lastTugboatPos.current.copy(tbPos)
     }
 
     // ---------------------------------------------------------------

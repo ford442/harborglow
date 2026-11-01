@@ -1,16 +1,15 @@
-import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import * as THREE from 'three';
-import { ShipType, CameraMode, useGameStore } from '../../store/useGameStore';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { CameraMode, useGameStore } from '../../store/useGameStore';
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics';
 import { useAudioData } from '../../systems/audioVisualSync';
-import { GLASSMORPHISM, SHIP_COLORS } from '../DesignSystem';
-import { TrafficShip, trafficSystem, useDockedShip } from '../../systems/trafficSystem';
+import { SHIP_COLORS } from '../DesignSystem';
+import { trafficSystem, useDockedShip } from '../../systems/trafficSystem';
 import { drawCraneCabView, drawHookView, drawDroneView, drawUnderwaterView, drawScanlines } from './canvasDrawers';
 import { moonSystem, MoonPhaseName, MOON_PHASES } from '../../systems/moonSystem';
-import { swaySystem, useSwaySystem } from '../../systems/swaySystem';
-import { weatherSystem, useWeatherSystem, WeatherType } from '../../systems/weatherSystem';
+import { useSwaySystem } from '../../systems/swaySystem';
+import { useWeatherSystem, WeatherType } from '../../systems/weatherSystem';
 import { useEconomySystem, getPortReputationTier } from '../../systems/economySystem';
 import { recordHostInput } from '../../systems/sim/hostInput';
-import { useCompletionGlow } from '../../hooks/useCompletionGlow';
 import * as styles from './styles';
 
 
@@ -55,11 +54,14 @@ export function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
     }
   }
 
-  const craneState = useGameStore((state: any) => ({
-    spreaderPos: state.spreaderPos,
-    rotation: state.craneRotation ?? 0.2,
-    height: state.craneHeight ?? 15.5,
-  }))
+  const spreaderPos = useSampledCraneKinematics(state => state.spreaderPos)
+  const rotation = useGameStore((state) => state.craneRotation)
+  const height = useGameStore((state) => state.craneHeight)
+  const craneState = useMemo(() => ({
+    spreaderPos,
+    rotation: rotation ?? 0.2,
+    height: height ?? 15.5,
+  }), [spreaderPos, rotation, height])
   const ships = useGameStore((state: any) => state.ships)
   const currentShip = useGameStore((state: any) =>
     state.ships.find((s: any) => s.id === state.currentShipId)
@@ -92,7 +94,7 @@ export function CameraPanel({ config, isMain, cameraMode }: CameraPanelProps) {
           drawHookView(ctx, width, height, craneState, audioData)
           break
         case 'drone':
-          drawDroneView(ctx, width, height, ships, currentShip, audioData)
+          drawDroneView(ctx, width, height, ships, currentShip)
           break
         case 'underwater':
           drawUnderwaterView(ctx, width, height, currentShip, audioData)
@@ -463,12 +465,12 @@ export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void })
   )
   const { credits, reputation } = useEconomySystem()
   const installedUpgrades = useGameStore((state: any) => state.installedUpgrades)
-  const craneState = useGameStore((state: any) => state.spreaderPos)
+  const craneState = useSampledCraneKinematics(state => state.spreaderPos)
   const twistlockEngaged = useGameStore((state: any) => state.twistlockEngaged)
   const [moonState, setMoonState] = useState(moonSystem.getState())
   const dockedTrafficShip = useDockedShip()
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [deadlineStatus, setDeadlineStatus] = useState<'normal' | 'warning' | 'urgent' | 'critical'>('normal')
+  const [, setTimeRemaining] = useState(0)
+  const [, setDeadlineStatus] = useState<'normal' | 'warning' | 'urgent' | 'critical'>('normal')
   const swayState = useSwaySystem()
   const weather = useWeatherSystem()
 
@@ -536,12 +538,6 @@ export function OperatorStatusPanel({ onOpenShop }: { onOpenShop?: () => void })
   const shipColor = SHIP_COLORS[currentShip.type as keyof typeof SHIP_COLORS]?.primary || '#00d4aa'
 
   // Deadline color based on urgency
-  const deadlineColor = {
-    normal: '#00d4aa',
-    warning: '#ff9500',
-    urgent: '#ff4757',
-    critical: '#ff0000'
-  }[deadlineStatus]
 
   return (
     <div style={styles.statusPanelStyle}>
@@ -749,7 +745,7 @@ interface SwayIndicatorProps {
   gustWarning?: boolean
 }
 
-export function SwayIndicator({ stability, magnitude, tension, gustActive, gustWarning }: SwayIndicatorProps) {
+export function SwayIndicator({ stability, magnitude, tension, gustWarning }: SwayIndicatorProps) {
   // Get color based on stability
   const getStabilityColor = () => {
     if (gustWarning) return '#ff0000'

@@ -64,6 +64,7 @@ export type HarborEventType =
     | 'cruise_arrival'       // Tourism ship
     | 'cruise_departure'     // Mexico/Alaska bound
     | 'suspicious_vessel'    // Rare security event
+    | 'harbor_festival'      // Player-started 3-ship light-show setlist
     | 'clear'
 export type WildlifeType = 'humpback_whale' | 'great_white_shark' | 'bottlenose_dolphin' | 'bioluminescent_plankton'
 export type Season = 'spring' | 'summer' | 'fall' | 'winter'

@@ -43,7 +43,6 @@ class StormSystem {
   private listeners: Set<(state: StormState) => void> = new Set()
   private windDirTarget: number = 0
   private windDirCurrent: number = 0
-  private lastLightning: number = 0
   private lightningEnd: number = 0
   private thunderSynth: Instrument | null = null
   private crackSynth: Instrument | null = null
@@ -83,7 +82,6 @@ class StormSystem {
     this.state.visibility = 0.7
     this.windDirTarget = simRandom() * Math.PI * 2
     this.windDirCurrent = this.windDirTarget
-    this.lastLightning = 0
     this.lightningEnd = 0
     weatherSystem.forceWeather('storm')
     this.notifyListeners()
@@ -111,7 +109,6 @@ class StormSystem {
     this.state.duration = 180
     this.windDirTarget = 0
     this.windDirCurrent = 0
-    this.lastLightning = 0
     this.lightningEnd = 0
   }
 
@@ -200,7 +197,6 @@ class StormSystem {
       if (simRandom() < strikeProbability) {
         this.state.lightningFlash = true
         this.lightningEnd = now + 150
-        this.lastLightning = now
 
         // Thunder follows lightning after a distance delay
         this.thunderDelay = 0.2 + simRandom() * 0.8

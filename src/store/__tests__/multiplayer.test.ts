@@ -25,6 +25,7 @@ vi.mock('../../systems/economySystem', () => ({
 
 import { useGameStore } from '../useGameStore'
 import { getNetworkSyncState } from '../gameStoreTypes'
+import { getCraneKinematics } from '../../systems/crane/craneKinematics'
 
 const SAVE_DEBOUNCE_MS = 500
 
@@ -42,7 +43,7 @@ describe('multiplayer store', () => {
   })
 
   it('getNetworkSyncState includes crane kinematics and musicPlaying record', () => {
-    useGameStore.getState().setSpreaderPos({ x: 5, y: 6, z: 7 })
+    getCraneKinematics().setSpreaderPos({ x: 5, y: 6, z: 7 })
     useGameStore.getState().setMusicPlaying('ship-1', true)
     const sync = getNetworkSyncState(useGameStore.getState())
     expect(sync.spreaderPos).toEqual({ x: 5, y: 6, z: 7 })

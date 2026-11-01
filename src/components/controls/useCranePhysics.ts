@@ -7,6 +7,7 @@ import {
   getCraneAxes,
   setCraneAxes,
 } from '../../systems/cranePhysics'
+import { getCraneKinematics } from '../../systems/crane/craneKinematics'
 import { recordHostInput } from '../../systems/sim/hostInput'
 
 export interface JoystickState {
@@ -53,7 +54,6 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
   const multiplayerRole = useGameStore(state => state.multiplayerRole)
   const isSpectator = multiplayerRole === 'spectator'
   const twistlockEngaged = useGameStore(state => state.twistlockEngaged)
-  const loadTension = useGameStore(state => state.loadTension)
 
   const [leftStick, setLeftStick] = useState<JoystickState>({ active: false, x: 0, y: 0, intensity: 0 })
   const [rightStick, setRightStick] = useState<JoystickState>({ active: false, x: 0, y: 0, intensity: 0 })
@@ -83,6 +83,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
         recordHostInput('crane.axes', next)
       }
 
+      const loadTension = getCraneKinematics().loadTension
       if (isArctic && loadTension > 30) {
         const intensity = (loadTension - 30) / 20
         setShake({
@@ -98,7 +99,7 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
 
     animationId = requestAnimationFrame(sampleAxes)
     return () => cancelAnimationFrame(animationId)
-  }, [isSpectator, leftStick, rightStick, loadTension, isArctic])
+  }, [isSpectator, leftStick, rightStick, isArctic])
 
   useEffect(() => {
     if (isSpectator) return

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TrainingStep, TrainingMetrics } from '../../systems/trainingSystem';
+import { useState, useEffect } from 'react';
+import { TrainingStep } from '../../systems/trainingSystem';
 import * as styles from './trainingHUDStyles';
 
 

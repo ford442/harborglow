@@ -1,5 +1,7 @@
 import { useMemo, type CSSProperties } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useGameStore } from '../../store/useGameStore'
+import { useSampledCraneKinematics } from '../../systems/crane/craneKinematics'
 import { useMusicPulse } from '../../hooks/useMusicPulse'
 
 // =============================================================================
@@ -22,19 +24,22 @@ export default function CraneControlMonitor() {
     trolleyPosition,
     cableDepth,
     spreaderPos,
-    winchSpeed,
-    twistlockEngaged,
     loadTension,
-    bpm,
-  } = useGameStore(state => ({
+  } = useSampledCraneKinematics(state => ({
     trolleyPosition: state.trolleyPosition,
     cableDepth: state.cableDepth,
     spreaderPos: state.spreaderPos,
+    loadTension: state.loadTension,
+  }))
+  const {
+    winchSpeed,
+    twistlockEngaged,
+    bpm,
+  } = useGameStore(useShallow(state => ({
     winchSpeed: state.winchSpeed,
     twistlockEngaged: state.twistlockEngaged,
-    loadTension: state.loadTension,
     bpm: state.bpm,
-  }))
+  })))
 
   const pulse = useMusicPulse(bpm)
 

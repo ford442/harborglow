@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useGameStore } from '../store/useGameStore'
+import { useSampledCraneKinematics } from '../systems/crane/craneKinematics'
 import { useCranePhysics } from './controls/useCranePhysics'
 import { useMusicPulse } from '../hooks/useMusicPulse'
 import JoystickControl from './controls/JoystickControl'
@@ -90,7 +92,6 @@ function ReadOnlySlider({ label, value, min, max, displayValue, color, pulse, is
   const [hovered, setHovered] = useState(false)
   const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
   const pulseBoost = pulse > 0.5 ? 1 + (pulse - 0.5) * 0.6 : 1
-  const glowColor = `${color}${hovered || isActive ? '80' : '40'}`
 
   return (
     <div
@@ -177,6 +178,13 @@ export default function InteractiveCraneControls() {
     loadTension,
     trolleyPosition,
     spreaderRotation,
+  } = useSampledCraneKinematics(state => ({
+    cableDepth: state.cableDepth,
+    loadTension: state.loadTension,
+    trolleyPosition: state.trolleyPosition,
+    spreaderRotation: state.spreaderRotation,
+  }))
+  const {
     twistlockEngaged,
     isMoving,
     winchSpeed,
@@ -184,11 +192,7 @@ export default function InteractiveCraneControls() {
     heaterActive,
     iceBuildup,
     weather,
-  } = useGameStore(state => ({
-    cableDepth: state.cableDepth,
-    loadTension: state.loadTension,
-    trolleyPosition: state.trolleyPosition,
-    spreaderRotation: state.spreaderRotation,
+  } = useGameStore(useShallow(state => ({
     twistlockEngaged: state.twistlockEngaged,
     isMoving: state.isMoving,
     winchSpeed: state.winchSpeed,
@@ -196,7 +200,7 @@ export default function InteractiveCraneControls() {
     heaterActive: state.heaterActive,
     iceBuildup: state.iceBuildup,
     weather: state.weather,
-  }))
+  })))
 
   const {
     leftStick,

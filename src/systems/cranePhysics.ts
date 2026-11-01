@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/useGameStore'
+import { getCraneKinematics } from './crane/craneKinematics'
 
 export interface CraneAxes {
   leftX: number
@@ -75,21 +76,47 @@ export function craneAxesEqual(a: CraneAxes, b: CraneAxes): boolean {
   )
 }
 
+/** True when the spreader is inside the snap radius (or 4 m). Reads live kinematics. */
+export function spreaderNearAttachment(): boolean {
+  const { spreaderPos } = getCraneKinematics()
+  const { ships, attachmentSystemConfig } = useGameStore.getState()
+  const limit = Math.max(attachmentSystemConfig.snapRadius, 4)
+  let minDistance = Infinity
+  for (const ship of ships) {
+    for (const point of ship.attachmentPoints || []) {
+      const dx = ship.position[0] + point.position[0] - spreaderPos.x
+      const dy = ship.position[1] + point.position[1] - spreaderPos.y
+      const dz = ship.position[2] + point.position[2] - spreaderPos.z
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz)
+      if (dist < minDistance) minDistance = dist
+      if (minDistance <= limit) return true
+    }
+  }
+  return false
+}
+
 /** Integrate crane kinematics at SIM_DT. Cosmetic shake stays in the React hook. */
 export function stepCrane(dt: number, axes: CraneAxes = currentAxes): void {
   const store = useGameStore.getState()
+  const kin = getCraneKinematics()
   const {
     spreaderPos,
     spreaderRotation,
     cableDepth,
     loadTension,
     trolleyPosition,
-    winchSpeed,
     setSpreaderPos,
     setSpreaderRotation,
     setCableDepth,
     setLoadTension,
     setTrolleyPosition,
+  } = kin
+  const {
+    winchSpeed,
+    isMoving,
+    twistlockEngaged,
+    joystickLeft,
+    joystickRight,
     setJoystickLeft,
     setJoystickRight,
     setTwistlockEngaged,
@@ -170,11 +197,23 @@ export function stepCrane(dt: number, axes: CraneAxes = currentAxes): void {
   if (depth !== cableDepth) setCableDepth(depth)
   if (trolley !== trolleyPosition) setTrolleyPosition(trolley)
   if (newTension !== loadTension) setLoadTension(newTension)
-  setIsMoving(moved)
-  setTwistlockEngaged(axes.twistlock)
+  // Skip unchanged writes. Zustand notifies on every set(), even when the
+  // boolean or joystick numbers did not change.
+  if (isMoving !== moved) setIsMoving(moved)
+  if (twistlockEngaged !== axes.twistlock) setTwistlockEngaged(axes.twistlock)
 
-  if (axes.leftActive) setJoystickLeft({ x: axes.leftX, y: axes.leftY })
-  else setJoystickLeft({ x: 0, y: 0 })
-  if (axes.rightActive) setJoystickRight({ x: axes.rightX, y: axes.rightY })
-  else setJoystickRight({ x: 0, y: 0 })
+  if (axes.leftActive) {
+    if (joystickLeft.x !== axes.leftX || joystickLeft.y !== axes.leftY) {
+      setJoystickLeft({ x: axes.leftX, y: axes.leftY })
+    }
+  } else if (joystickLeft.x !== 0 || joystickLeft.y !== 0) {
+    setJoystickLeft({ x: 0, y: 0 })
+  }
+  if (axes.rightActive) {
+    if (joystickRight.x !== axes.rightX || joystickRight.y !== axes.rightY) {
+      setJoystickRight({ x: axes.rightX, y: axes.rightY })
+    }
+  } else if (joystickRight.x !== 0 || joystickRight.y !== 0) {
+    setJoystickRight({ x: 0, y: 0 })
+  }
 }
