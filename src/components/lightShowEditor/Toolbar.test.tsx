@@ -16,7 +16,7 @@ describe('Toolbar (server render smoke)', () => {
   it('renders every control for a freshly forked show', () => {
     session = createEditorSession({ shipType: 'cruise', shipId: 'c1' })
     const html = renderToString(<Toolbar session={session} />).replace(/<!-- -->/g, '')
-    for (const id of ['le-play', 'le-undo', 'le-redo', 'le-pattern', 'le-easing', 'le-intensity', 'le-length', 'le-loop', 'le-copybar', 'le-reset', 'le-save']) {
+    for (const id of ['le-play', 'le-undo', 'le-redo', 'le-pattern', 'le-easing', 'le-intensity', 'le-length', 'le-loop', 'le-copybar', 'le-reset', 'le-save', 'le-share']) {
       expect(html, id).toContain(`data-testid="${id}"`)
     }
     for (const text of ['breathe', 'easeInOut', '1/4', '1/8', '1/16', 'free', 'Quantize', 'Fork factory']) expect(html).toContain(text)

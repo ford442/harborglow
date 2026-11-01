@@ -4,13 +4,14 @@ import { SHIP_TYPE_LIGHT_COLORS } from '../../systems/attachmentSystem'
 import { QUANTIZE_GRIDS, barCount, type QuantizeGrid } from '../../systems/lightShows/editor/editorModel'
 import type { EditorSession } from '../../systems/lightShows/editor/editorSession'
 import type { LightCueEasing, LightCuePattern } from '../../systems/lightShows/types'
+import ShareDraftButton from './ShareDraftButton'
 import * as s from './styles'
 
 const PATTERNS: LightCuePattern[] = ['breathe', 'sweep', 'strobe', 'snap', 'blackout']
 const EASINGS: LightCueEasing[] = ['step', 'linear', 'easeIn', 'easeOut', 'easeInOut']
 const LOOPS = [16, 24, 32, 40, 48, 56, 64]
 
-export default function Toolbar({ session, onShare }: { session: EditorSession; onShare?: React.ReactNode }) {
+export default function Toolbar({ session }: { session: EditorSession }) {
   const tool = useStore(session.store, (st) => st.tool)
   const playing = useStore(session.store, (st) => st.playing)
   const scrubBeat = useStore(session.store, (st) => st.scrubBeat)
@@ -107,7 +108,7 @@ export default function Toolbar({ session, onShare }: { session: EditorSession; 
         <button style={s.button()} onClick={() => session.resetToFactory()} title="Replace the draft with a fresh fork of the factory show (undoable)" data-testid="le-reset">Fork factory</button>
         <button style={s.button(dirty, false)} onClick={() => void session.save()} data-testid="le-save">{dirty ? '● Save' : 'Saved'}</button>
         {saved && <button style={s.button()} onClick={() => void session.discardSaved()} title="Delete your saved show; this ship goes back to the factory show">Delete mine</button>}
-        {onShare}
+        <ShareDraftButton session={session} />
       </div>
     </div>
   )
