@@ -24,6 +24,9 @@ import { loadGameState } from '../../utils/storage_manager';
 import type { GameState as StorageGameState } from '../../utils/storage_manager';
 import { economySystem } from '../../systems/economySystem';
 import { isCameraPresetId } from '../../types/CameraPreset';
+import { acceptAuthoredShows, replaceAuthoredShows } from '../../systems/lightShows/authoredShows';
+import type { LightShowV2 } from '../../systems/lightShows/types';
+import { isShipType } from '../gameStoreDomainTypes';
 
 export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> = (set) => ({
     resetGame: () => {
@@ -105,8 +108,19 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
             season: 'summer',
             wildlifeDensity: 0.6,
             enableMarineLife: true,
+            authoredShows: {},
         })
+        replaceAuthoredShows({})
         console.log('🗑️ Game reset')
+    },
+
+    saveAuthoredShow: (show: LightShowV2) => {
+        if (!isShipType(show.id)) return
+        set((state) => {
+            const authoredShows = { ...state.authoredShows, [show.id]: show }
+            replaceAuthoredShows(authoredShows)
+            return { authoredShows }
+        })
     },
 
     loadSavedState: () => {
@@ -208,6 +222,17 @@ export const createSessionSlice: StateCreator<GameState, [], [], SessionSlice> =
                 enableMarineLife: (saved as StorageGameState & { enableMarineLife?: boolean }).enableMarineLife ?? true,
                 activeMission: null,
             })
+            const rawShows = (saved as StorageGameState & { authoredShows?: unknown }).authoredShows
+            if (rawShows) {
+                void import('../../schemas/lightShow').then(({ parseLightShow }) => {
+                    const next = acceptAuthoredShows(rawShows, parseLightShow)
+                    replaceAuthoredShows(next)
+                    set({ authoredShows: next })
+                })
+            } else {
+                replaceAuthoredShows({})
+                set({ authoredShows: {} })
+            }
             if (saved.economyData) {
                 economySystem.deserialize(saved.economyData)
             }

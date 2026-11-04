@@ -19,16 +19,16 @@ export interface LightCueV2 {
   /** Deterministic, e.g. `${showId}:${index}`; never random. */
   id: string
   beat: number
-  /** > 0. Carried but not yet interpreted at play time (#248/#249). */
+  /** > 0. The cue is active while the playhead is in [beat, beat + lengthBeats). */
   lengthBeats: number
-  /** Carried but not yet interpreted: every cue still lights the whole rig. */
+  /** Rig row this cue belongs to. Particles honor it; the rig color follows the active cue. */
   target: RigGroupId | 'all'
   pattern: LightCuePattern
   /** '#rrggbb', same as V1 */
   color: string
   /** 0..1, same as V1 */
   intensity: number
-  /** Carried but not yet interpreted: playback is a step function. */
+  /** Shapes intensity across lengthBeats. `step` stays flat. */
   easing: LightCueEasing
 }
 

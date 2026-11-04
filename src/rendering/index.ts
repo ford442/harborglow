@@ -5,6 +5,9 @@ export {
 } from './createRenderer';
 export type { GameRendererOptions } from './createRenderer';
 export { readScreenshotPixelsAsync, CanvasReadbackError } from './canvasReadback';
+export { capturePosterPng, downloadDataUrl, pixelsToPngDataUrl } from './canvasPoster';
+export type { PosterCapture } from './canvasPoster';
+export { getLiveRenderer, setLiveRenderer } from './liveRenderer';
 export type { CanvasPixels, ReadCanvasPixelsOptions, AfterRenderScheduler } from './canvasReadback';
 export {
   HARBOR_CANVAS_USAGE,

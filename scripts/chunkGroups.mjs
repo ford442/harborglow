@@ -4,6 +4,15 @@
 // the build uses. See AGENTS.md "Chunk groups and boot".
 
 export const codeSplittingGroups = [
+    // mediabunny, plus Vite's empty browser stub for its node:fs entry.
+    // showMuxer.ts stays the dynamic-import entry. The stub's id is
+    // `__vite-browser-external` (not under node_modules), so without this
+    // arm it lands in the showMuxer chunk and show-export imports it back.
+    {
+        name: 'show-export',
+        test: /node_modules[\\/]mediabunny[\\/]|__vite-browser-external/,
+        priority: 55,
+    },
     // React/ReactDOM/Scheduler: own chunk, kept out of vendor-3d, to
     // avoid __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED errors.
     {

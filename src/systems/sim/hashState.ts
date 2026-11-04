@@ -11,6 +11,7 @@ import { useGameStore } from '../../store/useGameStore'
 import { getCraneKinematics } from '../crane/craneKinematics'
 import { getSim } from './SimContext'
 import { iceFieldSystem } from '../ice/IceFieldSystem'
+import { performanceSnapshot } from '../lightShows/performLog'
 
 function round(value: number, digits = 5): number {
   const scale = 10 ** digits
@@ -86,6 +87,7 @@ export function captureSimSnapshot(): Record<string, unknown> {
         health: ice.health,
       }
     })(),
+    performance: performanceSnapshot(),
     ships: [...store.ships.map((s) => s.id)].sort(),
     upgrades: store.installedUpgrades
       .map((u) => `${u.shipId}:${u.partName}`)

@@ -41,6 +41,7 @@ export interface HUDProps {
 import { useSharedPlayback } from '../systems/share/sharedPlaybackState'
 import SharedPlaybackBadge from './hud/SharedPlaybackBadge'
 import ShareShowButton from './hud/ShareShowButton'
+import ExportShowButton from './hud/ExportShowButton'
 import FestivalHUD from './hud/FestivalHUD'
 
 export default function HUD({ onOpenTraining }: HUDProps = {}) {
@@ -96,6 +97,7 @@ export default function HUD({ onOpenTraining }: HUDProps = {}) {
       <LobbyPanel />
       <SharedPlaybackBadge />
       {isCraneMode && !isSpectator && <ShareShowButton />}
+      {isCraneMode && !isSpectator && <ExportShowButton />}
       {!isWalkingMode && (
         <FestivalHUD canControl={isCraneMode && !isSpectator && gameMode !== 'training'} />
       )}

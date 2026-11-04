@@ -15,6 +15,10 @@ interprets it at play time, ships three native V2 factory shows and the Harbor F
 | `src/systems/lightShows/migrate.ts` | `migrateShowV1toV2()` — pure, deterministic |
 | `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1), `authoredShowsV2`, and `lightShowRegistryV2` (native V2 where authored, else migrated once at module load) |
 | `src/systems/lightShows/rigGroups.ts` | Attachment point → rig group mapping, `getRigGroups(shipType)` |
+| `src/systems/lightShows/cueEdit.ts` | Piano-roll edits on a `LightShowV2` (fork, place, update). Pure |
+| `src/systems/lightShows/authoredShows.ts` | Player forks keyed by ship type; lighting prefers these over the factory preset |
+| `src/systems/lightShows/perform.ts` / `performLog.ts` | Pad and gesture cues, scored into the sim hash |
+| `src/components/operatorCabin/LightShowDesk.tsx` | Lazy booth piano roll and preview overlay |
 | `src/schemas/lightShow.ts` | valibot `parseLightShow()` for untrusted input. **Lazy-load only** (`await import(...)`) |
 | `src/systems/lightShows/userShows.ts` | The player's saved show per ship (own `localStorage` key); `resolveShowForShip()` in `index.ts` = user show ?? factory show |
 | `src/systems/lightShows/editor/` | Cue editor logic, no React: `editorModel.ts` (pure draft operations + history), `editorSession.ts` (vanilla store + lighting/music side effects), `timelineGeometry.ts` (canvas hit-testing), `shareDraft.ts` |
@@ -212,8 +216,27 @@ There is no `fx` field yet. When slice 3 or 7 adds one, make it optional
 bump. Play it through `triggerEmitter(cue.fx, { anchorKey }, { color: cue.color })` per
 targeted anchor. The pattern-based defaults remain for cues without `fx`.
 
+## Perform
+
+During a harbor show, pads `1`–`5`, a crane-joystick threshold crossing, and tug-throttle gates fire a cue on the next 1/8 or 1/16. The gesture is `recordHostInput('show.cue', …)`. `applyReplayInput` quantizes from sim time and scores a timing-accuracy plus variety bonus (`economySystem.grantPerformanceBonus`). Weights and the grid live in the Leva folder **Light Show Perform**. The fired sequence is part of `hashSimSnapshot`, so a recorded log replays to the same hash. A fired cue overrides the harbor-wide cue; per-rig-group playback stays on the show timeline.
+
+## Editor
+
+The booth piano roll and full-screen overlay live in `components/operatorCabin/LightShowDesk.tsx`
+(lazy, so they stay out of `menu-eager`). Fork copies a factory show; Save writes
+`authoredShows` on the existing v4 save (the field is optional, so the save version
+does not change). Ship completion plays that fork ahead of the factory preset. A share-link
+override still wins. Preview scrubs a private transport on the `'audio'` clock and does not
+write the sim or the store, so the canvas is not re-rendered by the playhead.
+
 ## Save rule
 
+Saves hold no light-show data besides optional forks. `loadGameState()` returns `null` on **any**
+version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
+`authoredShows` is an optional v4 field (forked shows keyed by ship type). Missing
+on older v4 saves, and `loadGameState` still accepts those. Do not bump `VERSION`
+until `loadGameState` migrates instead of returning `null`. Loaded shows go through
+the lazy `parseLightShow` schema.
 The game save holds no light-show data, and the cue editor keeps it that way: user shows
 live under their own `localStorage` key, `harborglow:userShows:v1` (`userShows.ts`), so
 there is no `VERSION` bump, `loadGameState` is untouched, and nothing waits on #261.

@@ -1,9 +1,12 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
+import type { ShipType } from '../../store/gameStoreDomainTypes';
 import { SHIP_COLORS } from '../DesignSystem';
 import { useCompletionGlow } from '../../hooks/useCompletionGlow';
 import { CameraPanel, OperatorStatusPanel } from './panels';
 import * as styles from './styles';
+
+const LightShowDesk = lazy(() => import('./LightShowDesk'))
 
 export interface OperatorCabinUIProps {
   onOpenTraining?: () => void
@@ -32,6 +35,7 @@ export function OperatorCabinUI({ onOpenTraining, onOpenShop }: OperatorCabinUIP
 
   const shipColor = currentShip ? SHIP_COLORS[currentShip.type as keyof typeof SHIP_COLORS]?.primary || '#00d4aa' : '#00d4aa'
   const glow = useCompletionGlow()
+  const [deskShip, setDeskShip] = useState<ShipType | null>(null)
 
   return (
     <div style={{ ...styles.cabinContainerStyle, ...(glow || {}) }}>
@@ -48,6 +52,21 @@ export function OperatorCabinUI({ onOpenTraining, onOpenShop }: OperatorCabinUIP
         </span>
         <kbd style={styles.keyHintStyle}>C</kbd>
       </button>
+
+      <button
+        type="button"
+        style={{ ...styles.trainingButtonStyle, right: '248px', color: '#00d4aa', borderColor: 'rgba(0,212,170,0.45)', background: 'rgba(0,212,170,0.12)' }}
+        onClick={() => setDeskShip((currentShip?.type as ShipType) ?? 'cruise')}
+      >
+        <span style={{ fontSize: '16px' }}>🎼</span>
+        <span style={{ fontSize: '11px', fontWeight: 600 }}>CUE</span>
+      </button>
+
+      {deskShip && (
+        <Suspense fallback={null}>
+          <LightShowDesk shipType={deskShip} onClose={() => setDeskShip(null)} />
+        </Suspense>
+      )}
 
       {/* Training Button */}
       {gameMode === 'sandbox' && onOpenTraining && (

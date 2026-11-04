@@ -15,6 +15,8 @@ import { useAudioVisualSync } from '../systems/audioVisualSyncHooks'
 import AttachmentSystemManager from '../components/AttachmentSystemManager'
 import CraneAutoPilot from '../components/CraneAutoPilot'
 import { startAmbientSystem, stopAmbientSystem } from '../systems/ambientSoundSystem'
+import { usePerformPads } from '../systems/lightShows/usePerformPads'
+import { exportFrameDelta } from '../systems/export/fixedDt'
 
 import Crane from './Crane'
 import CraneB from './CraneB'
@@ -288,6 +290,8 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         }
     }, [operationMode, tugboatObjectives.length, tugboatWinTriggered, gameMode, currentTrainingModule, setTugboatObjectives, resetTugboatMode])
 
+    usePerformPads()
+
     // Leva controls
     useLevaControls({
         currentShip,
@@ -405,7 +409,7 @@ export default function MainScene({ harborTheme = 'industrial' }: MainSceneProps
         const watermark = role === 'spectator'
             ? multiplayerSystem.getTickWatermark()
             : verifyAtTick ?? undefined
-        simScheduler.advance(delta, (sim) => {
+        simScheduler.advance(exportFrameDelta(delta), (sim) => {
             systemRegistry.tick(
                 sim.dt,
                 buildFrameContext({

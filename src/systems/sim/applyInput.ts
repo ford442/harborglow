@@ -5,6 +5,7 @@ import { setCraneAxes, type CraneAxes } from '../cranePhysics'
 import { maybeStartShipMusic } from '../multiplayerMusicSync'
 import type { InputLogEntry } from './replay'
 import { startIceEscort } from '../ice/iceEscortMission'
+import { applyShowCue } from '../lightShows/performLog'
 import { harborEventSystem } from '../eventSystem/HarborEventSystem'
 import { FESTIVAL_SETLIST } from '../eventSystem/harborFestival'
 import { SHIP_BPM } from '../lightShows'
@@ -67,6 +68,10 @@ export function applyReplayInput(entry: InputLogEntry): void {
     if (isCraneAxes(entry.payload)) {
       setCraneAxes(entry.payload)
     }
+    return
+  }
+  if (entry.action === 'show.cue') {
+    applyShowCue(entry.payload, entry.tick)
     return
   }
   if (entry.action === 'upgrade.install') {

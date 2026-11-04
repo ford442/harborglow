@@ -11,6 +11,7 @@ import { stormSystem } from '../StormSystem'
 import { iceFieldSystem } from '../ice/IceFieldSystem'
 import { ShipSpawner } from '../shipSpawner'
 import { resetCraneAxes } from '../cranePhysics'
+import { resetPerformance } from '../lightShows/performLog'
 import { craneKinematics } from '../crane/craneKinematics'
 import { applyReplayInput } from './applyInput'
 import { waveSystem } from '../WaveSystem'
@@ -98,6 +99,7 @@ export function resetDeterministicSystems(opts: { preserveStoreMode?: boolean } 
   seaEventsSystem.reset()
   ShipSpawner.resetCounters()
   resetCraneAxes()
+  resetPerformance()
 }
 
 export function bootHeadlessRegistry(): void {

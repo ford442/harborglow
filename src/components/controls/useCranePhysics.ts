@@ -9,6 +9,9 @@ import {
 } from '../../systems/cranePhysics'
 import { getCraneKinematics } from '../../systems/crane/craneKinematics'
 import { recordHostInput } from '../../systems/sim/hostInput'
+import { lightingSystem } from '../../systems/lightingSystem'
+import { cueFromJoystick } from '../../systems/lightShows/perform'
+import { firePerformCue } from '../../systems/lightShows/firePerformCue'
 
 export interface JoystickState {
   active: boolean
@@ -81,6 +84,13 @@ export function useCranePhysics(isArctic: boolean): UseCranePhysicsResult {
       if (!prev || !craneAxesEqual(prev, next)) {
         lastSentAxes.current = next
         recordHostInput('crane.axes', next)
+      }
+      if (lightingSystem.isShowActive()) {
+        const gesture = cueFromJoystick(
+          { x: prev?.leftX ?? 0, y: prev?.leftY ?? 0 },
+          { x: next.leftX, y: next.leftY },
+        )
+        if (gesture) firePerformCue(gesture, 'joystick')
       }
 
       const loadTension = getCraneKinematics().loadTension

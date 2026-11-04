@@ -70,6 +70,8 @@ export type GameState = {
   season?: 'spring' | 'summer' | 'fall' | 'winter';
   wildlifeDensity?: number;
   enableMarineLife?: boolean;
+  /** Forked light shows keyed by ship type. Absent on saves written before the cue editor. */
+  authoredShows?: Record<string, unknown>;
   // add more as needed
 };
 
