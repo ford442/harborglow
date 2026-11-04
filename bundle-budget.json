@@ -9,6 +9,7 @@
     "GpuParticleLayer": 8,
     "index": 200,
     "show-export": 280
+    "LightShowEditor": 16,
   },
   "profiles": {
     "menu-eager": {

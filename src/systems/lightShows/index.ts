@@ -17,6 +17,7 @@ import { icebreakerLightShow } from './icebreaker'
 import { cruiseFinaleShow } from './cruiseFinale'
 import { fireboatWaterCannonShow } from './fireboatWaterCannon'
 import { icebreakerAuroraShow } from './icebreakerAurora'
+import { getUserShow, hasStoredUserShows, hydrateUserShows } from './userShows'
 
 export type {
   LightCue,
@@ -90,9 +91,23 @@ export const lightShowRegistryV2 = Object.fromEntries(
   ]),
 ) as Record<ShipType, LightShowV2>
 
+/** The factory show only. Use `resolveShowForShip` for what should actually play. */
 export function getLightShowV2(shipType: ShipType): LightShowV2 | undefined {
   return lightShowRegistryV2[shipType]
 }
+
+/**
+ * The show a ship plays: the player's saved cue-editor show (id
+ * `${shipType}-user`, see userShows.ts) when there is one, else the factory
+ * show. A share-link override still wins over both (lightingSystem).
+ */
+export function resolveShowForShip(shipType: ShipType): LightShowV2 | undefined {
+  return getUserShow(shipType) ?? lightShowRegistryV2[shipType]
+}
+
+// Start loading saved shows as soon as the registry exists, but only when
+// something is stored: most players pay nothing and never fetch the schema.
+if (hasStoredUserShows()) void hydrateUserShows((key) => Object.hasOwn(lightShowRegistryV2, key))
 
 export { lngLightShow } from './lng'
 export { tankerLightShow } from './tanker'
