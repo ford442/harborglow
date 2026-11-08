@@ -43,6 +43,8 @@ class LightingSystem {
    * which cue is resolved, never the clock, so nothing in the sim moves.
    */
   private previewBeat: number | null = null
+  /** Light-show desk preview (#236): while set, `update` does not clobber the cue. */
+  private previewing = false
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
   /** Per-rig-group cue state for the show ship, resolved in update(). */
   private groupStates = Object.fromEntries(
@@ -91,6 +93,27 @@ class LightingSystem {
   getPreviewBeat(): number | null {
     return this.previewBeat
   }
+  /**
+   * Light-show desk preview: resolve `show` at `elapsedBeats` and hold it,
+   * independent of any running show or ship. Lights every ship until cleared.
+   */
+  setPreview(show: LightShowV2, elapsedBeats: number) {
+    this.previewing = true
+    if (show.cues.length === 0) {
+      this.activeCue = null
+      this.cueState = null
+      return
+    }
+    const beatInLoop = elapsedBeats % show.loopBeats
+    const active = this.resolveCue(show, elapsedBeats)
+    this.activeCue = active
+    this.beatPulse = patternPulse(active.pattern, beatInLoop)
+    this.intensityMultiplier = active.intensity
+    this.cueState = { color: active.color, intensity: active.intensity, pattern: active.pattern, pulse: this.beatPulse }
+  }
+  clearPreview() {
+    this.previewing = false
+  }
   endHarborShow() {
     if (this.currentShow.isActive) {
       console.log('🎆 Harbor light show complete!')
@@ -109,6 +132,7 @@ class LightingSystem {
   // UPDATE - Call in useFrame
   // ============================================================================
   update(time: number, bpm: number) {
+    if (this.previewing) return
     // An imported show loops until the override is cleared.
     if (
       this.currentShow.isActive &&
@@ -237,6 +261,7 @@ class LightingSystem {
   // GETTERS for ship components
   // ============================================================================
   getLightIntensity(baseIntensity: number): number {
+    if (this.previewing && this.activeCue) return this.applyCuePattern(baseIntensity, this.activeCue)
     if (!this.currentShow.isActive) return baseIntensity
     if (this.activeCue) {
       return this.applyCuePattern(baseIntensity, this.activeCue)
@@ -245,6 +270,7 @@ class LightingSystem {
     return baseIntensity * this.intensityMultiplier * (1 + quantizedBeat * 0.5)
   }
   getEmissiveColor(baseColor: string, shipId: string): string {
+    if (this.previewing && this.activeCue) return this.activeCue.color
     if (!this.currentShow.isActive || this.currentShow.shipId !== shipId) {
       return baseColor
     }
