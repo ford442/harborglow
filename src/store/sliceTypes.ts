@@ -140,7 +140,6 @@ export type SessionSlice = Pick<
     GameState,
     | 'resetGame'
     | 'loadSavedState'
-    | 'saveAuthoredShow'
 >;
 
 /** WebRTC shared-harbor multiplayer */

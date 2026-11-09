@@ -3,6 +3,10 @@
 // Scrub and playback advance a private audio-clock transport and redraw the
 // canvas. They do not write the store or the sim, so the WebGPU canvas is
 // not asked to re-render.
+//
+// Same store and same preview as the cue editor: shows load from and save to
+// userShows.ts (id `${shipType}-user`), and lights come from
+// lightingSystem.startPreview / setPreviewBeat / stopPreview.
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react'
@@ -12,7 +16,6 @@ import type { ShipType } from '../../store/gameStoreDomainTypes'
 import { useGameStore } from '../../store/useGameStore'
 import { lightingSystem } from '../../systems/lightingSystem'
 import { SHIP_BPM } from '../../systems/lightShows'
-import { getAuthoredShow } from '../../systems/lightShows/authoredShows'
 import {
   QUANTIZE_BEATS,
   copyCueByBar,
@@ -28,6 +31,7 @@ import {
 import { drawCueRoll, hitCue, xToBeat, yToRow, type RollMetrics } from '../../systems/lightShows/cueRoll'
 import { previewClock } from '../../systems/lightShows/previewClock'
 import type { LightCueEasing, LightCuePattern, LightShowV2 } from '../../systems/lightShows/types'
+import { getUserShow, hydrateUserShows, saveUserShow, userShowId } from '../../systems/lightShows/userShows'
 
 const PATTERNS: LightCuePattern[] = ['breathe', 'sweep', 'strobe', 'snap', 'blackout']
 const EASINGS: LightCueEasing[] = ['step', 'linear', 'easeIn', 'easeOut', 'easeInOut']
@@ -40,7 +44,7 @@ interface LightShowDeskProps {
 
 export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps) {
   const [expanded, setExpanded] = useState(false)
-  const [show, setShow] = useState<LightShowV2>(() => getAuthoredShow(shipType) ?? forkFactoryShow(shipType) ?? emptyShow(shipType))
+  const [show, setShow] = useState<LightShowV2>(() => getUserShow(shipType) ?? forkedShow(shipType))
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [quantizeId, setQuantizeId] = useState<QuantizeId>('1/4')
   const [pattern, setPattern] = useState<LightCuePattern>('breathe')
@@ -48,7 +52,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
   const [intensity, setIntensity] = useState(0.8)
   const [easing, setEasing] = useState<LightCueEasing>('step')
   const [playing, setPlaying] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved] = useState(() => !!getUserShow(shipType))
 
   const boothRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -61,6 +65,10 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
   const quantumRef = useRef<number>(QUANTIZE_BEATS['1/4'])
   const toolRef = useRef({ pattern, color, intensity, easing })
   const drawRef = useRef<() => void>(() => {})
+  /** This desk started the lighting preview and must stop it. */
+  const previewOwnedRef = useRef(false)
+  /** The player has changed the show since it opened (a late-loading save must not clobber it). */
+  const editedRef = useRef(false)
 
   showRef.current = show
   selectedRef.current = selectedId
@@ -123,7 +131,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
     let frame = 0
     const loop = () => {
       playBeatRef.current = previewClock.beats() % showRef.current.loopBeats
-      lightingSystem.setPreview(showRef.current, playBeatRef.current)
+      if (ensurePreview()) lightingSystem.setPreviewBeat(playBeatRef.current)
       drawRef.current()
       frame = requestAnimationFrame(loop)
     }
@@ -131,17 +139,50 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
     return () => cancelAnimationFrame(frame)
   }, [playing])
 
+  // Live edits reach the lights; nothing else touches the preview's show.
+  useEffect(() => {
+    if (previewOwnedRef.current) lightingSystem.setPreviewShow(show)
+  }, [show])
+
+  // A saved show that was still loading when the desk opened replaces the
+  // starting fork, unless the player already started editing.
+  useEffect(() => {
+    let cancelled = false
+    void hydrateUserShows().then(() => {
+      const stored = getUserShow(shipType)
+      if (cancelled || editedRef.current || !stored) return
+      setShow(stored)
+      setSaved(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [shipType])
+
   useEffect(() => () => {
     previewClock.pause()
-    lightingSystem.clearPreview()
+    if (previewOwnedRef.current) lightingSystem.stopPreview()
+    previewOwnedRef.current = false
   }, [])
+
+  /** Start (once) the lighting preview of this desk's show on the selected ship. False while a shared show plays. */
+  function ensurePreview(): boolean {
+    if (previewOwnedRef.current) return true
+    const store = useGameStore.getState()
+    const current = store.ships.find((ship) => ship.id === store.currentShipId)
+    const shipId = current?.type === shipType
+      ? current.id
+      : store.ships.find((ship) => ship.type === shipType)?.id ?? `desk-preview:${shipType}`
+    previewOwnedRef.current = lightingSystem.startPreview(shipId, shipType, showRef.current)
+    return previewOwnedRef.current
+  }
 
   function seek(beat: number) {
     const q = Math.min(showRef.current.loopBeats, Math.max(0, beat))
     playBeatRef.current = q
     previewClock.scrub(q)
     if (playingRef.current) previewClock.play(q, SHIP_BPM[shipType])
-    lightingSystem.setPreview(showRef.current, q)
+    if (ensurePreview()) lightingSystem.setPreviewBeat(q)
     redraw()
   }
 
@@ -182,7 +223,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
       intensity: tool.intensity,
       easing: tool.easing,
     }))
-    setSaved(false)
+    markEdited()
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -202,11 +243,16 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
     const drag = dragRef.current
     if (drag?.kind === 'stretch' && stretchRef.current) {
       setShow(stretchCue(showRef.current, stretchRef.current.id, quantizeBeatSafe(stretchRef.current.lengthBeats)))
-      setSaved(false)
+      markEdited()
     }
     dragRef.current = null
     stretchRef.current = null
     redraw()
+  }
+
+  function markEdited() {
+    editedRef.current = true
+    setSaved(false)
   }
 
   function quantizeBeatSafe(beat: number): number {
@@ -218,7 +264,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
   function patchSelected(patch: Parameters<typeof updateCue>[2]) {
     if (!selectedId) return
     setShow(updateCue(show, selectedId, patch))
-    setSaved(false)
+    markEdited()
   }
 
   function togglePlay() {
@@ -228,6 +274,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
       return
     }
     previewClock.play(playBeatRef.current, SHIP_BPM[shipType])
+    ensurePreview()
     setPlaying(true)
   }
 
@@ -235,27 +282,26 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
     <div style={toolRow}>
       <button type="button" style={toolBtn} onClick={togglePlay}>{playing ? 'Pause' : 'Play'}</button>
       <button type="button" style={toolBtn} onClick={() => {
-        const next = forkFactoryShow(shipType)
-        if (!next) return
+        const next = forkedShow(shipType)
         setShow(next)
         setSelectedId(null)
-        setSaved(false)
+        markEdited()
       }}>Fork</button>
       <button type="button" style={toolBtn} disabled={!selectedId} onClick={() => {
         if (!selectedId) return
         setShow(copyCueByBar(show, selectedId))
-        setSaved(false)
+        markEdited()
       }}>Copy bar</button>
       <button type="button" style={toolBtn} disabled={!selectedId} onClick={() => {
         if (!selectedId) return
         setShow(quantizeCue(show, selectedId, quantumRef.current))
-        setSaved(false)
+        markEdited()
       }}>Quantize</button>
       <button type="button" style={toolBtn} disabled={!selectedId} onClick={() => {
         if (!selectedId) return
         setShow(deleteCue(show, selectedId))
         setSelectedId(null)
-        setSaved(false)
+        markEdited()
       }}>Delete</button>
       {QUANTIZE_IDS.map((id) => (
         <button key={id} type="button" style={id === quantizeId ? toolBtnOn : toolBtn} onClick={() => setQuantizeId(id)}>{id}</button>
@@ -288,8 +334,7 @@ export default function LightShowDesk({ shipType, onClose }: LightShowDeskProps)
       ))}
       <Curve easing={easing} />
       <button type="button" style={toolBtnOn} onClick={() => {
-        useGameStore.getState().saveAuthoredShow(show)
-        setSaved(true)
+        void saveUserShow(shipType, show).then((ok) => setSaved(ok))
       }}>{saved ? 'Saved' : 'Save'}</button>
     </div>
   )
@@ -369,8 +414,10 @@ function localPoint(canvas: HTMLCanvasElement, event: ReactPointerEvent<HTMLCanv
   return { x: event.clientX - rect.left, y: event.clientY - rect.top }
 }
 
-function emptyShow(shipType: ShipType): LightShowV2 {
-  return { v: 2, id: shipType, loopBeats: 32, cues: [] }
+/** A copy of the factory show carrying the user-show id, so the desk and the cue editor edit the same document. */
+function forkedShow(shipType: ShipType): LightShowV2 {
+  const fork = forkFactoryShow(shipType)
+  return fork ? { ...fork, id: userShowId(shipType) } : { v: 2, id: userShowId(shipType), loopBeats: 32, cues: [] }
 }
 
 const boothStyle: CSSProperties = {

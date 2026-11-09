@@ -15,7 +15,6 @@ import {
   stretchCue,
 } from './cueEdit'
 import { hitCue, xToBeat, yToRow, type RollMetrics } from './cueRoll'
-import { acceptAuthoredShows } from './authoredShows'
 
 describe('cue editor', () => {
   it('forks a factory show with stable ids and the same schedule', () => {
@@ -84,16 +83,5 @@ describe('cue editor', () => {
     expect(yToRow(metrics, 10)).toBeNull()
     expect(hitCue(show, metrics, x, y)?.cue.id).toBe(cue.id)
     expect(xToBeat(metrics, x)).toBeGreaterThan(cue.beat)
-  })
-
-  it('drops authored saves that fail the schema or name the wrong ship', () => {
-    const fork = forkFactoryShow('tanker')!
-    const accepted = acceptAuthoredShows(
-      { tanker: fork, cruise: { ...fork, id: 'tanker' }, nope: fork },
-      parseLightShow,
-    )
-    expect(accepted.tanker?.id).toBe('tanker')
-    expect(accepted.cruise).toBeUndefined()
-    expect(Object.keys(accepted)).toEqual(['tanker'])
   })
 })

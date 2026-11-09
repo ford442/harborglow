@@ -23,7 +23,7 @@ import { useGameStore } from '../useGameStore'
 import { getSerializableState } from '../gameStoreTypes'
 import type { Ship } from '../gameStoreTypes'
 import { forkFactoryShow } from '../../systems/lightShows/cueEdit'
-import { getAuthoredShow } from '../../systems/lightShows/authoredShows'
+import { USER_SHOWS_KEY, getPendingLegacyShows, getUserShow, resetUserShowsMemory, saveUserShow } from '../../systems/lightShows/userShows'
 
 /** The debounce inside scheduleSave; tests drive it with fake timers. */
 const SAVE_DEBOUNCE_MS = 500
@@ -210,16 +210,111 @@ describe('install metrics', () => {
 
     expect(useGameStore.getState().installedUpgrades).toHaveLength(2)
   })
+  describe('light shows (one store: userShows.ts)', () => {
+    let data: Map<string, string>
 
-  it('persists a forked light show on the v4 payload', () => {
-    const fork = forkFactoryShow('cruise')
-    expect(fork).not.toBeNull()
-    useGameStore.getState().saveAuthoredShow(fork!)
-    const payload = flushSave() as { authoredShows?: Record<string, { id: string; cues: { id: string }[] }> } | null
-    expect(payload?.authoredShows?.cruise.cues[0].id).toBe('cruise:fork:0')
-    expect(getAuthoredShow('cruise')?.id).toBe('cruise')
-    const serialized = getSerializableState(useGameStore.getState()).authoredShows as Record<string, { id: string }>
-    expect(serialized.cruise.id).toBe('cruise')
+    beforeEach(() => {
+      resetUserShowsMemory()
+      data = new Map()
+      ;(globalThis as { localStorage?: unknown }).localStorage = {
+        getItem: (k: string) => data.get(k) ?? null,
+        setItem: (k: string, v: string) => void data.set(k, v),
+        removeItem: (k: string) => void data.delete(k),
+      }
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+    afterEach(() => {
+      loadGameState.mockReset() // the next test's resetGame() would otherwise "rescue" this save's shows
+      resetUserShowsMemory()
+      delete (globalThis as { localStorage?: unknown }).localStorage
+      vi.restoreAllMocks()
+    })
+
+    /** What a desk-era save held: the fork under `authoredShows`, with the ship type as its id. */
+    const legacySave = () => ({
+      ships: [],
+      craneUpgrades: [],
+      authoredShows: { cruise: forkFactoryShow('cruise')!, tanker: forkFactoryShow('tanker')! },
+    })
+
+    it('keeps light shows out of the save', async () => {
+      await saveUserShow('cruise', forkFactoryShow('cruise')!)
+      const payload = flushSave() as Record<string, unknown> | null
+      expect(payload?.authoredShows).toBeUndefined()
+      expect('authoredShows' in useGameStore.getState()).toBe(false)
+      expect('saveAuthoredShow' in useGameStore.getState()).toBe(false)
+      expect(getUserShow('cruise')?.id).toBe('cruise-user')
+    })
+
+    it('migrates desk shows from a legacy save on load, and the save stops carrying them', async () => {
+      const legacy = legacySave()
+      loadGameState.mockReturnValue(legacy)
+      useGameStore.getState().loadSavedState()
+
+      // Until the import is persisted, an autosave still carries them (nothing can be lost in the gap).
+      expect((getSerializableState(useGameStore.getState()) as { authoredShows?: unknown }).authoredShows).toBe(legacy.authoredShows)
+
+      await vi.waitFor(() => expect(getPendingLegacyShows()).toBeUndefined()) // import persisted
+      expect(getUserShow('cruise')).toMatchObject({ id: 'cruise-user', loopBeats: legacy.authoredShows.cruise.loopBeats })
+      expect(getUserShow('cruise')?.cues.map((c) => c.id)).toEqual(legacy.authoredShows.cruise.cues.map((c) => c.id))
+      expect(getUserShow('tanker')?.id).toBe('tanker-user')
+      expect(Object.keys(JSON.parse(data.get(USER_SHOWS_KEY)!)).sort()).toEqual(['cruise', 'tanker'])
+
+      useGameStore.getState().addHarborCredits(1, 'test') // any change schedules a save
+      const payload = flushSave() as Record<string, unknown> | null
+      expect(payload).not.toBeNull()
+      expect(payload?.authoredShows).toBeUndefined()
+    })
+
+    it('keeps the legacy copy in the save while the new key cannot be written', async () => {
+      ;(globalThis as { localStorage?: unknown }).localStorage = {
+        getItem: () => null,
+        setItem: () => {
+          throw new DOMException('full', 'QuotaExceededError')
+        },
+        removeItem: () => {},
+      }
+      const legacy = legacySave()
+      loadGameState.mockReturnValue(legacy)
+      useGameStore.getState().loadSavedState()
+      await vi.waitFor(() => expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('could not write'), expect.anything()))
+      expect(getUserShow('cruise')).toBeDefined() // still plays, from memory
+      expect((getSerializableState(useGameStore.getState()) as { authoredShows?: unknown }).authoredShows).toBe(legacy.authoredShows)
+    })
+
+    it('New Game rescues desk shows from the save it is about to clear', async () => {
+      loadGameState.mockReturnValue(legacySave())
+      useGameStore.getState().resetGame()
+      expect(clearSave).toHaveBeenCalled()
+      await vi.waitFor(() => expect(getPendingLegacyShows()).toBeUndefined())
+      expect(getUserShow('tanker')?.id).toBe('tanker-user')
+      expect(data.has(USER_SHOWS_KEY)).toBe(true)
+    })
+
+    it('a show the player saved in the cue editor wins over the same ship’s legacy desk show', async () => {
+      const mine = { ...forkFactoryShow('cruise')!, loopBeats: 16, cues: [] as never[] }
+      await saveUserShow('cruise', mine)
+      loadGameState.mockReturnValue(legacySave())
+      useGameStore.getState().loadSavedState()
+      await vi.waitFor(() => expect(getPendingLegacyShows()).toBeUndefined())
+      expect(getUserShow('tanker')).toBeDefined()
+      expect(getUserShow('cruise')?.loopBeats).toBe(16)
+    })
+
+    it('is a no-op for saves without desk shows and for reloads of an already migrated save', async () => {
+      loadGameState.mockReturnValue({ ships: [], craneUpgrades: [] })
+      useGameStore.getState().loadSavedState()
+      expect(getUserShow('cruise')).toBeUndefined()
+      expect(data.has(USER_SHOWS_KEY)).toBe(false)
+
+      loadGameState.mockReturnValue(legacySave())
+      useGameStore.getState().loadSavedState()
+      await vi.waitFor(() => expect(getPendingLegacyShows()).toBeUndefined())
+      const stored = data.get(USER_SHOWS_KEY)
+      useGameStore.getState().loadSavedState() // same legacy blob again
+      await vi.advanceTimersByTimeAsync(10)
+      expect(data.get(USER_SHOWS_KEY)).toBe(stored)
+    })
   })
 })
 

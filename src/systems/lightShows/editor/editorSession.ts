@@ -160,25 +160,23 @@ export function createEditorSession({ shipType, shipId }: SessionOptions): Edito
   const get = store.getState
   const set = store.setState
 
-  /** True while this session owns lightingSystem's override / active show. */
+  /** True while this session owns lightingSystem's preview. */
   let ownsShow = false
 
   const base = () => get().history.draft
   const draft = () => get().transient ?? get().history.draft
 
   function pushToLighting() {
-    if (ownsShow) lightingSystem.setShowOverride(draft().show)
+    if (ownsShow) lightingSystem.setPreviewShow(draft().show)
   }
 
   /** Start the draft playing (idempotent). False when something else owns the show. */
   function acquireShow(): boolean {
     if (ownsShow) return true
-    if (isSharedPlaybackActive() || lightingSystem.hasShowOverride()) {
+    if (isSharedPlaybackActive() || !lightingSystem.startPreview(get().shipId, shipType, draft().show)) {
       set({ status: 'A shared show is playing — leave it to edit playback' })
       return false
     }
-    lightingSystem.setShowOverride(draft().show)
-    lightingSystem.startHarborShow(get().shipId, shipType)
     ownsShow = true
     return true
   }
@@ -186,8 +184,7 @@ export function createEditorSession({ shipType, shipId }: SessionOptions): Edito
   function releaseShow() {
     if (!ownsShow) return
     ownsShow = false
-    lightingSystem.setPreviewBeat(null)
-    lightingSystem.setShowOverride(null)
+    lightingSystem.stopPreview()
     musicSystem.stopMusic(shipType)
   }
 

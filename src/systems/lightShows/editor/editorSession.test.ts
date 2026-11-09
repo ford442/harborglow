@@ -159,7 +159,8 @@ describe('playback', () => {
   it('plays the draft through lightingSystem, follows edits live, and releases on stop', () => {
     const s = open()
     s.play()
-    expect(lightingSystem.hasShowOverride()).toBe(true)
+    expect(lightingSystem.isPreviewing()).toBe(true)
+    expect(lightingSystem.hasShowOverride()).toBe(false) // a preview is not a share-link override
     expect(lightingSystem.isShowActive()).toBe(true)
     expect(s.store.getState().playing).toBe(true)
 
@@ -170,7 +171,7 @@ describe('playback', () => {
     expect(id).toBeTruthy()
 
     s.stop()
-    expect(lightingSystem.hasShowOverride()).toBe(false)
+    expect(lightingSystem.isPreviewing()).toBe(false)
     expect(lightingSystem.isShowActive()).toBe(false)
     expect(s.store.getState().playing).toBe(false)
   })

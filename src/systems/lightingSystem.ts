@@ -38,13 +38,18 @@ class LightingSystem {
   /** Imported show (share link / .hgshow) that replaces the preset; plays until cleared. */
   private showOverride: LightShowV2 | null = null
   /**
-   * Cue-editor scrub position (loop-relative beats). While set, update() reads
-   * cues at this beat instead of elapsed sim time. Visual only: it changes
-   * which cue is resolved, never the clock, so nothing in the sim moves.
+   * THE preview (desk and cue editor): a draft show that plays on one ship in
+   * place of its saved/factory show, until stopPreview(). Separate from the
+   * share-link override so previewing can never be mistaken for imported playback.
+   */
+  private previewShow: LightShowV2 | null = null
+  private previewShipId: string | null = null
+  /**
+   * Preview position (loop-relative beats). While set, update() reads cues at
+   * this beat instead of elapsed sim time. Visual only: it changes which cue is
+   * resolved, never the clock, so nothing in the sim moves.
    */
   private previewBeat: number | null = null
-  /** Light-show desk preview (#236): while set, `update` does not clobber the cue. */
-  private previewing = false
   private cueState: { color: string; intensity: number; pattern: LightCuePattern; pulse: number } | null = null
   /** Per-rig-group cue state for the show ship, resolved in update(). */
   private groupStates = Object.fromEntries(
@@ -56,7 +61,7 @@ class LightingSystem {
   // ============================================================================
   startHarborShow(shipId: string, shipType: ShipType) {
     const bpm = SHIP_BPM[shipType] ?? 128
-    const show = this.showOverride ?? resolveShowForShip(shipType)
+    const show = this.showFor(shipId, shipType)
     // End on a loop boundary, not mid-phrase. Ending is checked against sim time
     // in update(), so it is deterministic (the Harbor Festival waits on it).
     const loopMs = show ? show.loopBeats * (60 / bpm) * 1000 : 0
@@ -74,18 +79,52 @@ class LightingSystem {
     console.log(`   Duration: ${(duration / 1000).toFixed(1)} seconds`)
     console.log('   All LEDs, funnels, deck lights PULSING to beat!')
   }
-  /** Install (or clear with null) a show that replaces the factory preset. */
+  /**
+   * The show `shipId` plays: its preview draft, else a share-link override,
+   * else the player's saved show, else the factory preset. A share link beats a
+   * saved show; nothing can start a preview while one is installed.
+   */
+  private showFor(shipId: string | null, shipType: ShipType | null): LightShowV2 | undefined {
+    if (this.previewShow && shipId !== null && shipId === this.previewShipId) return this.previewShow
+    return this.showOverride ?? (shipType ? resolveShowForShip(shipType) : undefined)
+  }
+  /** Install (or clear with null) an imported show (share link / .hgshow) that replaces the saved one. */
   setShowOverride(show: LightShowV2 | null) {
     this.showOverride = show
     if (!show) this.endHarborShow()
   }
-  /** An override (share link or cue-editor play) is installed. */
+  /** A share-link override is installed. */
   hasShowOverride(): boolean {
     return this.showOverride !== null
   }
+  // ============================================================================
+  // PREVIEW — one API for the cabin desk and the cue editor
+  // ============================================================================
   /**
-   * Hold the playing show at `beat` (cue-editor scrub / preview), or resume
-   * normal playback with null. Needs an active show; ending the show clears it.
+   * Play `show` (a draft) on `shipId` in place of its saved show, looping until
+   * stopPreview(). Starts the ship's harbor show, so its rig groups light too.
+   * Returns false, changing nothing, while a share-link show is installed.
+   */
+  startPreview(shipId: string, shipType: ShipType, show: LightShowV2): boolean {
+    if (this.showOverride) return false
+    this.previewShow = show
+    this.previewShipId = shipId
+    this.previewBeat = null
+    this.groupStatesValid = false
+    this.startHarborShow(shipId, shipType)
+    return true
+  }
+  /** Replace the draft being previewed (live edits). No-op unless a preview is running. */
+  setPreviewShow(show: LightShowV2) {
+    if (this.previewShow) this.previewShow = show
+  }
+  /** A preview is running. */
+  isPreviewing(): boolean {
+    return this.previewShow !== null
+  }
+  /**
+   * Hold the preview at `beat` (scrub), or follow the sim clock again with null.
+   * Needs an active show; ending the show clears it.
    */
   setPreviewBeat(beat: number | null) {
     this.previewBeat = beat !== null && Number.isFinite(beat) ? Math.max(0, beat) : null
@@ -93,26 +132,10 @@ class LightingSystem {
   getPreviewBeat(): number | null {
     return this.previewBeat
   }
-  /**
-   * Light-show desk preview: resolve `show` at `elapsedBeats` and hold it,
-   * independent of any running show or ship. Lights every ship until cleared.
-   */
-  setPreview(show: LightShowV2, elapsedBeats: number) {
-    this.previewing = true
-    if (show.cues.length === 0) {
-      this.activeCue = null
-      this.cueState = null
-      return
-    }
-    const beatInLoop = elapsedBeats % show.loopBeats
-    const active = this.resolveCue(show, elapsedBeats)
-    this.activeCue = active
-    this.beatPulse = patternPulse(active.pattern, beatInLoop)
-    this.intensityMultiplier = active.intensity
-    this.cueState = { color: active.color, intensity: active.intensity, pattern: active.pattern, pulse: this.beatPulse }
-  }
-  clearPreview() {
-    this.previewing = false
+  /** End the preview and the show it started. No-op when none is running. */
+  stopPreview() {
+    if (!this.previewShow) return
+    this.endHarborShow()
   }
   endHarborShow() {
     if (this.currentShow.isActive) {
@@ -125,6 +148,8 @@ class LightingSystem {
     this.cueState = null
     this.groupStatesValid = false
     this.previewBeat = null
+    this.previewShow = null
+    this.previewShipId = null
     this.beatPulse = 0
     this.intensityMultiplier = 1.0
   }
@@ -132,11 +157,11 @@ class LightingSystem {
   // UPDATE - Call in useFrame
   // ============================================================================
   update(time: number, bpm: number) {
-    if (this.previewing) return
-    // An imported show loops until the override is cleared.
+    // An imported show or a preview loops until it is cleared.
     if (
       this.currentShow.isActive &&
       !this.showOverride &&
+      !this.previewShow &&
       simNowMs() - this.currentShow.startTime >= this.currentShow.duration
     ) {
       this.endHarborShow()
@@ -147,8 +172,15 @@ class LightingSystem {
       const effectiveBpm = this.currentShow.bpm || bpm
       const beatDuration = 60 / effectiveBpm
       const genericPulse = (Math.sin(time * (Math.PI * 2 / beatDuration)) + 1) / 2
-      const show = this.showOverride ?? (this.currentShow.shipType ? resolveShowForShip(this.currentShow.shipType) : undefined)
-      if (show && show.cues.length > 0) {
+      const show = this.showFor(this.currentShow.shipId, this.currentShow.shipType)
+      if (this.previewShow && this.previewShipId === this.currentShow.shipId && this.previewShow.cues.length === 0) {
+        // An empty draft is dark, not the generic rainbow of a ship with no show.
+        this.activeCue = null
+        this.cueState = null
+        this.groupStatesValid = false
+        this.beatPulse = 0
+        this.intensityMultiplier = 1.0
+      } else if (show && show.cues.length > 0) {
         const elapsedBeats = this.previewBeat ?? (elapsed / 1000) / beatDuration
         const beatInLoop = elapsedBeats % show.loopBeats
         const active = this.resolveCue(show, elapsedBeats)
@@ -261,7 +293,6 @@ class LightingSystem {
   // GETTERS for ship components
   // ============================================================================
   getLightIntensity(baseIntensity: number): number {
-    if (this.previewing && this.activeCue) return this.applyCuePattern(baseIntensity, this.activeCue)
     if (!this.currentShow.isActive) return baseIntensity
     if (this.activeCue) {
       return this.applyCuePattern(baseIntensity, this.activeCue)
@@ -270,13 +301,13 @@ class LightingSystem {
     return baseIntensity * this.intensityMultiplier * (1 + quantizedBeat * 0.5)
   }
   getEmissiveColor(baseColor: string, shipId: string): string {
-    if (this.previewing && this.activeCue) return this.activeCue.color
     if (!this.currentShow.isActive || this.currentShow.shipId !== shipId) {
       return baseColor
     }
     if (this.activeCue) {
       return this.activeCue.color
     }
+    if (this.previewShow) return baseColor // an empty draft is dark, not the no-show rainbow
     const hue = (simNowMs() / 1000 * 60) % 360
     return `hsl(${hue}, 100%, 60%)`
   }

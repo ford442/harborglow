@@ -19,7 +19,7 @@ import type { WaveParams } from '../systems/WaveSystem'
 import { AcousticNote } from '../systems/commsSystem'
 import { isSharedPlaybackActive } from '../systems/share/sharedPlaybackState'
 import { getCraneKinematics } from '../systems/crane/craneKinematics'
-import type { LightShowV2 } from '../systems/lightShows/types'
+import { getPendingLegacyShows } from '../systems/lightShows/userShows'
 
 // =============================================================================
 // TYPES - HarborGlow Game State
@@ -39,7 +39,6 @@ import {
   CameraMode,
   CabinViewMode,
   GameMode,
-  ShipType,
   OperationMode,
   HarborEventType,
   Season,
@@ -270,11 +269,8 @@ export interface GameState extends SerializableState {
     endSpectatorMode: () => void
     setTimeOfDay: (hour: number) => void
     setCameraMode: (mode: CameraMode) => void
-    /** Forked light shows, keyed by ship type. Optional on old v4 saves. */
-    authoredShows: Partial<Record<ShipType, LightShowV2>>
     resetGame: () => void
     loadSavedState: () => void
-    saveAuthoredShow: (show: LightShowV2) => void
     scheduleDeparture: (shipId: string) => void
     returnToDock: (shipId: string) => void
     upgradeShipVersion: (shipId: string) => Promise<void>  // Full Structural Overhaul
@@ -440,7 +436,6 @@ export const defaultState: Omit<GameState, GameStateActionKey> = {
     season: 'summer' as Season,
     wildlifeDensity: 0.6,
     enableMarineLife: true,
-    authoredShows: {},
     walkingPosition: [2, 0.2, 7],
     walkingVelocity: [0, 0, 0],
     walkingSpawnPoint: [2, 0.2, 7],
@@ -666,7 +661,10 @@ export const getSerializableState = (state: GameState): StorageGameState => ({
     season: state.season,
     wildlifeDensity: state.wildlifeDensity,
     enableMarineLife: state.enableMarineLife,
-    authoredShows: state.authoredShows,
+    // Light shows live in userShows.ts, not the save. Only desk shows from an
+    // older save that are not yet persisted there ride along, so no autosave
+    // can drop them mid-migration; the field vanishes once they are safe.
+    authoredShows: getPendingLegacyShows(),
 })
 
 export const scheduleSave = (state: GameState) => {

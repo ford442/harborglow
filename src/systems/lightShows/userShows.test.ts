@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { lightShowRegistryV2 } from './index'
 import { forkShow, moveCue, placeCue } from './editor/editorModel'
+import { forkFactoryShow } from './cueEdit'
 import {
   USER_SHOWS_KEY,
   deleteUserShow,
+  getPendingLegacyShows,
   getUserShow,
   hasUserShow,
   hydrateUserShows,
+  importLegacyAuthoredShows,
   resetUserShowsMemory,
   saveUserShow,
   subscribeUserShows,
@@ -169,5 +172,93 @@ describe('resolveShowForShip', () => {
     expect(resolveShowForShip('tanker')).toBe(getLightShowV2('tanker'))
     await deleteUserShow('cruise')
     expect(resolveShowForShip('cruise')).toBe(getLightShowV2('cruise'))
+  })
+})
+
+// The cabin desk used to keep its shows in the game save (`authoredShows`, id = ship type).
+describe('importLegacyAuthoredShows (desk store -> userShows)', () => {
+  const desk = (ship: 'cruise' | 'tanker' | 'lng') => forkFactoryShow(ship)!
+  const isShip = (k: string) => Object.hasOwn(lightShowRegistryV2, k)
+
+  it('turns desk shows into user shows, keeping cues and normalising the id', async () => {
+    const { data } = installStorage()
+    const raw = { cruise: desk('cruise'), tanker: desk('tanker') }
+    const done = importLegacyAuthoredShows(raw, isShip)
+    expect(getPendingLegacyShows()).toBe(raw) // the save keeps carrying them until they are safe
+    await done
+    expect(getPendingLegacyShows()).toBeUndefined()
+    expect(getUserShow('cruise')).toEqual({ ...desk('cruise'), id: 'cruise-user' })
+    expect(getUserShow('tanker')?.id).toBe('tanker-user')
+    expect(Object.keys(JSON.parse(data.get(USER_SHOWS_KEY)!)).sort()).toEqual(['cruise', 'tanker'])
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('a show already saved for the ship wins (the cue editor outranked the desk before the merge)', async () => {
+    installStorage()
+    await saveUserShow('cruise', { ...cruiseDraft().show, loopBeats: 16, cues: [] })
+    await importLegacyAuthoredShows({ cruise: desk('cruise'), tanker: desk('tanker') }, isShip)
+    expect(getUserShow('cruise')?.loopBeats).toBe(16)
+    expect(getUserShow('tanker')?.id).toBe('tanker-user')
+  })
+
+  it('also merges into shows that are still only in storage (no hydrate() call first)', async () => {
+    const tanker = forkShow('tanker', lightShowRegistryV2.tanker).show
+    const { data } = installStorage({ [USER_SHOWS_KEY]: JSON.stringify({ tanker }) })
+    await importLegacyAuthoredShows({ cruise: desk('cruise'), tanker: desk('tanker') }, isShip)
+    expect(getUserShow('tanker')).toEqual(tanker)
+    expect(Object.keys(JSON.parse(data.get(USER_SHOWS_KEY)!)).sort()).toEqual(['cruise', 'tanker'])
+  })
+
+  it('drops entries that fail the schema, name another ship or an unknown ship — with warnings, never a throw', async () => {
+    installStorage()
+    const fork = desk('tanker')
+    await expect(
+      importLegacyAuthoredShows(
+        {
+          tanker: fork,
+          cruise: { ...fork, id: 'tanker' }, // wrong ship
+          lng: { ...desk('lng'), loopBeats: -1 }, // fails parseLightShow
+          kraken: fork, // unknown ship
+        },
+        isShip,
+      ),
+    ).resolves.toBeUndefined()
+    expect(Object.keys(JSON.parse(localStorage.getItem(USER_SHOWS_KEY)!))).toEqual(['tanker'])
+    expect(hasUserShow('cruise')).toBe(false)
+    expect(hasUserShow('lng')).toBe(false)
+    expect(warn).toHaveBeenCalledTimes(3)
+    expect(getPendingLegacyShows()).toBeUndefined() // nothing salvageable is left to carry
+  })
+
+  it.each([[undefined], [null], [[]], ['x'], [{}]])('ignores %j', async (raw) => {
+    const { ls } = installStorage()
+    await importLegacyAuthoredShows(raw, isShip)
+    expect(getPendingLegacyShows()).toBeUndefined()
+    expect(ls.setItem).not.toHaveBeenCalled()
+  })
+
+  it('keeps the legacy copy pending while storage fails, and finishes on a later import', async () => {
+    const { ls } = installStorage()
+    ls.setItem.mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError')
+    })
+    const raw = { cruise: desk('cruise') }
+    await importLegacyAuthoredShows(raw, isShip)
+    expect(hasUserShow('cruise')).toBe(true) // plays from memory
+    expect(getPendingLegacyShows()).toBe(raw)
+
+    const data = new Map<string, string>()
+    ls.setItem.mockImplementation((k: string, v: string) => void data.set(k, v)) // storage works again
+    await importLegacyAuthoredShows(raw, isShip) // e.g. the next load of the same save
+    expect(getPendingLegacyShows()).toBeUndefined()
+    expect(Object.keys(JSON.parse(data.get(USER_SHOWS_KEY)!))).toEqual(['cruise'])
+  })
+
+  it('saveUserShow waits for a running import instead of racing it', async () => {
+    const { data } = installStorage()
+    const imported = importLegacyAuthoredShows({ tanker: desk('tanker') }, isShip)
+    expect(await saveUserShow('cruise', cruiseDraft().show)).toBe(true)
+    await imported
+    expect(Object.keys(JSON.parse(data.get(USER_SHOWS_KEY)!)).sort()).toEqual(['cruise', 'tanker'])
   })
 })
