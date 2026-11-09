@@ -101,8 +101,12 @@ export function getLightShowV2(shipType: ShipType): LightShowV2 | undefined {
  * `${shipType}-user`, see userShows.ts) when there is one, else the factory
  * show. A share-link override still wins over both (lightingSystem).
  */
+import { getAuthoredShow } from './authoredShows'
+
 export function resolveShowForShip(shipType: ShipType): LightShowV2 | undefined {
-  return getUserShow(shipType) ?? lightShowRegistryV2[shipType]
+  // Cue-editor saves (#270) win, then light-show desk saves (#236, save-file
+  // backed), then the factory preset. Two stores until they are unified.
+  return getUserShow(shipType) ?? getAuthoredShow(shipType) ?? lightShowRegistryV2[shipType]
 }
 
 // Start loading saved shows as soon as the registry exists, but only when
