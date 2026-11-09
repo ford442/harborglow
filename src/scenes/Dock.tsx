@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect } from 'react'
-import { RigidBody, CylinderCollider } from '@react-three/rapier'
+import { CylinderCollider } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useAudioData } from '../systems/audioVisualSync'

@@ -66,4 +66,22 @@ export default tseslint.config(
       }],
     },
   },
+
+  // rapier 2.2 applies undefined-valued props and crashes on late-mounted bodies (PR #273).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: '@react-three/rapier',
+          importNames: ['RigidBody'],
+          message: '@react-three/rapier applies undefined props (PR #273); import RigidBody from src/scenes/physics/SafeRigidBody instead.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/scenes/physics/SafeRigidBody.tsx'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
 )

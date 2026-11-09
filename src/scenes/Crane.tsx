@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { useMemo, useRef } from 'react'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import CraneDashboard from '../components/CraneDashboard'

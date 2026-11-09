@@ -13,7 +13,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import type { RapierRigidBody, RigidBodyProps } from '@react-three/rapier'
 import type { Ship } from '../store/useGameStore'
 import { useGameStore } from '../store/useGameStore'

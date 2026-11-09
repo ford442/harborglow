@@ -4,6 +4,9 @@ import { Physics } from '@react-three/rapier'
 import { KeyboardControls } from '@react-three/drei'
 import { Leva } from 'leva'
 import { useGameStore } from './store/useGameStore'
+import { SHIP_TYPES, type ShipType } from './store/gameStoreDomainTypes'
+import { ShipSpawner } from './systems/shipSpawner'
+import { recordHostInput } from './systems/sim/hostInput'
 import {
   createGameRenderer,
   parseScreenshotMode,
@@ -159,6 +162,13 @@ export default function GameShell({
     const debug: {
       captureCanvasPng: () => Promise<{ width: number; height: number; format: string; dataUrl: string } | null>
       forceDeviceLost?: (message?: string) => void
+      shipTypes?: () => readonly string[]
+      spawnShip?: (type: ShipType) => { id: string; name: string }
+      shipCount?: () => number
+      setOperationMode?: (mode: 'crane' | 'tugboat') => void
+      removeShip?: (id: string) => void
+      startFestival?: () => void
+      installCurrentShipUpgrades?: () => number
     } = {
       /** Poster/thumbnail. Same COPY_SRC readback the screenshot hook uses. */
       captureCanvasPng: () => capturePosterPng(rendererRef.current),
@@ -166,6 +176,25 @@ export default function GameShell({
     if (screenshotMode) {
       debug.forceDeviceLost = (message = 'forced by harborglowDebug') =>
         reportWebgpuDeviceLost({ reason: 'unknown', message })
+      // Ship-spawn e2e hooks (e2e/ship-spawn.spec.ts).
+      debug.shipTypes = () => SHIP_TYPES
+      debug.spawnShip = (type) => {
+        const ship = ShipSpawner.spawnShip(type)
+        return { id: ship.id, name: ship.name ?? '' }
+      }
+      debug.shipCount = () => useGameStore.getState().ships.length
+      debug.setOperationMode = (mode) => useGameStore.getState().setOperationMode(mode)
+      debug.removeShip = (id) => useGameStore.getState().removeShip(id)
+      debug.startFestival = () => {
+        recordHostInput('event.festival.start', null)
+      }
+      debug.installCurrentShipUpgrades = () => {
+        const state = useGameStore.getState()
+        const ship = state.ships.find((s) => s.id === state.currentShipId) ?? state.ships[state.ships.length - 1]
+        if (!ship) return 0
+        for (const point of ship.attachmentPoints) state.installUpgrade(ship.id, point.partName)
+        return ship.attachmentPoints.length
+      }
     }
     ;(window as unknown as { harborglowDebug?: typeof debug }).harborglowDebug = debug
     return () => {
