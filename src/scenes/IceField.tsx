@@ -5,7 +5,8 @@
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { CuboidCollider, RigidBody } from '@react-three/rapier'
+import { CuboidCollider } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import { useGameStore } from '../store/useGameStore'
 import {
   iceFieldSystem,

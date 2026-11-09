@@ -6,7 +6,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { RigidBody } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import type { RapierRigidBody } from '@react-three/rapier'
 import { useGameStore, ShipType } from '../store/useGameStore'
 import { ProceduralShip } from './ProceduralShip'

@@ -1,4 +1,5 @@
-import { CuboidCollider, RigidBody } from '@react-three/rapier'
+import { CuboidCollider } from '@react-three/rapier'
+import { RigidBody } from './physics/SafeRigidBody'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
