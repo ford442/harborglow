@@ -46,7 +46,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     override render() {
         if (this.state.hasError) {
             return (
-                <div style={containerStyle}>
+                <div style={containerStyle} data-testid="error-boundary">
                     <div style={contentStyle}>
                         {/* Error icon */}
                         <div style={iconContainerStyle}>

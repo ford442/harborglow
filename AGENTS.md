@@ -453,6 +453,11 @@ Root files:
 11. Verify moon phase display in time system.
 12. **Playwright E2E (local):** `npm run build && npm run test:e2e` — menu → New Game → WebGPU probe overlay on SwiftShader (no GL harbor). Harbor pixel snapshots are deferred until WebGL restore or a WebGPU CI runner. See `e2e/webgpu-probe.spec.ts`.
 
+### Rapier RigidBody and the ship-spawn spec (#274)
+- **Import `RigidBody` from `src/scenes/physics/SafeRigidBody`, never from `@react-three/rapier`** (`no-restricted-imports`; other rapier exports are fine). Rapier 2.2 applies every prop whose key is present, so `enabledRotations={undefined}` crashed late-mounted bodies (PR #273). The wrapper drops `undefined`-valued keys (not `null`/`false`). Limitation: a prop going from a value to `undefined` keeps its old value in rapier.
+- With `?screenshot=1` only, `window.harborglowDebug` also has `shipTypes()`, `spawnShip(type)` → `{ id, name }`, `shipCount()`, `setOperationMode('crane'|'tugboat')`, `removeShip(id)`, `startFestival()`, `installCurrentShipUpgrades()`.
+- `e2e/ship-spawn.spec.ts` spawns every ship type, switches modes and removes a ship, asserting no `error-boundary` testid and no `is not iterable` console error. `PLAYWRIGHT_WEBGPU=1` enables it; `PLAYWRIGHT_FESTIVAL=1` (plus `PLAYWRIGHT_WEBGPU=1`) adds the festival act-2 leg (~10 min). It skips in CI: run it on a GPU machine before touching `Ship.tsx`, `harborFestival.ts`, or the rapier version.
+
 ## Deployment
 
 The project includes a Python deployment script (`deploy.py`) that zips `dist/` and uploads it
