@@ -16,11 +16,10 @@ interprets it at play time, ships three native V2 factory shows and the Harbor F
 | `src/systems/lightShows/index.ts` | `lightShowRegistry` (V1), `authoredShowsV2`, and `lightShowRegistryV2` (native V2 where authored, else migrated once at module load) |
 | `src/systems/lightShows/rigGroups.ts` | Attachment point → rig group mapping, `getRigGroups(shipType)` |
 | `src/systems/lightShows/cueEdit.ts` | Piano-roll edits on a `LightShowV2` (fork, place, update). Pure |
-| `src/systems/lightShows/authoredShows.ts` | Player forks keyed by ship type; lighting prefers these over the factory preset |
 | `src/systems/lightShows/perform.ts` / `performLog.ts` | Pad and gesture cues, scored into the sim hash |
-| `src/components/operatorCabin/LightShowDesk.tsx` | Lazy booth piano roll and preview overlay |
+| `src/components/operatorCabin/LightShowDesk.tsx` | Lazy booth piano roll and preview overlay. Loads and saves through `userShows.ts`, previews through `lightingSystem.startPreview` |
 | `src/schemas/lightShow.ts` | valibot `parseLightShow()` for untrusted input. **Lazy-load only** (`await import(...)`) |
-| `src/systems/lightShows/userShows.ts` | The player's saved show per ship (own `localStorage` key); `resolveShowForShip()` in `index.ts` = user show ?? factory show |
+| `src/systems/lightShows/userShows.ts` | **The one store** of player-authored shows, one per ship (own `localStorage` key), used by the cabin desk and the cue editor; `resolveShowForShip()` in `index.ts` = user show ?? factory show. Also `importLegacyAuthoredShows()` (one-time migration of the desk's old save-file store) |
 | `src/systems/lightShows/editor/` | Cue editor logic, no React: `editorModel.ts` (pure draft operations + history), `editorSession.ts` (vanilla store + lighting/music side effects), `timelineGeometry.ts` (canvas hit-testing), `shareDraft.ts` |
 | `src/components/lightShowEditor/` | The cue editor UI — a `React.lazy` chunk opened from the operator cabin |
 
@@ -63,7 +62,7 @@ group idles dim, and a `blackout` cue takes it nearly dark. Rigs on other ships,
 **Show length:** at least 30 s, rounded up to a whole number of loops at the ship's BPM
 (cruise: 32 s; fireboat: 3 loops ≈ 37.9 s; icebreaker: 2 loops ≈ 35.6 s). The end is
 checked against sim time in `update()`, not a `setTimeout`, so it replays deterministically.
-An imported show (`setShowOverride`) still loops until it is cleared.
+An imported show (`setShowOverride`) or a preview (`startPreview`) still loops until it is cleared.
 
 ## Native V2 factory presets
 
@@ -167,15 +166,15 @@ is *shortened*, not moved; copies are clipped at the loop end.
 editor is open a capture-phase `keydown` handler stops crane/HUD hotkeys; `keyup` is left
 alone so a key held at open time still releases.
 
-**Playing.** *Play* installs the draft with `lightingSystem.setShowOverride(draft)` and
-starts the ship's show; edits while playing are pushed live. It loops until stopped and,
+**Playing.** *Play* starts the draft with `lightingSystem.startPreview(shipId, shipType, draft)`
+(see **Preview API**); edits while playing are pushed live with `setPreviewShow`. It loops until stopped and,
 with the ♪ toggle, starts the ship's music (`musicSystem.startMusic`, sim-clocked from beat 0
 so it lines up with the lights). The editor refuses to take over a show-link playback.
 Scrubbing and playing only *read* sim time, so neither can change the sim hash
 (`lightingSystemUserShows.test.ts`).
 
 **Saving.** *Save* writes `Record<ShipType, LightShowV2>` to its own key,
-`harborglow:userShows:v1` (see **Save rule**). A user show's id is `${shipType}-user`.
+`harborglow:userShows:v1` (see **Save rule**) — the same store the cabin desk saves to. A user show's id is `${shipType}-user`.
 `resolveShowForShip(shipType)` returns the user show if there is one; `startHarborShow`
 and the per-frame update use it, so every start path (upgrade menu, cinematic, Harbor
 Festival, multiplayer) plays the player's show, with the show duration sized to *its* loop.
@@ -220,36 +219,66 @@ targeted anchor. The pattern-based defaults remain for cues without `fx`.
 
 During a harbor show, pads `1`–`5`, a crane-joystick threshold crossing, and tug-throttle gates fire a cue on the next 1/8 or 1/16. The gesture is `recordHostInput('show.cue', …)`. `applyReplayInput` quantizes from sim time and scores a timing-accuracy plus variety bonus (`economySystem.grantPerformanceBonus`). Weights and the grid live in the Leva folder **Light Show Perform**. The fired sequence is part of `hashSimSnapshot`, so a recorded log replays to the same hash. A fired cue overrides the harbor-wide cue; per-rig-group playback stays on the show timeline.
 
-## Editor
+## Desk
 
 The booth piano roll and full-screen overlay live in `components/operatorCabin/LightShowDesk.tsx`
-(lazy, so they stay out of `menu-eager`). Fork copies a factory show; Save writes
-`authoredShows` on the existing v4 save (the field is optional, so the save version
-does not change). Ship completion plays that fork ahead of the factory preset. A share-link
-override still wins. Preview scrubs a private transport on the `'audio'` clock and does not
-write the sim or the store, so the canvas is not re-rendered by the playhead.
+(lazy, so they stay out of `menu-eager`). It edits the **same document** as the cue editor:
+it opens on the player's saved show for the ship (`getUserShow`) or a fork of the factory
+show, and *Save* calls `saveUserShow` (id `${shipType}-user`), so what is saved in one tool opens in
+the other and plays on the ship's upgrade show. A share-link override still wins. Scrub and play
+advance a private transport on the `'audio'` clock (`previewClock`) and drive the lights through the
+preview API below; they do not write the sim or the game store, so the canvas is not re-rendered
+by the playhead.
+
+## Preview API
+
+One preview, on `lightingSystem`, for both tools:
+
+| Call | Effect |
+|---|---|
+| `startPreview(shipId, shipType, show)` | Play the draft on that ship in place of its saved show, looping until stopped; starts the ship's harbor show so rig groups light. Returns `false` (no change) while a share-link show is installed |
+| `setPreviewShow(show)` | Live edits |
+| `setPreviewBeat(beat \| null)` | Hold the preview at a beat (scrub), or follow the sim clock. Reads sim time, never writes it |
+| `stopPreview()` | Release; ends the show |
+| `isPreviewing()` / `getPreviewBeat()` | State |
+
+A ship plays: its preview draft → a share-link override (`setShowOverride`, share links only) →
+the player's saved show → the factory show. An empty draft previews dark. `endHarborShow()` clears
+the preview, so a reset can never leave one behind. The old desk-only `setPreview` /
+`clearPreview` (which lit every ship through a global flag) are gone.
 
 ## Save rule
 
-Saves hold no light-show data besides optional forks. `loadGameState()` returns `null` on **any**
-version mismatch, so bumping `VERSION` in `storage_manager.ts` wipes every save.
-`authoredShows` is an optional v4 field (forked shows keyed by ship type). Missing
-on older v4 saves, and `loadGameState` still accepts those. Do not bump `VERSION`
-until `loadGameState` migrates instead of returning `null`. Loaded shows go through
-the lazy `parseLightShow` schema.
-The game save holds no light-show data, and the cue editor keeps it that way: user shows
-live under their own `localStorage` key, `harborglow:userShows:v1` (`userShows.ts`), so
-there is no `VERSION` bump, `loadGameState` is untouched, and nothing waits on #261.
-`loadGameState()` returns `null` on **any** version mismatch, so bumping `VERSION` in
-`storage_manager.ts` wipes every save — keep it that way until it migrates instead.
+**One store: `userShows.ts`, its own `localStorage` key `harborglow:userShows:v1`, not the game save.**
+The desk and the cue editor used to keep separate stores (the desk's `authoredShows` in the v4
+save, the editor's own key), reconciled only by a lookup order; unifying them meant choosing, and
+the separate key won:
+
+- `loadGameState()` returns `null` on **any** version mismatch, so bumping `VERSION` in
+  `storage_manager.ts` wipes every save — and #261 will change that code. Shows in the save would be
+  hostage to it; a separate key needs no `VERSION` bump and waits on nothing.
+- Shows are authored content, not progress. New Game (`resetGame` → `clearSave`) must not delete them.
+- `userShows.ts` is a leaf module (type-only imports, lazy schema, hydrate-on-demand, stable object
+  identity, `subscribeUserShows`) that `resolveShowForShip` can read from game-initial without
+  pulling in the store. The save would have kept show objects in the zustand store, notified on every
+  edit, and serialised on every autosave.
 
 Everything read from that key is untrusted: each entry goes through `parseLightShow()`
 (loaded with a dynamic `import()`, only when something is stored), and an entry that fails
 — or names an unknown ship — is dropped with one `console.warn`, never thrown. Saving
-validates too, waits for hydration so it cannot overwrite entries that have not loaded
-yet, and falls back to playing from memory when storage is full or blocked. If a later
-change moves user shows into `GameState`, add an **optional** field and read this key once
-as a migration.
+validates too, waits for hydration and for a running legacy import so it cannot overwrite entries
+that have not loaded yet, and falls back to playing from memory when storage is full or blocked.
+
+**Migration (`importLegacyAuthoredShows`).** A save written before the merge carries the desk's
+`authoredShows` (id = the ship type). `loadSavedState()` hands it over, and so does `resetGame()`
+(reading the save it is about to clear — New Game must not eat shows). Each valid entry becomes the
+ship's user show (id `${shipType}-user`); a ship that already has a user show keeps it, since the cue
+editor's show already outranked the desk's. Invalid entries are dropped with a warning. Until the
+result is written to the user-shows key, `getSerializableState()` keeps emitting the raw legacy
+field (`getPendingLegacyShows()`), so an autosave that fires while the lazy schema is still loading —
+or while storage is failing — cannot lose them; once persisted, the next save simply omits the field.
+`storage_manager.ts` still lists `authoredShows?` on its payload type purely as this legacy read.
+The game save otherwise holds no light-show data.
 
 ## Sharing
 

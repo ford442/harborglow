@@ -93,6 +93,7 @@ export function resetDeterministicSystems(opts: { preserveStoreMode?: boolean } 
   weatherSystem.reset()
   trafficSystem.reset()
   wildlifeSystem.reset()
+  lightingSystem.stopPreview()
   lightingSystem.setShowOverride(null)
   harborEventSystem.reset()
   dynamicEventSystem.reset()

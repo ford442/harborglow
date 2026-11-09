@@ -97,16 +97,13 @@ export function getLightShowV2(shipType: ShipType): LightShowV2 | undefined {
 }
 
 /**
- * The show a ship plays: the player's saved cue-editor show (id
- * `${shipType}-user`, see userShows.ts) when there is one, else the factory
- * show. A share-link override still wins over both (lightingSystem).
+ * The show a ship plays: the player's saved show (id `${shipType}-user`; the one
+ * store, userShows.ts — written by the cabin desk and the cue editor alike) when
+ * there is one, else the factory show. A share-link override and a live preview
+ * still win over both (lightingSystem).
  */
-import { getAuthoredShow } from './authoredShows'
-
 export function resolveShowForShip(shipType: ShipType): LightShowV2 | undefined {
-  // Cue-editor saves (#270) win, then light-show desk saves (#236, save-file
-  // backed), then the factory preset. Two stores until they are unified.
-  return getUserShow(shipType) ?? getAuthoredShow(shipType) ?? lightShowRegistryV2[shipType]
+  return getUserShow(shipType) ?? lightShowRegistryV2[shipType]
 }
 
 // Start loading saved shows as soon as the registry exists, but only when

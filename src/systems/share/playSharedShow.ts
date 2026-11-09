@@ -39,6 +39,7 @@ export function startSharedPlayback(doc: ShowDocument): () => void {
   }
   resetDeterministicSystems({ preserveStoreMode: true })
 
+  lightingSystem.stopPreview() // a desk/editor preview must not sit in front of the shared show
   lightingSystem.setShowOverride({ v: 2, id: doc.shipType, loopBeats: doc.loopBeats, cues: doc.cues })
 
   let started = false

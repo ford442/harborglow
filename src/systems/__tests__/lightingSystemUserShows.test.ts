@@ -33,6 +33,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
+  lightingSystem.stopPreview()
   lightingSystem.setShowOverride(null)
   await deleteUserShow('cruise')
   await deleteUserShow('tanker')
@@ -77,7 +78,7 @@ describe('lightingSystem plays the player’s saved show', () => {
     expect(lightingSystem.getCurrentShow().duration).toBe(36000)
   })
 
-  it('an override (share link / editor play) wins over the saved show and loops until cleared', async () => {
+  it('a share-link override wins over the saved show and loops until cleared', async () => {
     await saveUserShow('cruise', allRed('cruise'))
     lightingSystem.setShowOverride(getLightShowV2('cruise')!)
     expect(lightingSystem.hasShowOverride()).toBe(true)
@@ -87,6 +88,16 @@ describe('lightingSystem plays the player’s saved show', () => {
     lightingSystem.setShowOverride(null)
     expect(lightingSystem.hasShowOverride()).toBe(false)
   })
+
+  it('a preview (desk / editor play) wins over the saved show and loops until stopped', async () => {
+    await saveUserShow('cruise', allRed('cruise'))
+    expect(lightingSystem.startPreview('c1', 'cruise', getLightShowV2('cruise')!)).toBe(true)
+    expect(lightingSystem.hasShowOverride()).toBe(false)
+    atBeat(SHIP_BPM.cruise, 2)
+    expect(lightingSystem.getActiveCue()?.id.startsWith('cruise:')).toBe(true)
+    lightingSystem.stopPreview()
+    expect(lightingSystem.isPreviewing()).toBe(false)
+  })
 })
 
 describe('setPreviewBeat', () => {
@@ -94,8 +105,7 @@ describe('setPreviewBeat', () => {
   const cruise = lightShowRegistryV2.cruise // overture: hullStrip gold @0..8, bar 7 drop: funnel strobe @24..28
 
   it('resolves cues at the held beat instead of elapsed sim time', () => {
-    lightingSystem.setShowOverride(cruise)
-    lightingSystem.startHarborShow('c1', 'cruise')
+    lightingSystem.startPreview('c1', 'cruise', cruise)
     atBeat(bpm, 0)
     const atZero = lightingSystem.getRigGroupState('c1', 'funnel')?.pattern
     expect(atZero).toBe('breathe')
@@ -114,8 +124,7 @@ describe('setPreviewBeat', () => {
   })
 
   it('wraps past the loop, clamps negatives, and ignores non-finite values', () => {
-    lightingSystem.setShowOverride(cruise)
-    lightingSystem.startHarborShow('c1', 'cruise')
+    lightingSystem.startPreview('c1', 'cruise', cruise)
     lightingSystem.setPreviewBeat(32 + 25)
     atBeat(bpm, 0)
     expect(lightingSystem.getRigGroupState('c1', 'funnel')?.pattern).toBe('strobe')
@@ -126,10 +135,9 @@ describe('setPreviewBeat', () => {
   })
 
   it('is cleared when the show ends', () => {
-    lightingSystem.setShowOverride(cruise)
-    lightingSystem.startHarborShow('c1', 'cruise')
+    lightingSystem.startPreview('c1', 'cruise', cruise)
     lightingSystem.setPreviewBeat(10)
-    lightingSystem.setShowOverride(null)
+    lightingSystem.stopPreview()
     expect(lightingSystem.getPreviewBeat()).toBeNull()
   })
 
@@ -150,8 +158,7 @@ describe('sim hash', () => {
     bootHeadlessRegistry()
     stormSystem.start(180)
     if (mode !== 'silent') {
-      lightingSystem.setShowOverride(forkShow('cruise', lightShowRegistryV2.cruise).show)
-      lightingSystem.startHarborShow('c1', 'cruise')
+      lightingSystem.startPreview('c1', 'cruise', forkShow('cruise', lightShowRegistryV2.cruise).show)
     }
     while (simScheduler.tick < ticks) {
       stepHeadless(1 / 60)
@@ -165,7 +172,7 @@ describe('sim hash', () => {
       expect(state?.active).toBe(true)
       expect(lightingSystem.getPreviewBeat() !== null).toBe(mode === 'preview')
     }
-    lightingSystem.setShowOverride(null)
+    lightingSystem.stopPreview()
     return h
   }
 
